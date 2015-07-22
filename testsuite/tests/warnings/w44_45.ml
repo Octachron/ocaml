@@ -64,4 +64,15 @@ and array =
 and record =
   S.{ x =value }, S.{ x = { test_label = (); other_label_shadower = () } }, S.{ x = (Constructor: Shadower.t) }, S.{ x = new c }, S.{ x = ( module Module : module_type ) }
 and objects =
-  object val x = value method m = S.{< x = value >} end, object val x = S.r method m = S.{< x = { test_label = (); other_label_shadower = () } >} end, object val x = S.Constructor method m = S.{< x = (Constructor: Shadower.t) >} end, object val x = new S.c  method m = S.{< x = new c >} end, object val x = ( module S.Module : S.module_type ) method m = S.{< x = ( module Module : module_type ) >} end  
+  object val x = value method m = S.{< x = value >} end, object val x = S.r method m = S.{< x = { test_label = (); other_label_shadower = () } >} end, object val x = S.Constructor method m = S.{< x = (Constructor: Shadower.t) >} end, object val x = new S.c  method m = S.{< x = new c >} end, object val x = ( module S.Module : S.module_type ) method m = S.{< x = ( module Module : module_type ) >} end
+
+let local_delimited_parens_with_override =
+  S.!( value, { test_label = (); other_label_shadower = () } , (Constructor: Shadower.t) , new c, ( module Module : module_type ) )
+and list_override =
+  S.![value], S.![{ test_label = (); other_label_shadower = () }], S.![(Constructor: Shadower.t)], S.![new c], S.![( module Module : module_type )]
+and array_override =
+  S.![|value|], S.![|{ test_label = (); other_label_shadower = () }|], S.![|(Constructor: Shadower.t)|], S.![|new c|],  S.![|( module Module : module_type )|]
+and record_override =
+  S.!{ x =value }, S.!{ x = { test_label = (); other_label_shadower = () } }, S.!{ x = (Constructor: Shadower.t) }, S.!{ x = new c }, S.!{ x = ( module Module : module_type ) }
+and objects_override =
+  object val x = value method m = S.!{< x = value >} end, object val x = S.r method m = S.!{< x = { test_label = (); other_label_shadower = () } >} end, object val x = S.Constructor method m = S.!{< x = (Constructor: Shadower.t) >} end, object val x = new S.c  method m = S.!{< x = new c >} end, object val x = ( module S.Module : S.module_type ) method m = S.!{< x = ( module Module : module_type ) >} end
