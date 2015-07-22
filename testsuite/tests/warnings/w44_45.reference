@@ -1,0 +1,84 @@
+File "w44_45.ml", line 26, characters 2-15:
+Warning 44: this open statement shadows the value identifier value (which is later used)
+File "w44_45.ml", line 26, characters 2-15:
+Warning 45: this open statement shadows the label test_label (which is later used)
+File "w44_45.ml", line 26, characters 2-15:
+Warning 45: this open statement shadows the constructor Constructor (which is later used)
+File "w44_45.ml", line 26, characters 2-15:
+Warning 44: this open statement shadows the class identifier c (which is later used)
+File "w44_45.ml", line 26, characters 2-15:
+Warning 44: this open statement shadows the module identifier Module (which is later used)
+File "w44_45.ml", line 26, characters 2-15:
+Warning 44: this open statement shadows the module type identifier module_type (which is later used)
+File "w44_45.ml", line 47, characters 2-193:
+Warning 44: this open statement shadows the module identifier Module (which is later used)
+File "w44_45.ml", line 47, characters 2-193:
+Warning 44: this open statement shadows the module type identifier module_type (which is later used)
+File "w44_45.ml", line 47, characters 2-193:
+Warning 44: this open statement shadows the value identifier value (which is later used)
+File "w44_45.ml", line 47, characters 2-193:
+Warning 45: this open statement shadows the label test_label (which is later used)
+File "w44_45.ml", line 47, characters 2-193:
+Warning 45: this open statement shadows the constructor Constructor (which is later used)
+File "w44_45.ml", line 47, characters 2-193:
+Warning 44: this open statement shadows the class identifier c (which is later used)
+File "w44_45.ml", line 59, characters 2-130:
+Warning 44: this open statement shadows the value identifier value (which is later used)
+File "w44_45.ml", line 59, characters 2-130:
+Warning 45: this open statement shadows the label test_label (which is later used)
+File "w44_45.ml", line 59, characters 2-130:
+Warning 45: this open statement shadows the constructor Constructor (which is later used)
+File "w44_45.ml", line 59, characters 2-130:
+Warning 44: this open statement shadows the class identifier c (which is later used)
+File "w44_45.ml", line 59, characters 2-130:
+Warning 44: this open statement shadows the module type identifier module_type (which is later used)
+File "w44_45.ml", line 59, characters 2-130:
+Warning 44: this open statement shadows the module identifier Module (which is later used)
+File "w44_45.ml", line 61, characters 4-13:
+Warning 44: this open statement shadows the value identifier value (which is later used)
+File "w44_45.ml", line 61, characters 15-65:
+Warning 45: this open statement shadows the label test_label (which is later used)
+File "w44_45.ml", line 61, characters 67-96:
+Warning 45: this open statement shadows the constructor Constructor (which is later used)
+File "w44_45.ml", line 61, characters 98-107:
+Warning 44: this open statement shadows the class identifier c (which is later used)
+File "w44_45.ml", line 61, characters 109-144:
+Warning 44: this open statement shadows the module type identifier module_type (which is later used)
+File "w44_45.ml", line 61, characters 109-144:
+Warning 44: this open statement shadows the module identifier Module (which is later used)
+File "w44_45.ml", line 63, characters 4-15:
+Warning 44: this open statement shadows the value identifier value (which is later used)
+File "w44_45.ml", line 63, characters 17-69:
+Warning 45: this open statement shadows the label test_label (which is later used)
+File "w44_45.ml", line 63, characters 71-102:
+Warning 45: this open statement shadows the constructor Constructor (which is later used)
+File "w44_45.ml", line 63, characters 104-115:
+Warning 44: this open statement shadows the class identifier c (which is later used)
+File "w44_45.ml", line 63, characters 118-155:
+Warning 44: this open statement shadows the module type identifier module_type (which is later used)
+File "w44_45.ml", line 63, characters 118-155:
+Warning 44: this open statement shadows the module identifier Module (which is later used)
+File "w44_45.ml", line 65, characters 4-18:
+Warning 44: this open statement shadows the value identifier value (which is later used)
+File "w44_45.ml", line 65, characters 20-76:
+Warning 45: this open statement shadows the label test_label (which is later used)
+File "w44_45.ml", line 65, characters 78-113:
+Warning 45: this open statement shadows the constructor Constructor (which is later used)
+File "w44_45.ml", line 65, characters 115-130:
+Warning 44: this open statement shadows the class identifier c (which is later used)
+File "w44_45.ml", line 65, characters 132-173:
+Warning 44: this open statement shadows the module type identifier module_type (which is later used)
+File "w44_45.ml", line 65, characters 132-173:
+Warning 44: this open statement shadows the module identifier Module (which is later used)
+File "w44_45.ml", line 67, characters 34-51:
+Warning 44: this open statement shadows the value identifier value (which is later used)
+File "w44_45.ml", line 67, characters 87-145:
+Warning 45: this open statement shadows the label test_label (which is later used)
+File "w44_45.ml", line 67, characters 191-228:
+Warning 45: this open statement shadows the constructor Constructor (which is later used)
+File "w44_45.ml", line 67, characters 269-286:
+Warning 44: this open statement shadows the class identifier c (which is later used)
+File "w44_45.ml", line 67, characters 354-397:
+Warning 44: this open statement shadows the module type identifier module_type (which is later used)
+File "w44_45.ml", line 67, characters 354-397:
+Warning 44: this open statement shadows the module identifier Module (which is later used)
