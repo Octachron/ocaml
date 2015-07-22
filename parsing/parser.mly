@@ -1421,6 +1421,8 @@ simple_expr:
       { mkexp (Pexp_array []) }
   | mod_longident DOT LBRACKETBAR expr_semi_list opt_semi BARRBRACKET
       { mkexp(Pexp_open(Fresh, mkrhs $1 1, mkexp(Pexp_array(List.rev $4)))) }
+  | mod_longident DOTBANG LBRACKETBAR expr_semi_list opt_semi BARRBRACKET
+      { mkexp(Pexp_open(Override, mkrhs $1 1, mkexp(Pexp_array(List.rev $4)))) }
   | mod_longident DOT LBRACKETBAR BARRBRACKET
       { mkexp(Pexp_open(Fresh, mkrhs $1 1, mkexp(Pexp_array []))) }
   | mod_longident DOTBANG LBRACKETBAR BARRBRACKET
