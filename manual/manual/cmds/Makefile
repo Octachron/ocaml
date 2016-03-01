@@ -1,6 +1,6 @@
 FILES=comp.tex top.tex runtime.tex native.tex lexyacc.tex intf-c.tex \
   depend.tex profil.tex debugger.tex browser.tex ocamldoc.tex \
-  warnings-help.tex ocamlbuild.tex
+  warnings-help.tex ocamlbuild.tex unified-options.tex
 
 TRANSF=../../tools/transf
 TEXQUOTE=../../tools/texquote2
