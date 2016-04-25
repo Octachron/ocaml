@@ -1497,14 +1497,36 @@ and le_pats ps qs =
     p::ps, q::qs -> le_pat p q && le_pats ps qs
   | _, _         -> true
 
+
 let get_mins le ps =
-  let rec select_rec r = function
-      [] -> r
+  let rec select_rec r =
+    (* r contains the candidate minimal elements *)
+    function
+    | [] -> r
     | p::ps ->
-        if List.exists (fun p0 -> le p0 p) ps
-        then select_rec r ps
-        else select_rec (p::r) ps in
-  select_rec [] (select_rec [] ps)
+        (* is there a element x in r such that x ≺ p ?*)
+        if List.exists (fun x -> le x p) r
+        then (* in this case, p is not a minimal element of the poset,
+                and by transitivity of order relation: y ≺ x ⇒ y ≺ p.
+                Comparing to x and p is therefore redundant and we can keep
+                only x in r  *)
+          select_rec r ps
+        else
+          (* otherwise, we need to eliminate the filter of p in r:
+             all elements x such that p ≺ x.
+             Then we need to add p to r. *)
+          let r = p :: List.filter (fun x -> not (le p x)) r in
+          select_rec r ps
+          (* An important invariant which is preserved in both branches is
+             that r is an antichain of the poset: For all pair (x,y) in r
+             with x ≠ y then not ( x ≺ y || y ≺ x ).
+             This implies that the total complexity is in
+             O( (maximal antichain length) *(number of elements))
+             rather than O((number of elements)²)
+          *)
+  in
+  (* reverse the list to preserve order *)
+  List.rev (select_rec [] ps)
 
 (*
   lub p q is a pattern that matches all values matched by p and q

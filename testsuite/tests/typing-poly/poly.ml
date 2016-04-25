@@ -918,7 +918,7 @@ Here is an example of a value that is not matched:
 Line _, characters 0-29:
 Warning 8: this pattern-matching is not exhaustive.
 Here is an example of a value that is not matched:
-(_, 0)
+(`B, 0)
 Line _, characters 21-24:
 Warning 11: this match case is unused.
 - : [< `B ] * int -> int = <fun>
