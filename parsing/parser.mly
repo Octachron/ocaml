@@ -1751,12 +1751,6 @@ pattern:
       { expecting 3 "pattern" }
   | EXCEPTION ext_attributes pattern %prec prec_constr_appl
       { mkpat_attrs (Ppat_exception $3) $2}
-  | mod_longident DOT LPAREN pattern RPAREN
-    { mkpat @@ Ppat_open (mkrhs $1 1, $4)}
-  | mod_longident DOT LPAREN pattern error
-    {unclosed "(" 3 ")" 5  }
-  | mod_longident DOT LPAREN error
-    { expecting 4 "pattern" }
   | pattern attribute
       { Pat.attr $1 $2 }
   | pattern_gen { $1 }
@@ -1819,6 +1813,9 @@ simple_pattern_not_ident:
   | mod_longident DOT LPAREN RPAREN
       { mkpat @@ Ppat_open( mkrhs $1 1, mkpat @@
                  Ppat_construct ( mkrhs (Lident "()") 4, None) ) }
+  | mod_longident DOT LBRACKET RBRACKET
+    { mkpat @@ Ppat_open( mkrhs $1 1, mkpat @@
+               Ppat_construct ( mkrhs (Lident "[]") 1, None) ) }
   | mod_longident DOT LPAREN pattern RPAREN
       { mkpat @@ Ppat_open (mkrhs $1 1, $4)}
   | mod_longident DOT LPAREN pattern error
@@ -1852,12 +1849,8 @@ simple_delimited_pattern:
     { let (fields, closed) = $2 in mkpat(Ppat_record(fields, closed)) }
   | LBRACE lbl_pattern_list error
     { unclosed "{" 1 "}" 3 }
-  | LBRACE lbl_pattern_list error
-    { unclosed "{" 1 "}" 3 }
   | LBRACKET pattern_semi_list opt_semi RBRACKET
     { reloc_pat (mktailpat (rhs_loc 4) (List.rev $2)) }
-  | LBRACKET RBRACKET
-    { mkpat @@ Ppat_construct ( mkrhs (Lident "[]") 1, None) }
   | LBRACKET pattern_semi_list opt_semi error
     { unclosed "[" 1 "]" 4 }
   | LBRACKETBAR pattern_semi_list opt_semi BARRBRACKET
