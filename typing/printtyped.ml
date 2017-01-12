@@ -144,6 +144,7 @@ let string i ppf s = line i ppf "\"%s\"\n" s;;
 let arg_label i ppf = function
   | Nolabel -> line i ppf "Nolabel\n"
   | Optional s -> line i ppf "Optional \"%s\"\n" s
+  | Typed_optional s -> line i ppf "Typed optional \"%s\"\n" s
   | Labelled s -> line i ppf "Labelled \"%s\"\n" s
 ;;
 

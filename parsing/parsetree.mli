@@ -78,10 +78,11 @@ and core_type_desc =
         (*  _ *)
   | Ptyp_var of string
         (* 'a *)
-  | Ptyp_arrow of arg_label * core_type * core_type
-        (* T1 -> T2       Simple
-           ~l:T1 -> T2    Labelled
-           ?l:T1 -> T2    Otional
+  | Ptyp_arrow of arg_label * core_type option * core_type * core_type
+        (* T1 -> T2     Simple
+           ~l:T1 -> T2  Labelled
+           ?l:T1 -> T2  Optional
+           ?l:(T1 = T2) Typed_optional
          *)
   | Ptyp_tuple of core_type list
         (* T1 * ... * Tn
@@ -245,11 +246,14 @@ and expression_desc =
          *)
   | Pexp_function of case list
         (* function P1 -> E1 | ... | Pn -> En *)
-  | Pexp_fun of arg_label * expression option * pattern * expression
-        (* fun P -> E1                          (Simple, None)
-           fun ~l:P -> E1                       (Labelled l, None)
-           fun ?l:P -> E1                       (Optional l, None)
-           fun ?l:(P = E0) -> E1                (Optional l, Some E0)
+  | Pexp_fun of arg_label
+                * (core_type * core_type) option * expression option * pattern * expression
+        (* fun P -> E1                     (Simple, None, None)
+           fun ~l:P -> E1                  (Labelled l, None, None)
+           fun ?l:P -> E1                  (Optional l, None, None)
+           fun ?l:(P = E0) -> E1           (Optional l, None, Some E0)
+           fun ?l:(P = E0: t1 = t2) -> E1  (Typed_optional l, Some(t1,t2), Some E0)
+
 
            Notes:
            - If E0 is provided, only Optional is allowed.
@@ -494,10 +498,11 @@ and class_type_desc =
            ['a1, ..., 'an] c *)
   | Pcty_signature of class_signature
         (* object ... end *)
-  | Pcty_arrow of arg_label * core_type * class_type
-        (* T -> CT       Simple
-           ~l:T -> CT    Labelled l
-           ?l:T -> CT    Optional l
+  | Pcty_arrow of arg_label * core_type option * core_type * class_type
+        (* T -> CT       Simple, None
+           ~l:T -> CT    Labelled l, None
+           ?l:T -> CT    Optional l, None
+           ?l:(t1=T)     Typed_optional l, Some t1
          *)
   | Pcty_extension of extension
         (* [%id] *)
@@ -570,11 +575,14 @@ and class_expr_desc =
            ['a1, ..., 'an] c *)
   | Pcl_structure of class_structure
         (* object ... end *)
-  | Pcl_fun of arg_label * expression option * pattern * class_expr
-        (* fun P -> CE                          (Simple, None)
-           fun ~l:P -> CE                       (Labelled l, None)
-           fun ?l:P -> CE                       (Optional l, None)
-           fun ?l:(P = E0) -> CE                (Optional l, Some E0)
+  | Pcl_fun of  arg_label * (core_type * core_type) option
+               * expression option * pattern * class_expr
+        (* fun P -> CE                       (Simple, None, None)
+           fun ~l:P -> CE                    (Labelled l, None, None)
+           fun ?l:P -> CE                    (Optional l, None, None)
+           fun ?l:(P = E0) -> CE             (Optional l, None, Some E0)
+           fun ?l:(P = E0: t = t2) -> CE     (Typed_optional l, Some(t,t2), Some E0)
+
          *)
   | Pcl_apply of class_expr * (arg_label * expression) list
         (* CE ~l1:E1 ... ~ln:En

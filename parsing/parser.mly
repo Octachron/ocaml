@@ -412,6 +412,11 @@ let package_type_of_module_type pmty =
         "only module type identifier and 'with type' constraints are supported"
 
 
+let mk_opt (label,pat) (o,tyo) = match tyo with
+| None -> (Optional label, tyo, o, pat )
+| Some _ -> (Typed_optional label, tyo, o, pat)
+
+
 %}
 
 /* Tokens */
@@ -1012,7 +1017,7 @@ class_fun_binding:
   | COLON class_type EQUAL class_expr
       { mkclass(Pcl_constraint($4, $2)) }
   | labeled_simple_pattern class_fun_binding
-      { let (l,o,p) = $1 in mkclass(Pcl_fun(l, o, p, $2)) }
+      { let (l,tyo,o,p) = $1 in mkclass(Pcl_fun(l,tyo, o, p, $2)) }
 ;
 class_type_parameters:
     /*empty*/                                   { [] }
@@ -1020,9 +1025,9 @@ class_type_parameters:
 ;
 class_fun_def:
     labeled_simple_pattern MINUSGREATER class_expr
-      { let (l,o,p) = $1 in mkclass(Pcl_fun(l, o, p, $3)) }
+      { let (l,tyo,o,p) = $1 in mkclass(Pcl_fun(l, tyo, o, p, $3)) }
   | labeled_simple_pattern class_fun_def
-      { let (l,o,p) = $1 in mkclass(Pcl_fun(l, o, p, $2)) }
+      { let (l,tyo,o,p) = $1 in mkclass(Pcl_fun(l, tyo, o, p, $2)) }
 ;
 class_expr:
     class_simple_expr
@@ -1144,13 +1149,13 @@ class_type:
       { $1 }
   | QUESTION LIDENT COLON simple_core_type_or_tuple MINUSGREATER
     class_type
-      { mkcty(Pcty_arrow(Optional $2 , $4, $6)) }
+      { mkcty(Pcty_arrow(Optional $2 , None, $4, $6)) }
   | OPTLABEL simple_core_type_or_tuple MINUSGREATER class_type
-      { mkcty(Pcty_arrow(Optional $1, $2, $4)) }
+      { mkcty(Pcty_arrow(Optional $1, None, $2, $4)) }
   | LIDENT COLON simple_core_type_or_tuple MINUSGREATER class_type
-      { mkcty(Pcty_arrow(Labelled $1, $3, $5)) }
+      { mkcty(Pcty_arrow(Labelled $1, None, $3, $5)) }
   | simple_core_type_or_tuple MINUSGREATER class_type
-      { mkcty(Pcty_arrow(Nolabel, $1, $3)) }
+      { mkcty(Pcty_arrow(Nolabel, None, $1, $3)) }
  ;
 class_signature:
     LBRACKET core_type_comma_list RBRACKET clty_longident
@@ -1269,35 +1274,40 @@ seq_expr:
 ;
 labeled_simple_pattern:
     QUESTION LPAREN label_let_pattern opt_default RPAREN
-      { (Optional (fst $3), $4, snd $3) }
+      { mk_opt $3 $4 }
   | QUESTION label_var
-      { (Optional (fst $2), None, snd $2) }
+      { mk_opt ($2) (None,None) }
   | OPTLABEL LPAREN let_pattern opt_default RPAREN
-      { (Optional $1, $4, $3) }
-  | OPTLABEL pattern_var
-      { (Optional $1, None, $2) }
+      { mk_opt ($1,$3) $4 }
+| OPTLABEL QUESTION LPAREN constrain RPAREN
+      { let t1,t2, _ = $4 in mk_opt ($1, mkpat(Ppat_var (mkrhs $1 1)))
+      (None,Some (t1,t2)) }
+| OPTLABEL pattern_var
+      { mk_opt ($1,$2) (None,None) }
   | TILDE LPAREN label_let_pattern RPAREN
-      { (Labelled (fst $3), None, snd $3) }
+      { (Labelled (fst $3), None, None, snd $3) }
   | TILDE label_var
-      { (Labelled (fst $2), None, snd $2) }
+      { (Labelled (fst $2), None, None, snd $2) }
   | LABEL simple_pattern
-      { (Labelled $1, None, $2) }
+      { (Labelled $1, None, None, $2) }
   | simple_pattern
-      { (Nolabel, None, $1) }
+      { (Nolabel, None, None, $1) }
 ;
 pattern_var:
     LIDENT            { mkpat(Ppat_var (mkrhs $1 1)) }
   | UNDERSCORE        { mkpat Ppat_any }
 ;
 opt_default:
-    /* empty */                         { None }
-  | EQUAL seq_expr                      { Some $2 }
+    /* empty */                         { None, None }
+  | EQUAL seq_expr                      { Some $2, None }
+  | EQUAL seq_expr COLON constrain     { let t1, t2, _ = $4 in Some $2, Some(t1,t2) }
 ;
 label_let_pattern:
     label_var
       { $1 }
   | label_var COLON core_type
       { let (lab, pat) = $1 in (lab, mkpat(Ppat_constraint(pat, $3))) }
+;
 ;
 label_var:
     LIDENT    { ($1, mkpat(Ppat_var (mkrhs $1 1))) }
@@ -1324,8 +1334,8 @@ expr:
   | FUNCTION ext_attributes opt_bar match_cases
       { mkexp_attrs (Pexp_function(List.rev $4)) $2 }
   | FUN ext_attributes labeled_simple_pattern fun_def
-      { let (l,o,p) = $3 in
-        mkexp_attrs (Pexp_fun(l, o, p, $4)) $2 }
+      { let (l,tyo,o,p) = $3 in
+        mkexp_attrs (Pexp_fun(l,tyo, o, p, $4)) $2 }
   | FUN ext_attributes LPAREN TYPE lident_list RPAREN fun_def
       { mkexp_attrs (mk_newtypes $5 $7).pexp_desc $2 }
   | MATCH ext_attributes seq_expr WITH opt_bar match_cases
@@ -1609,7 +1619,7 @@ strict_binding:
     EQUAL seq_expr
       { $2 }
   | labeled_simple_pattern fun_binding
-      { let (l, o, p) = $1 in ghexp(Pexp_fun(l, o, p, $2)) }
+      { let (l, tyo, o, p) = $1 in ghexp(Pexp_fun(l, tyo, o, p, $2)) }
   | LPAREN TYPE lident_list RPAREN fun_binding
       { mk_newtypes $3 $5 }
 ;
@@ -1633,8 +1643,8 @@ fun_def:
 /* Cf #5939: we used to accept (fun p when e0 -> e) */
   | labeled_simple_pattern fun_def
       {
-       let (l,o,p) = $1 in
-       ghexp(Pexp_fun(l, o, p, $2))
+       let (l,tyo,o,p) = $1 in
+       ghexp(Pexp_fun(l, tyo, o, p, $2))
       }
   | LPAREN TYPE lident_list RPAREN fun_def
       { mk_newtypes $3 $5 }
@@ -2177,17 +2187,31 @@ core_type2:
       { $1 }
   | QUESTION LIDENT COLON core_type2 MINUSGREATER core_type2
       { let param = extra_rhs_core_type $4 ~pos:4 in
-        mktyp (Ptyp_arrow(Optional $2 , param, $6)) }
+        mktyp (Ptyp_arrow(Optional $2 , None, param, $6)) }
+  | QUESTION LIDENT COLON LPAREN constrain RPAREN MINUSGREATER core_type2
+      {
+        let gen, default, _ = $5 in
+        let param = extra_rhs_core_type gen ~pos:5 in
+        mktyp (Ptyp_arrow(Optional $2 , Some default, param, $8))
+      }
+
+  | OPTLABEL LPAREN constrain RPAREN MINUSGREATER core_type2
+      {
+        let gen, default, _ = $3 in
+        let param = extra_rhs_core_type gen ~pos:3 in
+        mktyp(Ptyp_arrow(Optional $1 , Some default, param, $6))
+      }
   | OPTLABEL core_type2 MINUSGREATER core_type2
-      { let param = extra_rhs_core_type $2 ~pos:2 in
-        mktyp(Ptyp_arrow(Optional $1 , param, $4))
+      {
+        let param = extra_rhs_core_type $2 ~pos:2 in
+        mktyp(Ptyp_arrow(Optional $1 , None, param, $4))
       }
   | LIDENT COLON core_type2 MINUSGREATER core_type2
       { let param = extra_rhs_core_type $3 ~pos:3 in
-        mktyp(Ptyp_arrow(Labelled $1, param, $5)) }
+        mktyp(Ptyp_arrow(Labelled $1, None, param, $5)) }
   | core_type2 MINUSGREATER core_type2
       { let param = extra_rhs_core_type $1 ~pos:1 in
-        mktyp(Ptyp_arrow(Nolabel, param, $3)) }
+        mktyp(Ptyp_arrow(Nolabel, None, param, $3)) }
 ;
 
 simple_core_type:

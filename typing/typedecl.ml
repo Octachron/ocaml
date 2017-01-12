@@ -1618,7 +1618,7 @@ let rec parse_native_repr_attributes env core_type ty ~global_repr =
   with
   | Ptyp_arrow _, Tarrow _, Native_repr_attr_present kind  ->
     raise (Error (core_type.ptyp_loc, Cannot_unbox_or_untag_type kind))
-  | Ptyp_arrow (_, ct1, ct2), Tarrow (_, t1, t2, _), _ ->
+  | Ptyp_arrow (_,_, ct1, ct2), Tarrow (_, t1, t2, _), _ ->
     let repr_arg = make_native_repr env ct1 t1 ~global_repr in
     let repr_args, repr_res =
       parse_native_repr_attributes env ct2 t2 ~global_repr

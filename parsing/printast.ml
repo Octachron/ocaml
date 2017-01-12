@@ -129,12 +129,19 @@ let option i f ppf x =
       f (i+1) ppf x;
 ;;
 
+let pair f g i ppf (x,y) =
+  f (i+1) ppf x;
+  g (i+1) ppf y
+
+
+
 let longident_loc i ppf li = line i ppf "%a\n" fmt_longident_loc li;;
 let string i ppf s = line i ppf "\"%s\"\n" s;;
 let string_loc i ppf s = line i ppf "%a\n" fmt_string_loc s;;
 let arg_label i ppf = function
   | Nolabel -> line i ppf "Nolabel\n"
   | Optional s -> line i ppf "Optional \"%s\"\n" s
+  | Typed_optional s -> line i ppf "Typed optional \"%s\"\n" s
   | Labelled s -> line i ppf "Labelled \"%s\"\n" s
 ;;
 
@@ -145,9 +152,10 @@ let rec core_type i ppf x =
   match x.ptyp_desc with
   | Ptyp_any -> line i ppf "Ptyp_any\n";
   | Ptyp_var (s) -> line i ppf "Ptyp_var %s\n" s;
-  | Ptyp_arrow (l, ct1, ct2) ->
+  | Ptyp_arrow (l, oty, ct1, ct2) ->
       line i ppf "Ptyp_arrow\n";
       arg_label i ppf l;
+      option i core_type ppf oty;
       core_type i ppf ct1;
       core_type i ppf ct2;
   | Ptyp_tuple l ->
@@ -259,9 +267,10 @@ and expression i ppf x =
   | Pexp_function l ->
       line i ppf "Pexp_function\n";
       list i case ppf l;
-  | Pexp_fun (l, eo, p, e) ->
+  | Pexp_fun (l, tyo, eo, p, e) ->
       line i ppf "Pexp_fun\n";
       arg_label i ppf l;
+      option i (pair core_type core_type) ppf tyo;
       option i expression ppf eo;
       pattern i ppf p;
       expression i ppf e;
@@ -474,9 +483,10 @@ and class_type i ppf x =
   | Pcty_signature (cs) ->
       line i ppf "Pcty_signature\n";
       class_signature i ppf cs;
-  | Pcty_arrow (l, co, cl) ->
+  | Pcty_arrow (l, tyo, co, cl) ->
       line i ppf "Pcty_arrow\n";
       arg_label i ppf l;
+      option i core_type ppf tyo;
       core_type i ppf co;
       class_type i ppf cl;
   | Pcty_extension (s, arg) ->
@@ -548,9 +558,10 @@ and class_expr i ppf x =
   | Pcl_structure (cs) ->
       line i ppf "Pcl_structure\n";
       class_structure i ppf cs;
-  | Pcl_fun (l, eo, p, e) ->
+  | Pcl_fun (l, tyo, eo, p, e) ->
       line i ppf "Pcl_fun\n";
       arg_label i ppf l;
+      option i (pair core_type core_type) ppf tyo;
       option i expression ppf eo;
       pattern i ppf p;
       class_expr i ppf e;

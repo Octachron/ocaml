@@ -530,12 +530,18 @@ and class_type env scty =
       let typ = Cty_signature clsig.csig_type in
       cltyp (Tcty_signature clsig) typ
 
-  | Pcty_arrow (l, sty, scty) ->
+  | Pcty_arrow (l, tyo, sty, scty) ->
       let cty = transl_simple_type env false sty in
       let ty = cty.ctyp_type in
       let ty =
-        if Btype.is_optional l
-        then Ctype.newty (Tconstr(Predef.path_option,[ty], ref Mnil))
+        if Btype.is_optional l then
+        match tyo with
+        | None ->
+            Ctype.newty (Tconstr(Predef.path_option,[ty], ref Mnil))
+        | Some sty2 ->
+            let cty2 = transl_simple_type env false sty2 in
+            let ty2 = cty2.ctyp_type in
+            Ctype.newty (Tconstr(Predef.path_typed_option,[ty;ty2], ref Mnil))
         else ty in
       let clty = class_type env scty in
       let typ = Cty_arrow (l, ty, clty.cltyp_type) in
@@ -931,7 +937,7 @@ and class_expr cl_num val_env met_env scl =
           cl_env = val_env;
           cl_attributes = scl.pcl_attributes;
          }
-  | Pcl_fun (l, Some default, spat, sbody) ->
+  | Pcl_fun (l, None, Some default, spat, sbody) ->
       let loc = default.pexp_loc in
       let open Ast_helper in
       let scases = [
@@ -961,7 +967,46 @@ and class_expr cl_num val_env met_env scl =
              is not detected for class-level let bindings.  See #5975.*)
       in
       class_expr cl_num val_env met_env sfun
-  | Pcl_fun (l, None, spat, scl') ->
+  | Pcl_fun (l, Some _ct, Some default, spat, sbody) ->
+      (* WRONG DELENDA *)
+      let loc = default.pexp_loc in
+      let open Ast_helper in
+      let scases = [
+        Exp.case
+          (Pat.construct ~loc
+             (mknoloc (Longident.(Ldot (Lident "*predef*", "Some"))))
+             (Some (Pat.var ~loc (mknoloc "*sth*"))))
+          (Exp.ident ~loc (mknoloc (Longident.Lident "*sth*")));
+
+        Exp.case
+          (Pat.construct ~loc
+             (mknoloc (Longident.(Ldot (Lident "*predef*", "None"))))
+             None)
+          default;
+       ]
+      in
+      let smatch =
+        Exp.match_ ~loc (Exp.ident ~loc (mknoloc (Longident.Lident "*opt*")))
+          scases
+      in
+      let sfun =
+        Cl.fun_ ~loc:scl.pcl_loc
+          l None
+          (Pat.var ~loc (mknoloc "*opt*"))
+          (Cl.let_ ~loc:scl.pcl_loc Nonrecursive [Vb.mk spat smatch] sbody)
+          (* Note: we don't put the '#default' attribute, as it
+             is not detected for class-level let bindings.  See #5975.*)
+      in
+      class_expr cl_num val_env met_env sfun
+  | Pcl_fun(l, Some (ty1,ty2), None, spat, scl') ->
+      let open Ast_helper in
+      let typ = Typ.constr
+          (mknoloc (Longident.Lident "typed_option")) [ty1;ty2] in
+      let pat = Pat.constraint_ ~loc:spat.ppat_loc spat typ in
+      let sfun =
+        Cl.fun_ ~loc:scl.pcl_loc l None pat scl' in
+      class_expr cl_num val_env met_env sfun
+  | Pcl_fun (l, None, None, spat, scl') ->
       if !Clflags.principal then Ctype.begin_def ();
       let (pat, pv, val_env', met_env) =
         Typecore.type_class_arg_pattern cl_num val_env met_env l spat
@@ -1199,14 +1244,17 @@ and class_expr cl_num val_env met_env scl =
 (* Approximate the type of the constructor to allow recursive use *)
 (* of optional parameters                                         *)
 
-let var_option = Predef.type_option (Btype.newgenvar ())
+let arg_option l =
+  match l with
+  | Asttypes.Optional _ -> Predef.type_option (Btype.newgenvar ())
+  | Typed_optional _ -> Predef.type_typed_option
+                        (Btype.newgenvar ()) (Btype.newgenvar ())
+  | Labelled _ | Nolabel -> Ctype.newvar ()
 
 let rec approx_declaration cl =
   match cl.pcl_desc with
-    Pcl_fun (l, _, _, cl) ->
-      let arg =
-        if Btype.is_optional l then Ctype.instance_def var_option
-        else Ctype.newvar () in
+    Pcl_fun (l, _, _, _, cl) ->
+      let arg = arg_option l in
       Ctype.newty (Tarrow (l, arg, approx_declaration cl, Cok))
   | Pcl_let (_, _, cl) ->
       approx_declaration cl
@@ -1216,10 +1264,8 @@ let rec approx_declaration cl =
 
 let rec approx_description ct =
   match ct.pcty_desc with
-    Pcty_arrow (l, _, ct) ->
-      let arg =
-        if Btype.is_optional l then Ctype.instance_def var_option
-        else Ctype.newvar () in
+    Pcty_arrow (l, _, _, ct) ->
+      let arg = arg_option l in
       Ctype.newty (Tarrow (l, arg, approx_description ct, Cok))
   | _ -> Ctype.newvar ()
 

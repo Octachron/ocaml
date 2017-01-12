@@ -93,8 +93,8 @@ module T = struct
     match desc with
     | Ptyp_any
     | Ptyp_var _ -> ()
-    | Ptyp_arrow (_lab, t1, t2) ->
-        sub.typ sub t1; sub.typ sub t2
+    | Ptyp_arrow (_lab, tyo,  t1, t2) ->
+        iter_opt (sub.typ sub) tyo; sub.typ sub t1; sub.typ sub t2
     | Ptyp_tuple tyl -> List.iter (sub.typ sub) tyl
     | Ptyp_constr (lid, tl) ->
         iter_loc sub lid; List.iter (sub.typ sub) tl
@@ -179,8 +179,8 @@ module CT = struct
     | Pcty_constr (lid, tys) ->
         iter_loc sub lid; List.iter (sub.typ sub) tys
     | Pcty_signature x -> sub.class_signature sub x
-    | Pcty_arrow (_lab, t, ct) ->
-        sub.typ sub t; sub.class_type sub ct
+    | Pcty_arrow (_lab, tyo, t, ct) ->
+        iter_opt (sub.typ sub) tyo; sub.typ sub t; sub.class_type sub ct
     | Pcty_extension x -> sub.extension sub x
 
   let iter_field sub {pctf_desc = desc; pctf_loc = loc; pctf_attributes = attrs}
@@ -307,7 +307,8 @@ module E = struct
     | Pexp_let (_r, vbs, e) ->
         List.iter (sub.value_binding sub) vbs;
         sub.expr sub e
-    | Pexp_fun (_lab, def, p, e) ->
+    | Pexp_fun (_lab, tyo, def, p, e) ->
+        iter_opt (iter_tuple (sub.typ sub) (sub.typ sub)) tyo;
         iter_opt (sub.expr sub) def;
         sub.pat sub p;
         sub.expr sub e
@@ -414,7 +415,8 @@ module CE = struct
         iter_loc sub lid; List.iter (sub.typ sub) tys
     | Pcl_structure s ->
         sub.class_structure sub s
-    | Pcl_fun (_lab, e, p, ce) ->
+    | Pcl_fun (_lab, tyo, e, p, ce) ->
+        iter_opt (iter_tuple (sub.typ sub) (sub.typ sub)) tyo;
         iter_opt (sub.expr sub) e;
         sub.pat sub p;
         sub.class_expr sub ce
