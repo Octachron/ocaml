@@ -611,14 +611,14 @@ let is_optional = function
 let label_name = function
     Nolabel -> ""
   | Labelled s
-  | Optional s
-  | Typed_optional s -> s
+  | Optional (s,_)
+  | Typed_optional (s,_) -> s
 
 let prefixed_label_name = function
     Nolabel -> ""
   | Labelled s -> "~" ^ s
-  | Optional s -> "?" ^ s
-  | Typed_optional s -> "?" ^ s
+  | Optional (s,_) -> "?" ^ s
+  | Typed_optional (s,_) -> "?" ^ s
 
 
 let rec extract_label_aux hd l = function

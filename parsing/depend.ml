@@ -104,8 +104,10 @@ let rec add_type bv ty =
   match ty.ptyp_desc with
     Ptyp_any -> ()
   | Ptyp_var _ -> ()
-  | Ptyp_arrow(_, tyo, t1, t2) ->
-      add_opt add_type bv tyo;
+  | Ptyp_arrow(Typed_optional (_,ty) ,  t1, t2) ->
+      add_type bv ty;
+      add_type bv t1; add_type bv t2
+  | Ptyp_arrow(_, t1, t2) ->
       add_type bv t1; add_type bv t2
   | Ptyp_tuple tl -> List.iter (add_type bv) tl
   | Ptyp_constr(c, tl) -> add bv c; List.iter (add_type bv) tl
@@ -165,8 +167,10 @@ let rec add_class_type bv cty =
   | Pcty_signature { pcsig_self = ty; pcsig_fields = fieldl } ->
       add_type bv ty;
       List.iter (add_class_type_field bv) fieldl
-  | Pcty_arrow(_, tyo, ty1, cty2) ->
-      add_opt add_type bv tyo;
+  | Pcty_arrow(Typed_optional(_, tyo), ty1, cty2) ->
+      add_type bv tyo;
+      add_type bv ty1; add_class_type bv cty2
+  | Pcty_arrow(_, ty1, cty2) ->
       add_type bv ty1; add_class_type bv cty2
   | Pcty_extension e -> handle_extension e
 
@@ -219,9 +223,16 @@ let rec add_expr bv exp =
   | Pexp_constant _ -> ()
   | Pexp_let(rf, pel, e) ->
       let bv = add_bindings rf bv pel in add_expr bv e
-  | Pexp_fun (_, tyo, opte, p, e) ->
-      add_opt (fun bv (x,y) -> add_type bv x; add_type bv y) bv tyo;
-      add_opt add_expr bv opte; add_expr (add_pattern bv p) e
+  | Pexp_fun ( l, p, e) ->
+      begin match l with
+      | Typed_optional(_, ((a,b), opte)) ->
+          add_type bv a; add_type bv b;
+          add_opt add_expr bv opte;
+      | Optional(_, opte) ->
+          add_opt add_expr bv opte;
+      | Labelled _ |Nolabel -> ()
+      end;
+      add_expr (add_pattern bv p) e
   | Pexp_function pel ->
       add_cases bv pel
   | Pexp_apply(e, el) ->
@@ -495,9 +506,15 @@ and add_class_expr bv ce =
       add bv l; List.iter (add_type bv) tyl
   | Pcl_structure { pcstr_self = pat; pcstr_fields = fieldl } ->
       let bv = add_pattern bv pat in List.iter (add_class_field bv) fieldl
-  | Pcl_fun(_, tyo, opte, pat, ce) ->
-      add_opt (fun bv (x,y) -> add_type bv x; add_type bv y) bv tyo;
-      add_opt add_expr bv opte;
+  | Pcl_fun(l, pat, ce) ->
+      begin match l with
+      | Typed_optional(_, ((a,b), opte)) ->
+          add_type bv a; add_type bv b;
+          add_opt add_expr bv opte;
+      | Optional(_, opte) ->
+          add_opt add_expr bv opte;
+      | Labelled _ |Nolabel -> ()
+      end;
       let bv = add_pattern bv pat in add_class_expr bv ce
   | Pcl_apply(ce, exprl) ->
       add_class_expr bv ce; List.iter (fun (_,e) -> add_expr bv e) exprl

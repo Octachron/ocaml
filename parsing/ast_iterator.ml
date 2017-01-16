@@ -93,8 +93,12 @@ module T = struct
     match desc with
     | Ptyp_any
     | Ptyp_var _ -> ()
-    | Ptyp_arrow (_lab, tyo,  t1, t2) ->
-        iter_opt (sub.typ sub) tyo; sub.typ sub t1; sub.typ sub t2
+    | Ptyp_arrow (lab,  t1, t2) ->
+        begin match lab with
+        | Asttypes.Typed_optional(_,tyo) -> sub.typ sub tyo
+        | _ -> ()
+        end
+      ; sub.typ sub t1; sub.typ sub t2
     | Ptyp_tuple tyl -> List.iter (sub.typ sub) tyl
     | Ptyp_constr (lid, tl) ->
         iter_loc sub lid; List.iter (sub.typ sub) tl
@@ -179,8 +183,12 @@ module CT = struct
     | Pcty_constr (lid, tys) ->
         iter_loc sub lid; List.iter (sub.typ sub) tys
     | Pcty_signature x -> sub.class_signature sub x
-    | Pcty_arrow (_lab, tyo, t, ct) ->
-        iter_opt (sub.typ sub) tyo; sub.typ sub t; sub.class_type sub ct
+    | Pcty_arrow (lab, t, ct) ->
+        begin match lab with
+        | Asttypes.Typed_optional (_,tyo)  -> sub.typ sub tyo
+        | _ -> ()
+        end;
+        sub.typ sub t; sub.class_type sub ct
     | Pcty_extension x -> sub.extension sub x
 
   let iter_field sub {pctf_desc = desc; pctf_loc = loc; pctf_attributes = attrs}
@@ -307,9 +315,15 @@ module E = struct
     | Pexp_let (_r, vbs, e) ->
         List.iter (sub.value_binding sub) vbs;
         sub.expr sub e
-    | Pexp_fun (_lab, tyo, def, p, e) ->
-        iter_opt (iter_tuple (sub.typ sub) (sub.typ sub)) tyo;
-        iter_opt (sub.expr sub) def;
+    | Pexp_fun (lab, p, e) ->
+        begin match lab with
+        | Asttypes.Typed_optional (_,(ts, def)) ->
+            iter_tuple (sub.typ sub) (sub.typ sub) ts;
+            iter_opt (sub.expr sub) def
+        | Asttypes.Optional (_,def) ->
+            iter_opt (sub.expr sub) def
+        | _ -> ()
+        end;
         sub.pat sub p;
         sub.expr sub e
     | Pexp_function pel -> sub.cases sub pel
@@ -415,9 +429,15 @@ module CE = struct
         iter_loc sub lid; List.iter (sub.typ sub) tys
     | Pcl_structure s ->
         sub.class_structure sub s
-    | Pcl_fun (_lab, tyo, e, p, ce) ->
-        iter_opt (iter_tuple (sub.typ sub) (sub.typ sub)) tyo;
-        iter_opt (sub.expr sub) e;
+    | Pcl_fun (lab, p, ce) ->
+        begin match lab with
+        | Asttypes.Typed_optional (_,(tys,e)) ->
+            iter_tuple (sub.typ sub) (sub.typ sub) tys;
+            iter_opt (sub.expr sub) e
+        | Asttypes.Optional(_,e) ->
+            iter_opt (sub.expr sub) e
+        | Asttypes.Labelled _ | Asttypes.Nolabel -> ()
+        end;
         sub.pat sub p;
         sub.class_expr sub ce
     | Pcl_apply (ce, l) ->

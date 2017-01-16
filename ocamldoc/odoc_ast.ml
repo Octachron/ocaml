@@ -727,7 +727,7 @@ module Analyser =
           ([],
            Class_structure (inherited_classes, class_elements) )
 
-      | (Parsetree.Pcl_fun (_label, _type_opt, _expression_opt, _pattern, p_class_expr2),
+      | (Parsetree.Pcl_fun (_label, _pattern, p_class_expr2),
          Typedtree.Tcl_fun (_, pat, _ident_exp_list, tt_class_expr2, _partial)) ->
            (* we check that this is not an optional parameter with
               a default value. In this case, we look for the good parameter pattern *)

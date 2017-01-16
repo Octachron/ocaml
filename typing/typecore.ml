@@ -33,7 +33,7 @@ type error =
   | Orpat_vars of Ident.t * Ident.t list
   | Expr_type_clash of (type_expr * type_expr) list
   | Apply_non_function of type_expr
-  | Apply_wrong_label of arg_label * type_expr
+  | Apply_wrong_label of arg_label_s * type_expr
   | Label_multiply_defined of string
   | Label_missing of Ident.t list
   | Label_not_mutable of Longident.t
@@ -54,7 +54,7 @@ type error =
   | Coercion_failure of
       type_expr * type_expr * (type_expr * type_expr) list * bool
   | Too_many_arguments of bool * type_expr
-  | Abstract_wrong_label of arg_label * type_expr
+  | Abstract_wrong_label of arg_label_s * type_expr
   | Scoping_let_module of string * type_expr
   | Masked_instance_variable of Longident.t
   | Not_a_variant_type of Longident.t
@@ -142,7 +142,12 @@ let iter_expression f e =
     | Pexp_new _
     | Pexp_constant _ -> ()
     | Pexp_function pel -> List.iter case pel
-    | Pexp_fun (_, _, eo, _, e) -> may expr eo; expr e
+    | Pexp_fun (l, _, e) ->
+        begin match l with
+        | Optional(_,Some e) | Typed_optional(_,(_,Some e)) ->
+            expr e
+        | _ -> () end;
+        expr e
     | Pexp_apply (e, lel) -> expr e; List.iter (fun (_, e) -> expr e) lel
     | Pexp_let (_, pel, e) ->  expr e; List.iter binding pel
     | Pexp_match (e, pel)
@@ -215,7 +220,13 @@ let iter_expression f e =
     match ce.pcl_desc with
     | Pcl_constr _ -> ()
     | Pcl_structure { pcstr_fields = fs } -> List.iter class_field fs
-    | Pcl_fun (_, _, eo, _,  ce) -> may expr eo; class_expr ce
+    | Pcl_fun (l, _,  ce) ->
+        begin match l with
+        | Optional(_,Some e) | Typed_optional(_,(_,Some e) ) ->
+            expr e
+        | _ -> ()
+        end;
+        class_expr ce
     | Pcl_apply (ce, lel) ->
         class_expr ce; List.iter (fun (_, e) -> expr e) lel
     | Pcl_let (_, pel, ce) ->
@@ -1679,18 +1690,17 @@ and is_nonexpansive_opt = function
 
 (* Approximate the type of an expression, for better recursion *)
 
-let opt_approx p tyo =
-  if is_optional p then
-    match tyo with
-    | Some _default -> type_typed_option (newvar()) (newvar ())
-    | None -> type_option (newvar())
-  else
-    newvar ()
+let opt_approx p =
+  match p with
+  | Optional (s,_) -> Optional(s,()) , type_option (newvar())
+  | Labelled _ | Nolabel as o -> o, newvar ()
+  | Typed_optional(s,_) ->
+      Typed_optional(s,()), type_typed_option (newvar()) (newvar ())
 
 let rec approx_type env sty =
   match sty.ptyp_desc with
-    Ptyp_arrow (p, tyo, _, sty) ->
-      let ty1 = opt_approx p tyo in
+    Ptyp_arrow (p, _, sty) ->
+      let p, ty1 = opt_approx p in
       newty (Tarrow (p, ty1, approx_type env sty, Cok))
   | Ptyp_tuple args ->
       newty (Ttuple (List.map (approx_type env) args))
@@ -1710,8 +1720,8 @@ let rec approx_type env sty =
 let rec type_approx env sexp =
   match sexp.pexp_desc with
     Pexp_let (_, _, e) -> type_approx env e
-  | Pexp_fun (p, tyo, _, _, e) ->
-      let ty = opt_approx p tyo in
+  | Pexp_fun (p, _, e) ->
+      let p, ty = opt_approx p in
       newty (Tarrow(p, ty, type_approx env e, Cok))
   | Pexp_function ({pc_rhs=e}::_) ->
       newty (Tarrow(Nolabel, newvar (), type_approx env e, Cok))
@@ -2105,8 +2115,7 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp ty_expected =
         exp_type = body.exp_type;
         exp_attributes = sexp.pexp_attributes;
         exp_env = env }
-  | Pexp_fun (l, None, Some default, spat, sbody) ->
-      assert(is_optional l); (* default allowed only with optional argument *)
+  | Pexp_fun (Optional(_, Some default) as l , spat, sbody) ->
       let open Ast_helper in
       let default_loc = default.pexp_loc in
       let scases = [
@@ -2140,8 +2149,8 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp ty_expected =
       in
       type_function ?in_function loc sexp.pexp_attributes env ty_expected
         l [Exp.case pat body]
-  | Pexp_fun (l, Some (ty1,ty2),default , spat, sbody) ->
-      assert(is_optional l);
+  | Pexp_fun ( Typed_optional(_, ( (ty1,ty2),default )) as l , spat, sbody) ->
+
       (* default types allowed only with optional argument *)
       let open Ast_helper in
       let constrain pat =
@@ -2185,7 +2194,7 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp ty_expected =
           let pat = constrain @@ Pat.var ~loc:sloc (mknoloc "*opt*") in
           [Exp.case pat smatch]
       end
-  | Pexp_fun (l, None, None, spat, sbody) ->
+  | Pexp_fun (l, spat, sbody) ->
       type_function ?in_function loc sexp.pexp_attributes env ty_expected
         l [Ast_helper.Exp.case spat sbody]
   | Pexp_function caselist ->
@@ -3087,6 +3096,10 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp ty_expected =
            exp_env = env }
 
 and type_function ?in_function loc attrs env ty_expected l caselist =
+  let l0 = match l with
+    | Labelled _ | Nolabel as o -> o
+    | Optional (s,_) -> Optional(s,())
+    | Typed_optional(s,_) -> Typed_optional(s,()) in
   let (loc_fun, ty_fun) =
     match in_function with Some p -> p
     | None -> (loc, instance env ty_expected)
@@ -3094,11 +3107,11 @@ and type_function ?in_function loc attrs env ty_expected l caselist =
   let separate = !Clflags.principal || Env.has_local_constraints env in
   if separate then begin_def ();
   let (ty_arg, ty_res) =
-    try filter_arrow env (instance env ty_expected) l
+    try filter_arrow env (instance env ty_expected) l0
     with Unify _ ->
       match expand_head env ty_expected with
         {desc = Tarrow _} as ty ->
-          raise(Error(loc, env, Abstract_wrong_label(l, ty)))
+          raise(Error(loc, env, Abstract_wrong_label(l0, ty)))
       | _ ->
           raise(Error(loc_fun, env,
                       Too_many_arguments (in_function <> None, ty_fun)))
@@ -3138,9 +3151,9 @@ and type_function ?in_function loc attrs env ty_expected l caselist =
       Warnings.Unerasable_optional_argument;
   let param = name_pattern "param" cases in
   re {
-    exp_desc = Texp_function { arg_label = l; param; cases; partial; };
+    exp_desc = Texp_function { arg_label = l0; param; cases; partial; };
     exp_loc = loc; exp_extra = [];
-    exp_type = instance env (newgenty (Tarrow(l, ty_arg, ty_res, Cok)));
+    exp_type = instance env (newgenty (Tarrow(l0, ty_arg, ty_res, Cok)));
     exp_attributes = attrs;
     exp_env = env }
 
@@ -3579,7 +3592,7 @@ and type_application env funct sargs =
   let ignored = ref [] in
   let rec type_unknown_args
       (args :
-      (Asttypes.arg_label * (unit -> Typedtree.expression) option) list)
+      (Asttypes.arg_label_s * (unit -> Typedtree.expression) option) list)
     omitted ty_fun = function
       [] ->
         (List.map

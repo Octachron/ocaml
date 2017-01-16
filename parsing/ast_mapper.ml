@@ -95,8 +95,11 @@ module T = struct
     match desc with
     | Ptyp_any -> any ~loc ~attrs ()
     | Ptyp_var s -> var ~loc ~attrs s
-    | Ptyp_arrow (lab, tyo, t1, t2) ->
-        arrow ~loc ~attrs lab ?typopt:(map_opt (sub.typ sub) tyo)
+    | Ptyp_arrow (Asttypes.Typed_optional (s,t), t1, t2) ->
+        arrow ~loc ~attrs (Asttypes.Typed_optional (s, (sub.typ sub t)))
+          (sub.typ sub t1) (sub.typ sub t2)
+    | Ptyp_arrow (lab, t1, t2) ->
+        arrow ~loc ~attrs lab
           (sub.typ sub t1) (sub.typ sub t2)
     | Ptyp_tuple tyl -> tuple ~loc ~attrs (List.map (sub.typ sub) tyl)
     | Ptyp_constr (lid, tl) ->
@@ -189,8 +192,11 @@ module CT = struct
     | Pcty_constr (lid, tys) ->
         constr ~loc ~attrs (map_loc sub lid) (List.map (sub.typ sub) tys)
     | Pcty_signature x -> signature ~loc ~attrs (sub.class_signature sub x)
-    | Pcty_arrow (lab, tyo, t, ct) ->
-        arrow ~loc ~attrs lab ?typopt:(map_opt (sub.typ sub) tyo)
+    | Pcty_arrow (Asttypes.Typed_optional (s,lt) , t, ct) ->
+        arrow ~loc ~attrs (Asttypes.Typed_optional (s,sub.typ sub lt))
+          (sub.typ sub t) (sub.class_type sub ct)
+    | Pcty_arrow (lab, t, ct) ->
+        arrow ~loc ~attrs lab
           (sub.typ sub t) (sub.class_type sub ct)
     | Pcty_extension x -> extension ~loc ~attrs (sub.extension sub x)
 
@@ -328,10 +334,21 @@ module E = struct
     | Pexp_let (r, vbs, e) ->
         let_ ~loc ~attrs r (List.map (sub.value_binding sub) vbs)
           (sub.expr sub e)
-    | Pexp_fun (lab, tyo, def, p, e) ->
+    | Pexp_fun (Asttypes.Nolabel | Asttypes.Labelled _ as lab , p, e) ->
         fun_ ~loc ~attrs lab
-          ?typopt:(map_opt (map_tuple (sub.typ sub) (sub.typ sub)) tyo)
-          (map_opt (sub.expr sub) def) (sub.pat sub p)
+          (sub.pat sub p)
+          (sub.expr sub e)
+    | Pexp_fun (Asttypes.Optional (s,def), p, e) ->
+        fun_ ~loc ~attrs (Asttypes.Optional (s, map_opt (sub.expr sub) def))
+          (sub.pat sub p) (sub.expr sub e)
+    | Pexp_fun (Asttypes.Typed_optional (s,(ts,def)), p, e) ->
+        fun_ ~loc ~attrs
+          (Asttypes.Typed_optional(
+              s,
+              (map_tuple (sub.typ sub) (sub.typ sub) ts,
+              map_opt (sub.expr sub) def)
+            ))
+          (sub.pat sub p)
           (sub.expr sub e)
     | Pexp_function pel -> function_ ~loc ~attrs (sub.cases sub pel)
     | Pexp_apply (e, l) ->
@@ -441,10 +458,25 @@ module CE = struct
         constr ~loc ~attrs (map_loc sub lid) (List.map (sub.typ sub) tys)
     | Pcl_structure s ->
         structure ~loc ~attrs (sub.class_structure sub s)
-    | Pcl_fun (lab, tyo, e, p, ce) ->
+    | Pcl_fun (Asttypes.Nolabel|Asttypes.Labelled _ as lab, p, ce) ->
         fun_ ~loc ~attrs lab
-          ?typopt:(map_opt (map_tuple (sub.typ sub) (sub.typ sub)) tyo)
-          (map_opt (sub.expr sub) e)
+          (sub.pat sub p)
+          (sub.class_expr sub ce)
+    | Pcl_fun (Asttypes.Typed_optional(s, (tyo, e)), p, ce) ->
+        fun_ ~loc ~attrs
+          (Asttypes.Typed_optional(
+              s,
+              (map_tuple (sub.typ sub) (sub.typ sub) tyo,
+              map_opt (sub.expr sub) e))
+          )
+          (sub.pat sub p)
+          (sub.class_expr sub ce)
+    | Pcl_fun (Asttypes.Optional(s, e), p, ce) ->
+        fun_ ~loc ~attrs
+          (Asttypes.Optional(
+              s,
+              map_opt (sub.expr sub) e)
+          )
           (sub.pat sub p)
           (sub.class_expr sub ce)
     | Pcl_apply (ce, l) ->

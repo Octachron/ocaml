@@ -41,11 +41,13 @@ type closed_flag = Closed | Open
 
 type label = string
 
-type arg_label =
+type ('a,'b) arg_label =
     Nolabel
   | Labelled of string (*  label:T -> ... *)
-  | Optional of string (* ?label:T -> ... *)
-  | Typed_optional of string (* ?label:T:?(a=b) *)
+  | Optional of string * 'a (* ?label:T -> ... *)
+  | Typed_optional of string * 'b (* ?label:T:?(a=b) *)
+
+type arg_label_s = (unit, unit) arg_label
 
 type 'a loc = 'a Location.loc = {
   txt : 'a;
