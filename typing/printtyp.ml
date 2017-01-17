@@ -573,9 +573,9 @@ let rec tree_of_typexp sch ty =
               | Tconstr(path, [ty], _)
                 when Path.same path Predef.path_option ->
                   tree_of_typexp sch ty
-              | Tconstr (path, ([_;_] as tyl), _ )
+              | Tconstr (path,[ty1;ty2], _ )
                 when Path.same path Predef.path_typed_option ->
-                  Otyp_constr( tree_of_path path, tree_of_typlist sch tyl)
+                  Otyp_optional_eq(tree_of_typexp sch ty1, tree_of_typexp sch ty2)
               | _ -> Otyp_stuff "<hidden>"
             else tree_of_typexp sch ty1 in
           Otyp_arrow (lab, t1, tree_of_typexp sch ty2) in

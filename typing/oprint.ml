@@ -241,6 +241,8 @@ and print_simple_out_type ppf =
       fprintf ppf ")@]"
   | Otyp_attribute (t, attr) ->
       fprintf ppf "@[<1>(%a [@@%s])@]" print_out_type t attr.oattr_name
+  | Otyp_optional_eq (t, t2) ->
+      fprintf ppf "@[<1>?(%a=%a)@]" print_out_type t print_out_type t2
 and print_record_decl ppf lbls =
   fprintf ppf "{%a@;<1 -2>}"
     (print_list_init print_out_label (fun ppf -> fprintf ppf "@ ")) lbls
