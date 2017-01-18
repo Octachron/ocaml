@@ -325,7 +325,10 @@ let none_type () =
   type_typed_option tvar tvar
 
 let option_none_t env ty loc =
-  unify env (none_type ()) ty;
+  let () =
+    try subtype env (none_type ()) ty () with
+      Subtype (tr1, tr2) ->
+        raise(Error(loc, env, Not_subtype(tr1, tr2))) in
   let lid =  Longident.Lident "None'"
   and env = Env.initial_safe_string in
   let cnone = Env.lookup_constructor lid env in
@@ -3690,7 +3693,8 @@ and type_application env funct sargs =
                               Apply_wrong_label(l', ty_fun')))
                 else
                   ([], more_sargs,
-                   Some (fun () -> type_argument env sarg0 ty ty0))
+                   Some (fun () ->
+                      type_argument env sarg0 ty ty0))
             | _ ->
                 assert false
           end else try
@@ -3734,7 +3738,8 @@ and type_application env funct sargs =
               may_warn funct.exp_loc
                 (Warnings.Without_principality "eliminated optional argument");
               ignored := (l,ty,lv) :: !ignored;
-              Some (fun () -> (if typed_optional l then (option_none_t env)
+              Some (fun () ->
+                  (if typed_optional l then (option_none_t env)
                        else option_none)
                        (instance env ty) Location.none)
             end else begin
