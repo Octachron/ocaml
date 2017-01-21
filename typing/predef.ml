@@ -39,7 +39,7 @@ and ident_exn = ident_create "exn"
 and ident_array = ident_create "array"
 and ident_list = ident_create "list"
 and ident_option = ident_create "option"
-and ident_typed_option = ident_create "typed_option"
+and ident_optional = ident_create "optional"
 and ident_nativeint = ident_create "nativeint"
 and ident_int32 = ident_create "int32"
 and ident_int64 = ident_create "int64"
@@ -57,7 +57,7 @@ and path_exn = Pident ident_exn
 and path_array = Pident ident_array
 and path_list = Pident ident_list
 and path_option = Pident ident_option
-and path_typed_option = Pident ident_typed_option
+and path_optional = Pident ident_optional
 and path_nativeint = Pident ident_nativeint
 and path_int32 = Pident ident_int32
 and path_int64 = Pident ident_int64
@@ -75,8 +75,8 @@ and type_exn = newgenty (Tconstr(path_exn, [], ref Mnil))
 and type_array t = newgenty (Tconstr(path_array, [t], ref Mnil))
 and type_list t = newgenty (Tconstr(path_list, [t], ref Mnil))
 and type_option t = newgenty (Tconstr(path_option, [t], ref Mnil))
-and type_typed_option gen default =
-  newgenty (Tconstr(path_typed_option, [gen;default], ref Mnil))
+and type_optional gen default =
+  newgenty (Tconstr(path_optional, [gen;default], ref Mnil))
 and type_nativeint = newgenty (Tconstr(path_nativeint, [], ref Mnil))
 and type_int32 = newgenty (Tconstr(path_int32, [], ref Mnil))
 and type_int64 = newgenty (Tconstr(path_int64, [], ref Mnil))
@@ -160,8 +160,8 @@ and ident_nil = ident_create "[]"
 and ident_cons = ident_create "::"
 and ident_none = ident_create "None"
 and ident_some = ident_create "Some"
-and ident_none' = ident_create "None'"
-and ident_some' = ident_create "Some'"
+and ident_default = ident_create "Default"
+and ident_custom = ident_create "Specific"
 let common_initial_env add_type add_extension empty_env =
   let decl_bool =
     {decl_abstr with
@@ -195,14 +195,14 @@ let common_initial_env add_type add_extension empty_env =
      type_arity = 1;
      type_kind = Type_variant([cstr ident_none []; cstr ident_some [tvar]]);
      type_variance = [Variance.covariant]}
-  and decl_typed_option =
+  and decl_optional =
     let tvar = newgenvar() and tvar2 = newgenvar () in
     {decl_abstr with
      type_params = [tvar;tvar2];
      type_arity = 2;
      type_kind = Type_variant [
-         gadt_cstr ident_none' [] (type_typed_option tvar2 tvar2) ;
-         gadt_cstr ident_some' [tvar] (type_typed_option tvar tvar2)
+         gadt_cstr ident_default [] (type_optional tvar2 tvar2) ;
+         gadt_cstr ident_custom [tvar] (type_optional tvar tvar2)
        ];
      type_variance = [Variance.full; Variance.full]
     }
@@ -246,7 +246,7 @@ let common_initial_env add_type add_extension empty_env =
   add_type ident_nativeint decl_abstr (
   add_type ident_lazy_t decl_lazy_t (
   add_type ident_option decl_option (
-  add_type ident_typed_option decl_typed_option (
+  add_type ident_optional decl_optional (
   add_type ident_list decl_list (
   add_type ident_array decl_array (
   add_type ident_exn decl_exn (

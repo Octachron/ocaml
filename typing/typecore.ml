@@ -302,23 +302,23 @@ let constant_or_raise env loc cst =
 let type_option ty =
   newty (Tconstr(Predef.path_option,[ty], ref Mnil))
 
-let type_typed_option ty ty2=
-  newty (Tconstr(Predef.path_typed_option,[ty;ty2], ref Mnil))
+let type_optional ty ty2=
+  newty (Tconstr(Predef.path_optional,[ty;ty2], ref Mnil))
 
 let mkexp exp_desc exp_type exp_loc exp_env =
   { exp_desc; exp_type; exp_loc; exp_env; exp_extra = []; exp_attributes = [] }
 
 
-let none_type () =
+let default_type () =
   let tvar = newvar () in
-  type_typed_option tvar tvar
+  type_optional tvar tvar
 
 let option_none_t env ty loc =
   let () =
-    try subtype env (none_type ()) ty () with
+    try subtype env (default_type ()) ty () with
       Subtype (tr1, tr2) ->
         raise(Error(loc, env, Not_subtype(tr1, tr2))) in
-  let lid =  Longident.Lident "None'"
+  let lid =  Longident.Lident "Default"
   and env = Env.initial_safe_string in
   let cnone = Env.lookup_constructor lid env in
   mkexp (Texp_construct(mknoloc lid, cnone, [])) ty loc env
@@ -330,7 +330,7 @@ let option_none ty loc =
   mkexp (Texp_construct(mknoloc lid, cnone, [])) ty loc env
 
 let option_some_t typed texp =
-  let lid = Longident.Lident (if typed then "Some'" else "Some") in
+  let lid = Longident.Lident (if typed then "Specific" else "Some") in
   let csome = Env.lookup_constructor lid Env.initial_safe_string in
   mkexp ( Texp_construct(mknoloc lid , csome, [texp]) )
     (type_option texp.exp_type) texp.exp_loc texp.exp_env
@@ -342,7 +342,7 @@ let extract_option_type_t typed env ty =
   | {desc = Tconstr(path, [ty], _)}
     when not typed && Path.same path Predef.path_option -> ty
   | {desc = Tconstr(path, [ty; _default], _)}
-    when typed && Path.same path Predef.path_typed_option -> ty
+    when typed && Path.same path Predef.path_optional -> ty
   | _ -> assert false
 let extract_option_type = extract_option_type_t false
 
@@ -1685,7 +1685,7 @@ and is_nonexpansive_opt = function
 let opt_approx p tyo =
   if is_optional p then
     match tyo with
-    | Some _default -> type_typed_option (newvar()) (newvar ())
+    | Some _default -> type_optional (newvar()) (newvar ())
     | None -> type_option (newvar())
   else
     newvar ()
@@ -2149,7 +2149,7 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp ty_expected =
       let open Ast_helper in
       let constrain pat =
         let typ = Typ.constr
-            (mknoloc @@ Longident.Lident "typed_option") [ty1;ty2] in
+            (mknoloc @@ Longident.Lident "optional") [ty1;ty2] in
         Pat.constraint_ ~loc:pat.ppat_loc pat typ in
       type_function ?in_function loc sexp.pexp_attributes env ty_expected l @@
       begin match default with
@@ -2164,7 +2164,7 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp ty_expected =
           [
             Exp.case
               (Pat.construct ~loc:default_loc
-                 (mknoloc (Longident.(Lident "Some'")))
+                 (mknoloc (Longident.(Lident "Specific")))
                  (Some (Pat.var ~loc:default_loc (mknoloc "*sth*")))
               )
               (let_ sth)
@@ -2172,7 +2172,7 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp ty_expected =
 
             Exp.case
               (Pat.construct ~loc:default_loc
-                 (mknoloc (Longident.(Lident "None'")))
+                 (mknoloc (Longident.(Lident "Default")))
                  None
               )
               (let_ default)
@@ -3120,10 +3120,10 @@ and type_function ?in_function loc attrs env ty_expected l caselist =
     | Typed_optional _ ->
         let tv1, tv2 = newvar(), newvar () in
         begin
-          try unify env ty_arg (type_typed_option tv1 tv2)
+          try unify env ty_arg (type_optional tv1 tv2)
           with Unify _ -> assert false
         end;
-        type_typed_option tv1 tv2
+        type_optional tv1 tv2
     | Labelled _ | Nolabel -> ty_arg
   in
   if separate then begin
@@ -3631,7 +3631,7 @@ and type_application env funct sargs =
          (match l1 with
          | Optional _ -> unify_exp env arg1 (type_option(newvar()))
          | Typed_optional _ -> unify_exp env arg1
-                                 (type_typed_option(newvar())(newvar()))
+                                 (type_optional(newvar())(newvar()))
          | Labelled _ | Nolabel -> () ) ;
           arg1
         in

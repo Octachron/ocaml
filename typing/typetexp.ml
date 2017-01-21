@@ -336,7 +336,7 @@ let rec transl_type env policy styp =
         | Some st3 ->
             let cty3 = transl_type env policy st3 in
             let ty3 = cty3.ctyp_type in
-            newty (Tconstr(Predef.path_typed_option,[ty1;ty3], ref Mnil))
+            newty (Tconstr(Predef.path_optional,[ty1;ty3], ref Mnil))
       else ty1 in
     let ty = newty (Tarrow(l, ty1, cty2.ctyp_type, Cok)) in
     ctyp (Ttyp_arrow (l, cty1, cty2)) ty

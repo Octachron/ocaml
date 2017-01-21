@@ -541,7 +541,7 @@ and class_type env scty =
         | Some sty2 ->
             let cty2 = transl_simple_type env false sty2 in
             let ty2 = cty2.ctyp_type in
-            Ctype.newty (Tconstr(Predef.path_typed_option,[ty;ty2], ref Mnil))
+            Ctype.newty (Tconstr(Predef.path_optional,[ty;ty2], ref Mnil))
         else ty in
       let clty = class_type env scty in
       let typ = Cty_arrow (l, ty, clty.cltyp_type) in
@@ -1208,7 +1208,7 @@ and class_expr cl_num val_env met_env scl =
 let arg_option l =
   match l with
   | Asttypes.Optional _ -> Predef.type_option (Btype.newgenvar ())
-  | Typed_optional _ -> Predef.type_typed_option
+  | Typed_optional _ -> Predef.type_optional
                         (Btype.newgenvar ()) (Btype.newgenvar ())
   | Labelled _ | Nolabel -> Ctype.newvar ()
 
