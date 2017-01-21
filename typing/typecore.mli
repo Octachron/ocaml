@@ -34,7 +34,7 @@ val type_let:
 val type_expression:
         Env.t -> Parsetree.expression -> Typedtree.expression
 val type_class_arg_pattern:
-        string -> Env.t -> Env.t -> arg_label_s -> Parsetree.pattern ->
+        string -> Env.t -> Env.t -> arg_label -> Parsetree.pattern ->
         Typedtree.pattern * (Ident.t * string loc * Ident.t * type_expr) list *
         Env.t * Env.t
 val type_self_pattern:
@@ -80,7 +80,7 @@ type error =
   | Orpat_vars of Ident.t * Ident.t list
   | Expr_type_clash of (type_expr * type_expr) list
   | Apply_non_function of type_expr
-  | Apply_wrong_label of arg_label_s * type_expr
+  | Apply_wrong_label of arg_label * type_expr
   | Label_multiply_defined of string
   | Label_missing of Ident.t list
   | Label_not_mutable of Longident.t
@@ -101,7 +101,7 @@ type error =
   | Coercion_failure of
       type_expr * type_expr * (type_expr * type_expr) list * bool
   | Too_many_arguments of bool * type_expr
-  | Abstract_wrong_label of arg_label_s * type_expr
+  | Abstract_wrong_label of arg_label * type_expr
   | Scoping_let_module of string * type_expr
   | Masked_instance_variable of Longident.t
   | Not_a_variant_type of Longident.t

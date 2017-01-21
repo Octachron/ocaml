@@ -139,7 +139,7 @@ let print_name ppf = function
 let string_of_label = function
     Nolabel -> ""
   | Labelled s -> s
-  | Optional (s,()) | Typed_optional (s,()) -> "?"^s
+  | Optional s | Typed_optional s -> "?"^s
 
 let visited = ref []
 let rec raw_type ppf ty =

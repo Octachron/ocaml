@@ -324,19 +324,20 @@ let rec transl_type env policy styp =
       end
     in
     ctyp (Ttyp_var name) ty
-  | Ptyp_arrow(l, st1, st2) ->
+  | Ptyp_arrow(l, tyo, st1, st2) ->
     let cty1 = transl_type env policy st1 in
     let cty2 = transl_type env policy st2 in
     let ty1 = cty1.ctyp_type in
-    let l , ty1 =
-      match l with
-      | Optional _ as l  ->l, newty (Tconstr(Predef.path_option,[ty1], ref Mnil))
-      | Typed_optional(s, st3) ->
+    let ty1 =
+      if Btype.is_optional l
+      then
+        match tyo with
+        | None -> newty (Tconstr(Predef.path_option,[ty1], ref Mnil))
+        | Some st3 ->
             let cty3 = transl_type env policy st3 in
             let ty3 = cty3.ctyp_type in
-            Typed_optional (s, ()),
             newty (Tconstr(Predef.path_typed_option,[ty1;ty3], ref Mnil))
-      | Labelled _ | Nolabel as l -> l, ty1 in
+      else ty1 in
     let ty = newty (Tarrow(l, ty1, cty2.ctyp_type, Cok)) in
     ctyp (Ttyp_arrow (l, cty1, cty2)) ty
   | Ptyp_tuple stl ->

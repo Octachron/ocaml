@@ -73,17 +73,16 @@ and core_type =
      ptyp_attributes: attributes; (* ... [@id1] [@id2] *)
     }
 
-and arg_label_type = (unit, core_type) arg_label
 and core_type_desc =
   | Ptyp_any
         (*  _ *)
   | Ptyp_var of string
         (* 'a *)
-  | Ptyp_arrow of arg_label_type * core_type * core_type
+  | Ptyp_arrow of arg_label * core_type option * core_type * core_type
         (* T1 -> T2     Simple
-           ~l:T1 -> T2  Labelled l
-           ?l:T1 -> T2  Optional l
-           ?l:(T1 = T2) Typed_optional (l,T2), T1, …
+           ~l:T1 -> T2  Labelled
+           ?l:T1 -> T2  Optional
+           ?l:(T1 = T2) Typed_optional
          *)
   | Ptyp_tuple of core_type list
         (* T1 * ... * Tn
@@ -234,9 +233,6 @@ and expression =
      pexp_attributes: attributes; (* ... [@id1] [@id2] *)
     }
 
-and arg_label_fun =
-  (expression option,(core_type * core_type) * expression option) arg_label
-
 and expression_desc =
   | Pexp_ident of Longident.t loc
         (* x
@@ -250,19 +246,21 @@ and expression_desc =
          *)
   | Pexp_function of case list
         (* function P1 -> E1 | ... | Pn -> En *)
-  | Pexp_fun of arg_label_fun * pattern * expression
-        (* fun P -> E1                     (Simple)
-           fun ~l:P -> E1                  (Labelled l)
-           fun ?l:P -> E1                  (Optional (l, None))
-           fun ?l:(P = E0) -> E1           (Optional (l, Some E0)
-           fun ?l:(P = E0: t1 = t2) -> E1  (Typed_optional (l, (t1,t2), Some E0)
+  | Pexp_fun of arg_label
+                * (core_type * core_type) option * expression option * pattern * expression
+        (* fun P -> E1                     (Simple, None, None)
+           fun ~l:P -> E1                  (Labelled l, None, None)
+           fun ?l:P -> E1                  (Optional l, None, None)
+           fun ?l:(P = E0) -> E1           (Optional l, None, Some E0)
+           fun ?l:(P = E0: t1 = t2) -> E1  (Typed_optional l, Some(t1,t2), Some E0)
 
 
            Notes:
+           - If E0 is provided, only Optional is allowed.
            - "fun P1 P2 .. Pn -> E1" is represented as nested Pexp_fun.
            - "let f P = E" is represented using Pexp_fun.
          *)
-  | Pexp_apply of expression * (arg_label_s * expression) list
+  | Pexp_apply of expression * (arg_label * expression) list
         (* E0 ~l1:E1 ... ~ln:En
            li can be empty (non labeled argument) or start with '?'
            (optional argument).
@@ -500,11 +498,11 @@ and class_type_desc =
            ['a1, ..., 'an] c *)
   | Pcty_signature of class_signature
         (* object ... end *)
-  | Pcty_arrow of arg_label_type * core_type * class_type
+  | Pcty_arrow of arg_label * core_type option * core_type * class_type
         (* T -> CT       Simple, None
-           ~l:T -> CT    Labelled l
-           ?l:T -> CT    Optional l
-           ?l:(t1=T)     Typed_optional (l, t1)
+           ~l:T -> CT    Labelled l, None
+           ?l:T -> CT    Optional l, None
+           ?l:(t1=T)     Typed_optional l, Some t1
          *)
   | Pcty_extension of extension
         (* [%id] *)
@@ -577,15 +575,15 @@ and class_expr_desc =
            ['a1, ..., 'an] c *)
   | Pcl_structure of class_structure
         (* object ... end *)
-  | Pcl_fun of  arg_label_fun * pattern * class_expr
+  | Pcl_fun of  arg_label * expression option * pattern * class_expr
         (* fun P -> CE                       (Simple, None, None)
            fun ~l:P -> CE                    (Labelled l, None, None)
            fun ?l:P -> CE                    (Optional l, None, None)
            fun ?l:(P = E0) -> CE             (Optional l, None, Some E0)
-           fun ?l:(P = E0: t = t2) -> CE     (Typed_optional l, Some(t,t2), Some E0)
+           (Optional argument with default type are allowed in class context)
 
          *)
-  | Pcl_apply of class_expr * (arg_label_s * expression) list
+  | Pcl_apply of class_expr * (arg_label * expression) list
         (* CE ~l1:E1 ... ~ln:En
            li can be empty (non labeled argument) or start with '?'
            (optional argument).

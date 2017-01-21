@@ -52,7 +52,7 @@ type error =
   | Field_type_mismatch of string * string * (type_expr * type_expr) list
   | Structure_expected of class_type
   | Cannot_apply of class_type
-  | Apply_wrong_label of arg_label_s
+  | Apply_wrong_label of arg_label
   | Pattern_type_clash of type_expr
   | Repeated_parameter
   | Unbound_class_2 of Longident.t
@@ -385,7 +385,7 @@ let type_constraint val_env sty sty' loc =
 let make_method loc cl_num expr =
   let open Ast_helper in
   let mkid s = mkloc s loc in
-  Exp.fun_ ~loc:expr.pexp_loc Nolabel
+  Exp.fun_ ~loc:expr.pexp_loc Nolabel None
     (Pat.alias ~loc (Pat.var ~loc (mkid "self-*")) (mkid ("self-" ^ cl_num)))
     expr
 
@@ -530,18 +530,19 @@ and class_type env scty =
       let typ = Cty_signature clsig.csig_type in
       cltyp (Tcty_signature clsig) typ
 
-  | Pcty_arrow (l, sty, scty) ->
+  | Pcty_arrow (l, tyo, sty, scty) ->
       let cty = transl_simple_type env false sty in
       let ty = cty.ctyp_type in
-      let l, ty =
-        match l with
-        | Optional (s,_) -> Optional(s,()),
+      let ty =
+        if Btype.is_optional l then
+        match tyo with
+        | None ->
             Ctype.newty (Tconstr(Predef.path_option,[ty], ref Mnil))
-        | Typed_optional (s, sty2) -> Typed_optional(s,()),
+        | Some sty2 ->
             let cty2 = transl_simple_type env false sty2 in
             let ty2 = cty2.ctyp_type in
             Ctype.newty (Tconstr(Predef.path_typed_option,[ty;ty2], ref Mnil))
-        | Nolabel | Labelled _ as o -> o, ty in
+        else ty in
       let clty = class_type env scty in
       let typ = Cty_arrow (l, ty, clty.cltyp_type) in
       cltyp (Tcty_arrow (l, cty, clty)) typ
@@ -936,10 +937,7 @@ and class_expr cl_num val_env met_env scl =
           cl_env = val_env;
           cl_attributes = scl.pcl_attributes;
          }
-  | Pcl_fun ( Typed_optional _, _ , _ ) ->
-      assert false (* typed optional argument are not authorized for
-                      class constructor, due to missing building block *)
-  | Pcl_fun ( Optional(_, Some default) as l, spat, sbody) ->
+  | Pcl_fun (l, Some default, spat, sbody) ->
       let loc = default.pexp_loc in
       let open Ast_helper in
       let scases = [
@@ -962,18 +960,14 @@ and class_expr cl_num val_env met_env scl =
       in
       let sfun =
         Cl.fun_ ~loc:scl.pcl_loc
-          l
+          l None
           (Pat.var ~loc (mknoloc "*opt*"))
           (Cl.let_ ~loc:scl.pcl_loc Nonrecursive [Vb.mk spat smatch] sbody)
           (* Note: we don't put the '#default' attribute, as it
              is not detected for class-level let bindings.  See #5975.*)
       in
       class_expr cl_num val_env met_env sfun
-  | Pcl_fun (l, spat, scl') ->
-      let l = match l with
-        | Optional (s,_) -> Optional (s,())
-        | Typed_optional (s, _ ) -> Typed_optional(s,())
-        | Labelled _ | Nolabel as o -> o in
+  | Pcl_fun (l, None, spat, scl') ->
       if !Clflags.principal then Ctype.begin_def ();
       let (pat, pv, val_env', met_env) =
         Typecore.type_class_arg_pattern cl_num val_env met_env l spat
@@ -1213,18 +1207,15 @@ and class_expr cl_num val_env met_env scl =
 
 let arg_option l =
   match l with
-  | Asttypes.Optional (s,_) ->
-      Optional (s,()), Predef.type_option (Btype.newgenvar ())
-  | Typed_optional (s,_) ->
-      Typed_optional(s,()),
-      Predef.type_typed_option
+  | Asttypes.Optional _ -> Predef.type_option (Btype.newgenvar ())
+  | Typed_optional _ -> Predef.type_typed_option
                         (Btype.newgenvar ()) (Btype.newgenvar ())
-  | Labelled _ | Nolabel as o ->o, Ctype.newvar ()
+  | Labelled _ | Nolabel -> Ctype.newvar ()
 
 let rec approx_declaration cl =
   match cl.pcl_desc with
-    Pcl_fun (l,  _, cl) ->
-      let l, arg = arg_option l in
+    Pcl_fun (l, _, _, cl) ->
+      let arg = arg_option l in
       Ctype.newty (Tarrow (l, arg, approx_declaration cl, Cok))
   | Pcl_let (_, _, cl) ->
       approx_declaration cl
@@ -1234,8 +1225,8 @@ let rec approx_declaration cl =
 
 let rec approx_description ct =
   match ct.pcty_desc with
-    Pcty_arrow (l, _, ct) ->
-      let l, arg = arg_option l in
+    Pcty_arrow (l, _, _, ct) ->
+      let arg = arg_option l in
       Ctype.newty (Tarrow (l, arg, approx_description ct, Cok))
   | _ -> Ctype.newvar ()
 

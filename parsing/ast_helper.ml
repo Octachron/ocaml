@@ -50,7 +50,7 @@ module Typ = struct
 
   let any ?loc ?attrs () = mk ?loc ?attrs Ptyp_any
   let var ?loc ?attrs a = mk ?loc ?attrs (Ptyp_var a)
-  let arrow ?loc ?attrs a b c = mk ?loc ?attrs (Ptyp_arrow (a, b, c))
+  let arrow ?loc ?attrs a ?typopt b c = mk ?loc ?attrs (Ptyp_arrow (a, typopt, b, c))
   let tuple ?loc ?attrs a = mk ?loc ?attrs (Ptyp_tuple a)
   let constr ?loc ?attrs a b = mk ?loc ?attrs (Ptyp_constr (a, b))
   let object_ ?loc ?attrs a b = mk ?loc ?attrs (Ptyp_object (a, b))
@@ -78,11 +78,8 @@ module Typ = struct
         | Ptyp_var x ->
             check_variable var_names t.ptyp_loc x;
             Ptyp_var x
-        | Ptyp_arrow (Typed_optional (s, typopt) , core_type,core_type') ->
-            Ptyp_arrow(Typed_optional (s, loop typopt),
-                       loop core_type, loop core_type')
-        | Ptyp_arrow (label, core_type,core_type') ->
-            Ptyp_arrow(label, loop core_type, loop core_type')
+        | Ptyp_arrow (label,typopt, core_type,core_type') ->
+            Ptyp_arrow(label, loop_opt typopt, loop core_type, loop core_type')
         | Ptyp_tuple lst -> Ptyp_tuple (List.map loop lst)
         | Ptyp_constr( { txt = Longident.Lident s }, [])
           when List.mem s var_names ->
@@ -116,6 +113,9 @@ module Typ = struct
             Rtag(label,attrs,flag,List.map loop lst)
         | Rinherit t ->
             Rinherit (loop t)
+    and loop_opt = function
+      | None -> None
+      | Some x -> Some (loop x)
     in
     loop t
 
@@ -154,8 +154,8 @@ module Exp = struct
   let ident ?loc ?attrs a = mk ?loc ?attrs (Pexp_ident a)
   let constant ?loc ?attrs a = mk ?loc ?attrs (Pexp_constant a)
   let let_ ?loc ?attrs a b c = mk ?loc ?attrs (Pexp_let (a, b, c))
-  let fun_ ?loc ?attrs a b c = mk ?loc ?attrs
-      (Pexp_fun (a, b, c))
+  let fun_ ?loc ?attrs a ?typopt b c d = mk ?loc ?attrs
+      (Pexp_fun (a,typopt, b, c, d))
   let function_ ?loc ?attrs a = mk ?loc ?attrs (Pexp_function a)
   let apply ?loc ?attrs a b = mk ?loc ?attrs (Pexp_apply (a, b))
   let match_ ?loc ?attrs a b = mk ?loc ?attrs (Pexp_match (a, b))
@@ -285,8 +285,8 @@ module Cl = struct
 
   let constr ?loc ?attrs a b = mk ?loc ?attrs (Pcl_constr (a, b))
   let structure ?loc ?attrs a = mk ?loc ?attrs (Pcl_structure a)
-  let fun_ ?loc ?attrs a b c = mk ?loc ?attrs
-      (Pcl_fun (a, b, c))
+  let fun_ ?loc ?attrs a b c d = mk ?loc ?attrs
+      (Pcl_fun (a, b, c, d))
   let apply ?loc ?attrs a b = mk ?loc ?attrs (Pcl_apply (a, b))
   let let_ ?loc ?attrs a b c = mk ?loc ?attrs (Pcl_let (a, b, c))
   let constraint_ ?loc ?attrs a b = mk ?loc ?attrs (Pcl_constraint (a, b))
@@ -304,7 +304,7 @@ module Cty = struct
 
   let constr ?loc ?attrs a b = mk ?loc ?attrs (Pcty_constr (a, b))
   let signature ?loc ?attrs a = mk ?loc ?attrs (Pcty_signature a)
-  let arrow ?loc ?attrs a b c = mk ?loc ?attrs (Pcty_arrow (a, b, c))
+  let arrow ?loc ?attrs a ?typopt b c = mk ?loc ?attrs (Pcty_arrow (a,typopt, b, c))
   let extension ?loc ?attrs a = mk ?loc ?attrs (Pcty_extension a)
 end
 

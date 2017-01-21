@@ -140,32 +140,23 @@ let string i ppf s = line i ppf "\"%s\"\n" s;;
 let string_loc i ppf s = line i ppf "%a\n" fmt_string_loc s;;
 let arg_label i ppf = function
   | Nolabel -> line i ppf "Nolabel\n"
-  | Optional (s,_) -> line i ppf "Optional \"%s\"\n" s
-  | Typed_optional (s,_) -> line i ppf "Typed optional \"%s\"\n" s
+  | Optional s -> line i ppf "Optional \"%s\"\n" s
+  | Typed_optional s -> line i ppf "Typed optional \"%s\"\n" s
   | Labelled s -> line i ppf "Labelled \"%s\"\n" s
 ;;
 
-let rec arg_label_type i ppf lbl ct1 =
-  match lbl with
-  | Nolabel -> line i ppf "Nolabel\n"; core_type i ppf ct1
-  | Optional (s,()) ->
-      line i ppf "Optional \"%s\"\n" s; core_type i ppf ct1
-  | Typed_optional (s,ct0) ->
-      line i ppf "Typed optional \"%s\"\n" s;
-      pair core_type core_type i ppf (ct0,ct1)
-  | Labelled s ->
-      line i ppf "Labelled \"%s\"\n" s; core_type i ppf ct1
-
-and core_type i ppf x =
+let rec core_type i ppf x =
   line i ppf "core_type %a\n" fmt_location x.ptyp_loc;
   attributes i ppf x.ptyp_attributes;
   let i = i+1 in
   match x.ptyp_desc with
   | Ptyp_any -> line i ppf "Ptyp_any\n";
   | Ptyp_var (s) -> line i ppf "Ptyp_var %s\n" s;
-  | Ptyp_arrow (l, ct1, ct2) ->
+  | Ptyp_arrow (l, oty, ct1, ct2) ->
       line i ppf "Ptyp_arrow\n";
-      arg_label_type i ppf l ct1;
+      arg_label i ppf l;
+      option i core_type ppf oty;
+      core_type i ppf ct1;
       core_type i ppf ct2;
   | Ptyp_tuple l ->
       line i ppf "Ptyp_tuple\n";
@@ -262,18 +253,6 @@ and pattern i ppf x =
       line i ppf "Ppat_extension \"%s\"\n" s.txt;
       payload i ppf arg
 
-and arg_label_fun i ppf = function
-  | Nolabel -> ()
-  | Labelled s -> line i ppf "Labelled %s\n" s
-  | Optional (s,o) ->
-      line i ppf "Optional %s\n" s;
-      option i expression ppf o
-  | Typed_optional(s,(ts,o)) ->
-      line i ppf "Typed optional %s\n" s;
-      pair core_type core_type i ppf ts;
-      option i expression ppf o
-
-
 and expression i ppf x =
   line i ppf "expression %a\n" fmt_location x.pexp_loc;
   attributes i ppf x.pexp_attributes;
@@ -288,9 +267,11 @@ and expression i ppf x =
   | Pexp_function l ->
       line i ppf "Pexp_function\n";
       list i case ppf l;
-  | Pexp_fun (l, p, e) ->
+  | Pexp_fun (l, tyo, eo, p, e) ->
       line i ppf "Pexp_fun\n";
-      arg_label_fun i ppf l;
+      arg_label i ppf l;
+      option i (pair core_type core_type) ppf tyo;
+      option i expression ppf eo;
       pattern i ppf p;
       expression i ppf e;
   | Pexp_apply (e, l) ->
@@ -502,9 +483,10 @@ and class_type i ppf x =
   | Pcty_signature (cs) ->
       line i ppf "Pcty_signature\n";
       class_signature i ppf cs;
-  | Pcty_arrow (l, co, cl) ->
+  | Pcty_arrow (l, tyo, co, cl) ->
       line i ppf "Pcty_arrow\n";
-      arg_label_type i ppf l co;
+      arg_label i ppf l;
+      option i core_type ppf tyo;
       core_type i ppf co;
       class_type i ppf cl;
   | Pcty_extension (s, arg) ->
@@ -576,9 +558,10 @@ and class_expr i ppf x =
   | Pcl_structure (cs) ->
       line i ppf "Pcl_structure\n";
       class_structure i ppf cs;
-  | Pcl_fun (l, p, e) ->
+  | Pcl_fun (l, eo, p, e) ->
       line i ppf "Pcl_fun\n";
-      arg_label_fun i ppf l;
+      arg_label i ppf l;
+      option i expression ppf eo;
       pattern i ppf p;
       class_expr i ppf e;
   | Pcl_apply (ce, l) ->
