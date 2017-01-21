@@ -2153,36 +2153,36 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp ty_expected =
       type_function ?in_function loc sexp.pexp_attributes env ty_expected
         l [Exp.case pat body]
   | Pexp_fun ( Typed_optional(_, ( (ty1,ty2),default )) as l , spat, sbody) ->
-
-      (* default types allowed only with optional argument *)
       let open Ast_helper in
       let constrain pat =
         let typ = Typ.constr
-            (mknoloc (Longident.Lident "typed_option")) [ty1;ty2] in
+            (mknoloc @@ Longident.Lident "typed_option") [ty1;ty2] in
         Pat.constraint_ ~loc:pat.ppat_loc pat typ in
       type_function ?in_function loc sexp.pexp_attributes env ty_expected l @@
       begin match default with
       | None -> [Exp.case (constrain spat) sbody]
       | Some default ->
           let default_loc = default.pexp_loc in
+          let sth =
+            Exp.ident ~loc:default_loc (mknoloc @@ Longident.Lident "*sth*") in
+          let let_ x = Exp.let_ ~loc Nonrecursive ~attrs:[mknoloc "#default",PStr []]
+                  [Vb.mk spat x] sbody in
           let scases =
           [
             Exp.case
               (Pat.construct ~loc:default_loc
                  (mknoloc (Longident.(Lident "Some'")))
-                 (Some (Pat.var ~loc:default_loc (mknoloc "*sth*"))))
-              (let sth =
-                 Exp.ident ~loc:default_loc (mknoloc (Longident.Lident "*sth*")) in
-               (Exp.let_ ~loc Nonrecursive ~attrs:[mknoloc "#default",PStr []]
-                  [Vb.mk spat sth] sbody);
-              );
+                 (Some (Pat.var ~loc:default_loc (mknoloc "*sth*")))
+              )
+              (let_ sth)
+            ;
 
             Exp.case
               (Pat.construct ~loc:default_loc
                  (mknoloc (Longident.(Lident "None'")))
-                 None)
-              (Exp.let_ ~loc Nonrecursive ~attrs:[mknoloc "#default",PStr []]
-                 [Vb.mk spat default] sbody)
+                 None
+              )
+              (let_ default)
           ] in
           let sloc =
             { Location.loc_start = spat.ppat_loc.Location.loc_start;

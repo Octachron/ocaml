@@ -1729,13 +1729,6 @@ let occur_univar env ty =
       | Tconstr (p, tl, _) ->
           begin try
             let td = Env.find_type p env in
-            ( let v = td.type_variance in
-              (* DELENDA *)
-              if List.length tl > List.length v then
-                raise @@ Invalid_argument(
-                  Printf.sprintf "%s %d<>%d\n%!"
-                    (Path.name p) (List.length tl)(List.length v))
-            );
             List.iter2
               (fun t v ->
                 if Variance.(mem May_pos v || mem May_neg v)

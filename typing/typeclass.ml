@@ -936,6 +936,9 @@ and class_expr cl_num val_env met_env scl =
           cl_env = val_env;
           cl_attributes = scl.pcl_attributes;
          }
+  | Pcl_fun ( Typed_optional _, _ , _ ) ->
+      assert false (* typed optional argument are not authorized for
+                      class constructor, due to missing building block *)
   | Pcl_fun ( Optional(_, Some default) as l, spat, sbody) ->
       let loc = default.pexp_loc in
       let open Ast_helper in
@@ -965,45 +968,6 @@ and class_expr cl_num val_env met_env scl =
           (* Note: we don't put the '#default' attribute, as it
              is not detected for class-level let bindings.  See #5975.*)
       in
-      class_expr cl_num val_env met_env sfun
-  | Pcl_fun ( Typed_optional(_, (_ct, Some default)) as l, spat, sbody) ->
-      (* WRONG DELENDA *)
-      let loc = default.pexp_loc in
-      let open Ast_helper in
-      let scases = [
-        Exp.case
-          (Pat.construct ~loc
-             (mknoloc (Longident.(Ldot (Lident "*predef*", "Some"))))
-             (Some (Pat.var ~loc (mknoloc "*sth*"))))
-          (Exp.ident ~loc (mknoloc (Longident.Lident "*sth*")));
-
-        Exp.case
-          (Pat.construct ~loc
-             (mknoloc (Longident.(Ldot (Lident "*predef*", "None"))))
-             None)
-          default;
-       ]
-      in
-      let smatch =
-        Exp.match_ ~loc (Exp.ident ~loc (mknoloc (Longident.Lident "*opt*")))
-          scases
-      in
-      let sfun =
-        Cl.fun_ ~loc:scl.pcl_loc
-          l
-          (Pat.var ~loc (mknoloc "*opt*"))
-          (Cl.let_ ~loc:scl.pcl_loc Nonrecursive [Vb.mk spat smatch] sbody)
-          (* Note: we don't put the '#default' attribute, as it
-             is not detected for class-level let bindings.  See #5975.*)
-      in
-      class_expr cl_num val_env met_env sfun
-  | Pcl_fun ( Typed_optional(_, ((ty1,ty2), None)) as l, spat, sbody) ->
-      let open Ast_helper in
-      let typ = Typ.constr
-          (mknoloc (Longident.Lident "typed_option")) [ty1;ty2] in
-      let pat = Pat.constraint_ ~loc:spat.ppat_loc spat typ in
-      let sfun =
-        Cl.fun_ ~loc:scl.pcl_loc l pat sbody in
       class_expr cl_num val_env met_env sfun
   | Pcl_fun (l, spat, scl') ->
       let l = match l with
