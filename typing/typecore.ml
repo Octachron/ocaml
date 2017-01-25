@@ -2151,6 +2151,13 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp ty_expected =
         let typ = Typ.constr
             (mknoloc @@ Longident.Lident "optional") [ty1;ty2] in
         Pat.constraint_ ~loc:pat.ppat_loc pat typ in
+      let lident x = mknoloc @@ Longident.Lident x in
+      let f_name = "*opttyped_fn*" in
+      let f = Exp.ident ~loc  (lident f_name) in
+      let let_f_in =
+        let body = Exp.fun_ ~loc Nolabel None spat sbody in
+        let name = Pat.var ~loc (mknoloc f_name) in
+        Exp.let_ ~loc Nonrecursive [Vb.mk name body] in
       type_function ?in_function loc sexp.pexp_attributes env ty_expected l @@
       begin match default with
       | None -> [Exp.case (constrain spat) sbody]
@@ -2158,24 +2165,24 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp ty_expected =
           let default_loc = default.pexp_loc in
           let sth =
             Exp.ident ~loc:default_loc (mknoloc @@ Longident.Lident "*sth*") in
-          let let_ x = Exp.let_ ~loc Nonrecursive ~attrs:[mknoloc "#default",PStr []]
-                  [Vb.mk spat x] sbody in
+          let (<*>) f x =
+            Exp.apply ~loc f [Nolabel, x] in
           let scases =
           [
             Exp.case
               (Pat.construct ~loc:default_loc
-                 (mknoloc (Longident.(Lident "Specific")))
+                 (lident "Specific")
                  (Some (Pat.var ~loc:default_loc (mknoloc "*sth*")))
               )
-              (let_ sth)
+              ( f <*> sth)
             ;
 
             Exp.case
               (Pat.construct ~loc:default_loc
-                 (mknoloc (Longident.(Lident "Default")))
+                 (lident "Default")
                  None
               )
-              (let_ default)
+              (f <*> default)
           ] in
           let sloc =
             { Location.loc_start = spat.ppat_loc.Location.loc_start;
@@ -2183,6 +2190,7 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp ty_expected =
               loc_ghost = true }
           in
           let smatch =
+            let_f_in @@
             Exp.match_ ~loc:sloc
               (Exp.ident ~loc (mknoloc (Longident.Lident "*opt*")))
               scases
