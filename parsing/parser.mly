@@ -2200,18 +2200,18 @@ core_type2:
   | QUESTION LIDENT COLON core_type2 MINUSGREATER core_type2
       { let param = extra_rhs_core_type $4 ~pos:4 in
         mktyp (Ptyp_arrow(Optional $2 , None, param, $6)) }
-  | QUESTION LIDENT COLON LPAREN constrain RPAREN MINUSGREATER core_type2
+  | QUESTION LIDENT COLON QUESTION LPAREN constrain RPAREN MINUSGREATER core_type2
       {
-        let gen, default, _ = $5 in
-        let param = extra_rhs_core_type gen ~pos:5 in
-        mktyp (Ptyp_arrow(Optional $2 , Some default, param, $8))
+        let gen, default, _ = $6 in
+        let param = extra_rhs_core_type gen ~pos:6 in
+        mktyp (Ptyp_arrow(Optional $2 , Some default, param, $9))
       }
 
-  | OPTLABEL LPAREN constrain RPAREN MINUSGREATER core_type2
+  | OPTLABEL QUESTION LPAREN constrain RPAREN MINUSGREATER core_type2
       {
-        let gen, default, _ = $3 in
-        let param = extra_rhs_core_type gen ~pos:3 in
-        mktyp(Ptyp_arrow(Optional $1 , Some default, param, $6))
+        let gen, default, _ = $4 in
+        let param = extra_rhs_core_type gen ~pos:4 in
+        mktyp(Ptyp_arrow(Optional $1 , Some default, param, $7))
       }
   | OPTLABEL core_type2 MINUSGREATER core_type2
       {
