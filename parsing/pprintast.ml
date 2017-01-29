@@ -788,9 +788,9 @@ and class_type ctxt f x =
            | _  -> pp f "[%a]@ " (list (core_type ctxt) ~sep:"," ) l) l
         longident_loc li
         (attributes ctxt) x.pcty_attributes
-  | Pcty_arrow (l, tyo, co, cl) ->
+  | Pcty_arrow (l, co, cl) ->
       pp f "@[<2>%a@;->@;%a@]" (* FIXME remove parens later *)
-        (type_with_label ctxt) (l,tyo,co)
+        (type_with_label ctxt) (l,None,co)
         (class_type ctxt) cl
   | Pcty_extension e ->
       extension ctxt f e;

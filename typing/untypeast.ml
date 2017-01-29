@@ -649,7 +649,7 @@ let class_type sub ct =
     | Tcty_constr (_path, lid, list) ->
         Pcty_constr (map_loc sub lid, List.map (sub.typ sub) list)
     | Tcty_arrow (label, ct, cl) ->
-        Pcty_arrow (label, None, sub.typ sub ct, sub.class_type sub cl)
+        Pcty_arrow (label, sub.typ sub ct, sub.class_type sub cl)
   in
   Cty.mk ~loc ~attrs desc
 

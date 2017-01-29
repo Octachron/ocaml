@@ -1161,13 +1161,13 @@ class_type:
       { $1 }
   | QUESTION LIDENT COLON simple_core_type_or_tuple MINUSGREATER
     class_type
-      { mkcty(Pcty_arrow(Optional $2 , None, $4, $6)) }
+      { mkcty(Pcty_arrow(Optional $2 , $4, $6)) }
   | OPTLABEL simple_core_type_or_tuple MINUSGREATER class_type
-      { mkcty(Pcty_arrow(Optional $1, None, $2, $4)) }
+      { mkcty(Pcty_arrow(Optional $1, $2, $4)) }
   | LIDENT COLON simple_core_type_or_tuple MINUSGREATER class_type
-      { mkcty(Pcty_arrow(Labelled $1, None, $3, $5)) }
+      { mkcty(Pcty_arrow(Labelled $1, $3, $5)) }
   | simple_core_type_or_tuple MINUSGREATER class_type
-      { mkcty(Pcty_arrow(Nolabel, None, $1, $3)) }
+      { mkcty(Pcty_arrow(Nolabel, $1, $3)) }
  ;
 class_signature:
     LBRACKET core_type_comma_list RBRACKET clty_longident

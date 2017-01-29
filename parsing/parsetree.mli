@@ -498,11 +498,10 @@ and class_type_desc =
            ['a1, ..., 'an] c *)
   | Pcty_signature of class_signature
         (* object ... end *)
-  | Pcty_arrow of arg_label * core_type option * core_type * class_type
-        (* T -> CT       Simple, None
-           ~l:T -> CT    Labelled l, None
-           ?l:T -> CT    Optional l, None
-           ?l:(t1=T)     Typed_optional l, Some t1
+  | Pcty_arrow of arg_label * core_type * class_type
+        (* T -> CT       Simple
+           ~l:T -> CT    Labelled l
+           ?l:T -> CT    Optional l
          *)
   | Pcty_extension of extension
         (* [%id] *)

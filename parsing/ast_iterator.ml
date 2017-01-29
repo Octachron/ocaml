@@ -179,8 +179,8 @@ module CT = struct
     | Pcty_constr (lid, tys) ->
         iter_loc sub lid; List.iter (sub.typ sub) tys
     | Pcty_signature x -> sub.class_signature sub x
-    | Pcty_arrow (_lab, tyo, t, ct) ->
-        iter_opt (sub.typ sub) tyo; sub.typ sub t; sub.class_type sub ct
+    | Pcty_arrow (_lab, t, ct) ->
+        sub.typ sub t; sub.class_type sub ct
     | Pcty_extension x -> sub.extension sub x
 
   let iter_field sub {pctf_desc = desc; pctf_loc = loc; pctf_attributes = attrs}

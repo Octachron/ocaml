@@ -189,9 +189,8 @@ module CT = struct
     | Pcty_constr (lid, tys) ->
         constr ~loc ~attrs (map_loc sub lid) (List.map (sub.typ sub) tys)
     | Pcty_signature x -> signature ~loc ~attrs (sub.class_signature sub x)
-    | Pcty_arrow (lab, tyo, t, ct) ->
-        arrow ~loc ~attrs lab ?typopt:(map_opt (sub.typ sub) tyo)
-          (sub.typ sub t) (sub.class_type sub ct)
+    | Pcty_arrow (lab, t, ct) -> arrow ~loc ~attrs lab (sub.typ sub t)
+                                   (sub.class_type sub ct)
     | Pcty_extension x -> extension ~loc ~attrs (sub.extension sub x)
 
   let map_field sub {pctf_desc = desc; pctf_loc = loc; pctf_attributes = attrs}

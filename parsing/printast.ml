@@ -483,10 +483,9 @@ and class_type i ppf x =
   | Pcty_signature (cs) ->
       line i ppf "Pcty_signature\n";
       class_signature i ppf cs;
-  | Pcty_arrow (l, tyo, co, cl) ->
+  | Pcty_arrow (l, co, cl) ->
       line i ppf "Pcty_arrow\n";
       arg_label i ppf l;
-      option i core_type ppf tyo;
       core_type i ppf co;
       class_type i ppf cl;
   | Pcty_extension (s, arg) ->

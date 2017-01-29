@@ -530,18 +530,12 @@ and class_type env scty =
       let typ = Cty_signature clsig.csig_type in
       cltyp (Tcty_signature clsig) typ
 
-  | Pcty_arrow (l, tyo, sty, scty) ->
+  | Pcty_arrow (l, sty, scty) ->
       let cty = transl_simple_type env false sty in
       let ty = cty.ctyp_type in
       let ty =
         if Btype.is_optional l then
-        match tyo with
-        | None ->
             Ctype.newty (Tconstr(Predef.path_option,[ty], ref Mnil))
-        | Some sty2 ->
-            let cty2 = transl_simple_type env false sty2 in
-            let ty2 = cty2.ctyp_type in
-            Ctype.newty (Tconstr(Predef.path_optional,[ty;ty2], ref Mnil))
         else ty in
       let clty = class_type env scty in
       let typ = Cty_arrow (l, ty, clty.cltyp_type) in
@@ -1225,7 +1219,7 @@ let rec approx_declaration cl =
 
 let rec approx_description ct =
   match ct.pcty_desc with
-    Pcty_arrow (l, _, _, ct) ->
+    Pcty_arrow (l, _, ct) ->
       let arg = arg_option l in
       Ctype.newty (Tarrow (l, arg, approx_description ct, Cok))
   | _ -> Ctype.newvar ()
