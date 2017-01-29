@@ -7,6 +7,7 @@ let f (type a) ?( x = 0 : a = int ) (): a = x;;
 
 let k = 1 + f ();;
 let h = f ~x:"Hello" () ^" world";;
+let m = f ?x:Default () + 2;;
 
 let filter (type a b) ?map:?(a->b=a->a) (pred: b -> bool): a list -> a list =
   match map with
@@ -23,6 +24,7 @@ val explicit : ('a, int) optional -> unit -> 'a = <fun>
 val f : ?x:?('a=int) -> unit -> 'a = <fun>
 val k : int = 1
 val h : string = "Hello world"
+val m : int = 2
 val filter : ?map:?('a -> 'b='a -> 'a) -> ('b -> bool) -> 'a list -> 'a list =
   <fun>
 val l : int list = [2; 5; 9]
