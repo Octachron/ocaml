@@ -313,16 +313,6 @@ let default_type () =
   let tvar = newvar () in
   type_optional tvar tvar
 
-let option_none_t env ty loc =
-  let () =
-    try subtype env (default_type ()) ty () with
-      Subtype (tr1, tr2) ->
-        raise(Error(loc, env, Not_subtype(tr1, tr2))) in
-  let lid =  Longident.Lident "Default"
-  and env = Env.initial_safe_string in
-  let cnone = Env.lookup_constructor lid env in
-  mkexp (Texp_construct(mknoloc lid, cnone, [])) ty loc env
-
 let option_none ty loc =
   let lid =  Longident.Lident "None"
   and env = Env.initial_safe_string in
@@ -389,6 +379,14 @@ let unify_exp_types loc env ty expected_ty =
       raise(Error(loc, env, Expr_type_clash(trace)))
   | Tags(l1,l2) ->
       raise(Typetexp.Error(loc, env, Typetexp.Variant_tags (l1, l2)))
+
+(* Generated optional default *)
+let optional_default env ty loc =
+  let () = unify_exp_types loc env ty (default_type ()) in
+  let lid =  Longident.Lident "Default"
+  and env = Env.initial_safe_string in
+  let cnone = Env.lookup_constructor lid env in
+  mkexp (Texp_construct(mknoloc lid, cnone, [])) ty loc env
 
 (* level at which to create the local type declarations *)
 let newtype_level = ref None
@@ -2162,6 +2160,10 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp ty_expected =
       begin match default with
       | None -> [Exp.case (constrain spat) sbody]
       | Some default ->
+          let reconstraint body = match sbody.pexp_desc with
+            | Pexp_constraint (_, ct) ->
+                { body with pexp_desc = Pexp_constraint(body,ct) }
+            | _ -> body in
           let default_loc = default.pexp_loc in
           let sth =
             Exp.ident ~loc:default_loc (mknoloc @@ Longident.Lident "*sth*") in
@@ -2195,8 +2197,8 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp ty_expected =
               (Exp.ident ~loc (mknoloc (Longident.Lident "*opt*")))
               scases
           in
-          let pat = constrain @@ Pat.var ~loc:sloc (mknoloc "*opt*") in
-          [Exp.case pat smatch]
+          let pat = constrain @@ Pat.var ~loc:sloc (mkloc "*opt*" sloc) in
+          [Exp.case pat @@ reconstraint smatch]
       end
   | Pexp_fun (l, None, None, spat, sbody) ->
       type_function ?in_function loc sexp.pexp_attributes env ty_expected
@@ -3512,7 +3514,7 @@ and type_argument ?recarg env sarg ty_expected' ty_expected =
             let ty = option_none (instance env ty_arg) sarg.pexp_loc in
             make_args ((l, Some ty) :: args) ty_fun
         | Tarrow (Typed_optional _ as l ,ty_arg,ty_fun,_) ->
-            let ty = option_none_t env (instance env ty_arg) sarg.pexp_loc in
+            let ty = optional_default env (instance env ty_arg) sarg.pexp_loc in
             make_args ((l, Some ty) :: args) ty_fun
         | Tarrow (l,_,ty_res',_) when l = Nolabel || !Clflags.classic ->
             List.rev args, ty_fun, no_labels ty_res'
@@ -3736,9 +3738,9 @@ and type_application env funct sargs =
                 (Warnings.Without_principality "eliminated optional argument");
               ignored := (l,ty,lv) :: !ignored;
               Some (fun () ->
-                  (if typed_optional l then (option_none_t env)
+                  (if typed_optional l then (optional_default env)
                        else option_none)
-                       (instance env ty) Location.none)
+                       (instance env ty) funct.exp_loc)
             end else begin
               may_warn funct.exp_loc
                 (Warnings.Without_principality "commuted an argument");

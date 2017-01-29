@@ -3,7 +3,7 @@ let explicit (type a) (x: (a,int) optional): unit -> a =
   | Default -> let x = 0 in fun () -> x
   | Specific x -> fun () -> x;;
 
-let f (type a) ?( x = 0 : a = int ) (): a = x;;
+let f (type a) ?( x = 0 : a = int ): unit -> a = fun () -> x;;
 
 let k = 1 + f ();;
 let h = f ~x:"Hello" () ^" world";;
@@ -30,7 +30,7 @@ val filter : ?map:?('a -> 'b='a -> 'a) -> ('b -> bool) -> 'a list -> 'a list =
 val l : int list = [2; 5; 9]
 val l' : int list = [-5; -3]
 Line _:
-Error: Type ('a -> 'b, 'a -> 'b) optional is not a subtype of
-         ('a -> 'b, int) optional
-       Type 'a -> 'b is not compatible with type int
+Error: This expression has type ('a -> 'b, int) optional
+       but an expression was expected of type ('a -> 'b, 'a -> 'b) optional
+       Type int is not compatible with type 'a -> 'b
 |}]
