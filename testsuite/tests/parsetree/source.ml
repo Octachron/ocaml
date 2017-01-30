@@ -7263,3 +7263,13 @@ let foo : type a' b'. a' -> b' = fun a -> assert false
 let foo : type t' . t' = fun (type t') -> (assert false : t')
 let foo : 't . 't = fun (type t) -> (assert false : t)
 let foo : type a' b' c' t. a' -> b' -> c' -> t = fun a b c -> assert false
+
+
+(* Typed optional argument *)
+type 'a t = ?x:?('a = int) ->  unit -> 'a
+let f (type a) ?(x=0: a = int) : unit -> a = fun () -> x
+let filter (type a b) ?map:?(a -> b = a -> a) (pred: b -> bool): a list -> a list =
+  match map with
+  | Default -> List.filter pred
+  | Specific map -> List.filter (fun x -> pred (map x))
+

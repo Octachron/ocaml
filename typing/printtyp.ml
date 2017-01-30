@@ -139,7 +139,7 @@ let print_name ppf = function
 let string_of_label = function
     Nolabel -> ""
   | Labelled s -> s
-  | Optional s -> "?"^s
+  | Optional s | Typed_optional s -> "?"^s
 
 let visited = ref []
 let rec raw_type ppf ty =
@@ -573,6 +573,9 @@ let rec tree_of_typexp sch ty =
               | Tconstr(path, [ty], _)
                 when Path.same path Predef.path_option ->
                   tree_of_typexp sch ty
+              | Tconstr (path,[ty1;ty2], _ )
+                when Path.same path Predef.path_optional ->
+                  Otyp_optional_eq(tree_of_typexp sch ty1, tree_of_typexp sch ty2)
               | _ -> Otyp_stuff "<hidden>"
             else tree_of_typexp sch ty1 in
           Otyp_arrow (lab, t1, tree_of_typexp sch ty2) in

@@ -189,7 +189,7 @@ and rw_exp iflag sexp =
     else
       rewrite_cases iflag caselist
 
-  | Pexp_fun (_, _, p, e) ->
+  | Pexp_fun (_, _,  _, p, e) ->
       let l = [{pc_lhs=p; pc_guard=None; pc_rhs=e}] in
       if !instr_fun then
         rewrite_function iflag l

@@ -95,11 +95,18 @@ let handle_extension ext =
   | _ ->
     ()
 
+
+let add_opt add_fn bv = function
+    None -> ()
+  | Some x -> add_fn bv x
+
 let rec add_type bv ty =
   match ty.ptyp_desc with
     Ptyp_any -> ()
   | Ptyp_var _ -> ()
-  | Ptyp_arrow(_, t1, t2) -> add_type bv t1; add_type bv t2
+  | Ptyp_arrow(_, tyo, t1, t2) ->
+      add_opt add_type bv tyo;
+      add_type bv t1; add_type bv t2
   | Ptyp_tuple tl -> List.iter (add_type bv) tl
   | Ptyp_constr(c, tl) -> add bv c; List.iter (add_type bv) tl
   | Ptyp_object (fl, _) -> List.iter (fun (_, _, t) -> add_type bv t) fl
@@ -117,10 +124,6 @@ let rec add_type bv ty =
 and add_package_type bv (lid, l) =
   add bv lid;
   List.iter (add_type bv) (List.map (fun (_, e) -> e) l)
-
-let add_opt add_fn bv = function
-    None -> ()
-  | Some x -> add_fn bv x
 
 let add_constructor_arguments bv = function
   | Pcstr_tuple l -> List.iter (add_type bv) l
@@ -215,7 +218,8 @@ let rec add_expr bv exp =
   | Pexp_constant _ -> ()
   | Pexp_let(rf, pel, e) ->
       let bv = add_bindings rf bv pel in add_expr bv e
-  | Pexp_fun (_, opte, p, e) ->
+  | Pexp_fun (_, tyo, opte, p, e) ->
+      add_opt (fun bv (x,y) -> add_type bv x; add_type bv y) bv tyo;
       add_opt add_expr bv opte; add_expr (add_pattern bv p) e
   | Pexp_function pel ->
       add_cases bv pel

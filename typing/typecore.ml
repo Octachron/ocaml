@@ -142,7 +142,7 @@ let iter_expression f e =
     | Pexp_new _
     | Pexp_constant _ -> ()
     | Pexp_function pel -> List.iter case pel
-    | Pexp_fun (_, eo, _, e) -> may expr eo; expr e
+    | Pexp_fun (_, _, eo, _, e) -> may expr eo; expr e
     | Pexp_apply (e, lel) -> expr e; List.iter (fun (_, e) -> expr e) lel
     | Pexp_let (_, pel, e) ->  expr e; List.iter binding pel
     | Pexp_match (e, pel)
@@ -302,25 +302,41 @@ let constant_or_raise env loc cst =
 let type_option ty =
   newty (Tconstr(Predef.path_option,[ty], ref Mnil))
 
+let type_optional ty ty2=
+  newty (Tconstr(Predef.path_optional,[ty;ty2], ref Mnil))
+
 let mkexp exp_desc exp_type exp_loc exp_env =
   { exp_desc; exp_type; exp_loc; exp_env; exp_extra = []; exp_attributes = [] }
 
+
+let default_type () =
+  let tvar = newvar () in
+  type_optional tvar tvar
+
 let option_none ty loc =
-  let lid = Longident.Lident "None"
+  let lid =  Longident.Lident "None"
   and env = Env.initial_safe_string in
   let cnone = Env.lookup_constructor lid env in
   mkexp (Texp_construct(mknoloc lid, cnone, [])) ty loc env
 
-let option_some texp =
-  let lid = Longident.Lident "Some" in
+let option_some_t typed texp =
+  let lid = Longident.Lident (if typed then "Specific" else "Some") in
   let csome = Env.lookup_constructor lid Env.initial_safe_string in
   mkexp ( Texp_construct(mknoloc lid , csome, [texp]) )
     (type_option texp.exp_type) texp.exp_loc texp.exp_env
 
-let extract_option_type env ty =
-  match expand_head env ty with {desc = Tconstr(path, [ty], _)}
-    when Path.same path Predef.path_option -> ty
+let option_some = option_some_t false
+
+let extract_option_type_t typed env ty =
+  match expand_head env ty with
+  | {desc = Tconstr(path, [ty], _)}
+    when not typed && Path.same path Predef.path_option -> ty
+  | {desc = Tconstr(path, [ty; _default], _)}
+    when typed && Path.same path Predef.path_optional -> ty
   | _ -> assert false
+let extract_option_type = extract_option_type_t false
+
+let typed_optional = function Typed_optional _ -> true | _ -> false
 
 let extract_concrete_record env ty =
   match extract_concrete_typedecl env ty with
@@ -363,6 +379,14 @@ let unify_exp_types loc env ty expected_ty =
       raise(Error(loc, env, Expr_type_clash(trace)))
   | Tags(l1,l2) ->
       raise(Typetexp.Error(loc, env, Typetexp.Variant_tags (l1, l2)))
+
+(* Generated optional default *)
+let optional_default env ty loc =
+  let () = unify_exp_types loc env ty (default_type ()) in
+  let lid =  Longident.Lident "Default"
+  and env = Env.initial_safe_string in
+  let cnone = Env.lookup_constructor lid env in
+  mkexp (Texp_construct(mknoloc lid, cnone, [])) ty loc env
 
 (* level at which to create the local type declarations *)
 let newtype_level = ref None
@@ -1656,10 +1680,18 @@ and is_nonexpansive_opt = function
 
 (* Approximate the type of an expression, for better recursion *)
 
+let opt_approx p tyo =
+  if is_optional p then
+    match tyo with
+    | Some _default -> type_optional (newvar()) (newvar ())
+    | None -> type_option (newvar())
+  else
+    newvar ()
+
 let rec approx_type env sty =
   match sty.ptyp_desc with
-    Ptyp_arrow (p, _, sty) ->
-      let ty1 = if is_optional p then type_option (newvar ()) else newvar () in
+    Ptyp_arrow (p, tyo, _, sty) ->
+      let ty1 = opt_approx p tyo in
       newty (Tarrow (p, ty1, approx_type env sty, Cok))
   | Ptyp_tuple args ->
       newty (Ttuple (List.map (approx_type env) args))
@@ -1679,8 +1711,8 @@ let rec approx_type env sty =
 let rec type_approx env sexp =
   match sexp.pexp_desc with
     Pexp_let (_, _, e) -> type_approx env e
-  | Pexp_fun (p, _, _, e) ->
-      let ty = if is_optional p then type_option (newvar ()) else newvar () in
+  | Pexp_fun (p, tyo, _, _, e) ->
+      let ty = opt_approx p tyo in
       newty (Tarrow(p, ty, type_approx env e, Cok))
   | Pexp_function ({pc_rhs=e}::_) ->
       newty (Tarrow(Nolabel, newvar (), type_approx env e, Cok))
@@ -2074,7 +2106,7 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp ty_expected =
         exp_type = body.exp_type;
         exp_attributes = sexp.pexp_attributes;
         exp_env = env }
-  | Pexp_fun (l, Some default, spat, sbody) ->
+  | Pexp_fun (l, None, Some default, spat, sbody) ->
       assert(is_optional l); (* default allowed only with optional argument *)
       let open Ast_helper in
       let default_loc = default.pexp_loc in
@@ -2109,7 +2141,66 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp ty_expected =
       in
       type_function ?in_function loc sexp.pexp_attributes env ty_expected
         l [Exp.case pat body]
-  | Pexp_fun (l, None, spat, sbody) ->
+  | Pexp_fun (l, Some (ty1,ty2),default , spat, sbody) ->
+      assert(is_optional l);
+      (* default types are allowed only with typed optional argument *)
+      let open Ast_helper in
+      let constrain pat =
+        let typ = Typ.constr
+            (mknoloc @@ Longident.Lident "optional") [ty1;ty2] in
+        Pat.constraint_ ~loc:pat.ppat_loc pat typ in
+      let lident x = mknoloc @@ Longident.Lident x in
+      let f_name = "*opttyped_fn*" in
+      let f = Exp.ident ~loc  (lident f_name) in
+      let let_f_in =
+        let body = Exp.fun_ ~loc Nolabel None spat sbody in
+        let name = Pat.var ~loc (mknoloc f_name) in
+        Exp.let_ ~loc Nonrecursive [Vb.mk name body] in
+      type_function ?in_function loc sexp.pexp_attributes env ty_expected l @@
+      begin match default with
+      | None -> [Exp.case (constrain spat) sbody]
+      | Some default ->
+          let reconstraint body = match sbody.pexp_desc with
+            | Pexp_constraint (_, ct) ->
+                { body with pexp_desc = Pexp_constraint(body,ct) }
+            | _ -> body in
+          let default_loc = default.pexp_loc in
+          let sth =
+            Exp.ident ~loc:default_loc (mknoloc @@ Longident.Lident "*sth*") in
+          let (<*>) f x =
+            Exp.apply ~loc f [Nolabel, x] in
+          let scases =
+          [
+            Exp.case
+              (Pat.construct ~loc:default_loc
+                 (lident "Specific")
+                 (Some (Pat.var ~loc:default_loc (mknoloc "*sth*")))
+              )
+              ( f <*> sth)
+            ;
+
+            Exp.case
+              (Pat.construct ~loc:default_loc
+                 (lident "Default")
+                 None
+              )
+              (f <*> default)
+          ] in
+          let sloc =
+            { Location.loc_start = spat.ppat_loc.Location.loc_start;
+              loc_end = default_loc.Location.loc_end;
+              loc_ghost = true }
+          in
+          let smatch =
+            let_f_in @@
+            Exp.match_ ~loc:sloc
+              (Exp.ident ~loc (mknoloc (Longident.Lident "*opt*")))
+              scases
+          in
+          let pat = constrain @@ Pat.var ~loc:sloc (mkloc "*opt*" sloc) in
+          [Exp.case pat @@ reconstraint smatch]
+      end
+  | Pexp_fun (l, None, None, spat, sbody) ->
       type_function ?in_function loc sexp.pexp_attributes env ty_expected
         l [Ast_helper.Exp.case spat sbody]
   | Pexp_function caselist ->
@@ -3028,14 +3119,22 @@ and type_function ?in_function loc attrs env ty_expected l caselist =
                       Too_many_arguments (in_function <> None, ty_fun)))
   in
   let ty_arg =
-    if is_optional l then
-      let tv = newvar() in
-      begin
-        try unify env ty_arg (type_option tv)
-        with Unify _ -> assert false
-      end;
-      type_option tv
-    else ty_arg
+    match l with
+    | Optional _ ->
+        let tv = newvar() in
+        begin
+          try unify env ty_arg (type_option tv)
+          with Unify _ -> assert false
+        end;
+        type_option tv
+    | Typed_optional _ ->
+        let tv1, tv2 = newvar(), newvar () in
+        begin
+          try unify env ty_arg (type_optional tv1 tv2)
+          with Unify _ -> assert false
+        end;
+        type_optional tv1 tv2
+    | Labelled _ | Nolabel -> ty_arg
   in
   if separate then begin
     end_def ();
@@ -3411,8 +3510,11 @@ and type_argument ?recarg env sarg ty_expected' ty_expected =
       end;
       let rec make_args args ty_fun =
         match (expand_head env ty_fun).desc with
-        | Tarrow (l,ty_arg,ty_fun,_) when is_optional l ->
+        | Tarrow (Optional _ as l,ty_arg,ty_fun,_) ->
             let ty = option_none (instance env ty_arg) sarg.pexp_loc in
+            make_args ((l, Some ty) :: args) ty_fun
+        | Tarrow (Typed_optional _ as l ,ty_arg,ty_fun,_) ->
+            let ty = optional_default env (instance env ty_arg) sarg.pexp_loc in
             make_args ((l, Some ty) :: args) ty_fun
         | Tarrow (l,_,ty_res',_) when l = Nolabel || !Clflags.classic ->
             List.rev args, ty_fun, no_labels ty_res'
@@ -3534,11 +3636,13 @@ and type_application env funct sargs =
                   raise(Error(funct.exp_loc, env, Apply_non_function
                                 (expand_head env funct.exp_type)))
         in
-        let optional = is_optional l1 in
         let arg1 () =
           let arg1 = type_expect env sarg1 ty1 in
-          if optional then
-            unify_exp env arg1 (type_option(newvar()));
+         (match l1 with
+         | Optional _ -> unify_exp env arg1 (type_option(newvar()))
+         | Typed_optional _ -> unify_exp env arg1
+                                 (type_optional(newvar())(newvar()))
+         | Labelled _ | Nolabel -> () ) ;
           arg1
         in
         type_unknown_args ((l1, Some arg1) :: args) omitted ty2 sargl
@@ -3588,7 +3692,8 @@ and type_application env funct sargs =
                               Apply_wrong_label(l', ty_fun')))
                 else
                   ([], more_sargs,
-                   Some (fun () -> type_argument env sarg0 ty ty0))
+                   Some (fun () ->
+                      type_argument env sarg0 ty ty0))
             | _ ->
                 assert false
           end else try
@@ -3616,9 +3721,12 @@ and type_application env funct sargs =
             else begin
               may_warn sarg0.pexp_loc
                 (Warnings.Not_principal "using an optional argument here");
-              Some (fun () -> option_some (type_argument env sarg0
-                                             (extract_option_type env ty)
-                                             (extract_option_type env ty0)))
+              Some (fun () ->
+                  let typed = typed_optional l in
+                  option_some_t typed (type_argument env sarg0
+                                       (extract_option_type_t typed env ty)
+                                       (extract_option_type_t typed env ty0))
+                )
             end
           with Not_found ->
             sargs, more_sargs,
@@ -3629,7 +3737,10 @@ and type_application env funct sargs =
               may_warn funct.exp_loc
                 (Warnings.Without_principality "eliminated optional argument");
               ignored := (l,ty,lv) :: !ignored;
-              Some (fun () -> option_none (instance env ty) Location.none)
+              Some (fun () ->
+                  (if typed_optional l then (optional_default env)
+                       else option_none)
+                       (instance env ty) funct.exp_loc)
             end else begin
               may_warn funct.exp_loc
                 (Warnings.Without_principality "commuted an argument");
@@ -3788,7 +3899,7 @@ and type_cases ?in_function env ty_arg ty_res partial_flag loc caselist =
   let contains_polyvars = List.exists contains_polymorphic_variant patterns in
   let erase_either = contains_polyvars && contains_variant_either ty_arg
   and has_gadts = List.exists (contains_gadt env) patterns in
-(*  prerr_endline ( if has_gadts then "contains gadt" else "no gadt"); *)
+  (*  prerr_endline ( if has_gadts then "contains gadt" else "no gadt");*)
   let ty_arg =
     if (has_gadts || erase_either) && not !Clflags.principal
     then correct_levels ty_arg else ty_arg

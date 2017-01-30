@@ -367,15 +367,17 @@ let expression sub exp =
     (* One case, no guard: It's a fun. *)
     | Texp_function { arg_label; cases = [{c_lhs=p; c_guard=None; c_rhs=e}];
           _ } ->
-        Pexp_fun (arg_label, None, sub.pat sub p, sub.expr sub e)
+        Pexp_fun (arg_label, None, None, sub.pat sub p, sub.expr sub e)
     (* No label: it's a function. *)
     | Texp_function { arg_label = Nolabel; cases; _; } ->
         Pexp_function (sub.cases sub cases)
     (* Mix of both, we generate `fun ~label:$name$ -> match $name$ with ...` *)
-    | Texp_function { arg_label = Labelled s | Optional s as label; cases;
+    | Texp_function {
+        arg_label = Labelled s | Optional s | Typed_optional s as label;
+        cases;
           _ } ->
         let name = fresh_name s exp.exp_env in
-        Pexp_fun (label, None, Pat.var ~loc {loc;txt = name },
+        Pexp_fun (label, None, None, Pat.var ~loc {loc;txt = name },
           Exp.match_ ~loc (Exp.ident ~loc {loc;txt= Lident name})
                           (sub.cases sub cases))
     | Texp_apply (exp, list) ->
@@ -679,7 +681,7 @@ let core_type sub ct =
       Ttyp_any -> Ptyp_any
     | Ttyp_var s -> Ptyp_var s
     | Ttyp_arrow (label, ct1, ct2) ->
-        Ptyp_arrow (label, sub.typ sub ct1, sub.typ sub ct2)
+        Ptyp_arrow (label, None, sub.typ sub ct1, sub.typ sub ct2)
     | Ttyp_tuple list -> Ptyp_tuple (List.map (sub.typ sub) list)
     | Ttyp_constr (_path, lid, list) ->
         Ptyp_constr (map_loc sub lid,

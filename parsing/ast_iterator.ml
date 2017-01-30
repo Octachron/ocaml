@@ -93,8 +93,8 @@ module T = struct
     match desc with
     | Ptyp_any
     | Ptyp_var _ -> ()
-    | Ptyp_arrow (_lab, t1, t2) ->
-        sub.typ sub t1; sub.typ sub t2
+    | Ptyp_arrow (_lab, tyo,  t1, t2) ->
+        iter_opt (sub.typ sub) tyo; sub.typ sub t1; sub.typ sub t2
     | Ptyp_tuple tyl -> List.iter (sub.typ sub) tyl
     | Ptyp_constr (lid, tl) ->
         iter_loc sub lid; List.iter (sub.typ sub) tl
@@ -307,7 +307,8 @@ module E = struct
     | Pexp_let (_r, vbs, e) ->
         List.iter (sub.value_binding sub) vbs;
         sub.expr sub e
-    | Pexp_fun (_lab, def, p, e) ->
+    | Pexp_fun (_lab, tyo, def, p, e) ->
+        iter_opt (iter_tuple (sub.typ sub) (sub.typ sub)) tyo;
         iter_opt (sub.expr sub) def;
         sub.pat sub p;
         sub.expr sub e

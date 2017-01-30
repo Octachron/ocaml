@@ -228,11 +228,16 @@ let rec class_params_def ctxt f =  function
       pp f "[%a] " (* space *)
         (list (type_param ctxt) ~sep:",") l
 
-and type_with_label ctxt f (label, c) =
+and type_with_label ctxt f (label,tyo, c) =
   match label with
   | Nolabel    -> core_type1 ctxt f c (* otherwise parenthesize *)
   | Labelled s -> pp f "%s:%a" s (core_type1 ctxt) c
   | Optional s -> pp f "?%s:%a" s (core_type1 ctxt) c
+  | Typed_optional s ->
+      match tyo with
+      | None -> assert false
+      | Some default ->
+      pp f "?%s:?(%a=%a)" s (core_type1 ctxt) c (core_type1 ctxt) default
 
 and core_type ctxt f x =
   if x.ptyp_attributes <> [] then begin
@@ -240,9 +245,9 @@ and core_type ctxt f x =
       (attributes ctxt) x.ptyp_attributes
   end
   else match x.ptyp_desc with
-    | Ptyp_arrow (l, ct1, ct2) ->
+    | Ptyp_arrow (l, tyo, ct1, ct2) ->
         pp f "@[<2>%a@;->@;%a@]" (* FIXME remove parens later *)
-          (type_with_label ctxt) (l,ct1) (core_type ctxt) ct2
+          (type_with_label ctxt) (l,tyo,ct1) (core_type ctxt) ct2
     | Ptyp_alias (ct, s) ->
         pp f "@[<2>%a@;as@;'%s@]" (core_type1 ctxt) ct s
     | Ptyp_poly (sl, ct) ->
@@ -421,23 +426,33 @@ and simple_pattern ctxt (f:Format.formatter) (x:pattern) : unit =
           (paren with_paren @@ pattern1 ctxt) p
     | _ -> paren true (pattern ctxt) f x
 
-and label_exp ctxt f (l,opt,p) =
+and pp_tyopt pre post ctxt f = function
+  | None -> ()
+  | Some (a,b) ->
+      pp f "%s%a=%a%s" pre (core_type1 ctxt) a (core_type1 ctxt) b post
+
+and label_exp ctxt f (l, tyopt, opt,p) =
   match l with
   | Nolabel ->
       (* single case pattern parens needed here *)
       pp f "%a@ " (simple_pattern ctxt) p
-  | Optional rest ->
+  | Optional rest | Typed_optional rest ->
       begin match p.ppat_desc with
       | Ppat_var {txt;_} when txt = rest ->
           (match opt with
-           | Some o -> pp f "?(%s=@;%a)@;" rest  (expression ctxt) o
-           | None -> pp f "?%s@ " rest)
+           | Some o -> pp f "?(%s=@;%a%a)@;" rest  (expression ctxt) o
+                         (pp_tyopt ":" "" ctxt) tyopt
+           | None -> pp f "?%s%a@ " rest (pp_tyopt ":?(" ")" ctxt) tyopt
+          )
       | _ ->
           (match opt with
            | Some o ->
-               pp f "?%s:(%a=@;%a)@;"
+               pp f "?%s:(%a=@;%a@;%a)@;"
                  rest (pattern1 ctxt) p (expression ctxt) o
-           | None -> pp f "?%s:%a@;" rest (simple_pattern ctxt) p)
+                 (pp_tyopt ":" "" ctxt) tyopt
+           | None -> pp f "?%s:%a%a@;" rest (simple_pattern ctxt) p
+                       (pp_tyopt ":(" ")" ctxt) tyopt
+          )
       end
   | Labelled l -> match p.ppat_desc with
     | Ppat_var {txt;_} when txt = l ->
@@ -500,9 +515,9 @@ and expression ctxt f x =
     | Pexp_let _ | Pexp_letmodule _ | Pexp_open _ | Pexp_letexception _
         when ctxt.semi ->
         paren true (expression reset_ctxt) f x
-    | Pexp_fun (l, e0, p, e) ->
+    | Pexp_fun (l, tyo, e0, p, e) ->
         pp f "@[<2>fun@;%a@;->@;%a@]"
-          (label_exp ctxt) (l, e0, p)
+          (label_exp ctxt) (l, tyo, e0, p)
           (expression ctxt) e
     | Pexp_function l ->
         pp f "@[<hv>function%a@]" (case_list ctxt) l
@@ -775,7 +790,7 @@ and class_type ctxt f x =
         (attributes ctxt) x.pcty_attributes
   | Pcty_arrow (l, co, cl) ->
       pp f "@[<2>%a@;->@;%a@]" (* FIXME remove parens later *)
-        (type_with_label ctxt) (l,co)
+        (type_with_label ctxt) (l,None,co)
         (class_type ctxt) cl
   | Pcty_extension e ->
       extension ctxt f e;
@@ -874,7 +889,7 @@ and class_expr ctxt f x =
     | Pcl_structure (cs) -> class_structure ctxt f cs
     | Pcl_fun (l, eo, p, e) ->
         pp f "fun@ %a@ ->@ %a"
-          (label_exp ctxt) (l,eo,p)
+          (label_exp ctxt) (l, None, eo,p)
           (class_expr ctxt) e
     | Pcl_let (rf, l, ce) ->
         pp f "%a@ in@ %a"
@@ -1072,12 +1087,12 @@ and binding ctxt f {pvb_pat=p; pvb_expr=x; _} =
   let rec pp_print_pexp_function f x =
     if x.pexp_attributes <> [] then pp f "=@;%a" (expression ctxt) x
     else match x.pexp_desc with
-      | Pexp_fun (label, eo, p, e) ->
+      | Pexp_fun (label, tyo, eo, p, e) ->
           if label=Nolabel then
             pp f "%a@ %a" (simple_pattern ctxt) p pp_print_pexp_function e
           else
             pp f "%a@ %a"
-              (label_exp ctxt) (label,eo,p) pp_print_pexp_function e
+              (label_exp ctxt) (label, tyo, eo,p) pp_print_pexp_function e
       | Pexp_newtype (str,e) ->
           pp f "(type@ %s)@ %a" str.txt pp_print_pexp_function e
       | _ -> pp f "=@;%a" (expression ctxt) x
@@ -1199,7 +1214,7 @@ and structure_item ctxt f x =
         let rec loop acc cl =
           match cl.pcl_desc with
           | Pcl_fun (l, eo, p, cl') when cl.pcl_attributes = [] ->
-              loop ((l,eo,p) :: acc) cl'
+              loop ((l,None,eo,p) :: acc) cl'
           | _ -> List.rev acc, cl
         in
         let args, cl = loop [] cl in
@@ -1417,7 +1432,7 @@ and label_x_expression_param ctxt f (l,e) =
     | _ -> None
   in match l with
   | Nolabel  -> expression2 ctxt f e (* level 2*)
-  | Optional str ->
+  | Optional str | Typed_optional str ->
       if Some str = simple_name then
         pp f "?%s" str
       else
