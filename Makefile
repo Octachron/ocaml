@@ -749,18 +749,28 @@ partialclean::
 	done
 	rm -f *~
 
+DEP_OUT=.depend
+FDEP_OUT=>$(DEP_OUT)
 depend: beforedepend
-	(for d in utils parsing typing bytecomp asmcomp middle_end \
-	          middle_end/base_types driver toplevel; \
-	 do \
-	   $(CAMLDEP) $(DEPFLAGS) $$d/*.mli $$d/*.ml; \
-	 done) > .depend
-	$(CAMLDEP) $(DEPFLAGS) -native \
-		-impl driver/compdynlink.mlopt >> .depend
-	$(CAMLDEP) $(DEPFLAGS) -bytecode \
-		-impl driver/compdynlink.mlbyte >> .depend
+	   $(CAMLDEP) $(DEPFLAGS) {utils,parsing,typing,bytecomp,asmcomp,middle_end,middle_end/base_types,driver,toplevel}/*.ml{,i} $(FDEP_OUT)
+	$(CAMLDEP) $(DEPFLAGS) $(DEP_IN) -native \
+		-impl driver/compdynlink.mlopt >> $(DEP_OUT)
+	$(CAMLDEP) $(DEPFLAGS) $(DEP_IN) -bytecode \
+		-impl driver/compdynlink.mlbyte >> $(DEP_OUT)
 
 alldepend:: depend
+
+codepend: CAMLDEP=codept
+codepend: DEP_OUT=.codepend
+codepend: DEP_IN=.all.sig 
+codepend: FDEP_OUT=-o .codepend -makefile -o $(DEP_IN) -sig 
+codepend:depend
+
+allcodepend: CAMLDEP=codept
+allcodepend: DEP_OUT=.codepend
+allodepend: DEP_IN=.all.sig 
+allodepend: FDEP_OUT=-o .codepend -makefile -o $(DEP_IN) -sig 
+allcodepend: alldepend
 
 distclean:
 	$(MAKE) clean
