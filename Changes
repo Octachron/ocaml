@@ -334,6 +334,10 @@ Next version (4.05.0):
 - PR#7216, GPR#949: don't require double parens in Functor((val x))
   (Jacques Garrigue, review by Valentin Gatien-Baron)
 
+- PR#7331: ocamldoc, avoid infinite loop in presence of self alias,
+  i.e. module rec M:sig end = M
+  (Florian Angeletti)
+
 - PR#7414, GPR#929: Soundness bug with non-generalized type variable and functor
   (Jacques Garrigue, report by Leo White)
 

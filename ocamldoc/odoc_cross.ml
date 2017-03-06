@@ -93,18 +93,21 @@ let rec build_alias_list = function
   | (Odoc_search.Res_module m) :: q ->
       (
        match m.m_kind with
-         Module_alias ma ->
-           Hashtbl.add module_aliases m.m_name (ma.ma_name, Alias_to_resolve);
-           Hashtbl.add module_and_modtype_aliases m.m_name (ma.ma_name, Alias_to_resolve)
+          Module_alias ma ->
+            if m.m_name <> ma.ma_name then
+              begin
+                Hashtbl.add module_aliases m.m_name (ma.ma_name, Alias_to_resolve);
+                Hashtbl.add module_and_modtype_aliases m.m_name (ma.ma_name, Alias_to_resolve) end
        | _ -> ()
       );
       build_alias_list q
   | (Odoc_search.Res_module_type mt) :: q ->
       (
        match mt.mt_kind with
-         Some (Module_type_alias mta) ->
-           Hashtbl.add module_and_modtype_aliases
-             mt.mt_name (mta.mta_name, Alias_to_resolve)
+          Some (Module_type_alias mta) ->
+            if mta.mta_name <> mt.mt_name then
+              Hashtbl.add module_and_modtype_aliases
+                mt.mt_name (mta.mta_name, Alias_to_resolve)
        | _ -> ()
       );
       build_alias_list q
