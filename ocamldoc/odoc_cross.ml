@@ -40,104 +40,6 @@ let verified_refs = ref S.empty
 let add_verified v = verified_refs := S.add v !verified_refs
 let was_verified v = S.mem v !verified_refs
 
-(** The module with the predicates used to get the aliased modules, classes and exceptions. *)
-module P_alias =
-  struct
-    type t = int
-
-    let p_module m _ =
-      (true,
-       match m.m_kind with
-         Module_alias _ -> true
-       | _ -> false
-      )
-    let p_module_type mt _ =
-      (true,
-       match mt.mt_kind with
-         Some (Module_type_alias _) -> true
-       | _ -> false
-      )
-    let p_class _ _ = (false, false)
-    let p_class_type _ _ = (false, false)
-    let p_value _ _ = false
-    let p_recfield _ _ _ = false
-    let p_const _ _ _ = false
-    let p_type _ _ = (false, false)
-    let p_extension x _ = x.xt_alias <> None
-    let p_exception e _ = e.ex_alias <> None
-    let p_attribute _ _ = false
-    let p_method _ _ = false
-    let p_section _ _ = false
-  end
-
-(** The module used to get the aliased elements. *)
-module Search_alias = Odoc_search.Search (P_alias)
-
-type alias_state =
-  | Alias_to_resolve
-
-(** Couples of module name aliases. *)
-let (module_aliases : (Name.t, Name.t * alias_state) Hashtbl.t) = Hashtbl.create 13 ;;
-
-(** Couples of module or module type name aliases. *)
-let module_and_modtype_aliases = Hashtbl.create 13;;
-
-(** Couples of extension name aliases. *)
-let extension_aliases = Hashtbl.create 13;;
-
-(** Couples of exception name aliases. *)
-let exception_aliases = Hashtbl.create 13;;
-
-let rec build_alias_list = function
-    [] -> ()
-  | (Odoc_search.Res_module m) :: q ->
-      (
-       match m.m_kind with
-         Module_alias ma ->
-           Hashtbl.add module_aliases m.m_name (ma.ma_name, Alias_to_resolve);
-           Hashtbl.add module_and_modtype_aliases m.m_name (ma.ma_name, Alias_to_resolve)
-       | _ -> ()
-      );
-      build_alias_list q
-  | (Odoc_search.Res_module_type mt) :: q ->
-      (
-       match mt.mt_kind with
-         Some (Module_type_alias mta) ->
-           Hashtbl.add module_and_modtype_aliases
-             mt.mt_name (mta.mta_name, Alias_to_resolve)
-       | _ -> ()
-      );
-      build_alias_list q
-  | (Odoc_search.Res_extension x) :: q ->
-      (
-       match x.xt_alias with
-         None -> ()
-       | Some xa ->
-           Hashtbl.add extension_aliases
-             x.xt_name (xa.xa_name,Alias_to_resolve)
-      );
-      build_alias_list q
-  | (Odoc_search.Res_exception e) :: q ->
-      (
-       match e.ex_alias with
-         None -> ()
-       | Some ea ->
-           Hashtbl.add exception_aliases
-             e.ex_name (ea.ea_name,Alias_to_resolve)
-      );
-      build_alias_list q
-  | _ :: q ->
-      build_alias_list q
-
-(** Retrieve the aliases for modules, module types and exceptions
-   and put them in global hash tables. *)
-let get_alias_names module_list =
-  Hashtbl.clear module_aliases;
-  Hashtbl.clear module_and_modtype_aliases;
-  Hashtbl.clear extension_aliases;
-  Hashtbl.clear exception_aliases;
-  build_alias_list (Search_alias.search module_list 0)
-
 module Map_ord =
   struct
     type t = string
@@ -1083,7 +985,6 @@ let associate_type_of_elements_in_comments module_list =
 (***********************************************************)
 (** The function which performs all the cross referencing. *)
 let associate module_list =
-  get_alias_names module_list ;
   init_known_elements_map module_list;
   let rec remove_doubles acc = function
       [] -> acc
