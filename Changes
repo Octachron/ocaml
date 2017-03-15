@@ -38,6 +38,7 @@ Working version
   a trailing "Error: Some fatal warnings were triggered" message.
   (Valentin Gatien-Baron, review by Alain Frisch)
 
+
 ### Tools:
 
 - GPR#1045: ocamldep, add a "-shared" option to generate dependencies
@@ -61,9 +62,12 @@ Working version
 
 ### Bug fixes
 
+- PR#6587: only elide Pervasives from printed type paths in
+  unambiguous context
+  (Florian Angeletti)
+
 - PR#7468: possible GC problem in caml_alloc_sprintf
   (Xavier Leroy, discovery by Olivier Andrieu)
-
 
 Next major version (4.05.0):
 ----------------------------
