@@ -740,11 +740,11 @@ val make_formatter :
   function [out], and flushes with function [flush].
 
   For instance,
-  [
+  {[
     make_formatter
       (Pervasives.output oc)
       (fun () -> Pervasives.flush oc)
-  ]
+  ]}
   returns a formatter to the {!Pervasives.out_channel} [oc].
 *)
 
