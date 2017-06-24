@@ -26,7 +26,6 @@ open Btype
 open Outcometree
 
 (* Print a long identifier *)
-
 let rec longident ppf = function
   | Lident s -> pp_print_string ppf s
   | Ldot(p, s) -> fprintf ppf "%a.%s" longident p s
@@ -1363,26 +1362,12 @@ let prepare_expansion (t, t') =
   if not (same_path t t') then mark_loops t';
   (t, t')
 
-let may_prepare_expansion compact (t, t') =
-  match (repr t').desc with
-    Tvariant _ | Tobject _ when compact ->
-      mark_loops t; (t, t)
-  | _ -> prepare_expansion (t, t')
-
-let print_tags ppf fields =
-  match fields with [] -> ()
-  | (t, _) :: fields ->
-      fprintf ppf "`%s" t;
-      List.iter (fun (t, _) -> fprintf ppf ",@ `%s" t) fields
 
 type pos = First | Second
-let pp_pos ppf pos= Format.pp_print_string ppf
-    (match pos with First -> "first" | Second -> "second")
-
 type explanation =
   | Escaping_self_type
   | Escaping_type_constructor of Path.t
-  | Escaping_universal of type_expr
+  | Escaping_universal of pos * type_expr
   | Occur_in of type_expr * type_expr
   | Unifying_self_with_closed
   | Incompatible_methods of string
@@ -1391,6 +1376,27 @@ type explanation =
   | No_intersecting_variants
   | Not_allowed_variant_tag of pos * (label * row_field) list
   | Incompatible_tag_types of string
+
+let may_prepare_expansion (pos,expl) compact (t, t') =
+  match (repr t').desc with
+    Tvariant _ | Tobject _ when compact ->
+      begin match expl with
+      | Some Escaping_universal(p,_) when p = pos ->
+          (* if the type contains an escaped universal type variable,
+             we extend it even in compact mode *)
+          prepare_expansion(t,t')
+      | _ -> mark_loops t; (t, t)
+      end
+  | _ -> prepare_expansion (t, t')
+
+let print_tags ppf fields =
+  match fields with [] -> ()
+  | (t, _) :: fields ->
+      fprintf ppf "`%s" t;
+      List.iter (fun (t, _) -> fprintf ppf ",@ `%s" t) fields
+
+let pp_pos ppf pos= Format.pp_print_string ppf
+    (match pos with First -> "first" | Second -> "second")
 
 let find_explanation unif t3 t4 = match t3.desc, t4.desc with
   | Ttuple [], Tvar _ | Tvar _, Ttuple [] -> Some Escaping_self_type
@@ -1401,7 +1407,8 @@ let find_explanation unif t3 t4 = match t3.desc, t4.desc with
     when unif && t3.level < Path.binding_time p ->
       Some (Escaping_type_constructor p)
   | Tvar _, Tunivar _ | Tunivar _, Tvar _  ->
-      Some(Escaping_universal (if is_Tvar t3 then t4 else t3))
+      let pos, t = if is_Tvar t3 then First, t4 else Second, t3 in
+      Some(Escaping_universal (pos,t))
   | Tvar _ , _ | _, Tvar _  ->
       let v, t = if is_Tvar t3 then t3,t4 else t4,t3 in
       Some(Occur_in(v,t))
@@ -1448,7 +1455,7 @@ let explanation expl ppf =
       fprintf ppf
         "@,@[The type constructor@;<1 2>%a@ would escape its scope@]"
         path p
-  | Escaping_universal e ->
+  | Escaping_universal (_,e) ->
       fprintf ppf "@,The universal variable %a would escape its scope"
         type_expr e
   | Occur_in(t,t') ->
@@ -1532,8 +1539,8 @@ let unification_error env unif tr txt1 ppf txt2 =
   | t1 :: t2 :: tr ->
     try
       let tr = filter_trace (mis = None) tr in
-      let t1, t1' = may_prepare_expansion (tr = []) t1
-      and t2, t2' = may_prepare_expansion (tr = []) t2 in
+      let t1, t1' = may_prepare_expansion (First,mis) (tr = []) t1
+      and t2, t2' = may_prepare_expansion (Second,mis) (tr = []) t2 in
       print_labels := not !Clflags.classic;
       let tr = List.map prepare_expansion tr in
       fprintf ppf

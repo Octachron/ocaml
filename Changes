@@ -236,6 +236,9 @@ Working version
 - PR#7543: short-paths printtyp can fail on packed type error messages
   (Florian Angeletti)
 
+- PR#7565: universal type variables may appear unannounced in error messages
+  (Florian Angeletti and Leo White)
+
 - GPR#1155: Fix a race condition with WAIT_NOHANG on Windows
   (Jérémie Dimino and David Allsopp)
 
