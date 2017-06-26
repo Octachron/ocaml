@@ -1948,7 +1948,8 @@ let report_error ppf = function
             "case" (fun ppf c ->
                 fprintf ppf
                   "%s of %a" (Ident.name c.Types.cd_id)
-                  Printtyp.constructor_arguments c.Types.cd_args)
+                  Printtyp.print_constructor_args
+                  (Printtyp.constructor_arguments c.Types.cd_args))
       | Type_record (tl, _), _ ->
           explain_unbound ppf ty tl (fun l -> l.Types.ld_type)
             "field" (fun l -> Ident.name l.Types.ld_id ^ ": ")

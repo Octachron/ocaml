@@ -1545,8 +1545,10 @@ let final_decl env define_class
   | Some reason ->
       let printer =
         if define_class
-        then function ppf -> Printtyp.class_declaration id ppf clty
-        else function ppf -> Printtyp.cltype_declaration id ppf cltydef
+        then function ppf ->
+          Printtyp.(print_sigitem ppf @@ class_declaration id clty)
+        else function ppf ->
+          Printtyp.( print_sigitem ppf @@ cltype_declaration id cltydef )
       in
       raise(Error(cl.pci_loc, env, Unbound_type_var(printer, reason)))
   end;
@@ -1765,7 +1767,7 @@ let report_error env ppf = function
   | Structure_expected clty ->
       fprintf ppf
         "@[This class expression is not a class structure; it has type@ %a@]"
-        Printtyp.class_type clty
+        Printtyp.print_class_type (Printtyp.class_type clty)
   | Cannot_apply _ ->
       fprintf ppf
         "This class expression is not a class function, it cannot be applied"
@@ -1864,23 +1866,23 @@ let report_error env ppf = function
         "@[<v>@[Self type should not occur in the non-generic type@;<1 2>\
                 %a@]@,\
            It would escape the scope of its class@]"
-        Printtyp.type_scheme ty
+        Printtyp.print_type (Printtyp.type_scheme ty)
   | Non_generalizable_class (id, clty) ->
       fprintf ppf
         "@[The type of this class,@ %a,@ \
            contains type variables that cannot be generalized@]"
-        (Printtyp.class_declaration id) clty
+        Printtyp.print_sigitem (Printtyp.class_declaration id clty)
   | Cannot_coerce_self ty ->
       fprintf ppf
         "@[The type of self cannot be coerced to@ \
            the type of the current class:@ %a.@.\
            Some occurrences are contravariant@]"
-        Printtyp.type_scheme ty
+         Printtyp.print_type (Printtyp.type_scheme ty)
   | Non_collapsable_conjunction (id, clty, trace) ->
       fprintf ppf
         "@[The type of this class,@ %a,@ \
            contains non-collapsible conjunctive types in constraints@]"
-        (Printtyp.class_declaration id) clty;
+        Printtyp.print_sigitem (Printtyp.class_declaration id clty);
       Printtyp.report_unification_error ppf env trace
         (fun ppf -> fprintf ppf "Type")
         (fun ppf -> fprintf ppf "is not compatible with type")

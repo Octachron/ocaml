@@ -276,7 +276,7 @@ let execute_phrase print_outcome ppf phr =
                       }
                     ] ->
                       let outv = outval_of_value newenv v exp.exp_type in
-                      let ty = Printtyp.tree_of_type_scheme exp.exp_type in
+                      let ty = Printtyp.type_scheme exp.exp_type in
                       Ophr_eval (outv, ty)
 
                   | [] -> Ophr_signature []

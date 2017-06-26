@@ -3,7 +3,7 @@ open Outcometree
 type 'a diff =
     Eq of 'a | D of 'a * 'a
 
-type 'a mk_diff = 'a -> 'a -> 'a * 'a
+type 'a mk_diff = 'a * 'a -> 'a * 'a
 
 let pure f = Eq f
 let (//) x y= D(x,y)
@@ -356,9 +356,11 @@ and module_type x y =
   | _ -> x // y
 
 
-let simplify = function
+let simplify f (x,y)= match f x y with
   | Eq x -> x, x
   | D(x,y) -> x, y
 
-let typ t1 t2 = simplify @@ type' t1 t2
-let sig_item s1 s2 = simplify @@ sig_item s1 s2
+let typ = simplify type'
+let sig_item = simplify sig_item
+let class_type = simplify Ct.ct
+let modtype = simplify module_type

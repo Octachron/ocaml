@@ -64,11 +64,13 @@ let include_err ppf =
           fprintf ppf "but is expected to have type")
   | CM_Class_type_mismatch (env, cty1, cty2) ->
       Printtyp.wrap_printing_env env (fun () ->
+          let t1, t2 =
+            Difftree.class_type Printtyp.(class_type cty1, class_type cty2) in
         fprintf ppf
           "@[The class type@;<1 2>%a@ %s@;<1 2>%a@]"
-          Printtyp.class_type cty1
+          Printtyp.print_class_type t1
           "is not matched by the class type"
-          Printtyp.class_type cty2)
+          Printtyp.print_class_type t2)
   | CM_Parameter_mismatch (env, trace) ->
       Printtyp.report_unification_error ppf env ~unif:false trace
         (function ppf ->

@@ -533,65 +533,68 @@ let show_locs ppf (loc1, loc2) =
   show_loc "Expected declaration" ppf loc2;
   show_loc "Actual declaration" ppf loc1
 
-let include_err ppf = function
+let include_err ppf =
+  let diff, pp = Difftree.sig_item, Printtyp.print_sigitem in
+  function
   | Missing_field (id, loc, kind) ->
       fprintf ppf "The %s `%a' is required but not provided" kind ident id;
       show_loc "Expected declaration" ppf loc
   | Value_descriptions(id, d1, d2) ->
-      let t1, t2 = value_description id d1, value_description id d2 in
-      let t1, t2 = Difftree.sig_item t1 t2 in
+      let t1, t2 = diff (value_description id d1, value_description id d2) in
       fprintf ppf
         "@[<hv 2>Values do not match:@ %a@;<1 -2>is not included in@ %a@]"
-        print_description t1 print_description t2;
+        pp t1 pp t2;
       show_locs ppf (d1.val_loc, d2.val_loc);
   | Type_declarations(id, d1, d2, errs) ->
-      let t1, t2 = type_declaration id d1, type_declaration id d2 in
-      let t1, t2 = Difftree.sig_item t1 t2 in
+      let t1, t2 = diff (type_declaration id d1, type_declaration id d2) in
       fprintf ppf "@[<v>@[<hv>%s:@;<1 2>%a@ %s@;<1 2>%a@]%a%a@]"
         "Type declarations do not match"
-        print_declaration t1
+        pp t1
         "is not included in"
-        print_declaration t2
+        pp t2
         show_locs (d1.type_loc, d2.type_loc)
         (Includecore.report_type_mismatch
            "the first" "the second" "declaration") errs
   | Extension_constructors(id, x1, x2) ->
+      let t1, t2 = extension_constructor id x1, extension_constructor id x2 in
       fprintf ppf
        "@[<hv 2>Extension declarations do not match:@ \
         %a@;<1 -2>is not included in@ %a@]"
-      (extension_constructor id) x1
-      (extension_constructor id) x2;
+      pp t1 pp t2;
       show_locs ppf (x1.ext_loc, x2.ext_loc)
   | Module_types(mty1, mty2)->
+      let t1, t2 = Difftree.modtype (modtype mty1, modtype mty2) in
       fprintf ppf
        "@[<hv 2>Modules do not match:@ \
         %a@;<1 -2>is not included in@ %a@]"
-      modtype mty1
-      modtype mty2
+      print_modtype t1
+      print_modtype t2
   | Modtype_infos(id, d1, d2) ->
+      let t1, t2 = diff (modtype_declaration id d1, modtype_declaration id d2) in
       fprintf ppf
        "@[<hv 2>Module type declarations do not match:@ \
         %a@;<1 -2>does not match@ %a@]"
-      (modtype_declaration id) d1
-      (modtype_declaration id) d2
+      pp t1 pp t2
   | Modtype_permutation ->
       fprintf ppf "Illegal permutation of structure fields"
   | Interface_mismatch(impl_name, intf_name) ->
       fprintf ppf "@[The implementation %s@ does not match the interface %s:"
        impl_name intf_name
   | Class_type_declarations(id, d1, d2, reason) ->
+      let t1, t2 =
+        diff Printtyp.(cltype_declaration id d1, cltype_declaration id d2) in
       fprintf ppf
        "@[<hv 2>Class type declarations do not match:@ \
         %a@;<1 -2>does not match@ %a@]@ %a"
-      (Printtyp.cltype_declaration id) d1
-      (Printtyp.cltype_declaration id) d2
+      pp t1 pp t2
       Includeclass.report_error reason
   | Class_declarations(id, d1, d2, reason) ->
+      let t1, t2 =
+        diff Printtyp.(class_declaration id d1, class_declaration id d2) in
       fprintf ppf
        "@[<hv 2>Class declarations do not match:@ \
         %a@;<1 -2>does not match@ %a@]@ %a"
-      (Printtyp.class_declaration id) d1
-      (Printtyp.class_declaration id) d2
+      pp t1 pp t2
       Includeclass.report_error reason
   | Unbound_modtype_path path ->
       fprintf ppf "Unbound module type %a" Printtyp.path path

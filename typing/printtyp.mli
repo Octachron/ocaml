@@ -21,8 +21,9 @@ open Outcometree
 
 val longident: formatter -> Longident.t -> unit
 val ident: formatter -> Ident.t -> unit
-val path: Path.t -> out_ident
-val pp_path: formatter -> Path.t -> unit
+
+val tpath: Path.t -> out_ident
+val path: formatter -> Path.t -> unit
 val string_of_path: Path.t -> string
 val raw_type_expr: formatter -> type_expr -> unit
 val string_of_label: Asttypes.arg_label -> string
@@ -38,6 +39,7 @@ val reset_and_mark_loops_list: type_expr list -> unit
 val type_expr: formatter -> type_expr -> unit
 val constructor_arguments: constructor_arguments -> out_type list
 val type_scheme: type_expr -> out_type
+val print_type: Format.formatter -> out_type -> unit
 val type_sch : formatter -> type_expr -> unit
 val pp_type_scheme: formatter -> type_expr -> unit
 (* Maxence *)
@@ -49,7 +51,7 @@ val print_sigitem: formatter -> out_sig_item -> unit
 val value_description: Ident.t -> value_description -> out_sig_item
 val type_declaration: Ident.t -> type_declaration -> out_sig_item
 val extension_constructor:
-    Ident.t -> extension_constructor -> ext_status -> out_sig_item
+    Ident.t -> extension_constructor -> out_sig_item
 val module':
     Ident.t -> ?ellipsis:bool -> module_type -> rec_status -> out_sig_item
 val modtype:  module_type -> out_module_type
@@ -61,12 +63,15 @@ val print_signature: Format.formatter -> out_sig_item list -> unit
 val typexp: bool -> type_expr -> out_type
 
 val class_declaration:
-    Ident.t -> class_declaration -> rec_status -> out_sig_item
+    Ident.t -> class_declaration -> out_sig_item
 val cltype_declaration:
-    Ident.t -> class_type_declaration -> rec_status -> out_sig_item
+    Ident.t -> class_type_declaration -> out_sig_item
 
 val class_type: class_type -> out_class_type
 val print_class_type: Format.formatter -> out_class_type -> unit
+
+val print_constructor_args: Format.formatter -> out_type list -> unit
+
 
 val type_expansion:
   type_expr -> type_expr -> (Outcometree.out_type as 'ty) * 'ty option

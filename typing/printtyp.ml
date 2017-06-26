@@ -1316,16 +1316,16 @@ let type_diff (t,e) (t',e') =
   let t2, e2 = type_expansion t' e' in
   match e1, e2 with
   | Some e1, Some e2 ->
-      let e1, e2 = Difftree.typ e1 e2 in
+      let e1, e2 = Difftree.typ (e1, e2) in
         (t1, Some e1), (t2, Some e2)
   | None, None ->
-      let t1, t2 = Difftree.typ t1 t2 in
+      let t1, t2 = Difftree.typ (t1,t2) in
       (t1, None), (t2,None)
   | Some e1, None ->
-      let e1, t2 = Difftree.typ e1 t2 in
+      let e1, t2 = Difftree.typ (e1,t2) in
       (t1, Some e1), (t2, None)
   | None, Some e2 ->
-      let t1, e2  = Difftree.typ t1 e2 in
+      let t1, e2  = Difftree.typ (t1,e2) in
       (t1,None), (t2,Some e2)
 
 let type_path_expansion tp ppf tp' =
@@ -1615,3 +1615,15 @@ let class_type cty =
 
 let print_class_type ppf =
   !Oprint.out_class_type ppf
+
+let extension_constructor id ext =
+  extension_constructor id ext Text_first
+
+let class_declaration x y = class_declaration x y Trec_first
+let cltype_declaration x y = cltype_declaration x y Trec_first
+
+let print_type ppf = !Oprint.out_type ppf
+let print_constructor_args ppf l= !Oprint.out_type ppf (Otyp_tuple l)
+
+let tpath = path
+let path = pp_path

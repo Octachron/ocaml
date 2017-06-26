@@ -1608,7 +1608,8 @@ let type_implementation sourcefile outputprefix modulename initial_env ast =
   let simple_sg = simplify_signature sg in
   if !Clflags.print_types then begin
     Printtyp.wrap_printing_env initial_env
-      (fun () -> fprintf std_formatter "%a@." Printtyp.signature simple_sg);
+      (fun () -> fprintf std_formatter "%a@." Printtyp.print_signature @@
+        Printtyp.signature simple_sg);
     (str, Tcoerce_none)   (* result is ignored by Compile.implementation *)
   end else begin
     let sourceintf =
@@ -1748,7 +1749,8 @@ open Printtyp
 let report_error ppf = function
     Cannot_apply mty ->
       fprintf ppf
-        "@[This module is not a functor; it has type@ %a@]" modtype mty
+        "@[This module is not a functor; it has type@ %a@]"
+        print_modtype (modtype mty)
   | Not_included errs ->
       fprintf ppf
         "@[<v>Signature mismatch:@ %a@]" Includemod.report_error errs
@@ -1756,11 +1758,13 @@ let report_error ppf = function
       fprintf ppf
         "@[This functor has type@ %a@ \
            The parameter cannot be eliminated in the result type.@  \
-           Please bind the argument to a module identifier.@]" modtype mty
+         Please bind the argument to a module identifier.@]"
+        print_modtype (modtype mty)
   | Signature_expected -> fprintf ppf "This module type is not a signature"
   | Structure_expected mty ->
       fprintf ppf
-        "@[This module is not a structure; it has type@ %a" modtype mty
+        "@[This module is not a structure; it has type@ %a"
+        print_modtype (modtype mty)
   | With_no_component lid ->
       fprintf ppf
         "@[The signature constrained by `with' has no component named %a@]"
@@ -1780,16 +1784,18 @@ let report_error ppf = function
   | Non_generalizable typ ->
       fprintf ppf
         "@[The type of this expression,@ %a,@ \
-           contains type variables that cannot be generalized@]" type_scheme typ
+         contains type variables that cannot be generalized@]"
+        print_type (type_scheme typ)
   | Non_generalizable_class (id, desc) ->
       fprintf ppf
         "@[The type of this class,@ %a,@ \
            contains type variables that cannot be generalized@]"
-        (class_declaration id) desc
+        print_sigitem (class_declaration id desc)
   | Non_generalizable_module mty ->
       fprintf ppf
         "@[The type of this module,@ %a,@ \
-           contains type variables that cannot be generalized@]" modtype mty
+         contains type variables that cannot be generalized@]"
+        print_modtype (modtype mty)
   | Implementation_is_required intf_name ->
       fprintf ppf
         "@[The interface %a@ declares values, not just types.@ \
