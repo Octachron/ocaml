@@ -8,6 +8,15 @@ type 'a mk_diff = 'a * 'a -> 'a * 'a
 let pure f = Eq f
 let (//) x y= D(x,y)
 
+let right = function
+  | Eq y -> y
+  | D(_,y) -> y
+
+
+let left = function
+  | Eq x -> x
+  | D(x,_) -> x
+
 let (<$>) f x = match f, x with
   | Eq f, Eq x -> pure (f x)
   | Eq f, D(x,y) -> f x // f y
@@ -37,6 +46,31 @@ let list ellipsis diff x y =
     | ([] as xs), y :: ys -> (id // cons y) <$> list false xs ys
   in
   list false x y
+
+let keyed_list cmp ellipsis d x y =
+  let may_cons b x l = if not b then x :: l else l in
+  let rec list in_ellipsis xs ys = match xs, ys with
+    | [], [] -> pure []
+    | x :: xs' , y :: ys' ->
+        let cmp = cmp x y in
+        if  cmp < 0 then
+          (cons x // id ) <$> list (diff false @@ right in_ellipsis) xs' ys
+        else if cmp > 0 then
+          (id // cons y ) <$> list (diff (left in_ellipsis) false) xs ys'
+        else
+          let xs = xs' and ys = ys' in
+          begin match d x y with
+          | Eq _ -> may_cons <*> in_ellipsis <$> pure ellipsis <$>
+                    list (pure true) xs ys
+          | D _ as d -> cons <*> d <$> list (pure false) xs ys
+          end
+    | x :: xs, ([] as ys) ->
+        (cons x // id) <$> list (diff false @@ right in_ellipsis) xs ys
+    | ([] as xs), y :: ys ->
+        (id // cons y) <$> list (diff (left in_ellipsis) false) xs ys
+  in
+  list (pure false) x y
+
 
 let rec fn_to_list = function
   | Otyp_arrow (arg,rest) ->
@@ -80,6 +114,17 @@ let poly x y = Otyp_poly(x,y)
 let module' x y z = Otyp_module(x,y,z)
 let attribute x y = Otyp_attribute(x,y)
 
+let ocmp x y = match x, y with
+  | Oof_field (_,n,_) , Oof_field (_,n',_)  -> compare n n'
+  | Oof_ellipsis, _ -> -1
+  | _, Oof_ellipsis -> 1
+
+let rcmp x y = match x, y with
+  | Of_field r, Of_field r' -> compare r.name r'.name
+  | Of_ellipsis, _ -> -1
+  | _, Of_ellipsis -> 1
+
+
 module Type = struct
   let rec type' t1 t2 =
     match t1, t2 with
@@ -101,10 +146,10 @@ module Type = struct
         manifest <*> type' x x' <$> type' y y'
     | Otyp_object (l,closed), Otyp_object (l2,closed2)  ->
         object'
-        <*> list Oof_ellipsis dofield l l2
+        <*> olist l l2
         <$> (diff closed closed2)
     | Otyp_record r, Otyp_record r' ->
-        record <*> list Of_ellipsis dfield r r'
+        record <*> rlist r r'
     | Otyp_sum s, Otyp_sum s' ->
         sum <*> list Oc_ellipsis dconstr s s'
     | Otyp_tuple l, Otyp_tuple l' -> tuple <*> tylist l l'
@@ -137,6 +182,8 @@ module Type = struct
         <*> diff n n'
         <$> type' ty ty'
     | _ -> x // y
+  and olist x = keyed_list ocmp Oof_ellipsis dofield x
+
   and dconstr x y = match x, y with
     | Oc_ellipsis, Oc_ellipsis -> pure x
     | Oc_constr c, Oc_constr c' ->
@@ -154,6 +201,8 @@ module Type = struct
         <$> diff f.mut f'.mut
         <$> type' f.typ f'.typ
     | _ -> x // y
+
+  and rlist x = keyed_list rcmp Of_ellipsis dfield x
 
   and dvariant x y = match x, y with
     | Ovar_typ t, Ovar_typ t' -> (fun x -> Ovar_typ x) <*> type' t t'

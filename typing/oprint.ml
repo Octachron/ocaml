@@ -310,8 +310,12 @@ and print_fields rest ppf =
         Some non_gen -> fprintf ppf "%s.." (if non_gen then "_" else "")
       | None -> ()
       end
-  | [Oof_field(focused, s, t)] ->
-      with_focus focused ppf "%s : %a" s print_out_type t;
+  | [a] ->
+      begin match a with
+      | Oof_field(focused, s, t) ->
+          with_focus focused ppf "%s : %a" s print_out_type t
+      | Oof_ellipsis -> ellipsis ppf
+      end;
       begin match rest with
         Some _ -> fprintf ppf ";@ "
       | None -> ()
@@ -321,7 +325,7 @@ and print_fields rest ppf =
       with_focus b ppf "%s : %a" s print_out_type t;
       fprintf ppf ";@ %a" (print_fields rest) l
   | Oof_ellipsis :: l ->
-      ellipsis ppf; print_fields rest ppf l
+      fprintf ppf "%t;@ %a" ellipsis (print_fields rest) l
 and print_row_field ppf = function
   | Ovf_ellipsis -> ellipsis ppf
   | Ovf_field f ->
