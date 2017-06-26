@@ -21,8 +21,8 @@ open Outcometree
 
 val longident: formatter -> Longident.t -> unit
 val ident: formatter -> Ident.t -> unit
-val tree_of_path: Path.t -> out_ident
-val path: formatter -> Path.t -> unit
+val path: Path.t -> out_ident
+val pp_path: formatter -> Path.t -> unit
 val string_of_path: Path.t -> string
 val raw_type_expr: formatter -> type_expr -> unit
 val string_of_label: Asttypes.arg_label -> string
@@ -36,10 +36,10 @@ val mark_loops: type_expr -> unit
 val reset_and_mark_loops: type_expr -> unit
 val reset_and_mark_loops_list: type_expr list -> unit
 val type_expr: formatter -> type_expr -> unit
-val constructor_arguments: formatter -> constructor_arguments -> unit
-val tree_of_type_scheme: type_expr -> out_type
+val constructor_arguments: constructor_arguments -> out_type list
+val type_scheme: type_expr -> out_type
 val type_sch : formatter -> type_expr -> unit
-val type_scheme: formatter -> type_expr -> unit
+val pp_type_scheme: formatter -> type_expr -> unit
 (* Maxence *)
 val reset_names: unit -> unit
 val type_scheme_max: ?b_reset_names: bool ->
@@ -52,7 +52,8 @@ val extension_constructor:
     Ident.t -> extension_constructor -> ext_status -> out_sig_item
 val module':
     Ident.t -> ?ellipsis:bool -> module_type -> rec_status -> out_sig_item
-val modtype:  module_type -> out_sig_item
+val modtype:  module_type -> out_module_type
+val print_modtype: Format.formatter -> out_module_type -> unit
 val modtype_declaration:
     Ident.t -> modtype_declaration -> out_sig_item
 val signature: Types.signature -> out_sig_item list
@@ -63,6 +64,9 @@ val class_declaration:
     Ident.t -> class_declaration -> rec_status -> out_sig_item
 val cltype_declaration:
     Ident.t -> class_type_declaration -> rec_status -> out_sig_item
+
+val class_type: class_type -> out_class_type
+val print_class_type: Format.formatter -> out_class_type -> unit
 
 val type_expansion:
   type_expr -> type_expr -> (Outcometree.out_type as 'ty) * 'ty option
