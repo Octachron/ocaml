@@ -1,33 +1,61 @@
 open Outcometree
 
+type content = { primary: int; secondary: int }
+let _empty = { primary=0; secondary=0 }
+let one = { primary=1; secondary = 0 }
+
+let secondary secondary = {secondary; primary = 0 }
+
+let (++) x y =
+  { primary = x.primary + y.primary; secondary = x.secondary + y.secondary }
+
 type 'a diff =
-    Eq of 'a | D of 'a * 'a
+  | Eq of { cardinal: int; shared: 'a }
+  | D of { left: 'a; right:'a; content:content }
 
 type 'a mk_diff = 'a * 'a -> 'a * 'a
 
-let pure f = Eq f
-let (//) x y= D(x,y)
+let pure f = Eq { cardinal = 1; shared = f }
+let (//) left right= D { left; right; content = one }
 
 let right = function
-  | Eq y -> y
-  | D(_,y) -> y
+  | Eq e -> e.shared
+  | D r -> r.right
 
 
 let left = function
-  | Eq x -> x
-  | D(x,_) -> x
+  | Eq e -> e.shared
+  | D r -> r.left
 
 let (<$>) f x = match f, x with
-  | Eq f, Eq x -> pure (f x)
-  | Eq f, D(x,y) -> f x // f y
-  | D(f,g), Eq x -> f x // g x
-  | D(f,g), D(x,y) -> f x // g y
+  | Eq f, Eq x -> Eq { cardinal = f.cardinal + x.cardinal;
+                       shared = f.shared x.shared }
+  | Eq f, D r ->
+      D { left = f.shared r.left;
+          right = f.shared r.right;
+          content = r.content ++ secondary f.cardinal
+        }
+  | D f, Eq x ->
+      D {
+        left = f.left x.shared;
+        right = f.right x.shared;
+        content= f.content ++ secondary x.cardinal
+      }
+  | D f, D x ->
+      D { left = f.left x.left;
+          right = f.right x.right;
+          content = f.content ++ x.content
+        }
 
 let (<*>) f x = pure f <$> x
 
+let diff0 x y = if x = y then pure x else x // y
+let diff left right =
+  if left = right then
+    Eq { cardinal = 1; shared = right }
+  else
+    D { left; right; content = one }
 
-
-let diff x y = if x = y then Eq x else D(x,y)
 let cons = List.cons
 let id x = x
 let ellipsis () = !Oprint.ellipsis
@@ -54,9 +82,9 @@ let keyed_list cmp ellipsis d x y =
     | x :: xs' , y :: ys' ->
         let cmp = cmp x y in
         if  cmp < 0 then
-          (cons x // id ) <$> list (diff false @@ right in_ellipsis) xs' ys
+          (cons x // id ) <$> list (diff0 false @@ right in_ellipsis) xs' ys
         else if cmp > 0 then
-          (id // cons y ) <$> list (diff (left in_ellipsis) false) xs ys'
+          (id // cons y ) <$> list (diff0 (left in_ellipsis) false) xs ys'
         else
           let xs = xs' and ys = ys' in
           begin match d x y with
@@ -65,9 +93,9 @@ let keyed_list cmp ellipsis d x y =
           | D _ as d -> cons <*> d <$> list (pure false) xs ys
           end
     | x :: xs, ([] as ys) ->
-        (cons x // id) <$> list (diff false @@ right in_ellipsis) xs ys
+        (cons x // id) <$> list (diff0 false @@ right in_ellipsis) xs ys
     | ([] as xs), y :: ys ->
-        (id // cons y) <$> list (diff (left in_ellipsis) false) xs ys
+        (id // cons y) <$> list (diff0 (left in_ellipsis) false) xs ys
   in
   list (pure false) x y
 
@@ -130,7 +158,7 @@ module Type = struct
     match t1, t2 with
     | Otyp_abstract, Otyp_abstract
     | Otyp_open, Otyp_open
-    | Otyp_ellipsis, Otyp_ellipsis-> Eq t1
+    | Otyp_ellipsis, Otyp_ellipsis-> pure t1
 
 
     | Otyp_alias (ty,as'), Otyp_alias(ty2,as2) ->
@@ -168,7 +196,7 @@ module Type = struct
     | Otyp_attribute (t,attr), Otyp_attribute (t',attr') ->
         attribute <*> type' t t' <$> diff attr attr'
     | Otyp_focus _, Otyp_focus _
-    | Otyp_stuff _, Otyp_stuff _ -> D(t1,t2)
+    | Otyp_stuff _, Otyp_stuff _ -> t1 // t2
     | _ -> t1 // t2
 
   and tylist x y = list Otyp_ellipsis type' x y
@@ -406,8 +434,8 @@ and module_type x y =
 
 
 let simplify f (x,y)= match f x y with
-  | Eq x -> x, x
-  | D(x,y) -> x, y
+  | Eq x -> x.shared, x.shared
+  | D r -> r.left, r.right
 
 let typ = simplify type'
 let sig_item = simplify sig_item

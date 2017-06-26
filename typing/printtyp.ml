@@ -1378,7 +1378,7 @@ let prepare_expansion (t, t') =
 
 let may_prepare_expansion compact (t, t') =
   match (repr t').desc with
-    Tvariant _ | Tobject _ when compact ->
+    Tvariant _ | Tobject _ when false && compact ->
       mark_loops t; (t, t)
   | _ -> prepare_expansion (t, t')
 
