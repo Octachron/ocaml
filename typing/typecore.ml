@@ -4335,7 +4335,7 @@ let report_error env ppf = function
            let ty, ty' = prepare_expansion (ty, ty') in
            fprintf ppf
              "This expression cannot be coerced to type@;<1 2>%a;@ it has type"
-           (type_expansion ty) ty')
+           print_expansion (type_expansion ty ty'))
         (function ppf ->
            fprintf ppf "but is here used with type");
       if b then

@@ -104,7 +104,7 @@ TYPING=typing/ident.cmo typing/path.cmo \
   typing/subst.cmo typing/predef.cmo \
   typing/datarepr.cmo typing/cmi_format.cmo typing/env.cmo \
   typing/typedtree.cmo typing/printtyped.cmo typing/ctype.cmo \
-  typing/printtyp.cmo typing/includeclass.cmo \
+  typing/difftree.cmo typing/printtyp.cmo typing/includeclass.cmo \
   typing/mtype.cmo typing/envaux.cmo typing/includecore.cmo \
   typing/typedtreeIter.cmo typing/typedtreeMap.cmo \
   typing/tast_mapper.cmo \

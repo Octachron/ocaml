@@ -56,34 +56,71 @@ type out_type =
   | Otyp_abstract
   | Otyp_open
   | Otyp_alias of out_type * string
-  | Otyp_arrow of string * out_type * out_type
+  | Otyp_arrow of out_fn_arg * out_type
   | Otyp_class of bool * out_ident * out_type list
   | Otyp_constr of out_ident * out_type list
   | Otyp_manifest of out_type * out_type
-  | Otyp_object of (string * out_type) list * bool option
-  | Otyp_record of (string * bool * out_type) list
+  | Otyp_object of out_object_field list * bool option
+  | Otyp_record of out_field list
   | Otyp_stuff of string
-  | Otyp_sum of (string * out_type list * out_type option) list
+  | Otyp_sum of out_constructor list
   | Otyp_tuple of out_type list
   | Otyp_var of bool * string
   | Otyp_variant of
-      bool * out_variant * bool * (string list) option
-  | Otyp_poly of string list * out_type
-  | Otyp_module of string * string list * out_type list
+      bool * out_variant * bool * focusable list option
+  | Otyp_poly of focusable list * out_type
+  | Otyp_module of string * focusable list * out_type list
   | Otyp_attribute of out_type * out_attribute
+  | Otyp_ellipsis
+  | Otyp_focus of out_type
+
+and out_fn_arg =
+  | Ofa_arg of string * out_type
+  | Ofa_ellipsis
+
+and focusable =
+  | Ofoc_simple of string
+  | Ofoc_focused of string
+  | Ofoc_ellipsis
+
+and out_object_field =
+  | Oof_field of bool * string * out_type
+  | Oof_ellipsis
+
+and out_constructor =
+  | Oc_constr of {focus:bool; name:string; args:out_type list; ret:out_type option}
+  | Oc_ellipsis
 
 and out_variant =
-  | Ovar_fields of (string * bool * out_type list) list
+  | Ovar_fields of out_var_field list
   | Ovar_typ of out_type
+
+and out_var_field =
+  | Ovf_field of {focus:bool; label:string; ampersand:bool; conj: out_type list}
+  | Ovf_ellipsis
+
+and out_field =
+  | Of_field of {focus:bool; name:string; mut: bool; typ:out_type}
+  | Of_ellipsis
+
+type type_constraint =
+  | Otc_constraint of {focus:bool; lhs:out_type;rhs:out_type}
+  | Otc_ellipsis
 
 type out_class_type =
   | Octy_constr of out_ident * out_type list
-  | Octy_arrow of string * out_type * out_class_type
+  | Octy_arrow of out_fn_arg * out_class_type
   | Octy_signature of out_type option * out_class_sig_item list
 and out_class_sig_item =
-  | Ocsg_constraint of out_type * out_type
+  | Ocsg_constraint of type_constraint
   | Ocsg_method of string * bool * bool * out_type
   | Ocsg_value of string * bool * bool * out_type
+  | Ocsg_focus of out_class_sig_item
+  | Ocsg_ellipsis
+
+type type_param =
+  | Otp_param of {focus:bool;covariant:bool;contravariant:bool;name:string}
+  | Otp_ellipsis
 
 type out_module_type =
   | Omty_abstract
@@ -93,25 +130,26 @@ type out_module_type =
   | Omty_alias of out_ident
 and out_sig_item =
   | Osig_class of
-      bool * string * (string * (bool * bool)) list * out_class_type *
+      bool * string * type_param list * out_class_type *
         out_rec_status
   | Osig_class_type of
-      bool * string * (string * (bool * bool)) list * out_class_type *
+      bool * string * type_param list * out_class_type *
         out_rec_status
   | Osig_typext of out_extension_constructor * out_ext_status
   | Osig_modtype of string * out_module_type
   | Osig_module of string * out_module_type * out_rec_status
   | Osig_type of out_type_decl * out_rec_status
   | Osig_value of out_val_decl
+  | Osig_focus of out_sig_item
   | Osig_ellipsis
 and out_type_decl =
   { otype_name: string;
-    otype_params: (string * (bool * bool)) list;
+    otype_params: type_param list;
     otype_type: out_type;
     otype_private: Asttypes.private_flag;
     otype_immediate: bool;
     otype_unboxed: bool;
-    otype_cstrs: (out_type * out_type) list }
+    otype_cstrs: type_constraint list }
 and out_extension_constructor =
   { oext_name: string;
     oext_type_name: string;
@@ -122,7 +160,7 @@ and out_extension_constructor =
 and out_type_extension =
   { otyext_name: string;
     otyext_params: string list;
-    otyext_constructors: (string * out_type list * out_type option) list;
+    otyext_constructors: out_constructor list;
     otyext_private: Asttypes.private_flag }
 and out_val_decl =
   { oval_name: string;

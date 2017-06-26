@@ -50,8 +50,8 @@ OTHEROBJS=\
   ../typing/subst.cmo ../typing/predef.cmo \
   ../typing/datarepr.cmo ../typing/cmi_format.cmo ../typing/env.cmo \
   ../typing/oprint.cmo \
-  ../typing/ctype.cmo ../typing/printtyp.cmo ../typing/mtype.cmo \
-  ../typing/envaux.cmo \
+  ../typing/ctype.cmo ../typing/difftree.cmo ../typing/printtyp.cmo \
+  ../typing/mtype.cmo ../typing/envaux.cmo \
   ../bytecomp/runtimedef.cmo ../bytecomp/bytesections.cmo \
   ../bytecomp/dll.cmo ../bytecomp/meta.cmo ../bytecomp/symtable.cmo \
   ../bytecomp/opcodes.cmo ../driver/compdynlink.cmo \

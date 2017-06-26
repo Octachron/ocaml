@@ -538,16 +538,20 @@ let include_err ppf = function
       fprintf ppf "The %s `%a' is required but not provided" kind ident id;
       show_loc "Expected declaration" ppf loc
   | Value_descriptions(id, d1, d2) ->
+      let t1, t2 = value_description id d1, value_description id d2 in
+      let t1, t2 = Difftree.sig_item t1 t2 in
       fprintf ppf
         "@[<hv 2>Values do not match:@ %a@;<1 -2>is not included in@ %a@]"
-        (value_description id) d1 (value_description id) d2;
+        print_description t1 print_description t2;
       show_locs ppf (d1.val_loc, d2.val_loc);
   | Type_declarations(id, d1, d2, errs) ->
+      let t1, t2 = type_declaration id d1, type_declaration id d2 in
+      let t1, t2 = Difftree.sig_item t1 t2 in
       fprintf ppf "@[<v>@[<hv>%s:@;<1 2>%a@ %s@;<1 2>%a@]%a%a@]"
         "Type declarations do not match"
-        (type_declaration id) d1
+        print_declaration t1
         "is not included in"
-        (type_declaration id) d2
+        print_declaration t2
         show_locs (d1.type_loc, d2.type_loc)
         (Includecore.report_type_mismatch
            "the first" "the second" "declaration") errs

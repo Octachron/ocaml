@@ -585,7 +585,7 @@ let rec tree_of_typexp sch ty =
                   tree_of_typexp sch ty
               | _ -> Otyp_stuff "<hidden>"
             else tree_of_typexp sch ty1 in
-          Otyp_arrow (lab, t1, tree_of_typexp sch ty2) in
+          Otyp_arrow ( Ofa_arg(lab, t1), tree_of_typexp sch ty2) in
         pr_arrow l ty1 ty2
     | Ttuple tyl ->
         Otyp_tuple (tree_of_typlist sch tyl)
@@ -621,14 +621,16 @@ let rec tree_of_typexp sch ty =
             else
               let non_gen = is_non_gen sch px in
               let tags =
-                if all_present then None else Some (List.map fst present) in
+                if all_present then None else
+                  Some (List.map (fun (x,_) -> Ofoc_simple x) present) in
               Otyp_variant (non_gen, Ovar_typ out_variant, row.row_closed, tags)
         | _ ->
             let non_gen =
               not (row.row_closed && all_present) && is_non_gen sch px in
             let fields = List.map (tree_of_row_field sch) fields in
             let tags =
-              if all_present then None else Some (List.map fst present) in
+              if all_present then None else
+                Some (List.map (fun (x,_) -> Ofoc_simple x) present) in
             Otyp_variant (non_gen, Ovar_fields fields, row.row_closed, tags)
         end
     | Tobject (fi, nm) ->
@@ -651,7 +653,7 @@ let rec tree_of_typexp sch ty =
           (* Make the names delayed, so that the real type is
              printed once when used as proxy *)
           List.iter add_delayed tyl;
-          let tl = List.map name_of_type tyl in
+          let tl = List.map (fun x -> Ofoc_simple (name_of_type x)) tyl in
           let tr = Otyp_poly (tl, tree_of_typexp sch ty) in
           (* Forget names when we leave scope *)
           remove_names tyl;
@@ -661,7 +663,9 @@ let rec tree_of_typexp sch ty =
         Otyp_var (false, name_of_type ty)
     | Tpackage (p, n, tyl) ->
         let n =
-          List.map (fun li -> String.concat "." (Longident.flatten li)) n in
+          List.map (fun li -> Ofoc_simple (
+              String.concat "." (Longident.flatten li) )
+            ) n in
         Otyp_module (Path.name p, n, tree_of_typlist sch tyl)
   in
   if List.memq px !delayed then delayed := List.filter ((!=) px) !delayed;
@@ -671,7 +675,8 @@ let rec tree_of_typexp sch ty =
   else pr_typ ()
 
 and tree_of_row_field sch (l, f) =
-  match row_field_repr f with
+  let mk (label,ampersand, conj) = Ovf_field {focus=false; label;ampersand;conj} in
+  mk @@ match row_field_repr f with
   | Rpresent None | Reither(true, [], _, _) -> (l, false, [])
   | Rpresent(Some ty) -> (l, false, [tree_of_typexp sch ty])
   | Reither(c, tyl, _, _) ->
@@ -725,7 +730,7 @@ and tree_of_typfields sch rest = function
       in
       ([], rest)
   | (s, t) :: l ->
-      let field = (s, tree_of_typexp sch t) in
+      let field = Oof_field(false,s, tree_of_typexp sch t) in
       let (fields, rest) = tree_of_typfields sch rest l in
       (field :: fields, rest)
 
@@ -754,7 +759,7 @@ let tree_of_constraints params =
        let ty' = unalias ty in
        if proxy ty != proxy ty' then
          let tr = tree_of_typexp true ty in
-         (tr, tree_of_typexp true ty') :: list
+         Otc_constraint{focus=false; lhs=tr; rhs= tree_of_typexp true ty'} :: list
        else list)
     params []
 
@@ -849,7 +854,11 @@ let rec tree_of_type_decl id decl =
         decl.type_params decl.type_variance
     in
     (Ident.name id,
-     List.map2 (fun ty cocn -> type_param (tree_of_typexp false ty), cocn)
+     List.map2 (fun ty (covariant,contravariant) ->
+         Otp_param {focus=false; name = type_param (tree_of_typexp false ty);
+                    covariant;
+                    contravariant
+                   })
        params vari)
   in
   let tree_of_manifest ty1 =
@@ -894,25 +903,28 @@ and tree_of_constructor_arguments = function
 
 and tree_of_constructor cd =
   let name = Ident.name cd.cd_id in
+  let mk name args ret = Oc_constr{focus=false;name;args; ret} in
   let arg () = tree_of_constructor_arguments cd.cd_args in
   match cd.cd_res with
-  | None -> (name, arg (), None)
+  | None -> mk name (arg ()) None
   | Some res ->
       let nm = !names in
       names := [];
       let ret = tree_of_typexp false res in
       let args = arg () in
       names := nm;
-      (name, args, Some ret)
+      mk name args (Some ret)
 
 and tree_of_label l =
-  (Ident.name l.ld_id, l.ld_mutable = Mutable, tree_of_typexp false l.ld_type)
+    Of_field{focus=false; name=Ident.name l.ld_id; mut= l.ld_mutable = Mutable;
+             typ=tree_of_typexp false l.ld_type}
 
 let tree_of_type_declaration id decl rs =
   Osig_type (tree_of_type_decl id decl, tree_of_rec rs)
 
-let type_declaration id ppf decl =
-  !Oprint.out_sig_item ppf (tree_of_type_declaration id decl Trec_first)
+let type_declaration id decl = tree_of_type_declaration id decl Trec_first
+let print_declaration ppf t =
+  !Oprint.out_sig_item ppf t
 
 let constructor_arguments ppf a =
   let tys = tree_of_constructor_arguments a in
@@ -987,8 +999,8 @@ let tree_of_value_description id decl =
   in
   Osig_value vd
 
-let value_description id ppf decl =
-  !Oprint.out_sig_item ppf (tree_of_value_description id decl)
+let value_description = tree_of_value_description
+let print_description ppf = !Oprint.out_sig_item ppf
 
 (* Print a class type *)
 
@@ -1055,7 +1067,7 @@ let rec tree_of_class_type sch params =
       let csil = [] in
       let csil =
         List.fold_left
-          (fun csil (ty1, ty2) -> Ocsg_constraint (ty1, ty2) :: csil)
+          (fun csil c -> Ocsg_constraint c :: csil)
           csil (tree_of_constraints params)
       in
       let all_vars =
@@ -1085,7 +1097,7 @@ let rec tree_of_class_type sch params =
          | _ -> newconstr (Path.Pident(Ident.create "<hidden>")) []
        else ty in
       let tr = tree_of_typexp sch ty in
-      Octy_arrow (lab, tr, tree_of_class_type sch params cty)
+      Octy_arrow ( Ofa_arg (lab, tr), tree_of_class_type sch params cty)
 
 let class_type ppf cty =
   reset ();
@@ -1093,10 +1105,11 @@ let class_type ppf cty =
   !Oprint.out_class_type ppf (tree_of_class_type false [] cty)
 
 let tree_of_class_param param variance =
-  (match tree_of_typexp true param with
+  let name = (match tree_of_typexp true param with
     Otyp_var (_, s) -> s
-  | _ -> "?"),
-  if is_Tvar (repr param) then (true, true) else variance
+  | _ -> "?") in
+  let co, cn = if is_Tvar (repr param) then (true, true) else variance in
+      Otp_param { focus=false; name; covariant=co;contravariant=cn}
 
 let class_variance =
   List.map Variance.(fun v -> mem May_pos v, mem May_neg v)
@@ -1287,8 +1300,6 @@ let rec print_items showval env = function
 let print_signature ppf tree =
   fprintf ppf "@[<v>%a@]" !Oprint.out_signature tree
 
-let signature ppf sg =
-  fprintf ppf "%a" print_signature (tree_of_signature sg)
 
 (* Print an unification error *)
 
@@ -1309,22 +1320,49 @@ let same_path t t' =
   | _ ->
       false
 
-let type_expansion t ppf t' =
+let print_expansion ppf (t,t') =
+  let p = !Oprint.out_type in
+  match t' with
+  | None ->
+    p ppf t
+  | Some t' ->
+    fprintf ppf "@[<2>%a@ =@ %a@]"  p t p t'
+
+let type_expansion t t' =
+  let mk = tree_of_typexp false in
   if same_path t t'
-  then begin add_delayed (proxy t); type_expr ppf t end
+  then begin add_delayed (proxy t); mk t, None end
   else
-  let t' = if proxy t == proxy t' then unalias t' else t' in
-  fprintf ppf "@[<2>%a@ =@ %a@]" type_expr t type_expr t'
+    let t' = if proxy t == proxy t' then unalias t' else t' in
+    mk t, Some (mk t')
+
+let type_diff (t,e) (t',e') =
+  let t1, e1 = type_expansion t e in
+  let t2, e2 = type_expansion t' e' in
+  match e1, e2 with
+  | Some e1, Some e2 ->
+      let e1, e2 = Difftree.typ e1 e2 in
+        (t1, Some e1), (t2, Some e2)
+  | None, None ->
+      let t1, t2 = Difftree.typ t1 t2 in
+      (t1, None), (t2,None)
+  | Some e1, None ->
+      let e1, t2 = Difftree.typ e1 t2 in
+      (t1, Some e1), (t2, None)
+  | None, Some e2 ->
+      let t1, e2  = Difftree.typ t1 e2 in
+      (t1,None), (t2,Some e2)
 
 let type_path_expansion tp ppf tp' =
   if Path.same tp tp' then path ppf tp else
   fprintf ppf "@[<2>%a@ =@ %a@]" path tp path tp'
 
 let rec trace fst txt ppf = function
-  | (t1, t1') :: (t2, t2') :: rem ->
+  | t1 :: t2 :: rem ->
+      let t1, t2 = type_diff t1 t2 in
       if not fst then fprintf ppf "@,";
       fprintf ppf "@[Type@;<1 2>%a@ %s@;<1 2>%a@] %a"
-       (type_expansion t1) t1' txt (type_expansion t2) t2'
+        print_expansion t1 txt print_expansion t2
        (trace false txt) rem
   | _ -> ()
 
@@ -1509,26 +1547,28 @@ let unification_error env unif tr txt1 ppf txt2 =
   match tr with
   | [] | _ :: [] -> assert false
   | t1 :: t2 :: tr ->
+
     try
       let tr = filter_trace (mis = None) tr in
-      let t1, t1' = may_prepare_expansion (tr = []) t1
-      and t2, t2' = may_prepare_expansion (tr = []) t2 in
+      let t1 = may_prepare_expansion (tr = []) t1
+      and t2 = may_prepare_expansion (tr = []) t2 in
       print_labels := not !Clflags.classic;
       let tr = List.map prepare_expansion tr in
+      let t, t' = type_diff t1 t2 in
       fprintf ppf
         "@[<v>\
           @[%t@;<1 2>%a@ \
             %t@;<1 2>%a\
           @]%a%t\
          @]"
-        txt1 (type_expansion t1) t1'
-        txt2 (type_expansion t2) t2'
+        txt1 print_expansion t
+        txt2 print_expansion t'
         (trace false "is not compatible with type") tr
         (explanation unif mis);
       if env <> Env.empty
       then begin
-        warn_on_missing_def env ppf t1;
-        warn_on_missing_def env ppf t2
+        warn_on_missing_def env ppf (fst t1);
+        warn_on_missing_def env ppf (fst t2)
       end;
       print_labels := true
     with exn ->
