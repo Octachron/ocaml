@@ -15,6 +15,7 @@
 
 open Asttypes
 open Parsetree
+open I18n.I18n_core
 
 let string_of_cst = function
   | Pconst_string(s, _) -> Some s
@@ -39,7 +40,7 @@ let rec error_of_extension ext =
           error_of_extension ext :: sub_from rest
       | _ :: rest ->
           (Location.errorf ~loc
-             "Invalid syntax for sub-error of extension '%s'." txt) ::
+             (f_"Invalid syntax for sub-error of extension '%s'.") txt) ::
             sub_from rest
       | [] -> []
     in
@@ -50,14 +51,15 @@ let rec error_of_extension ext =
            {pstr_desc=Pstr_eval
               ({pexp_desc=Pexp_constant(Pconst_string(if_highlight,_))}, _)}::
            inner) ->
-        Location.error ~loc ~if_highlight ~sub:(sub_from inner) msg
+        Location.error ~loc ~if_highlight:(I18n.raw if_highlight)
+          ~sub:(sub_from inner) (I18n.raw msg)
     | PStr({pstr_desc=Pstr_eval
               ({pexp_desc=Pexp_constant(Pconst_string(msg,_))}, _)}::inner) ->
-        Location.error ~loc ~sub:(sub_from inner) msg
-    | _ -> Location.errorf ~loc "Invalid syntax for extension '%s'." txt
+        Location.error ~loc ~sub:(sub_from inner) (I18n.raw msg)
+    | _ -> Location.errorf ~loc (f_"Invalid syntax for extension '%s'.") txt
     end
   | ({txt; loc}, _) ->
-      Location.errorf ~loc "Uninterpreted extension '%s'." txt
+      Location.errorf ~loc (f_"Uninterpreted extension '%s'.") txt
 
 let cat s1 s2 =
   if s2 = "" then s1 else s1 ^ "\n" ^ s2

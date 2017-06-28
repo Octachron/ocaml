@@ -14,6 +14,7 @@
 (**************************************************************************)
 
 open Lexing
+open I18n.I18n_core
 
 let absname = ref false
     (* This reference should be in Clflags, but it would create an additional
@@ -282,12 +283,15 @@ let default_printer ppf loc =
 let printer = ref default_printer
 let print ppf loc = !printer ppf loc
 
-let error_prefix = "Error"
-let warning_prefix = "Warning"
+let error_prefix ()= s_"Error"
+let warning_prefix ()= s_"Warning"
+let u_warning_prefix ()= s_"warning"
+
+
 
 let print_error_prefix ppf =
   setup_colors ();
-  fprintf ppf "@{<error>%s@}" error_prefix;
+  fprintf ppf "@{<error>%a@}" I18n.pp (error_prefix ());
 ;;
 
 let print_compact ppf loc =
@@ -315,12 +319,13 @@ let default_warning_printer loc ppf w =
     print ppf loc;
     if is_error
     then
-      fprintf ppf "%t (%s %d): %s@." print_error_prefix
-           (String.uncapitalize_ascii warning_prefix) number message
-    else fprintf ppf "@{<warning>%s@} %d: %s@." warning_prefix number message;
+      fprintf ppf "%t (%a %d): %a@." print_error_prefix
+           I18n.pp (u_warning_prefix ()) number I18n.pp message
+    else fprintf ppf "@{<warning>%a@} %d: %a@." I18n.pp (warning_prefix()) number
+        I18n.pp message;
     List.iter
       (fun (loc, msg) ->
-         if loc <> none then fprintf ppf "  %a  %s@." print loc msg
+         if loc <> none then fprintf ppf "  %a  %a@." print loc I18n.pp msg
       )
       sub_locs
 ;;
@@ -368,21 +373,23 @@ let pp_ksprintf ?before k fmt =
       pp_print_flush ppf ();
       let msg = Buffer.contents buf in
       k msg)
-    ppf fmt
+    ppf (I18n.to_format fmt)
 
 (* Shift the formatter's offset by the length of the error prefix, which
    is always added by the compiler after the message has been formatted *)
 let print_phanton_error_prefix ppf =
-  Format.pp_print_as ppf (String.length error_prefix + 2 (* ": " *)) ""
+  Format.pp_print_as ppf ( (String.length @@ I18n.to_string @@ error_prefix ())
+                          + 2 (* ": " *)) ""
 
-let errorf ?(loc = none) ?(sub = []) ?(if_highlight = "") fmt =
+let errorf ?(loc = none) ?(sub = []) ?(if_highlight = I18n.raw "") fmt =
   pp_ksprintf
     ~before:print_phanton_error_prefix
-    (fun msg -> {loc; msg; sub; if_highlight})
+    (fun msg -> {loc; msg; sub; if_highlight= I18n.to_string if_highlight})
     fmt
 
-let error ?(loc = none) ?(sub = []) ?(if_highlight = "") msg =
-  {loc; msg; sub; if_highlight}
+let error ?(loc = none) ?(sub = []) ?(if_highlight = I18n.raw "") msg =
+  {loc; msg = I18n.to_string msg;
+   sub; if_highlight = I18n.to_string if_highlight}
 
 let error_of_exn : (exn -> error option) list ref = ref []
 
@@ -405,7 +412,8 @@ let error_of_exn exn =
 
 let rec default_error_reporter ppf ({loc; msg; sub; if_highlight} as err) =
   let highlighted =
-    if if_highlight <> "" && loc.loc_start.pos_fname = "//toplevel//" then
+    if if_highlight <>  ""
+    && loc.loc_start.pos_fname = "//toplevel//" then
       let rec collect_locs locs {loc; sub; _} =
         List.fold_left collect_locs (loc :: locs) sub
       in
@@ -415,7 +423,7 @@ let rec default_error_reporter ppf ({loc; msg; sub; if_highlight} as err) =
       false
   in
   if highlighted then
-    Format.pp_print_string ppf if_highlight
+    pp_print_string ppf if_highlight
   else begin
     fprintf ppf "%a %s" print_error loc msg;
     List.iter (Format.fprintf ppf "@\n@[<2>%a@]" default_error_reporter) sub
@@ -428,7 +436,7 @@ let report_error ppf err =
 ;;
 
 let error_of_printer loc print x =
-  errorf ~loc "%a@?" print x
+  errorf ~loc (I18n.rawf"%a@?") print x
 
 let error_of_printer_file print x =
   error_of_printer (in_file !input_name) print x
@@ -438,17 +446,18 @@ let () =
     (function
       | Sys_error msg ->
           Some (errorf ~loc:(in_file !input_name)
-                "I/O error: %s" msg)
+                (f_"I/O error: %s") msg)
 
       | Misc.HookExnWrapper {error = e; hook_name;
                              hook_info={Misc.sourcefile}} ->
           let sub = match error_of_exn e with
-            | None | Some `Already_displayed -> error (Printexc.to_string e)
+            | None | Some `Already_displayed ->
+                error (I18n.raw @@ Printexc.to_string e)
             | Some (`Ok err) -> err
           in
           Some
             (errorf ~loc:(in_file sourcefile)
-               "In hook %S:" hook_name
+               (f_ "In hook %S:") hook_name
                ~sub:[sub])
       | _ -> None
     )
@@ -475,10 +484,11 @@ let () =
       | _ -> None
     )
 
-let raise_errorf ?(loc = none) ?(sub = []) ?(if_highlight = "") =
+let raise_errorf ?(loc = none) ?(sub = []) ?(if_highlight = I18n.raw "") =
   pp_ksprintf
     ~before:print_phanton_error_prefix
-    (fun msg -> raise (Error ({loc; msg; sub; if_highlight})))
+    (fun msg ->
+       raise (Error{loc; msg; sub; if_highlight = I18n.to_string if_highlight}))
 
 let deprecated ?(def = none) ?(use = none) loc msg =
   prerr_warning loc (Warnings.Deprecated (msg, def, use))
