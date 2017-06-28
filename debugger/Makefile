@@ -38,7 +38,7 @@ OTHEROBJS=\
   ../utils/config.cmo ../utils/tbl.cmo ../utils/misc.cmo \
   ../utils/identifiable.cmo ../utils/numbers.cmo \
   ../utils/arg_helper.cmo ../utils/clflags.cmo \
-  ../utils/consistbl.cmo ../utils/warnings.cmo \
+  ../utils/consistbl.cmo ../utils/i18n.cmo ../utils/warnings.cmo \
   ../utils/terminfo.cmo \
   ../parsing/location.cmo ../parsing/longident.cmo ../parsing/docstrings.cmo \
   ../parsing/syntaxerr.cmo \

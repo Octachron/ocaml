@@ -165,23 +165,23 @@ let remove_printer lid =
 
 (* Error report *)
 
-open Format
+open I18n open I18n_core
 
 let report_error ppf = function
   | Load_failure e ->
-      fprintf ppf "@[Error during code loading: %s@]@."
+      fprintf ppf (f_"@[Error during code loading: %s@]@.")
         (Compdynlink.error_message e)
   | Unbound_identifier lid ->
-      fprintf ppf "@[Unbound identifier %a@]@."
+      fprintf ppf (f_"@[Unbound identifier %a@]@.")
       Printtyp.longident lid
   | Unavailable_module(md, lid) ->
       fprintf ppf
-        "@[The debugger does not contain the code for@ %a.@ \
-           Please load an implementation of %s first.@]@."
+        (f_"@[The debugger does not contain the code for@ %a.@ \
+           Please load an implementation of %s first.@]@.")
         Printtyp.longident lid md
   | Wrong_type lid ->
-      fprintf ppf "@[%a has the wrong type for a printing function.@]@."
+      fprintf ppf (f_"@[%a has the wrong type for a printing function.@]@.")
       Printtyp.longident lid
   | No_active_printer lid ->
-      fprintf ppf "@[%a is not currently active as a printing function.@]@."
+      fprintf ppf (f_"@[%a is not currently active as a printing function.@]@.")
       Printtyp.longident lid
