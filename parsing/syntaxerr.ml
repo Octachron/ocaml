@@ -22,13 +22,13 @@ type error =
   | Applicative_path of Location.t
   | Variable_in_scope of Location.t * string
   | Other of Location.t
-  | Ill_formed_ast of Location.t * string
+  | Ill_formed_ast of Location.t * I18n.s
   | Invalid_package_type of Location.t * string
 
 exception Error of error
 exception Escape_error
 
-let prepare_error = function
+let[@i18n "all"] prepare_error = function
   | Unclosed(opening_loc, opening, closing_loc, closing) ->
       Location.errorf ~loc:closing_loc
         ~sub:[
@@ -36,10 +36,10 @@ let prepare_error = function
             "This '%s' might be unmatched" opening
         ]
         ~if_highlight:
-          (Printf.sprintf "Syntax error: '%s' expected, \
-                           the highlighted '%s' might be unmatched"
+          (I18n.sprintf "Syntax error: '%s' expected, \
+                         the highlighted '%s' might be unmatched"
              closing opening)
-        "Syntax error: '%s' expected" closing
+        ("Syntax error: '%s' expected") closing
 
   | Expecting (loc, nonterm) ->
       Location.errorf ~loc "Syntax error: %s expected." nonterm
@@ -57,7 +57,8 @@ let prepare_error = function
   | Other loc ->
       Location.errorf ~loc "Syntax error"
   | Ill_formed_ast (loc, s) ->
-      Location.errorf ~loc "broken invariant in parsetree: %s" s
+      Location.errorf ~loc "broken invariant in parsetree: %a"
+        I18n.pp s
   | Invalid_package_type (loc, s) ->
       Location.errorf ~loc "invalid package type: %s" s
 

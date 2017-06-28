@@ -18,13 +18,13 @@ open Ast_iterator
 
 let err = Syntaxerr.ill_formed_ast
 
-let empty_record loc = err loc "Records cannot be empty."
-let empty_variant loc = err loc "Variant types cannot be empty."
-let invalid_tuple loc = err loc "Tuples must have at least 2 components."
-let no_args loc = err loc "Function application with no argument."
-let empty_let loc = err loc "Let with no bindings."
-let empty_type loc = err loc "Type declarations cannot be empty."
-let complex_id loc = err loc "Functor application not allowed here."
+let empty_record loc = err loc (I18n.s"Records cannot be empty.")
+let empty_variant loc = err loc (I18n.s"Variant types cannot be empty.")
+let invalid_tuple loc = err loc (I18n.s"Tuples must have at least 2 components.")
+let no_args loc = err loc (I18n.s"Function application with no argument.")
+let empty_let loc = err loc (I18n.s"Let with no bindings.")
+let empty_type loc = err loc (I18n.s"Type declarations cannot be empty.")
+let complex_id loc = err loc (I18n.s"Functor application not allowed here.")
 
 let simple_longident id =
   let rec is_simple = function

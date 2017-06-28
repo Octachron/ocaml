@@ -737,10 +737,10 @@ module PpxContext = struct
                  ({ pexp_desc = Pexp_record (fields, None) }, [])}] ->
         fields
     | _ ->
-        raise_errorf "Internal error: invalid [@@@ocaml.ppx.context] syntax"
+        raise_errorf ("Internal error: invalid [@@@ocaml.ppx.context] syntax"[@i18n])
 
   let restore fields =
-    let field name payload =
+    let[@i18n all] field name payload =
       let rec get_string = function
         | { pexp_desc = Pexp_constant (Pconst_string (str, None)) } -> str
         | _ -> raise_errorf "Internal error: invalid [@@@ocaml.ppx.context \

@@ -30,16 +30,16 @@ let string_of_opt_payload p =
   | Some s -> s
   | None -> ""
 
-let rec error_of_extension ext =
+let[@i18n all] rec error_of_extension ext =
   match ext with
-  | ({txt = ("ocaml.error"|"error") as txt; loc}, p) ->
+  | ({txt = ("ocaml.error"|"error"[@i18n none]) as txt; loc}, p) ->
     let rec sub_from inner =
       match inner with
       | {pstr_desc=Pstr_extension (ext, _)} :: rest ->
           error_of_extension ext :: sub_from rest
       | _ :: rest ->
           (Location.errorf ~loc
-             "Invalid syntax for sub-error of extension '%s'." txt) ::
+             ("Invalid syntax for sub-error of extension '%s'.") txt) ::
             sub_from rest
       | [] -> []
     in
@@ -50,10 +50,11 @@ let rec error_of_extension ext =
            {pstr_desc=Pstr_eval
               ({pexp_desc=Pexp_constant(Pconst_string(if_highlight,_))}, _)}::
            inner) ->
-        Location.error ~loc ~if_highlight ~sub:(sub_from inner) msg
+        Location.error ~loc ~if_highlight:(I18n.raw if_highlight)
+          ~sub:(sub_from inner) (I18n.raw msg)
     | PStr({pstr_desc=Pstr_eval
               ({pexp_desc=Pexp_constant(Pconst_string(msg,_))}, _)}::inner) ->
-        Location.error ~loc ~sub:(sub_from inner) msg
+        Location.error ~loc ~sub:(sub_from inner) (I18n.raw msg)
     | _ -> Location.errorf ~loc "Invalid syntax for extension '%s'." txt
     end
   | ({txt; loc}, _) ->
@@ -88,7 +89,8 @@ let check_deprecated_mutable loc attrs s =
   match deprecated_mutable_of_attrs attrs with
   | None -> ()
   | Some txt ->
-      Location.deprecated loc (Printf.sprintf "mutating field %s" (cat s txt))
+      Location.deprecated loc
+        (I18n.to_string @@ I18n.sprintf "mutating field %s" (cat s txt))
 
 let check_deprecated_mutable_inclusion ~def ~use loc attrs1 attrs2 s =
   match deprecated_mutable_of_attrs attrs1,
@@ -97,7 +99,7 @@ let check_deprecated_mutable_inclusion ~def ~use loc attrs1 attrs2 s =
   | None, _ | Some _, Some _ -> ()
   | Some txt, None ->
       Location.deprecated ~def ~use loc
-        (Printf.sprintf "mutating field %s" (cat s txt))
+        (I18n.to_string @@ I18n.sprintf "mutating field %s" (cat s txt))
 
 let rec deprecated_of_sig = function
   | {psig_desc = Psig_attribute a} :: tl ->
@@ -125,12 +127,12 @@ let warning_attribute ?(ppwarning = true) =
         with Arg.Bad _ ->
           Location.prerr_warning loc
             (Warnings.Attribute_payload
-               (txt, "Ill-formed list of warnings"))
+               (txt, I18n.to_string @@ I18n.s "Ill-formed list of warnings"))
         end
     | None ->
         Location.prerr_warning loc
           (Warnings.Attribute_payload
-             (txt, "A single string literal is expected"))
+             (txt, I18n.to_string @@ I18n.s "A single string literal is expected"))
   in
   function
   | ({txt = ("ocaml.warning"|"warning") as txt; loc}, payload) ->
