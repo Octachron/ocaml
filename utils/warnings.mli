@@ -63,8 +63,8 @@ type t =
   | Ambiguous_name of string list * string list * bool (* 41 *)
   | Disambiguated_name of string            (* 42 *)
   | Nonoptional_label of string             (* 43 *)
-  | Open_shadow_identifier of string * string (* 44 *)
-  | Open_shadow_label_constructor of string * string (* 45 *)
+  | Open_shadow_identifier of I18n.s * string (* 44 *)
+  | Open_shadow_label_constructor of I18n.s * string (* 45 *)
   | Bad_env_variable of string * string     (* 46 *)
   | Attribute_payload of string * string    (* 47 *)
   | Eliminated_optional_arguments of string list (* 48 *)
@@ -74,7 +74,7 @@ type t =
   | Fragile_literal_pattern                 (* 52 *)
   | Misplaced_attribute of string           (* 53 *)
   | Duplicated_attribute of string          (* 54 *)
-  | Inlining_impossible of string           (* 55 *)
+  | Inlining_impossible of I18n.s           (* 55 *)
   | Unreachable_case                        (* 56 *)
   | Ambiguous_pattern of string list        (* 57 *)
   | No_cmx_file of string                   (* 58 *)
@@ -94,9 +94,9 @@ val defaults_warn_error : string;;
 
 type reporting_information =
   { number : int
-  ; message : string
+  ; message : I18n.s
   ; is_error : bool
-  ; sub_locs : (loc * string) list;
+  ; sub_locs : (loc * I18n.s) list;
   }
 
 val report : t -> [ `Active of reporting_information | `Inactive ]

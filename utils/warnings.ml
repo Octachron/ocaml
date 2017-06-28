@@ -70,8 +70,8 @@ type t =
   | Ambiguous_name of string list * string list *  bool    (* 41 *)
   | Disambiguated_name of string            (* 42 *)
   | Nonoptional_label of string             (* 43 *)
-  | Open_shadow_identifier of string * string (* 44 *)
-  | Open_shadow_label_constructor of string * string (* 45 *)
+  | Open_shadow_identifier of I18n.s * string (* 44 *)
+  | Open_shadow_label_constructor of I18n.s  * string (* 45 *)
   | Bad_env_variable of string * string     (* 46 *)
   | Attribute_payload of string * string    (* 47 *)
   | Eliminated_optional_arguments of string list (* 48 *)
@@ -81,7 +81,7 @@ type t =
   | Fragile_literal_pattern                 (* 52 *)
   | Misplaced_attribute of string           (* 53 *)
   | Duplicated_attribute of string          (* 54 *)
-  | Inlining_impossible of string           (* 55 *)
+  | Inlining_impossible of I18n.s           (* 55 *)
   | Unreachable_case                        (* 56 *)
   | Ambiguous_pattern of string list        (* 57 *)
   | No_cmx_file of string                   (* 58 *)
@@ -283,9 +283,10 @@ let defaults_warn_error = "-a+31";;
 let () = parse_options false defaults_w;;
 let () = parse_options true defaults_warn_error;;
 
+open I18n open I18n_core
 let message = function
-  | Comment_start -> "this is the start of a comment."
-  | Comment_not_end -> "this is not the end of a comment."
+  | Comment_start -> s_"this is the start of a comment."
+  | Comment_not_end -> s_"this is not the end of a comment."
   | Deprecated (s, _, _) ->
       (* Reduce \r\n to \n:
            - Prevents any \r characters being printed on Unix when processing
@@ -293,213 +294,236 @@ let message = function
            - Prevents \r\r\n being generated on Windows, which affects the
              testsuite
        *)
-       "deprecated: " ^ Misc.normalise_eol s
+       sprintf (f_"deprecated: %s") (Misc.normalise_eol s)
   | Fragile_match "" ->
-      "this pattern-matching is fragile."
+      s_ "this pattern-matching is fragile."
   | Fragile_match s ->
-      "this pattern-matching is fragile.\n\
-       It will remain exhaustive when constructors are added to type " ^ s ^ "."
+      sprintf
+        (f_ "this pattern-matching is fragile.\n\
+             It will remain exhaustive when constructors are added to type %s.")
+        s
   | Partial_application ->
-      "this function application is partial,\n\
+      s_"this function application is partial,\n\
        maybe some arguments are missing."
   | Labels_omitted [] -> assert false
-  | Labels_omitted [l] ->
-     "label " ^ l ^ " was omitted in the application of this function."
-  | Labels_omitted ls ->
-     "labels " ^ String.concat ", " ls ^
-       " were omitted in the application of this function."
-  | Method_override [lab] ->
-      "the method " ^ lab ^ " is overridden."
+  | Labels_omitted l ->
+      let n = List.length l in
+      sprintf
+        (fn_
+           "label %s was omitted in the application of this function."
+           "labels %s were omitted in the application of this function."
+           n
+        )
+       (String.concat ", " l)
+| Method_override [lab] ->
+      sprintf (f_"the method %s is overridden.") lab
   | Method_override (cname :: slist) ->
-      String.concat " "
-        ("the following methods are overridden by the class"
-         :: cname  :: ":\n " :: slist)
+        sprintf (f_"the following methods are overridden by the class %s")
+        (String.concat " " (cname  :: ":\n " :: slist))
   | Method_override [] -> assert false
-  | Partial_match "" -> "this pattern-matching is not exhaustive."
+  | Partial_match "" -> s_"this pattern-matching is not exhaustive."
   | Partial_match s ->
-      "this pattern-matching is not exhaustive.\n\
-       Here is an example of a case that is not matched:\n" ^ s
+      sprintf (f_"this pattern-matching is not exhaustive.\n\
+       Here is an example of a case that is not matched:\n %s") s
   | Non_closed_record_pattern s ->
-      "the following labels are not bound in this record pattern:\n" ^ s ^
-      "\nEither bind these labels explicitly or add '; _' to the pattern."
+      sprintf
+        (f_"the following labels are not bound in this record pattern:\n%s\n\
+           Either bind these labels explicitly or add '; _' to the pattern.")
+        s
   | Statement_type ->
-      "this expression should have type unit."
-  | Unused_match -> "this match case is unused."
-  | Unused_pat   -> "this sub-pattern is unused."
+      s_"this expression should have type unit."
+  | Unused_match -> s_"this match case is unused."
+  | Unused_pat   -> s_"this sub-pattern is unused."
   | Instance_variable_override [lab] ->
-      "the instance variable " ^ lab ^ " is overridden.\n" ^
-      "The behaviour changed in ocaml 3.10 (previous behaviour was hiding.)"
+      sprintf
+        (f_ "the instance variable %s is overridden.\n\
+             The behaviour changed in ocaml 3.10 (previous behaviour was hiding.)"
+        ) lab
   | Instance_variable_override (cname :: slist) ->
-      String.concat " "
-        ("the following instance variables are overridden by the class"
-         :: cname  :: ":\n " :: slist) ^
-      "\nThe behaviour changed in ocaml 3.10 (previous behaviour was hiding.)"
+      sprintf
+        (f_ "the following instance variables are overridden by the class %s\n\
+             The behaviour changed in ocaml 3.10 (previous behaviour was hiding.)"
+        )
+        (String.concat " " (cname  :: ":\n " :: slist))
   | Instance_variable_override [] -> assert false
-  | Illegal_backslash -> "illegal backslash escape in string."
+  | Illegal_backslash -> s_"illegal backslash escape in string."
   | Implicit_public_methods l ->
-      "the following private methods were made public implicitly:\n "
-      ^ String.concat " " l ^ "."
-  | Unerasable_optional_argument -> "this optional argument cannot be erased."
-  | Undeclared_virtual_method m -> "the virtual method "^m^" is not declared."
-  | Not_principal s -> s^" is not principal."
-  | Without_principality s -> s^" without principality."
-  | Unused_argument -> "this argument will not be used by the function."
+      sprintf
+      (f_"the following private methods were made public implicitly:\n %s.")
+      (String.concat " " l)
+  | Unerasable_optional_argument -> s_"this optional argument cannot be erased."
+  | Undeclared_virtual_method m ->
+      sprintf (f_"the virtual method %s is not declared.") m
+  | Not_principal s -> sprintf (f_"%s is not principal.") s
+  | Without_principality s -> sprintf (f_"%s without principality.") s
+  | Unused_argument -> s_"this argument will not be used by the function."
   | Nonreturning_statement ->
-      "this statement never returns (or has an unsound type.)"
-  | Preprocessor s -> s
+      s_"this statement never returns (or has an unsound type.)"
+  | Preprocessor s -> raw s
   | Useless_record_with ->
-      "all the fields are explicitly listed in this record:\n\
+      s_"all the fields are explicitly listed in this record:\n\
        the 'with' clause is useless."
   | Bad_module_name (modname) ->
-      "bad source file name: \"" ^ modname ^ "\" is not a valid module name."
+      sprintf
+        (f_"bad source file name: \"%s\" is not a valid module name.") modname
   | All_clauses_guarded ->
-      "this pattern-matching is not exhaustive.\n\
+      s_"this pattern-matching is not exhaustive.\n\
        All clauses in this pattern-matching are guarded."
-  | Unused_var v | Unused_var_strict v -> "unused variable " ^ v ^ "."
+  | Unused_var v | Unused_var_strict v -> sprintf (f_"unused variable  %s.") v
   | Wildcard_arg_to_constant_constr ->
-     "wildcard pattern given as argument to a constant constructor"
+     s_"wildcard pattern given as argument to a constant constructor"
   | Eol_in_string ->
-     "unescaped end-of-line in a string constant (non-portable code)"
+     s_"unescaped end-of-line in a string constant (non-portable code)"
   | Duplicate_definitions (kind, cname, tc1, tc2) ->
-      Printf.sprintf "the %s %s is defined in both types %s and %s."
-        kind cname tc1 tc2
+      asprintf (f_"the %a %s is defined in both types %s and %s.")
+        i18n (s_ kind) cname tc1 tc2
   | Multiple_definition(modname, file1, file2) ->
-      Printf.sprintf
-        "files %s and %s both define a module named %s"
+      sprintf
+        (f_"files %s and %s both define a module named %s")
         file1 file2 modname
-  | Unused_value_declaration v -> "unused value " ^ v ^ "."
-  | Unused_open s -> "unused open " ^ s ^ "."
-  | Unused_type_declaration s -> "unused type " ^ s ^ "."
-  | Unused_for_index s -> "unused for-loop index " ^ s ^ "."
-  | Unused_ancestor s -> "unused ancestor variable " ^ s ^ "."
-  | Unused_constructor (s, false, false) -> "unused constructor " ^ s ^ "."
+  | Unused_value_declaration v -> sprintf (f_"unused value %s.") v
+  | Unused_open s -> sprintf (f_"unused open %s.") s
+  | Unused_type_declaration s -> sprintf (f_"unused type %s.") s
+  | Unused_for_index s -> sprintf (f_"unused for-loop index %s.") s
+  | Unused_ancestor s -> sprintf (f_"unused ancestor variable %s.") s
+  | Unused_constructor (s, false, false) ->
+      sprintf (f_"unused constructor %s.") s
   | Unused_constructor (s, true, _) ->
-      "constructor " ^ s ^
-      " is never used to build values.\n\
-        (However, this constructor appears in patterns.)"
+      sprintf (f_"constructor %s is never used to build values.\n\
+                  (However, this constructor appears in patterns.)")
+        s
   | Unused_constructor (s, false, true) ->
-      "constructor " ^ s ^
-      " is never used to build values.\n\
-        Its type is exported as a private type."
+      sprintf (f_"constructor %s is never used to build values.\n\
+                  Its type is exported as a private type.")
+        s
   | Unused_extension (s, is_exception, cu_pattern, cu_privatize) ->
-     let kind =
-       if is_exception then "exception" else "extension constructor" in
-     let name = kind ^ " " ^ s in
+      let kind =
+        if is_exception then s_"exception" else s_"extension constructor" in
      begin match cu_pattern, cu_privatize with
-       | false, false -> "unused " ^ name
-       | true, _ ->
-          name ^
-          " is never used to build values.\n\
-           (However, this constructor appears in patterns.)"
-       | false, true ->
-          name ^
-          " is never used to build values.\n\
-            It is exported or rebound as a private extension."
+     | false, false -> asprintf (f_"unused %a %s") i18n kind s
+     | true, _ ->
+         asprintf (f_"%a %s is never used to build values.\n\
+                  (However, this constructor appears in patterns.)")
+           i18n kind s
+     | false, true ->
+         asprintf
+           (f_"%a %s is never used to build values.\n\
+               It is exported or rebound as a private extension.")
+           i18n kind s
      end
   | Unused_rec_flag ->
-      "unused rec flag."
+      s_"unused rec flag."
   | Name_out_of_scope (ty, [nm], false) ->
-      nm ^ " was selected from type " ^ ty ^
-      ".\nIt is not visible in the current scope, and will not \n\
-       be selected if the type becomes unknown."
+      sprintf
+      (f_"%s was selected from type %s. \n\
+       It is not visible in the current scope, and will not \n\
+       be selected if the type becomes unknown.") ty nm
   | Name_out_of_scope (_, _, false) -> assert false
   | Name_out_of_scope (ty, slist, true) ->
-      "this record of type "^ ty ^" contains fields that are \n\
-       not visible in the current scope: "
-      ^ String.concat " " slist ^ ".\n\
-       They will not be selected if the type becomes unknown."
+      sprintf
+      (f_"this record of type %s contains fields that are \n\
+          not visible in the current scope: %s.\n\
+          They will not be selected if the type becomes unknown."
+      ) ty (String.concat " " slist)
   | Ambiguous_name ([s], tl, false) ->
-      s ^ " belongs to several types: " ^ String.concat " " tl ^
-      "\nThe first one was selected. Please disambiguate if this is wrong."
+      sprintf
+        (f_"%s belongs to several types: %s \n\
+            The first one was selected. Please disambiguate if this is wrong.")
+        s (String.concat " " tl)
   | Ambiguous_name (_, _, false) -> assert false
   | Ambiguous_name (_slist, tl, true) ->
-      "these field labels belong to several types: " ^
-      String.concat " " tl ^
-      "\nThe first one was selected. Please disambiguate if this is wrong."
+      sprintf
+        (f_"these field labels belong to several types: %s\n\
+            The first one was selected. Please disambiguate if this is wrong."
+        )
+        (String.concat " " tl)
   | Disambiguated_name s ->
-      "this use of " ^ s ^ " relies on type-directed disambiguation,\n\
-       it will not compile with OCaml 4.00 or earlier."
+      sprintf
+        (f_"this use of %s relies on type-directed disambiguation,\n\
+            it will not compile with OCaml 4.00 or earlier.")
+        s
   | Nonoptional_label s ->
-      "the label " ^ s ^ " is not optional."
+      sprintf (f_"the label %s is not optional.") s
   | Open_shadow_identifier (kind, s) ->
-      Printf.sprintf
-        "this open statement shadows the %s identifier %s (which is later used)"
-        kind s
+      asprintf
+        (f_"this open statement shadows the %a identifier %s \
+            (which is later used)")
+        i18n kind s
   | Open_shadow_label_constructor (kind, s) ->
-      Printf.sprintf
-        "this open statement shadows the %s %s (which is later used)"
-        kind s
+      asprintf
+        (f_"this open statement shadows the %a %s (which is later used)")
+        i18n kind s
   | Bad_env_variable (var, s) ->
-      Printf.sprintf "illegal environment variable %s : %s" var s
+      sprintf (f_"illegal environment variable %s : %s") var s
   | Attribute_payload (a, s) ->
-      Printf.sprintf "illegal payload for attribute '%s'.\n%s" a s
+      sprintf (f_"illegal payload for attribute '%s'.\n%s") a s
   | Eliminated_optional_arguments sl ->
-      Printf.sprintf "implicit elimination of optional argument%s %s"
+      sprintf (f_"implicit elimination of optional argument%s %s")
         (if List.length sl = 1 then "" else "s")
         (String.concat ", " sl)
   | No_cmi_file(name, None) ->
-      "no cmi file was found in path for module " ^ name
+      sprintf (f_"no cmi file was found in path for module %s") name
   | No_cmi_file(name, Some msg) ->
-      Printf.sprintf
-        "no valid cmi file was found in path for module %s. %s"
+      sprintf
+        (f_"no valid cmi file was found in path for module %s. %s")
         name msg
   | Bad_docstring unattached ->
-      if unattached then "unattached documentation comment (ignored)"
-      else "ambiguous documentation comment"
+      if unattached then s_"unattached documentation comment (ignored)"
+      else s_"ambiguous documentation comment"
   | Expect_tailcall ->
-      Printf.sprintf "expected tailcall"
+      s_"expected tailcall"
   | Fragile_literal_pattern ->
-      Printf.sprintf
-        "Code should not depend on the actual values of\n\
+      sprintf
+        (f_"Code should not depend on the actual values of\n\
          this constructor's arguments. They are only for information\n\
-         and may change in future versions. (See manual section 8.5)"
+         and may change in future versions. (See manual section 8.5)")
   | Unreachable_case ->
-      "this match case is unreachable.\n\
+      s_"this match case is unreachable.\n\
        Consider replacing it with a refutation case '<pat> -> .'"
   | Misplaced_attribute attr_name ->
-      Printf.sprintf "the %S attribute cannot appear in this context" attr_name
+      sprintf (f_"the %S attribute cannot appear in this context") attr_name
   | Duplicated_attribute attr_name ->
-      Printf.sprintf "the %S attribute is used more than once on this \
-          expression"
+      sprintf (f_"the %S attribute is used more than once on this \
+               expression")
         attr_name
   | Inlining_impossible reason ->
-      Printf.sprintf "Cannot inline: %s" reason
+      asprintf (f_"Cannot inline: %a") i18n reason
   | Ambiguous_pattern vars ->
       let msg =
         let vars = List.sort String.compare vars in
         match vars with
         | [] -> assert false
-        | [x] -> "variable " ^ x
-        | _::_ ->
-            "variables " ^ String.concat "," vars in
-      Printf.sprintf
-        "Ambiguous or-pattern variables under guard;\n\
-         %s may match different arguments. (See manual section 8.5)"
-        msg
+        | l ->
+            sprintf (fn_ "variable %s" "variables %s" (List.length l) )
+              (String.concat "," vars) in
+      asprintf
+        (f_"Ambiguous or-pattern variables under guard;\n\
+         %a may match different arguments. (See manual section 8.5)")
+        i18n msg
   | No_cmx_file name ->
-      Printf.sprintf
-        "no cmx file was found in path for module %s, \
-         and its interface was not compiled with -opaque" name
+      sprintf
+        (f_"no cmx file was found in path for module %s, \
+         and its interface was not compiled with -opaque") name
   | Assignment_to_non_mutable_value ->
-      "A potential assignment to a non-mutable value was detected \n\
+      s_"A potential assignment to a non-mutable value was detected \n\
         in this source file.  Such assignments may generate incorrect code \n\
         when using Flambda."
-  | Unused_module s -> "unused module " ^ s ^ "."
+  | Unused_module s -> sprintf (f_"unused module %s.") s
   | Unboxable_type_in_prim_decl t ->
-      Printf.sprintf
-        "This primitive declaration uses type %s, which is unannotated and\n\
+      sprintf
+        (f_"This primitive declaration uses type %s, which is unannotated and\n\
          unboxable. The representation of such types may change in future\n\
          versions. You should annotate the declaration of %s with [@@boxed]\n\
-         or [@@unboxed]." t t
+         or [@@unboxed].") t t
   | Constraint_on_gadt ->
-      "Type constraints do not apply to GADT cases of variant types."
+      s_"Type constraints do not apply to GADT cases of variant types."
 ;;
 
 let sub_locs = function
   | Deprecated (_, def, use) ->
       [
-        def, "Definition";
-        use, "Expected signature";
+        def, s_"Definition";
+        use, s_"Expected signature";
       ]
   | _ -> []
 
@@ -507,9 +531,9 @@ let nerrors = ref 0;;
 
 type reporting_information =
   { number : int
-  ; message : string
+  ; message : I18n.s
   ; is_error : bool
-  ; sub_locs : (loc * string) list;
+  ; sub_locs : (loc * I18n.s) list;
   }
 
 let report w =
@@ -534,97 +558,97 @@ let check_fatal () =
   end;
 ;;
 
-let descriptions =
+let descriptions () =
   [
-    1, "Suspicious-looking start-of-comment mark.";
-    2, "Suspicious-looking end-of-comment mark.";
-    3, "Deprecated feature.";
-    4, "Fragile pattern matching: matching that will remain complete even\n\
+    1, s_"Suspicious-looking start-of-comment mark.";
+    2, s_"Suspicious-looking end-of-comment mark.";
+    3, s_"Deprecated feature.";
+    4, s_"Fragile pattern matching: matching that will remain complete even\n\
    \    if additional constructors are added to one of the variant types\n\
    \    matched.";
-    5, "Partially applied function: expression whose result has function\n\
+    5, s_"Partially applied function: expression whose result has function\n\
    \    type and is ignored.";
-    6, "Label omitted in function application.";
-    7, "Method overridden.";
-    8, "Partial match: missing cases in pattern-matching.";
-    9, "Missing fields in a record pattern.";
-   10, "Expression on the left-hand side of a sequence that doesn't have \
-      type\n\
-   \    \"unit\" (and that is not a function, see warning number 5).";
-   11, "Redundant case in a pattern matching (unused match case).";
-   12, "Redundant sub-pattern in a pattern-matching.";
-   13, "Instance variable overridden.";
-   14, "Illegal backslash escape in a string constant.";
-   15, "Private method made public implicitly.";
-   16, "Unerasable optional argument.";
-   17, "Undeclared virtual method.";
-   18, "Non-principal type.";
-   19, "Type without principality.";
-   20, "Unused function argument.";
-   21, "Non-returning statement.";
-   22, "Preprocessor warning.";
-   23, "Useless record \"with\" clause.";
-   24, "Bad module name: the source file name is not a valid OCaml module \
-        name.";
-   (* 25, "Pattern-matching with all clauses guarded.  Exhaustiveness cannot \
+    6, s_"Label omitted in function application.";
+    7, s_"Method overridden.";
+    8, s_"Partial match: missing cases in pattern-matching.";
+    9, s_"Missing fields in a record pattern.";
+   10, s_"Expression on the left-hand side of a sequence that doesn't have \
+      ts_ype\n\
+   \   s_ \"unit\" (and that is not a function, see warning number 5).";
+   11, s_"Redundant case in a pattern matching (unused match case).";
+   12, s_"Redundant sub-pattern in a pattern-matching.";
+   13, s_"Instance variable overridden.";
+   14, s_"Illegal backslash escape in a string constant.";
+   15, s_"Private method made public implicitly.";
+   16, s_"Unerasable optional argument.";
+   17, s_"Undeclared virtual method.";
+   18, s_"Non-principal type.";
+   19, s_"Type without principality.";
+   20, s_"Unused function argument.";
+   21, s_"Non-returning statement.";
+   22, s_"Preprocessor warning.";
+   23, s_"Useless record \"with\" clause.";
+   24, s_"Bad module name: the source file name is not a valid OCaml module \
+          name.";
+   (* 2s_5, "Pattern-matching with all clauses guarded.  Exhaustiveness cannot \
       be\n\
    \    checked.";  (* Now part of warning 8 *) *)
-   26, "Suspicious unused variable: unused variable that is bound\n\
+   26, s_"Suspicious unused variable: unused variable that is bound\n\
    \    with \"let\" or \"as\", and doesn't start with an underscore (\"_\")\n\
    \    character.";
-   27, "Innocuous unused variable: unused variable that is not bound with\n\
+   27, s_"Innocuous unused variable: unused variable that is not bound with\n\
    \    \"let\" nor \"as\", and doesn't start with an underscore (\"_\")\n\
    \    character.";
-   28, "Wildcard pattern given as argument to a constant constructor.";
-   29, "Unescaped end-of-line in a string constant (non-portable code).";
-   30, "Two labels or constructors of the same name are defined in two\n\
+   28, s_"Wildcard pattern given as argument to a constant constructor.";
+   29, s_"Unescaped end-of-line in a string constant (non-portable code).";
+   30, s_"Two labels or constructors of the same name are defined in two\n\
    \    mutually recursive types.";
-   31, "A module is linked twice in the same executable.";
-   32, "Unused value declaration.";
-   33, "Unused open statement.";
-   34, "Unused type declaration.";
-   35, "Unused for-loop index.";
-   36, "Unused ancestor variable.";
-   37, "Unused constructor.";
-   38, "Unused extension constructor.";
-   39, "Unused rec flag.";
-   40, "Constructor or label name used out of scope.";
-   41, "Ambiguous constructor or label name.";
-   42, "Disambiguated constructor or label name (compatibility warning).";
-   43, "Nonoptional label applied as optional.";
-   44, "Open statement shadows an already defined identifier.";
-   45, "Open statement shadows an already defined label or constructor.";
-   46, "Error in environment variable.";
-   47, "Illegal attribute payload.";
-   48, "Implicit elimination of optional arguments.";
-   49, "Absent cmi file when looking up module alias.";
-   50, "Unexpected documentation comment.";
-   51, "Warning on non-tail calls if @tailcall present.";
-   52, "Fragile constant pattern.";
-   53, "Attribute cannot appear in this context";
-   54, "Attribute used more than once on an expression";
-   55, "Inlining impossible";
-   56, "Unreachable case in a pattern-matching (based on type information).";
-   57, "Ambiguous or-pattern variables under guard";
-   58, "Missing cmx file";
-   59, "Assignment to non-mutable value";
-   60, "Unused module declaration";
-   61, "Unboxable type in primitive declaration";
-   62, "Type constraint on GADT type declaration"
+   31, s_"A module is linked twice in the same executable.";
+   32, s_"Unused value declaration.";
+   33, s_"Unused open statement.";
+   34, s_"Unused type declaration.";
+   35, s_"Unused for-loop index.";
+   36, s_"Unused ancestor variable.";
+   37, s_"Unused constructor.";
+   38, s_"Unused extension constructor.";
+   39, s_"Unused rec flag.";
+   40, s_"Constructor or label name used out of scope.";
+   41, s_"Ambiguous constructor or label name.";
+   42, s_"Disambiguated constructor or label name (compatibility warning).";
+   43, s_"Nonoptional label applied as optional.";
+   44, s_"Open statement shadows an already defined identifier.";
+   45, s_"Open statement shadows an already defined label or constructor.";
+   46, s_"Error in environment variable.";
+   47, s_"Illegal attribute payload.";
+   48, s_"Implicit elimination of optional arguments.";
+   49, s_"Absent cmi file when looking up module alias.";
+   50, s_"Unexpected documentation comment.";
+   51, s_"Warning on non-tail calls if @tailcall present.";
+   52, s_"Fragile constant pattern.";
+   53, s_"Attribute cannot appear in this context";
+   54, s_"Attribute used more than once on an expression";
+   55, s_"Inlining impossible";
+   56, s_"Unreachable case in a pattern-matching (based on type information).";
+   57, s_"Ambiguous or-pattern variables under guard";
+   58, s_"Missing cmx file";
+   59, s_"Assignment to non-mutable value";
+   60, s_"Unused module declaration";
+   61, s_"Unboxable type in primitive declaration";
+   62, s_"Type constraint on GADT type declaration"
   ]
 ;;
 
 let help_warnings () =
-  List.iter (fun (i, s) -> Printf.printf "%3i %s\n" i s) descriptions;
+  List.iter (fun (i, s) -> Format.printf "%3i %a\n" i i18n s) (descriptions ());
   print_endline "  A all warnings";
   for i = Char.code 'b' to Char.code 'z' do
     let c = Char.chr i in
     match letter c with
     | [] -> ()
     | [n] ->
-        Printf.printf "  %c Alias for warning %i.\n" (Char.uppercase_ascii c) n
+        printf (f_"  %c Alias for warning %i.\n") (Char.uppercase_ascii c) n
     | l ->
-        Printf.printf "  %c warnings %s.\n"
+        printf (f_"  %c warnings %s.\n")
           (Char.uppercase_ascii c)
           (String.concat ", " (List.map string_of_int l))
   done;
