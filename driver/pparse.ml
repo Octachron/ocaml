@@ -14,6 +14,7 @@
 (**************************************************************************)
 
 open Format
+open I18n.I18n_core
 
 type error =
   | CannotRun of string
@@ -153,7 +154,9 @@ let open_and_check_magic inputfile ast_magic =
       else false
     with
       Outdated_version ->
-        Misc.fatal_error "OCaml and preprocessor have incompatible versions"
+        Misc.fatal_error
+          (I18n.to_string @@
+           s_"OCaml and preprocessor have incompatible versions")
     | _ -> false
   in
   (ic, is_ast_file)
