@@ -42,8 +42,9 @@ let load plugin_name =
 let () =
   Location.register_error_of_exn (function
   | Compdynlink.Error error ->
-    Some (Location.error (
-      Printf.sprintf "%s while loading argument of -plugin"
-        (Compdynlink.error_message error)))
+      Some (Location.error (
+          (* I18n: TODO:translation for plugins errors *)
+          I18n.raw @@ Format.sprintf "%s while loading argument of -plugin"
+            (Compdynlink.error_message error)))
   | _ -> None);
   Compenv.load_plugin := load

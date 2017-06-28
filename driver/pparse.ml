@@ -153,7 +153,9 @@ let open_and_check_magic inputfile ast_magic =
       else false
     with
       Outdated_version ->
-        Misc.fatal_error "OCaml and preprocessor have incompatible versions"
+        Misc.fatal_error
+          (I18n.to_string @@
+           I18n.s "OCaml and preprocessor have incompatible versions")
     | _ -> false
   in
   (ic, is_ast_file)
