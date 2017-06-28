@@ -21,6 +21,7 @@ open Primitive
 open Lambda
 open Switch
 open Clambda
+open I18n.I18n_core
 
 module Storer =
   Switch.Store
@@ -712,7 +713,7 @@ let direct_apply fundesc funct ufunct uargs ~loc ~attribute =
     | _, Never_inline | None, _ ->
       let dbg = Debuginfo.from_location loc in
         warning_if_forced_inline ~loc ~attribute
-          "Function information unavailable";
+          (s_"Function information unavailable");
         Udirect_apply(fundesc.fun_label, app_args, dbg)
     | Some(params, body), _  ->
         bind_params loc fundesc.fun_float_const_prop params app_args body
@@ -880,7 +881,7 @@ let rec close fenv cenv = function
           iter first_args
             (Ulet (Immutable, Pgenval, funct_var, ufunct, new_fun))
         in
-        warning_if_forced_inline ~loc ~attribute "Partial application";
+        warning_if_forced_inline ~loc ~attribute (s_"Partial application");
         (new_fun, approx)
 
       | ((ufunct, Value_closure(fundesc, _approx_res)), uargs)
@@ -890,7 +891,7 @@ let rec close fenv cenv = function
           let first_args = List.map (fun (id, _) -> Uvar id) first_args in
           let rem_args = List.map (fun (id, _) -> Uvar id) rem_args in
           let dbg = Debuginfo.from_location loc in
-          warning_if_forced_inline ~loc ~attribute "Over-application";
+          warning_if_forced_inline ~loc ~attribute (s_"Over-application");
           let body =
             Ugeneric_apply(direct_apply ~loc ~attribute
                               fundesc funct ufunct first_args,
@@ -905,7 +906,7 @@ let rec close fenv cenv = function
           result, Value_unknown
       | ((ufunct, _), uargs) ->
           let dbg = Debuginfo.from_location loc in
-          warning_if_forced_inline ~loc ~attribute "Unknown function";
+          warning_if_forced_inline ~loc ~attribute (s_"Unknown function");
           (Ugeneric_apply(ufunct, uargs, dbg), Value_unknown)
       end
   | Lsend(kind, met, obj, args, loc) ->
