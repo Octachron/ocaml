@@ -63,7 +63,7 @@ let match_expect_extension (ext : Parsetree.extension) =
   | ({Asttypes.txt="expect"|"ocaml.expect"; loc = extid_loc}, payload) ->
     let invalid_payload () =
       Location.raise_errorf ~loc:extid_loc
-        "invalid [%%%%expect payload]"
+        (I18n.rawf "invalid [%%%%expect payload]")
     in
     let string_constant (e : Parsetree.expression) =
       match e.pexp_desc with
