@@ -728,7 +728,7 @@ end) = struct
           let label = label_of_kind type_kind in
           warn lid.loc
             (Warnings.Not_principal
-               ("this type-based " ^ label ^ " disambiguation"))
+               (I18n.sprintf "this type-based %s disambiguation" label))
         in
         try
           let lbl, use = disambiguate_by_type env tpath scope in
@@ -853,7 +853,7 @@ let disambiguate_lid_a_list loc closed env opath lid_a_list =
     List.map (fun (lid,a) -> lid, process_label lid, a) lid_a_list in
   if !w_pr then
     Location.prerr_warning loc
-      (Warnings.Not_principal "this type-based record disambiguation")
+      (Warnings.Not_principal (I18n.s "this type-based record disambiguation"))
   else begin
     match List.rev !w_amb with
       (_,types)::_ as amb ->
@@ -2712,7 +2712,7 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp ty_expected =
       | Tconstr(path, _, _) when Path.same path fmt6_path ->
         if !Clflags.principal && ty_exp.level <> generic_level then
           Location.prerr_warning loc
-            (Warnings.Not_principal "this coercion to format6");
+            (Warnings.Not_principal (I18n.s "this coercion to format6"));
         true
       | _ -> false
     in
@@ -3228,7 +3228,7 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp ty_expected =
                   force (); force' ();
                   if not gen && !Clflags.principal then
                     Location.prerr_warning loc
-                      (Warnings.Not_principal "this ground coercion");
+                      (Warnings.Not_principal (I18n.s "this ground coercion"));
                 with Subtype (tr1, tr2) ->
                   (* prerr_endline "coercion failed"; *)
                   raise(Error(loc, env, Not_subtype(tr1, tr2)))
@@ -3355,7 +3355,8 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp ty_expected =
           | {desc = Tpoly (ty, tl); level = l} ->
               if !Clflags.principal && l <> generic_level then
                 Location.prerr_warning loc
-                  (Warnings.Not_principal "this use of a polymorphic method");
+                  (Warnings.Not_principal
+                     (I18n.s "this use of a polymorphic method"));
               snd (instance_poly false tl ty)
           | {desc = Tvar _} as ty ->
               let ty' = newvar () in
@@ -3650,7 +3651,7 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp ty_expected =
               (Ctype.expand_head env ty_expected).level < Btype.generic_level
             then
               Location.prerr_warning loc
-                (Warnings.Not_principal "this module packing");
+                (Warnings.Not_principal (I18n.s "this module packing"));
             (p, nl)
         | {desc = Tvar _} ->
             raise (Error (loc, env, Cannot_infer_signature))
@@ -4156,7 +4157,7 @@ and type_argument ?recarg env sarg ty_expected' ty_expected =
         (Warnings.Eliminated_optional_arguments
            (List.map (fun (l, _) -> Printtyp.string_of_label l) args));
       if warn then Location.prerr_warning texp.exp_loc
-          (Warnings.Without_principality "eliminated optional argument");
+          (Warnings.Without_principality (I18n.s "eliminated optional argument"));
       (* let-expand to have side effects *)
       let let_pat, let_var = var_pair "arg" texp.exp_type in
       re { texp with exp_type = ty_fun; exp_desc =
@@ -4290,14 +4291,14 @@ and type_application env funct sargs =
                 let (l', sarg0, sargs1, sargs2) = extract_label name sargs in
                 if sargs1 <> [] then
                   may_warn sarg0.pexp_loc
-                    (Warnings.Not_principal "commuting this argument");
+                    (Warnings.Not_principal (I18n.s "commuting this argument"));
                 (l', sarg0, sargs1 @ sargs2, more_sargs)
               with Not_found ->
                 let (l', sarg0, sargs1, sargs2) =
                   extract_label name more_sargs in
                 if sargs1 <> [] || sargs <> [] then
                   may_warn sarg0.pexp_loc
-                    (Warnings.Not_principal "commuting this argument");
+                    (Warnings.Not_principal (I18n.s "commuting this argument"));
                 (l', sarg0, sargs @ sargs1, sargs2)
             in
             if not optional && is_optional l' then
@@ -4308,7 +4309,7 @@ and type_application env funct sargs =
               Some (fun () -> type_argument env sarg0 ty ty0)
             else begin
               may_warn sarg0.pexp_loc
-                (Warnings.Not_principal "using an optional argument here");
+                (Warnings.Not_principal (I18n.s "using an optional argument here"));
               Some (fun () -> option_some (type_argument env sarg0
                                              (extract_option_type env ty)
                                              (extract_option_type env ty0)))
@@ -4320,12 +4321,13 @@ and type_application env funct sargs =
                || List.mem_assoc Nolabel more_sargs)
             then begin
               may_warn funct.exp_loc
-                (Warnings.Without_principality "eliminated optional argument");
+                (Warnings.Without_principality
+                   (I18n.s "eliminated optional argument"));
               ignored := (l,ty,lv) :: !ignored;
               Some (fun () -> option_none (instance env ty) Location.none)
             end else begin
               may_warn funct.exp_loc
-                (Warnings.Without_principality "commuted an argument");
+                (Warnings.Without_principality (I18n.s "commuted an argument"));
               None
             end
         in
@@ -4911,94 +4913,87 @@ let spellcheck ppf unbound_name valid_names =
 let spellcheck_idents ppf unbound valid_idents =
   spellcheck ppf (Ident.name unbound) (List.map Ident.name valid_idents)
 
-open Format
 open Printtyp
 
 let report_error env ppf = function
   | Polymorphic_label lid ->
-      fprintf ppf "@[The record field %a is polymorphic.@ %s@]"
-        longident lid "You cannot instantiate it in a pattern."
+      I18n.fprintf ppf "@[The record field %a is polymorphic.@ %a@]"
+        longident lid I18n.pp (I18n.s "You cannot instantiate it in a pattern.")
   | Constructor_arity_mismatch(lid, expected, provided) ->
-      fprintf ppf
-       "@[The constructor %a@ expects %i argument(s),@ \
-        but is applied here to %i argument(s)@]"
+      I18n.fprintf ppf
+        "@[The constructor %a@ expects %i argument(s),@ \
+         but is applied here to %i argument(s)@]"
        longident lid expected provided
   | Label_mismatch(lid, trace) ->
       report_unification_error ppf env trace
-        (function ppf ->
-           fprintf ppf "The record field %a@ belongs to the type"
-                   longident lid)
-        (function ppf ->
-           fprintf ppf "but is mixed here with fields of type")
+        (fun ppf -> I18n.fprintf ppf "The record field %a@ belongs to the type"
+            longident lid)
+        (fun ppf -> I18n.fprintf ppf"but is mixed here with fields of type")
   | Pattern_type_clash trace ->
       report_unification_error ppf env trace
-        (function ppf ->
-          fprintf ppf "This pattern matches values of type")
-        (function ppf ->
-          fprintf ppf "but a pattern was expected which matches values of type")
+        (fun ppf -> I18n.fprintf ppf"This pattern matches values of type")
+        (fun ppf -> I18n.fprintf ppf"but a pattern was expected which matches values of type")
   | Or_pattern_type_clash (id, trace) ->
       report_unification_error ppf env trace
-        (function ppf ->
-          fprintf ppf "The variable %s on the left-hand side of this \
-                       or-pattern has type" (Ident.name id))
-        (function ppf ->
-          fprintf ppf "but on the right-hand side it has type")
+        (fun ppf -> I18n.fprintf ppf
+            "The variable %s on the left-hand side of this \
+             or-pattern has type" (Ident.name id)
+        )
+        (fun ppf -> I18n.fprintf ppf"but on the right-hand side it has type")
   | Multiply_bound_variable name ->
-      fprintf ppf "Variable %s is bound several times in this matching" name
+      I18n.fprintf ppf "Variable %s is bound several times in this matching" name
   | Orpat_vars (id, valid_idents) ->
-      fprintf ppf "Variable %s must occur on both sides of this | pattern"
+      I18n.fprintf ppf "Variable %s must occur on both sides of this | pattern"
         (Ident.name id);
       spellcheck_idents ppf id valid_idents
   | Expr_type_clash trace ->
       report_unification_error ppf env trace
-        (function ppf ->
-           fprintf ppf "This expression has type")
-        (function ppf ->
-           fprintf ppf "but an expression was expected of type")
+        (fun ppf -> I18n.fprintf ppf"This expression has type")
+        (fun ppf -> I18n.fprintf ppf"but an expression was expected of type")
   | Apply_non_function typ ->
       reset_and_mark_loops typ;
       begin match (repr typ).desc with
         Tarrow _ ->
-          fprintf ppf "@[<v>@[<2>This function has type@ %a@]"
+          I18n.fprintf ppf "@[<v>@[<2>This function has type@ %a@]"
             type_expr typ;
-          fprintf ppf "@ @[It is applied to too many arguments;@ %s@]@]"
-                      "maybe you forgot a `;'."
+          I18n.fprintf ppf "@ @[It is applied to too many arguments;@ \
+                          maybe you forgot a ';'@]@]"
       | _ ->
-          fprintf ppf "@[<v>@[<2>This expression has type@ %a@]@ %s@]"
+          I18n.fprintf ppf "@[<v>@[<2>This expression has type@ %a@]@ %a@]"
             type_expr typ
-            "This is not a function; it cannot be applied."
+            I18n.pp (I18n.s "This is not a function; it cannot be applied.")
       end
   | Apply_wrong_label (l, ty) ->
       let print_label ppf = function
-        | Nolabel -> fprintf ppf "without label"
+        | Nolabel -> I18n.fprintf ppf "without label"
         | l ->
-            fprintf ppf "with label %s" (prefixed_label_name l)
+            I18n.fprintf ppf "with label %s" (prefixed_label_name l)
       in
       reset_and_mark_loops ty;
-      fprintf ppf
+      I18n.fprintf ppf
         "@[<v>@[<2>The function applied to this argument has type@ %a@]@.\
           This argument cannot be applied %a@]"
         type_expr ty print_label l
   | Label_multiply_defined s ->
-      fprintf ppf "The record field label %s is defined several times" s
+      I18n.fprintf ppf "The record field label %s is defined several times" s
   | Label_missing labels ->
       let print_labels ppf =
-        List.iter (fun lbl -> fprintf ppf "@ %s" (Ident.name lbl)) in
-      fprintf ppf "@[<hov>Some record fields are undefined:%a@]"
+        List.iter (fun lbl -> Format.fprintf ppf "@ %s" (Ident.name lbl)) in
+      I18n.fprintf ppf "@[<hov>Some record fields are undefined:%a@]"
         print_labels labels
   | Label_not_mutable lid ->
-      fprintf ppf "The record field %a is not mutable" longident lid
+      I18n.fprintf ppf "The record field %a is not mutable" longident lid
   | Wrong_name (eorp, ty, kind, p, name, valid_names) ->
       reset_and_mark_loops ty;
       if Path.is_constructor_typath p then begin
-        fprintf ppf "@[The field %s is not part of the record \
-                     argument for the %a constructor@]"
+        I18n.fprintf ppf "@[The field %s is not part of the record \
+                        argument for the %a constructor@]"
           name
           path p;
       end else begin
-      fprintf ppf "@[@[<2>%s type@ %a@]@ "
+      I18n.fprintf ppf "@[@[<2>%s type@ %a@]@ "
         eorp type_expr ty;
-      fprintf ppf "The %s %s does not belong to type %a@]"
+      I18n.fprintf ppf "The %s %s does not belong to type %a@]"
         (label_of_kind kind)
         name (*kind*) path p;
        end;
@@ -5006,20 +5001,20 @@ let report_error env ppf = function
   | Name_type_mismatch (kind, lid, tp, tpl) ->
       let name = label_of_kind kind in
       report_ambiguous_type_error ppf env tp tpl
-        (function ppf ->
-           fprintf ppf "The %s %a@ belongs to the %s type"
-             name longident lid kind)
-        (function ppf ->
-           fprintf ppf "The %s %a@ belongs to one of the following %s types:"
-             name longident lid kind)
-        (function ppf ->
-           fprintf ppf "but a %s was expected belonging to the %s type"
-             name kind)
+        (fun ppf -> I18n.fprintf ppf
+            "The %s %a@ belongs to the %s type"
+            name longident lid kind)
+        (fun ppf -> I18n.fprintf ppf
+            "The %s %a@ belongs to one of the following %s types:"
+            name longident lid kind)
+        (fun ppf -> I18n.fprintf ppf
+            "but a %s was expected belonging to the %s type"
+            name kind)
   | Invalid_format msg ->
-      fprintf ppf "%s" msg
+      Format.fprintf ppf "%s" msg (* I18N: could these msg be translated?*)
   | Undefined_method (ty, me, valid_methods) ->
       reset_and_mark_loops ty;
-      fprintf ppf
+      I18n.fprintf ppf
         "@[<v>@[This expression has type@;<1 2>%a@]@,\
          It has no method %s@]" type_expr ty me;
       begin match valid_methods with
@@ -5027,156 +5022,153 @@ let report_error env ppf = function
         | Some valid_methods -> spellcheck ppf me valid_methods
       end
   | Undefined_inherited_method (me, valid_methods) ->
-      fprintf ppf "This expression has no method %s" me;
+      I18n.fprintf ppf "This expression has no method %s" me;
       spellcheck ppf me valid_methods;
   | Virtual_class cl ->
-      fprintf ppf "Cannot instantiate the virtual class %a"
+      I18n.fprintf ppf "Cannot instantiate the virtual class %a"
         longident cl
   | Unbound_instance_variable (var, valid_vars) ->
-      fprintf ppf "Unbound instance variable %s" var;
+      I18n.fprintf ppf "Unbound instance variable %s" var;
       spellcheck ppf var valid_vars;
   | Instance_variable_not_mutable (b, v) ->
       if b then
-        fprintf ppf "The instance variable %s is not mutable" v
+        I18n.fprintf ppf "The instance variable %s is not mutable" v
       else
-        fprintf ppf "The value %s is not an instance variable" v
+        I18n.fprintf ppf "The value %s is not an instance variable" v
   | Not_subtype(tr1, tr2) ->
-      report_subtyping_error ppf env tr1 "is not a subtype of" tr2
+      report_subtyping_error ppf env tr1 (fun ppf -> I18n.fprintf ppf"is not a subtype of") tr2
   | Outside_class ->
-      fprintf ppf "This object duplication occurs outside a method definition"
+      I18n.fprintf ppf "This object duplication occurs outside a method definition"
   | Value_multiply_overridden v ->
-      fprintf ppf "The instance variable %s is overridden several times" v
+      I18n.fprintf ppf "The instance variable %s is overridden several times" v
   | Coercion_failure (ty, ty', trace, b) ->
       report_unification_error ppf env trace
-        (function ppf ->
-           let ty, ty' = prepare_expansion (ty, ty') in
-           fprintf ppf
-             "This expression cannot be coerced to type@;<1 2>%a;@ it has type"
+        (fun ppf ->
+         let ty, ty' = prepare_expansion (ty, ty') in
+         I18n.fprintf ppf
+           "This expression cannot be coerced to type@;<1 2>%a;@ it has type"
            (type_expansion ty) ty')
-        (function ppf ->
-           fprintf ppf "but is here used with type");
+        (fun ppf -> I18n.fprintf ppf"but is here used with type");
       if b then
-        fprintf ppf ".@.@[<hov>%s@ %s@ %s@]"
+        I18n.fprintf ppf ".@.@[<hov>%s@ %s@ %s@]"
           "This simple coercion was not fully general."
           "Hint: Consider using a fully explicit coercion"
           "of the form: `(foo : ty1 :> ty2)'."
   | Too_many_arguments (in_function, ty) ->
       reset_and_mark_loops ty;
       if in_function then begin
-        fprintf ppf "This function expects too many arguments,@ ";
-        fprintf ppf "it should have type@ %a"
+        I18n.fprintf ppf "This function expects too many arguments,@ \
+                        it should have type@ %a"
           type_expr ty
       end else begin
-        fprintf ppf "This expression should not be a function,@ ";
-        fprintf ppf "the expected type is@ %a"
+        I18n.fprintf ppf "This expression should not be a function,@ \
+                        the expected type is@ %a"
           type_expr ty
       end
   | Abstract_wrong_label (l, ty) ->
       let label_mark = function
-        | Nolabel -> "but its first argument is not labelled"
-        | l -> sprintf "but its first argument is labelled %s"
+        | Nolabel -> I18n.s "but its first argument is not labelled"
+        | l -> I18n.sprintf "but its first argument is labelled %s"
                        (prefixed_label_name l) in
       reset_and_mark_loops ty;
-      fprintf ppf "@[<v>@[<2>This function should have type@ %a@]@,%s@]"
-      type_expr ty (label_mark l)
+      I18n.fprintf ppf "@[<v>@[<2>This function should have type@ %a@]@,%a@]"
+      type_expr ty I18n.pp (label_mark l)
   | Scoping_let_module(id, ty) ->
       reset_and_mark_loops ty;
-      fprintf ppf
-       "This `let module' expression has type@ %a@ " type_expr ty;
-      fprintf ppf
-       "In this type, the locally bound module name %s escapes its scope" id
+      I18n.fprintf ppf
+        "This `let module' expression has type@ %a.@ \
+         In this type, the locally bound module name %s escapes its scope"
+        type_expr ty id
   | Masked_instance_variable lid ->
-      fprintf ppf
+      I18n.fprintf ppf
         "The instance variable %a@ \
          cannot be accessed from the definition of another instance variable"
         longident lid
   | Private_type ty ->
-      fprintf ppf "Cannot create values of the private type %a" type_expr ty
+      I18n.fprintf ppf "Cannot create values of the private type %a" type_expr ty
   | Private_label (lid, ty) ->
-      fprintf ppf "Cannot assign field %a of the private type %a"
+      I18n.fprintf ppf "Cannot assign field %a of the private type %a"
         longident lid type_expr ty
   | Not_a_variant_type lid ->
-      fprintf ppf "The type %a@ is not a variant type" longident lid
+      I18n.fprintf ppf "The type %a@ is not a variant type" longident lid
   | Incoherent_label_order ->
-      fprintf ppf "This function is applied to arguments@ ";
-      fprintf ppf "in an order different from other calls.@ ";
-      fprintf ppf "This is only allowed when the real type is known."
+      I18n.fprintf ppf
+        "This function is applied to arguments@ \
+         in an order different from other calls.@ \
+         This is only allowed when the real type is known."
   | Less_general (kind, trace) ->
       report_unification_error ppf env trace
-        (fun ppf -> fprintf ppf "This %s has type" kind)
-        (fun ppf -> fprintf ppf "which is less general than")
+        (fun ppf -> I18n.fprintf ppf "This %s has type" kind)
+        (fun ppf -> I18n.fprintf ppf "which is less general than")
   | Modules_not_allowed ->
-      fprintf ppf "Modules are not allowed in this pattern."
+      I18n.fprintf ppf "Modules are not allowed in this pattern."
   | Cannot_infer_signature ->
-      fprintf ppf
+      I18n.fprintf ppf
         "The signature for this packaged module couldn't be inferred."
   | Not_a_packed_module ty ->
-      fprintf ppf
+      I18n.fprintf ppf
         "This expression is packed module, but the expected type is@ %a"
         type_expr ty
   | Recursive_local_constraint trace ->
       report_unification_error ppf env trace
-        (function ppf ->
-           fprintf ppf "Recursive local constraint when unifying")
-        (function ppf ->
-           fprintf ppf "with")
+        (fun ppf -> I18n.fprintf ppf "Recursive local constraint when unifying")
+        (fun ppf -> I18n.fprintf ppf "with")
   | Unexpected_existential ->
-      fprintf ppf
-        "Unexpected existential"
+      I18n.fprintf ppf "Unexpected existential"
   | Unqualified_gadt_pattern (tpath, name) ->
-      fprintf ppf "@[The GADT constructor %s of type %a@ %s.@]"
+      I18n.fprintf ppf
+        "@[The GADT constructor %s of type %a@ \
+         must be qualified in this pattern.@]"
         name path tpath
-        "must be qualified in this pattern"
   | Invalid_interval ->
-      fprintf ppf "@[Only character intervals are supported in patterns.@]"
+      I18n.fprintf ppf "@[Only character intervals are supported in patterns.@]"
   | Invalid_for_loop_index ->
-      fprintf ppf
+      I18n.fprintf ppf
         "@[Invalid for-loop index: only variables and _ are allowed.@]"
   | No_value_clauses ->
-      fprintf ppf
+      I18n.fprintf ppf
         "None of the patterns in this 'match' expression match values."
   | Exception_pattern_below_toplevel ->
-      fprintf ppf
+      I18n.fprintf ppf
         "@[Exception patterns must be at the top level of a match case.@]"
   | Inlined_record_escape ->
-      fprintf ppf
+      I18n.fprintf ppf
         "@[This form is not allowed as the type of the inlined record could \
          escape.@]"
   | Inlined_record_expected ->
-      fprintf ppf
+      I18n.fprintf ppf
         "@[This constructor expects an inlined record argument.@]"
   | Unrefuted_pattern pat ->
-      fprintf ppf
-        "@[%s@ %s@ %a@]"
-        "This match case could not be refuted."
-        "Here is an example of a value that would reach it:"
+      I18n.fprintf ppf
+        "@[This match case could not be refuted.@ \
+         Here is an example of a value that would reach it:@ %a@]"
         Printpat.top_pretty pat
   | Invalid_extension_constructor_payload ->
-      fprintf ppf
-        "Invalid [%%extension_constructor] payload, a constructor is expected."
+      I18n.fprintf ppf
+        "Invalid [%%extension_constructor] payload, \
+            a constructor is expected."
   | Not_an_extension_constructor ->
-      fprintf ppf
+      I18n.fprintf ppf
         "This constructor is not an extension constructor."
   | Literal_overflow ty ->
-      fprintf ppf "Integer literal exceeds the range of representable \
+      I18n.fprintf ppf "Integer literal exceeds the range of representable \
                    integers of type %s" ty
   | Unknown_literal (n, m) ->
-      fprintf ppf "Unknown modifier '%c' for literal %s%c" m n m
+      I18n.fprintf ppf "Unknown modifier '%c' for literal %s%c" m n m
   | Illegal_letrec_pat ->
-      fprintf ppf
+      I18n.fprintf ppf
         "Only variables are allowed as left-hand side of `let rec'"
   | Illegal_letrec_expr ->
-      fprintf ppf
+      I18n.fprintf ppf
         "This kind of expression is not allowed as right-hand side of `let rec'"
   | Illegal_class_expr ->
-      fprintf ppf "This kind of recursive class expression is not allowed"
+      I18n.fprintf ppf "This kind of recursive class expression is not allowed"
   | Unbound_value_missing_rec (lid, loc) ->
       let (_, line, _) = Location.get_pos_info loc.Location.loc_start in
-      fprintf ppf
-        "@[%s %a.@ %s %i.@]"
-        "Unbound value"
+      I18n.fprintf ppf
+        "@[Unbound value %a.@ %a %i.@]"
         longident lid
-        "Hint: You are probably missing the `rec' keyword on line"
+        I18n.pp (I18n.s"Hint: You are probably missing the `rec' keyword on line")
         line
 
 let report_error env ppf err =

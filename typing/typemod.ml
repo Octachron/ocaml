@@ -1379,7 +1379,7 @@ and type_module_aux ~alias sttn funct_body anchor env smod =
               not (Typecore.generalizable (Btype.generic_level-1) exp.exp_type)
             then
               Location.prerr_warning smod.pmod_loc
-                (Warnings.Not_principal "this module unpacking");
+                (Warnings.Not_principal (I18n.s "this module unpacking"));
             modtype_of_package env smod.pmod_loc p nl tl
         | {desc = Tvar _} ->
             raise (Typecore.Error
@@ -1925,26 +1925,26 @@ open Printtyp
 
 let report_error ppf = function
     Cannot_apply mty ->
-      fprintf ppf
+      I18n.fprintf ppf
         "@[This module is not a functor; it has type@ %a@]" modtype mty
   | Not_included errs ->
-      fprintf ppf
+      I18n.fprintf ppf
         "@[<v>Signature mismatch:@ %a@]" Includemod.report_error errs
   | Cannot_eliminate_dependency mty ->
-      fprintf ppf
+      I18n.fprintf ppf
         "@[This functor has type@ %a@ \
            The parameter cannot be eliminated in the result type.@  \
            Please bind the argument to a module identifier.@]" modtype mty
-  | Signature_expected -> fprintf ppf "This module type is not a signature"
+  | Signature_expected -> I18n.fprintf ppf "This module type is not a signature"
   | Structure_expected mty ->
-      fprintf ppf
+      I18n.fprintf ppf
         "@[This module is not a structure; it has type@ %a" modtype mty
   | With_no_component lid ->
-      fprintf ppf
+      I18n.fprintf ppf
         "@[The signature constrained by `with' has no component named %a@]"
         longident lid
   | With_mismatch(lid, explanation) ->
-      fprintf ppf
+      I18n.fprintf ppf
         "@[<v>\
            @[In this `with' constraint, the new definition of %a@ \
              does not match its original definition@ \
@@ -1970,54 +1970,54 @@ let report_error ppf = function
               types (other than when replacing a type constructor with @ \
               a type constructor with the same arguments).@]"
   | Repeated_name(kind, name) ->
-      fprintf ppf
+      I18n.fprintf ppf
         "@[Multiple definition of the %s name %s.@ \
            Names must be unique in a given structure or signature.@]" kind name
   | Non_generalizable typ ->
-      fprintf ppf
+      I18n.fprintf ppf
         "@[The type of this expression,@ %a,@ \
            contains type variables that cannot be generalized@]" type_scheme typ
   | Non_generalizable_class (id, desc) ->
-      fprintf ppf
+      I18n.fprintf ppf
         "@[The type of this class,@ %a,@ \
            contains type variables that cannot be generalized@]"
         (class_declaration id) desc
   | Non_generalizable_module mty ->
-      fprintf ppf
+      I18n.fprintf ppf
         "@[The type of this module,@ %a,@ \
            contains type variables that cannot be generalized@]" modtype mty
   | Implementation_is_required intf_name ->
-      fprintf ppf
+      I18n.fprintf ppf
         "@[The interface %a@ declares values, not just types.@ \
            An implementation must be provided.@]"
         Location.print_filename intf_name
   | Interface_not_compiled intf_name ->
-      fprintf ppf
+      I18n.fprintf ppf
         "@[Could not find the .cmi file for interface@ %a.@]"
         Location.print_filename intf_name
   | Not_allowed_in_functor_body ->
-      fprintf ppf
+      I18n.fprintf ppf
         "@[This expression creates fresh types.@ %s@]"
         "It is not allowed inside applicative functors."
   | Not_a_packed_module ty ->
-      fprintf ppf
+      I18n.fprintf ppf
         "This expression is not a packed module. It has type@ %a"
         type_expr ty
   | Incomplete_packed_module ty ->
-      fprintf ppf
+      I18n.fprintf ppf
         "The type of this packed module contains variables:@ %a"
         type_expr ty
   | Scoping_pack (lid, ty) ->
-      fprintf ppf
+      I18n.fprintf ppf
         "The type %a in this module cannot be exported.@ " longident lid;
-      fprintf ppf
+      I18n.fprintf ppf
         "Its type contains local dependencies:@ %a" type_expr ty
   | Recursive_module_require_explicit_type ->
-      fprintf ppf "Recursive modules require an explicit module type."
+      I18n.fprintf ppf "Recursive modules require an explicit module type."
   | Apply_generative ->
-      fprintf ppf "This is a generative functor. It can only be applied to ()"
+      I18n.fprintf ppf "This is a generative functor. It can only be applied to ()"
   | Cannot_scrape_alias p ->
-      fprintf ppf
+      I18n.fprintf ppf
         "This is an alias for module %a, which is missing"
         path p
 

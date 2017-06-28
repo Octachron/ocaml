@@ -139,35 +139,34 @@ type type_mismatch =
   | Immediate
 
 let report_type_mismatch0 first second decl ppf err =
-  let pr fmt = Format.fprintf ppf fmt in
   match err with
-    Arity -> pr "They have different arities"
-  | Privacy -> pr "A private type would be revealed"
-  | Kind -> pr "Their kinds differ"
-  | Constraint -> pr "Their constraints differ"
+    Arity -> I18n.fprintf ppf "They have different arities"
+  | Privacy -> I18n.fprintf ppf "A private type would be revealed"
+  | Kind -> I18n.fprintf ppf "Their kinds differ"
+  | Constraint -> I18n.fprintf ppf "Their constraints differ"
   | Manifest -> ()
-  | Variance -> pr "Their variances do not agree"
+  | Variance -> I18n.fprintf ppf "Their variances do not agree"
   | Field_type s ->
-      pr "The types for field %s are not equal" (Ident.name s)
+      I18n.fprintf ppf"The types for field %s are not equal" (Ident.name s)
   | Field_mutable s ->
-      pr "The mutability of field %s is different" (Ident.name s)
+      I18n.fprintf ppf"The mutability of field %s is different" (Ident.name s)
   | Field_arity s ->
-      pr "The arities for field %s differ" (Ident.name s)
+      I18n.fprintf ppf"The arities for field %s differ" (Ident.name s)
   | Field_names (n, name1, name2) ->
-      pr "Fields number %i have different names, %s and %s"
+      I18n.fprintf ppf"Fields number %i have different names, %s and %s"
         n (Ident.name name1) (Ident.name name2)
   | Field_missing (b, s) ->
-      pr "The field %s is only present in %s %s"
-        (Ident.name s) (if b then second else first) decl
+      I18n.fprintf ppf"The field %s is only present in %a %a"
+        (Ident.name s) I18n.pp (if b then second else first) I18n.pp decl
   | Record_representation b ->
-      pr "Their internal representations differ:@ %s %s %s"
-        (if b then second else first) decl
-        "uses unboxed float representation"
+      I18n.fprintf ppf"Their internal representations differ:@ %a %a %a"
+        I18n.pp (if b then second else first) I18n.pp decl
+        I18n.pp (I18n.s"uses unboxed float representation")
   | Unboxed_representation b ->
-      pr "Their internal representations differ:@ %s %s %s"
-         (if b then second else first) decl
-         "uses unboxed representation"
-  | Immediate -> pr "%s is not an immediate type" first
+      I18n.fprintf ppf "Their internal representations differ:@ %a %a %a"
+         I18n.pp (if b then second else first) I18n.pp decl
+         I18n.pp (I18n.s "uses unboxed representation")
+  | Immediate -> I18n.fprintf ppf"%a is not an immediate type" I18n.pp first
 
 let report_type_mismatch first second decl ppf =
   List.iter

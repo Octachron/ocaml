@@ -65,8 +65,8 @@ let () =
           Some
             Location.
               (errorf ~loc:(in_file !input_name)
-                 "In this program,@ variant constructors@ `%s and `%s@ \
-                  have the same hash value.@ Change one of them." l l'
+                 ("In this program,@ variant constructors@ `%s and `%s@ \
+                  have the same hash value.@ Change one of them."[@i18n]) l l'
               )
       | _ -> None
     )

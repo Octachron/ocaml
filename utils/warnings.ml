@@ -44,8 +44,8 @@ type t =
   | Implicit_public_methods of string list  (* 15 *)
   | Unerasable_optional_argument            (* 16 *)
   | Undeclared_virtual_method of string     (* 17 *)
-  | Not_principal of string                 (* 18 *)
-  | Without_principality of string          (* 19 *)
+  | Not_principal of I18n.s                 (* 18 *)
+  | Without_principality of I18n.s          (* 19 *)
   | Unused_argument                         (* 20 *)
   | Nonreturning_statement                  (* 21 *)
   | Preprocessor of string                  (* 22 *)
@@ -357,13 +357,15 @@ let message = function
   | Instance_variable_override [] -> assert false
   | Illegal_backslash -> "illegal backslash escape in string."
   | Implicit_public_methods l ->
-      "the following private methods were made public implicitly:\n "
-      ^ String.concat " " l ^ "."
-  | Unerasable_optional_argument -> "this optional argument cannot be erased."
-  | Undeclared_virtual_method m -> "the virtual method "^m^" is not declared."
-  | Not_principal s -> s^" is not principal."
-  | Without_principality s -> s^" without principality."
-  | Unused_argument -> "this argument will not be used by the function."
+      I18n.sprintf
+      "the following private methods were made public implicitly:\n %s."
+      (String.concat " " l)
+  | Unerasable_optional_argument -> I18n.s"this optional argument cannot be erased."
+  | Undeclared_virtual_method m ->
+      I18n.sprintf "the virtual method %s is not declared." m
+  | Not_principal s -> I18n.sprintf "%a is not principal." I18n.pp s
+  | Without_principality s -> I18n.sprintf "%a without principality." I18n.pp s
+  | Unused_argument -> I18n.s "this argument will not be used by the function."
   | Nonreturning_statement ->
       "this statement never returns (or has an unsound type.)"
   | Preprocessor s -> s
