@@ -20,6 +20,7 @@ module A = Simple_value_approx
 module B = Inlining_cost.Benefit
 module E = Inline_and_simplify_aux.Env
 module R = Inline_and_simplify_aux.Result
+open I18n.I18n_core
 
 (** Values of two types hold the information propagated during simplification:
     - [E.t] "environments", top-down, almost always called "env";
@@ -791,19 +792,20 @@ and simplify_partial_application env r ~lhs_of_application
   begin match (inline_requested : Lambda.inline_attribute) with
   | Always_inline | Never_inline ->
     Location.prerr_warning (Debuginfo.to_location dbg)
-      (Warnings.Inlining_impossible "[@inlined] attributes may not be used \
-        on partial applications")
+      (Warnings.Inlining_impossible (s_"[@inlined] attributes may not be used \
+        on partial applications"))
   | Unroll _ ->
     Location.prerr_warning (Debuginfo.to_location dbg)
-      (Warnings.Inlining_impossible "[@unroll] attributes may not be used \
-        on partial applications")
+      (Warnings.Inlining_impossible (s_"[@unroll] attributes may not be used \
+        on partial applications"))
   | Default_inline -> ()
   end;
   begin match (specialise_requested : Lambda.specialise_attribute) with
   | Always_specialise | Never_specialise ->
     Location.prerr_warning (Debuginfo.to_location dbg)
-      (Warnings.Inlining_impossible "[@specialised] attributes may not be used \
-        on partial applications")
+      (Warnings.Inlining_impossible
+         (s_"[@specialised] attributes may not be used \
+             on partial applications"))
   | Default_specialise -> ()
   end;
   let freshened_params =
