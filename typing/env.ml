@@ -23,6 +23,7 @@ open Longident
 open Path
 open Types
 open Btype
+open I18n.I18n_core
 
 let add_delayed_check_forward = ref (fun _ -> assert false)
 
@@ -466,16 +467,16 @@ let same_constr = ref (fun _ _ _ -> assert false)
 let check_shadowing env = function
   | `Constructor (Some (c1, c2))
     when not (!same_constr env c1.cstr_res c2.cstr_res) ->
-      Some "constructor"
+      Some ("constructor", s_"constructor")
   | `Label (Some (l1, l2))
     when not (!same_constr env l1.lbl_res l2.lbl_res) ->
-      Some "label"
-  | `Value (Some _) -> Some "value"
-  | `Type (Some _) -> Some "type"
-  | `Module (Some _) | `Component (Some _) -> Some "module"
-  | `Module_type (Some _) -> Some "module type"
-  | `Class (Some _) -> Some "class"
-  | `Class_type (Some _) -> Some "class type"
+      Some ("label", s_"label")
+  | `Value (Some _) -> Some ("value", s_"value")
+  | `Type (Some _) -> Some ("type", s_"type")
+  | `Module (Some _) | `Component (Some _) -> Some ("module", s_"module")
+  | `Module_type (Some _) -> Some ("module_type", s_"module type")
+  | `Class (Some _) -> Some ("class", s_"class")
+  | `Class_type (Some _) -> Some ("class_type", s_"class type")
   | `Constructor _ | `Label _
   | `Value None | `Type None | `Module None | `Module_type None
   | `Class None | `Class_type None | `Component None ->
@@ -2011,8 +2012,10 @@ let open_pers_signature name env =
 let open_signature ?(loc = Location.none) ?(toplevel = false) ovf root env =
   if not toplevel && ovf = Asttypes.Fresh && not loc.Location.loc_ghost
      && (Warnings.is_active (Warnings.Unused_open "")
-         || Warnings.is_active (Warnings.Open_shadow_identifier ("", ""))
-         || Warnings.is_active (Warnings.Open_shadow_label_constructor ("","")))
+         || Warnings.is_active
+           (Warnings.Open_shadow_identifier (I18n.raw "", ""))
+         || Warnings.is_active
+           (Warnings.Open_shadow_label_constructor (I18n.raw "","")))
   then begin
     let used = ref false in
     !add_delayed_check_forward
@@ -2023,13 +2026,13 @@ let open_signature ?(loc = Location.none) ?(toplevel = false) ovf root env =
     let shadowed = ref [] in
     let slot s b =
       begin match check_shadowing env b with
-      | Some kind when not (List.mem (kind, s) !shadowed) ->
+      | Some (kind,translation) when not (List.mem (kind, s) !shadowed) ->
           shadowed := (kind, s) :: !shadowed;
           let w =
             match kind with
             | "label" | "constructor" ->
-                Warnings.Open_shadow_label_constructor (kind, s)
-            | _ -> Warnings.Open_shadow_identifier (kind, s)
+                Warnings.Open_shadow_label_constructor (translation, s)
+            | _ -> Warnings.Open_shadow_identifier (translation, s)
           in
           Location.prerr_warning loc w
       | _ -> ()

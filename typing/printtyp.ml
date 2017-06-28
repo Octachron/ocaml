@@ -24,11 +24,12 @@ open Asttypes
 open Types
 open Btype
 open Outcometree
+open I18n.I18n_core
 
 (* Print a long identifier *)
 
 let rec longident ppf = function
-  | Lident s -> pp_print_string ppf s
+  | Lident s -> Format.pp_print_string ppf s
   | Ldot(p, s) -> fprintf ppf "%a.%s" longident p s
   | Lapply(p1, p2) -> fprintf ppf "%a(%a)" longident p1 longident p2
 
@@ -1323,8 +1324,8 @@ let type_path_expansion tp ppf tp' =
 let rec trace fst txt ppf = function
   | (t1, t1') :: (t2, t2') :: rem ->
       if not fst then fprintf ppf "@,";
-      fprintf ppf "@[Type@;<1 2>%a@ %s@;<1 2>%a@] %a"
-       (type_expansion t1) t1' txt (type_expansion t2) t2'
+      fprintf ppf "@[Type@;<1 2>%a@ %t@;<1 2>%a@] %a"
+       (type_expansion t1) t1' (I18n.t txt) (type_expansion t2) t2'
        (trace false txt) rem
   | _ -> ()
 
@@ -1395,65 +1396,67 @@ let rec mismatch = function
   | _ -> assert false
 
 let explanation unif t3 t4 ppf =
+  let open I18n in
   match t3.desc, t4.desc with
   | Ttuple [], Tvar _ | Tvar _, Ttuple [] ->
-      fprintf ppf "@,Self type cannot escape its class"
+      fprintf ppf (f_"@,Self type cannot escape its class")
   | Tconstr (p, _, _), Tvar _
     when unif && t4.level < Path.binding_time p ->
       fprintf ppf
-        "@,@[The type constructor@;<1 2>%a@ would escape its scope@]"
+        (f_"@,@[The type constructor@;<1 2>%a@ would escape its scope@]")
         path p
   | Tvar _, Tconstr (p, _, _)
     when unif && t3.level < Path.binding_time p ->
       fprintf ppf
-        "@,@[The type constructor@;<1 2>%a@ would escape its scope@]"
+        (f_"@,@[The type constructor@;<1 2>%a@ would escape its scope@]")
         path p
   | Tvar _, Tunivar _ | Tunivar _, Tvar _ ->
-      fprintf ppf "@,The universal variable %a would escape its scope"
+      fprintf ppf (f_"@,The universal variable %a would escape its scope")
         type_expr (if is_Tunivar t3 then t3 else t4)
   | Tvar _, _ | _, Tvar _ ->
       let t, t' = if is_Tvar t3 then (t3, t4) else (t4, t3) in
       if occur_in Env.empty t t' then
-        fprintf ppf "@,@[<hov>The type variable %a occurs inside@ %a@]"
+        fprintf ppf (f_"@,@[<hov>The type variable %a occurs inside@ %a@]")
           type_expr t type_expr t'
       else
-        fprintf ppf "@,@[<hov>This instance of %a is ambiguous:@ %s@]"
+        fprintf ppf (f_"@,@[<hov>This instance of %a is ambiguous:@ %s@]")
           type_expr t'
           "it would escape the scope of its equation"
   | Tfield (lab, _, _, _), _ when lab = dummy_method ->
       fprintf ppf
-        "@,Self type cannot be unified with a closed object type"
+        (f_"@,Self type cannot be unified with a closed object type")
   | _, Tfield (lab, _, _, _) when lab = dummy_method ->
       fprintf ppf
-        "@,Self type cannot be unified with a closed object type"
+        (f_"@,Self type cannot be unified with a closed object type")
   | Tfield (l,_,_,{desc=Tnil}), Tfield (l',_,_,{desc=Tnil}) when l = l' ->
-      fprintf ppf "@,Types for method %s are incompatible" l
+      fprintf ppf (f_"@,Types for method %s are incompatible") l
   | (Tnil|Tconstr _), Tfield (l, _, _, _) ->
       fprintf ppf
-        "@,@[The first object type has no method %s@]" l
+        (f_"@,@[The first object type has no method %s@]") l
   | Tfield (l, _, _, _), (Tnil|Tconstr _) ->
       fprintf ppf
-        "@,@[The second object type has no method %s@]" l
+        (f_"@,@[The second object type has no method %s@]") l
   | Tnil, Tconstr _ | Tconstr _, Tnil ->
       fprintf ppf
-        "@,@[The %s object type has an abstract row, it cannot be closed@]"
+        (f_"@,@[The %s object type has an abstract row, it cannot be closed@]")
         (if t4.desc = Tnil then "first" else "second")
   | Tvariant row1, Tvariant row2 ->
       let row1 = row_repr row1 and row2 = row_repr row2 in
       begin match
         row1.row_fields, row1.row_closed, row2.row_fields, row2.row_closed with
       | [], true, [], true ->
-          fprintf ppf "@,These two variant types have no intersection"
+          fprintf ppf (f_"@,These two variant types have no intersection")
       | [], true, (_::_ as fields), _ ->
           fprintf ppf
-            "@,@[The first variant type does not allow tag(s)@ @[<hov>%a@]@]"
+            (f_"@,@[The first variant type does not allow tag(s)@ @[<hov>%a@]@]")
             print_tags fields
       | (_::_ as fields), _, [], true ->
           fprintf ppf
-            "@,@[The second variant type does not allow tag(s)@ @[<hov>%a@]@]"
+            (f_"@,@[The second variant type does not allow tag(s)@ \
+                @[<hov>%a@]@]")
             print_tags fields
       | [l1,_], true, [l2,_], true when l1 = l2 ->
-          fprintf ppf "@,Types for tag `%s are incompatible" l1
+          fprintf ppf (f_"@,Types for tag `%s are incompatible") l1
       | _ -> ()
       end
   | _ -> ()
@@ -1466,9 +1469,9 @@ let warn_on_missing_def env ppf t =
       try
         ignore(Env.find_type p env : Types.type_declaration)
       with Not_found ->
-        fprintf ppf
-          "@,@[%a is abstract because no corresponding cmi file was found \
-           in path.@]" path p
+        I18n.fprintf ppf
+          (f_"@,@[%a is abstract because no corresponding cmi file was found \
+           in path.@]") path p
     end
   | _ -> ()
 
@@ -1502,6 +1505,7 @@ let rec trace_same_names = function
   | _ -> ()
 
 let unification_error env unif tr txt1 ppf txt2 =
+  let open I18n in
   reset ();
   trace_same_names tr;
   let tr = List.map (fun (t, t') -> (t, hide_variant_name t')) tr in
@@ -1515,15 +1519,15 @@ let unification_error env unif tr txt1 ppf txt2 =
       and t2, t2' = may_prepare_expansion (tr = []) t2 in
       print_labels := not !Clflags.classic;
       let tr = List.map prepare_expansion tr in
-      fprintf ppf
+      Format.fprintf ppf
         "@[<v>\
           @[%t@;<1 2>%a@ \
             %t@;<1 2>%a\
           @]%a%t\
          @]"
-        txt1 (type_expansion t1) t1'
-        txt2 (type_expansion t2) t2'
-        (trace false "is not compatible with type") tr
+        (t txt1) (type_expansion t1) t1'
+        (t txt2) (type_expansion t2) t2'
+        (trace false (I18n.dprintf (f_"is not compatible with type"))) tr
         (explanation unif mis);
       if env <> Env.empty
       then begin
@@ -1562,7 +1566,8 @@ let report_subtyping_error ppf env tr1 txt1 tr2 =
     if tr2 = [] then fprintf ppf "@]" else
     let mis = mismatch tr2 in
     fprintf ppf "%a%t@]"
-      (trace false (mis = None) "is not compatible with type") tr2
+      (trace false (mis = None)
+         (I18n.dprintf @@ f_"is not compatible with type")) tr2
       (explanation true mis))
 
 let report_ambiguous_type_error ppf env (tp0, tp0') tpl txt1 txt2 txt3 =
@@ -1578,12 +1583,12 @@ let report_ambiguous_type_error ppf env (tp0, tp0') tpl txt1 txt2 txt3 =
           "@[%t@;<1 2>%a@ \
              %t@;<1 2>%a\
            @]"
-          txt1 (type_path_expansion tp) tp'
-          txt3 (type_path_expansion tp0) tp0'
+          (I18n.t txt1) (type_path_expansion tp) tp'
+          (I18n.t txt3) (type_path_expansion tp0) tp0'
     | _ ->
         fprintf ppf
           "@[%t@;<1 2>@[<hv>%a@]\
              @ %t@;<1 2>%a\
            @]"
-          txt2 type_path_list tpl
-          txt3 (type_path_expansion tp0) tp0')
+          (I18n.t txt2) type_path_list tpl
+          (I18n.t txt3) (type_path_expansion tp0) tp0')

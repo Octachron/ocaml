@@ -402,7 +402,8 @@ let rec transl_type env policy styp =
             match lid.txt with
               Longident.Lident s     -> Longident.Lident ("#" ^ s)
             | Longident.Ldot(r, s)   -> Longident.Ldot (r, "#" ^ s)
-            | Longident.Lapply(_, _) -> fatal_error "Typetexp.transl_type"
+            | Longident.Lapply(_, _) ->
+                fatal_error "Typetexp.transl_type"
           in
           let path = Env.lookup_type lid2 env in
           let decl = Env.find_type path env in
@@ -768,7 +769,6 @@ let transl_type_scheme env styp =
 
 (* Error report *)
 
-open Format
 open Printtyp
 
 let spellcheck ppf fold env lid =
@@ -794,59 +794,58 @@ let fold_classs = fold_simple Env.fold_classs
 let fold_modtypes = fold_simple Env.fold_modtypes
 let fold_cltypes = fold_simple Env.fold_cltypes
 
-let report_error env ppf = function
+let report_error env ppf =
+  let cat = (^) in
+  let open I18n in let open I18n_core in let (^) = cat in
+  function
   | Unbound_type_variable name ->
      (* we don't use "spellcheck" here: the function that raises this
         error seems not to be called anywhere, so it's unclear how it
         should be handled *)
-    fprintf ppf "Unbound type parameter %s@." name
+    fprintf ppf (f_"Unbound type parameter %s@.") name
   | Unbound_type_constructor lid ->
-    fprintf ppf "Unbound type constructor %a" longident lid;
+    fprintf ppf (f_"Unbound type constructor %a") longident lid;
     spellcheck ppf fold_types env lid;
   | Unbound_type_constructor_2 p ->
-    fprintf ppf "The type constructor@ %a@ is not yet completely defined"
+    fprintf ppf (f_"The type constructor@ %a@ is not yet completely defined")
       path p
   | Type_arity_mismatch(lid, expected, provided) ->
     fprintf ppf
-      "@[The type constructor %a@ expects %i argument(s),@ \
-        but is here applied to %i argument(s)@]"
+      (f_"@[The type constructor %a@ expects %i argument(s),@ \
+        but is here applied to %i argument(s)@]")
       longident lid expected provided
   | Bound_type_variable name ->
-    fprintf ppf "Already bound type parameter '%s" name
+    fprintf ppf (f_"Already bound type parameter '%s") name
   | Recursive_type ->
-    fprintf ppf "This type is recursive"
+    fprintf ppf (f_"This type is recursive")
   | Unbound_row_variable lid ->
       (* we don't use "spellcheck" here: this error is not raised
          anywhere so it's unclear how it should be handled *)
-      fprintf ppf "Unbound row variable in #%a" longident lid
+      fprintf ppf (f_"Unbound row variable in #%a") longident lid
   | Type_mismatch trace ->
       Printtyp.report_unification_error ppf Env.empty trace
-        (function ppf ->
-           fprintf ppf "This type")
-        (function ppf ->
-           fprintf ppf "should be an instance of type")
+        (dprintf @@ f_"This type")
+        (dprintf @@ f_"should be an instance of type")
   | Alias_type_mismatch trace ->
       Printtyp.report_unification_error ppf Env.empty trace
-        (function ppf ->
-           fprintf ppf "This alias is bound to type")
-        (function ppf ->
-           fprintf ppf "but is used as an instance of type")
+        (dprintf @@ f_"This alias is bound to type")
+        (dprintf @@ f_"but is used as an instance of type")
   | Present_has_conjunction l ->
-      fprintf ppf "The present constructor %s has a conjunctive type" l
+      fprintf ppf (f_"The present constructor %s has a conjunctive type") l
   | Present_has_no_type l ->
-      fprintf ppf "The present constructor %s has no type" l
+      fprintf ppf (f_"The present constructor %s has no type") l
   | Constructor_mismatch (ty, ty') ->
       wrap_printing_env env (fun ()  ->
         Printtyp.reset_and_mark_loops_list [ty; ty'];
-        fprintf ppf "@[<hov>%s %a@ %s@ %a@]"
-          "This variant type contains a constructor"
+        Format.fprintf ppf "@[<hov>%a %a@ %a@ %a@]"
+          i18n (s_"This variant type contains a constructor")
           Printtyp.type_expr ty
-          "which should be"
+          i18n (s_"which should be")
           Printtyp.type_expr ty')
   | Not_a_variant ty ->
       Printtyp.reset_and_mark_loops ty;
       fprintf ppf
-        "@[The type %a@ does not expand to a polymorphic variant type@]"
+        (f_"@[The type %a@ does not expand to a polymorphic variant type@]")
         Printtyp.type_expr ty;
       begin match ty.desc with
         | Tvar (Some s) ->
@@ -856,54 +855,55 @@ let report_error env ppf = function
       end
   | Variant_tags (lab1, lab2) ->
       fprintf ppf
-        "@[Variant tags `%s@ and `%s have the same hash value.@ %s@]"
-        lab1 lab2 "Change one of them."
+        (f_"@[Variant tags `%s@ and `%s have the same hash value.@ %a@]")
+        lab1 lab2 i18n (s_"Change one of them.")
   | Invalid_variable_name name ->
-      fprintf ppf "The type variable name %s is not allowed in programs" name
+      fprintf ppf (f_"The type variable name %s is not allowed in programs") name
   | Cannot_quantify (name, v) ->
       fprintf ppf
-        "@[<hov>The universal type variable '%s cannot be generalized:@ %s.@]"
+       (f_"@[<hov>The universal type variable '%s cannot be generalized:@ %s.@]")
         name
         (if Btype.is_Tvar v then "it escapes its scope" else
          if Btype.is_Tunivar v then "it is already bound to another variable"
          else "it is not a variable")
   | Multiple_constraints_on_type s ->
-      fprintf ppf "Multiple constraints for type %a" longident s
+      fprintf ppf (f_"Multiple constraints for type %a") longident s
   | Repeated_method_label s ->
-      fprintf ppf "@[This is the second method `%s' of this object type.@ %s@]"
-        s "Multiple occurrences are not allowed."
+      fprintf ppf
+        (f_"@[This is the second method `%s' of this object type.@ %a@]")
+        s i18n (s_"Multiple occurrences are not allowed.")
   | Unbound_value lid ->
-      fprintf ppf "Unbound value %a" longident lid;
+      fprintf ppf (f_"Unbound value %a") longident lid;
       spellcheck ppf fold_values env lid;
   | Unbound_module lid ->
-      fprintf ppf "Unbound module %a" longident lid;
+      fprintf ppf (f_"Unbound module %a") longident lid;
       spellcheck ppf fold_modules env lid;
   | Unbound_constructor lid ->
-      fprintf ppf "Unbound constructor %a" longident lid;
+      fprintf ppf (f_"Unbound constructor %a") longident lid;
       spellcheck ppf fold_constructors env lid;
   | Unbound_label lid ->
-      fprintf ppf "Unbound record field %a" longident lid;
+      fprintf ppf (f_"Unbound record field %a") longident lid;
       spellcheck ppf fold_labels env lid;
   | Unbound_class lid ->
-      fprintf ppf "Unbound class %a" longident lid;
+      fprintf ppf (f_"Unbound class %a") longident lid;
       spellcheck ppf fold_classs env lid;
   | Unbound_modtype lid ->
-      fprintf ppf "Unbound module type %a" longident lid;
+      fprintf ppf (f_"Unbound module type %a") longident lid;
       spellcheck ppf fold_modtypes env lid;
   | Unbound_cltype lid ->
-      fprintf ppf "Unbound class type %a" longident lid;
+      fprintf ppf (f_"Unbound class type %a") longident lid;
       spellcheck ppf fold_cltypes env lid;
   | Ill_typed_functor_application lid ->
-      fprintf ppf "Ill-typed functor application %a" longident lid
+      fprintf ppf (f_"Ill-typed functor application %a") longident lid
   | Illegal_reference_to_recursive_module ->
-      fprintf ppf "Illegal recursive module reference"
+      fprintf ppf (f_"Illegal recursive module reference")
   | Access_functor_as_structure lid ->
-      fprintf ppf "The module %a is a functor, not a structure" longident lid
+      fprintf ppf (f_"The module %a is a functor, not a structure") longident lid
   | Apply_structure_as_functor lid ->
-      fprintf ppf "The module %a is a structure, not a functor" longident lid
+      fprintf ppf (f_"The module %a is a structure, not a functor") longident lid
   | Cannot_scrape_alias(lid, p) ->
       fprintf ppf
-        "The module %a is an alias for module %a, which is missing"
+        (f_"The module %a is an alias for module %a, which is missing")
         longident lid path p
 
 let () =

@@ -91,7 +91,7 @@ val type_classes :
 
 type error =
     Unconsistent_constraint of (type_expr * type_expr) list
-  | Field_type_mismatch of string * string * (type_expr * type_expr) list
+  | Field_type_mismatch of I18n.s * string * (type_expr * type_expr) list
   | Structure_expected of class_type
   | Cannot_apply of class_type
   | Apply_wrong_label of arg_label
@@ -115,8 +115,8 @@ type error =
       Ident.t * Types.class_declaration * (type_expr * type_expr) list
   | Final_self_clash of (type_expr * type_expr) list
   | Mutability_mismatch of string * mutable_flag
-  | No_overriding of string * string
-  | Duplicate of string * string
+  | No_overriding of I18n.s * string
+  | Duplicate of I18n.s * string
 
 exception Error of Location.t * Env.t * error
 exception Error_forward of Location.error

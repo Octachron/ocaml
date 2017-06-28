@@ -56,4 +56,4 @@ val class_types:
 *)
 
 val report_type_mismatch:
-    string -> string -> string -> Format.formatter -> type_mismatch list -> unit
+    I18n.s -> I18n.s -> I18n.s -> Format.formatter -> type_mismatch list -> unit

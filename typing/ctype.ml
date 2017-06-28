@@ -19,6 +19,7 @@ open Misc
 open Asttypes
 open Types
 open Btype
+open I18n.I18n_core
 
 (*
    Type manipulation after type inference
@@ -65,8 +66,8 @@ let () =
           Some
             Location.
               (errorf ~loc:(in_file !input_name)
-                 "In this program,@ variant constructors@ `%s and `%s@ \
-                  have the same hash value.@ Change one of them." l l'
+                 (f_"In this program,@ variant constructors@ `%s and `%s@ \
+                  have the same hash value.@ Change one of them.") l l'
               )
       | _ -> None
     )
