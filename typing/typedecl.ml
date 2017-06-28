@@ -2002,36 +2002,36 @@ let report_error ppf =
         | true,  true,  true  -> s_"injective invariant"
         | false,  true,  true  -> s_"invariant"
         | true, true,  false -> s_"injective covariant"
-        | false,  true,  false  -> s_"invariant"
+        | false,  true,  false  -> s_"covariant"
         | true, false, true  -> s_"injective contravariant"
         | false, false, true  -> s_"contravariant"
         | true, false, false -> s_"injective"
         | false, false, false  -> s_"unrestricted"
       in
-      let expected =
-        asprintf (f_"It was expected to be %a,@ but it is %a.@]")
+      let expected ppf =
+        fprintf ppf (f_"It was expected to be %a,@ but it is %a.")
           i18n (variance v2) i18n (variance v1) in
       if n = -1 then
         fprintf ppf
-          (f_"@[In this definition, a type variable has a variance that \
-              is not reflected by its occurrence in type parameters.@ %a@]")
-          i18n expected
+          (f_"@[In this definition, a type variable has a variance that@ \
+              is not reflected by its occurrence in type parameters.@ %t@]")
+          expected
       else if n = -2 then
         fprintf ppf
           (f_"@[In this definition, a type variable cannot be deduced@ \
               from the type parameters.@]")
       else if n = -3 then
         fprintf ppf
-          (f_"In this definition, a type variable has a variance that \
-           cannot be deduced from the type parameters.@ %a") i18n expected
+          (f_"@[In this definition, a type variable has a variance that@ \
+           cannot be deduced from the type parameters.@ %t@]") expected
       else
         fprintf ppf
           (fn_
-             "In this definition, expected parameter\
-              variances are not satisfied. The %dst type parameter\
+             "@[In this definition, expected parameter \
+              variances are not satisfied.@ The %dst type parameter \
               was expected to be %a,@ but it is %a.@]"
-             "In this definition, expected parameter\
-              variances are not satisfied. The %d-th type parameter\
+             "@[In this definition, expected parameter \
+              variances are not satisfied.@ The %d-th type parameter \
               was expected to be %a,@ but it is %a.@]"
              n
           )

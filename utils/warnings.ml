@@ -324,7 +324,7 @@ let message = function
   | Partial_match "" -> s_"this pattern-matching is not exhaustive."
   | Partial_match s ->
       sprintf (f_"this pattern-matching is not exhaustive.\n\
-       Here is an example of a case that is not matched:\n %s") s
+       Here is an example of a case that is not matched:\n%s") s
   | Non_closed_record_pattern s ->
       sprintf
         (f_"the following labels are not bound in this record pattern:\n%s\n\
@@ -369,7 +369,7 @@ let message = function
   | All_clauses_guarded ->
       s_"this pattern-matching is not exhaustive.\n\
        All clauses in this pattern-matching are guarded."
-  | Unused_var v | Unused_var_strict v -> sprintf (f_"unused variable  %s.") v
+  | Unused_var v | Unused_var_strict v -> sprintf (f_"unused variable %s.") v
   | Wildcard_arg_to_constant_constr ->
      s_"wildcard pattern given as argument to a constant constructor"
   | Eol_in_string ->
@@ -415,9 +415,9 @@ let message = function
       s_"unused rec flag."
   | Name_out_of_scope (ty, [nm], false) ->
       sprintf
-      (f_"%s was selected from type %s. \n\
+      (f_"%s was selected from type %s.\n\
        It is not visible in the current scope, and will not \n\
-       be selected if the type becomes unknown.") ty nm
+       be selected if the type becomes unknown.") nm ty
   | Name_out_of_scope (_, _, false) -> assert false
   | Name_out_of_scope (ty, slist, true) ->
       sprintf
@@ -427,7 +427,7 @@ let message = function
       ) ty (String.concat " " slist)
   | Ambiguous_name ([s], tl, false) ->
       sprintf
-        (f_"%s belongs to several types: %s \n\
+        (f_"%s belongs to several types: %s\n\
             The first one was selected. Please disambiguate if this is wrong.")
         s (String.concat " " tl)
   | Ambiguous_name (_, _, false) -> assert false

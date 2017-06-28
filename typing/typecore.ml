@@ -4418,8 +4418,8 @@ let report_error env ppf = function
         (f_"@[This constructor expects an inlined record argument.@]")
   | Unrefuted_pattern pat ->
       fprintf ppf
-        (f_"This match case could not be refuted.@ \
-            Here is an example of a value that would reach it:@ %a")
+        (f_"@[This match case could not be refuted.@ \
+            Here is an example of a value that would reach it:@ %a@]")
         Parmatch.top_pretty pat
   | Invalid_extension_constructor_payload ->
       fprintf ppf
