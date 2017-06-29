@@ -22,6 +22,7 @@ open Types
 open Typedtree
 open Btype
 open Ctype
+open I18n.I18n_core
 
 type error =
     Polymorphic_label of Longident.t
@@ -705,7 +706,7 @@ end) = struct
           let label = label_of_kind type_kind in
           warn lid.loc
             (Warnings.Not_principal
-               ("this type-based " ^ label ^ " disambiguation"))
+               I18n.(sprintf (f_"this type-based %s disambiguation") label))
         in
         try
           let lbl, use = disambiguate_by_type env tpath scope in
@@ -830,7 +831,7 @@ let disambiguate_lid_a_list loc closed env opath lid_a_list =
     List.map (fun (lid,a) -> lid, process_label lid, a) lid_a_list in
   if !w_pr then
     Location.prerr_warning loc
-      (Warnings.Not_principal "this type-based record disambiguation")
+      (Warnings.Not_principal (s_"this type-based record disambiguation"))
   else begin
     match List.rev !w_amb with
       (_,types)::_ as amb ->
@@ -2030,7 +2031,7 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp ty_expected =
       | Tconstr(path, _, _) when Path.same path fmt6_path ->
         if !Clflags.principal && ty_exp.level <> generic_level then
           Location.prerr_warning loc
-            (Warnings.Not_principal "this coercion to format6");
+            (Warnings.Not_principal (s_"this coercion to format6"));
         true
       | _ -> false
     in
@@ -2542,7 +2543,7 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp ty_expected =
                   force (); force' ();
                   if not gen && !Clflags.principal then
                     Location.prerr_warning loc
-                      (Warnings.Not_principal "this ground coercion");
+                      (Warnings.Not_principal (s_"this ground coercion"));
                 with Subtype (tr1, tr2) ->
                   (* prerr_endline "coercion failed"; *)
                   raise(Error(loc, env, Not_subtype(tr1, tr2)))
@@ -2669,7 +2670,8 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp ty_expected =
           | {desc = Tpoly (ty, tl); level = l} ->
               if !Clflags.principal && l <> generic_level then
                 Location.prerr_warning loc
-                  (Warnings.Not_principal "this use of a polymorphic method");
+                  (Warnings.Not_principal
+                     (s_"this use of a polymorphic method"));
               snd (instance_poly false tl ty)
           | {desc = Tvar _} as ty ->
               let ty' = newvar () in
@@ -2961,7 +2963,7 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp ty_expected =
               (Ctype.expand_head env ty_expected).level < Btype.generic_level
             then
               Location.prerr_warning loc
-                (Warnings.Not_principal "this module packing");
+                (Warnings.Not_principal (s_"this module packing"));
             (p, nl)
         | {desc = Tvar _} ->
             raise (Error (loc, env, Cannot_infer_signature))
@@ -3467,7 +3469,7 @@ and type_argument ?recarg env sarg ty_expected' ty_expected =
         (Warnings.Eliminated_optional_arguments
            (List.map (fun (l, _) -> Printtyp.string_of_label l) args));
       if warn then Location.prerr_warning texp.exp_loc
-          (Warnings.Without_principality "eliminated optional argument");
+          (Warnings.Without_principality (s_"eliminated optional argument"));
       if is_nonexpansive texp then func texp else
       (* let-expand to have side effects *)
       let let_pat, let_var = var_pair "arg" texp.exp_type in
@@ -3602,14 +3604,14 @@ and type_application env funct sargs =
                 let (l', sarg0, sargs1, sargs2) = extract_label name sargs in
                 if sargs1 <> [] then
                   may_warn sarg0.pexp_loc
-                    (Warnings.Not_principal "commuting this argument");
+                    (Warnings.Not_principal (s_"commuting this argument"));
                 (l', sarg0, sargs1 @ sargs2, more_sargs)
               with Not_found ->
                 let (l', sarg0, sargs1, sargs2) =
                   extract_label name more_sargs in
                 if sargs1 <> [] || sargs <> [] then
                   may_warn sarg0.pexp_loc
-                    (Warnings.Not_principal "commuting this argument");
+                    (Warnings.Not_principal (s_"commuting this argument"));
                 (l', sarg0, sargs @ sargs1, sargs2)
             in
             if not optional && is_optional l' then
@@ -3620,7 +3622,7 @@ and type_application env funct sargs =
               Some (fun () -> type_argument env sarg0 ty ty0)
             else begin
               may_warn sarg0.pexp_loc
-                (Warnings.Not_principal "using an optional argument here");
+                (Warnings.Not_principal (s_"using an optional argument here"));
               Some (fun () -> option_some (type_argument env sarg0
                                              (extract_option_type env ty)
                                              (extract_option_type env ty0)))
@@ -3632,12 +3634,13 @@ and type_application env funct sargs =
                || List.mem_assoc Nolabel more_sargs)
             then begin
               may_warn funct.exp_loc
-                (Warnings.Without_principality "eliminated optional argument");
+                (Warnings.Without_principality
+                   (s_"eliminated optional argument"));
               ignored := (l,ty,lv) :: !ignored;
               Some (fun () -> option_none (instance env ty) Location.none)
             end else begin
               may_warn funct.exp_loc
-                (Warnings.Without_principality "commuted an argument");
+                (Warnings.Without_principality (s_"commuted an argument"));
               None
             end
         in
@@ -4194,7 +4197,7 @@ let spellcheck ppf unbound_name valid_names =
 let spellcheck_idents ppf unbound valid_idents =
   spellcheck ppf (Ident.name unbound) (List.map Ident.name valid_idents)
 
-open I18n open I18n_core
+open I18n
 open Printtyp
 
 let report_error env ppf = function

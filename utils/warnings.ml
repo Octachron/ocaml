@@ -44,8 +44,8 @@ type t =
   | Implicit_public_methods of string list  (* 15 *)
   | Unerasable_optional_argument            (* 16 *)
   | Undeclared_virtual_method of string     (* 17 *)
-  | Not_principal of string                 (* 18 *)
-  | Without_principality of string          (* 19 *)
+  | Not_principal of I18n.s                 (* 18 *)
+  | Without_principality of I18n.s          (* 19 *)
   | Unused_argument                         (* 20 *)
   | Nonreturning_statement                  (* 21 *)
   | Preprocessor of string                  (* 22 *)
@@ -354,8 +354,8 @@ let message = function
   | Unerasable_optional_argument -> s_"this optional argument cannot be erased."
   | Undeclared_virtual_method m ->
       sprintf (f_"the virtual method %s is not declared.") m
-  | Not_principal s -> sprintf (f_"%s is not principal.") s
-  | Without_principality s -> sprintf (f_"%s without principality.") s
+  | Not_principal s -> asprintf (f_"%a is not principal.") i18n s
+  | Without_principality s -> asprintf (f_"%a without principality.") i18n s
   | Unused_argument -> s_"this argument will not be used by the function."
   | Nonreturning_statement ->
       s_"this statement never returns (or has an unsound type.)"
