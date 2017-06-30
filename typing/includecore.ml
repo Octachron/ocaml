@@ -22,7 +22,8 @@ open Typedtree
 
 (* Inclusion between value descriptions *)
 
-exception Dont_match
+type unmatched_value = Primitives | Type of type_expr
+exception Dont_match of unmatched_value
 
 let value_descriptions ~loc env name
     (vd1 : Types.value_description)
@@ -33,18 +34,20 @@ let value_descriptions ~loc env name
     loc
     vd1.val_attributes vd2.val_attributes
     name;
-  if Ctype.moregeneral env true vd1.val_type vd2.val_type then begin
+  match Ctype.moregeneral env true vd1.val_type vd2.val_type with
+  | Ok () ->
+    begin
     match (vd1.val_kind, vd2.val_kind) with
         (Val_prim p1, Val_prim p2) ->
-          if p1 = p2 then Tcoerce_none else raise Dont_match
+          if p1 = p2 then Tcoerce_none else raise (Dont_match Primitives)
       | (Val_prim p, _) ->
           let pc = {pc_desc = p; pc_type = vd2.Types.val_type;
                   pc_env = env; pc_loc = vd1.Types.val_loc; } in
           Tcoerce_primitive pc
-      | (_, Val_prim _) -> raise Dont_match
+      | (_, Val_prim _) -> raise (Dont_match Primitives)
       | (_, _) -> Tcoerce_none
-  end else
-    raise Dont_match
+  end
+  | Error ty -> raise (Dont_match (Type ty))
 
 (* Inclusion between "private" annotations *)
 

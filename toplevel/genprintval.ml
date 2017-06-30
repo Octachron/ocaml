@@ -559,9 +559,10 @@ module Make(O : OBJ)(EVP : EVALPATH with type valu = O.t) = struct
       let rec find = function
       | [] -> raise Not_found
       | (_name, Simple (sch, printer)) :: remainder ->
-          if Ctype.moregeneral env false sch ty
-          then printer
-          else find remainder
+          begin match Ctype.moregeneral env false sch ty with
+          | Ok () -> printer
+          | Error _ -> find remainder
+          end
       | (_name, Generic (path, fn)) :: remainder ->
           begin match (Ctype.expand_head env ty).desc with
           | Tconstr (p, args, _) when Path.same p path ->

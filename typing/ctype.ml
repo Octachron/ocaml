@@ -3125,8 +3125,8 @@ let moregeneral env inst_nongen pat_sch subj_sch =
   (* Duplicate generic variables *)
   let patt = instance env pat_sch in
   let res =
-    try moregen inst_nongen (TypePairs.create 13) env patt subj; true with
-      Unify _ -> false
+    try moregen inst_nongen (TypePairs.create 13) env patt subj; Ok () with
+      Unify _ -> Error patt
   in
   current_level := old_level;
   res

@@ -18,7 +18,8 @@
 open Typedtree
 open Types
 
-exception Dont_match
+type unmatched_value = Primitives | Type of type_expr
+exception Dont_match of unmatched_value
 
 type type_mismatch =
     Arity

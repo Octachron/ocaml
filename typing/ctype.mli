@@ -183,7 +183,7 @@ val deep_occur: type_expr -> type_expr -> bool
 val filter_self_method:
         Env.t -> string -> private_flag -> (Ident.t * type_expr) Meths.t ref ->
         type_expr -> Ident.t * type_expr
-val moregeneral: Env.t -> bool -> type_expr -> type_expr -> bool
+val moregeneral: Env.t -> bool -> type_expr -> type_expr -> (unit,type_expr) result
         (* Check if the first type scheme is more general than the second. *)
 
 val rigidify: type_expr -> type_expr list

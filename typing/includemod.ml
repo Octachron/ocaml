@@ -22,7 +22,8 @@ open Types
 
 type symptom =
     Missing_field of Ident.t * Location.t * string (* kind *)
-  | Value_descriptions of Ident.t * value_description * value_description
+  | Value_descriptions of
+      Ident.t * Includecore.unmatched_value * value_description * value_description
   | Type_declarations of Ident.t * type_declaration
         * type_declaration * Includecore.type_mismatch list
   | Extension_constructors of
@@ -59,8 +60,8 @@ let value_descriptions ~loc env cxt subst id vd1 vd2 =
   let vd2 = Subst.value_description subst vd2 in
   try
     Includecore.value_descriptions ~loc env (Ident.name id) vd1 vd2
-  with Includecore.Dont_match ->
-    raise(Error[cxt, env, Value_descriptions(id, vd1, vd2)])
+  with Includecore.Dont_match explanation ->
+    raise(Error[cxt, env, Value_descriptions(id, explanation, vd1, vd2)])
 
 (* Inclusion between type declarations *)
 
@@ -539,7 +540,7 @@ let include_err ppf =
   | Missing_field (id, loc, kind) ->
       fprintf ppf "The %s `%a' is required but not provided" kind ident id;
       show_loc "Expected declaration" ppf loc
-  | Value_descriptions(id, d1, d2) ->
+  | Value_descriptions(id, _expl, d1, d2) ->
       let t1, t2 = diff (value_description id d1, value_description id d2) in
       fprintf ppf
         "@[<hv 2>Values do not match:@ %a@;<1 -2>is not included in@ %a@]"
