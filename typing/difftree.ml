@@ -1,5 +1,6 @@
 open Outcometree
 
+type fuel = int
 type content = { primary: int; secondary: int }
 let one = { primary=1; secondary = 0 }
 
@@ -9,7 +10,7 @@ let (++) x y =
   { primary = x.primary + y.primary; secondary = x.secondary + y.secondary }
 
 type 'a diff =
-  | Eq of { cardinal: int; shared: 'a }
+  | Eq of { cardinal: int; shared:'a }
   | D of { left: 'a; right:'a; content:content }
 
 type 'a mk_diff = 'a * 'a -> 'a * 'a
@@ -20,6 +21,7 @@ let (//) left right= D { left; right; content = one }
 let empty = { primary=0; secondary=0 }
 let ( =~ ) left right = D { left; right; content = empty }
 
+(*
 let right = function
   | Eq e -> e.shared
   | D r -> r.right
@@ -28,6 +30,7 @@ let right = function
 let left = function
   | Eq e -> e.shared
   | D r -> r.left
+*)
 
 let (<$>) f x = match f, x with
   | Eq f, Eq x -> Eq { cardinal = f.cardinal + x.cardinal;
@@ -51,7 +54,7 @@ let (<$>) f x = match f, x with
 
 let (<*>) f x = pure f <$> x
 
-let diff0 x y = if x = y then pure x else x // y
+let _diff0 x y = if x = y then pure x else x // y
 let diff left right =
   if left = right then
     Eq { cardinal = 1; shared = right }
@@ -59,53 +62,61 @@ let diff left right =
     D { left; right; content = one }
 
 let cons = List.cons
-let id x = x
+let _id x = x
 let ellipsis () = !Oprint.ellipsis
 
 
 let list ellipsis diff x y =
-  let rec list in_ellipsis xs ys = match xs, ys with
-    | [], [] -> pure []
+  let rec list xs ys = match xs, ys with
+    | [], [] -> []
     | x :: xs , y :: ys ->
-        begin match diff x y with
+         diff x y :: list xs ys
+    | x :: xs, ([] as ys) -> (x // ellipsis) :: list xs ys
+    | ([] as xs), y :: ys -> (ellipsis // y) :: list xs ys in
+  let rec ellide (fuel:fuel) in_ellipsis =
+    function
+    | [] -> pure []
+    | _ when fuel < 1 && in_ellipsis -> pure []
+    | _ when fuel < 1 -> pure [ellipsis]
+    | x :: xs ->
+        let fuel = fuel - 1 in
+        begin match x with
         | Eq _
         | D {content={primary=0; _ }; _ } ->
             if in_ellipsis then
-              list true xs ys
+              ellide fuel true xs
             else
-              cons ellipsis <*> list true xs ys
-        | D _ as d -> cons <*> d <$> list false xs ys
+              cons ellipsis <*> ellide fuel true xs
+        | D _ as d -> cons <*> d <$> ellide fuel false xs
         end
-    | x :: xs, ([] as ys) -> (cons x // id) <$> list false xs ys
-    | ([] as xs), y :: ys -> (id // cons y) <$> list false xs ys
   in
-  list false x y
+  ellide 3 false @@ list x y
 
-let keyed_list cmp ellipsis d x y =
-  let may_cons b x l = if not b then x :: l else l in
-  let rec list in_ellipsis xs ys = match xs, ys with
-    | [], [] -> pure []
+let keyed_list cmp ellipsis diff x y =
+  let rec mk xs ys = match xs, ys with
+    | [], [] -> []
+    | x :: xs, ([] as ys) -> (x // ellipsis) :: mk xs ys
+    | ([] as xs), y :: ys -> (ellipsis // y) :: mk xs ys
     | x :: xs' , y :: ys' ->
         let cmp = cmp x y in
         if  cmp < 0 then
-          (cons x // id ) <$> list (diff0 false @@ right in_ellipsis) xs' ys
+          ( x // ellipsis ) :: mk xs' ys
         else if cmp > 0 then
-          (id // cons y ) <$> list (diff0 (left in_ellipsis) false) xs ys'
+          ( ellipsis // y )  :: mk xs ys'
         else
-          let xs = xs' and ys = ys' in
-          begin match d x y with
-          | Eq _
-          | D {content={primary=0;secondary=0} }->
-              may_cons <*> in_ellipsis <$> pure ellipsis <$>
-              list (pure true) xs ys
-          | D _ as d -> cons <*> d <$> list (pure false) xs ys
-          end
-    | x :: xs, ([] as ys) ->
-        (cons x // id) <$> list (diff0 false @@ right in_ellipsis) xs ys
-    | ([] as xs), y :: ys ->
-        (id // cons y) <$> list (diff0 (left in_ellipsis) false) xs ys
-  in
-  list (pure false) x y
+          (diff x y) :: mk xs' ys' in
+  let may_cons b x l = if not b then x :: l else l in
+  let rec ellide fuel in_ellipsis ds = match ds with
+    | [] -> pure []
+    | _ when fuel < 1 -> may_cons <*> in_ellipsis <$> pure ellipsis <$> pure []
+    | d :: ds ->
+        match d with
+        | Eq _
+        | D {content={primary=0; _ } }->
+            may_cons <*> in_ellipsis <$> pure ellipsis <$>
+            ellide (fuel - 1) (pure true) ds
+        | D _ as d -> cons <*> d <$> ellide (fuel - 1) (pure false) ds in
+  ellide 3 (pure false) @@ mk x y
 
 
 let rec fn_to_list = function
