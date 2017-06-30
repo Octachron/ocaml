@@ -2,12 +2,14 @@ open Outcometree
 
 (** {2 Fuel interface} *)
 
-(* Fuel decay parameter, control the left to right preference of the diff tree *)
-let beta = ref 0.75
+(* Fuel decay paramater, control the left to right preference of the diff tree *)
+let beta = Clflags.error_beta
 
 (* Default fuel available for printing an error *)
-let fuel = ref 5
+let fuel = Clflags.error_fuel
 
+let get_beta () = !beta
+let get_fuel () = !fuel
 
 (** {2 Two dimensional size } *)
 
@@ -594,6 +596,7 @@ let plist = list Otp_ellipsis dparam
 let alist = list {oattr_name=ellipsis() } attr_diff
 
 let rec sig_item s1 s2 =
+  Type.reset_free ();
   let open Sig in
   match s1, s2 with
   | Osig_ellipsis, Osig_ellipsis -> pure s1
@@ -668,8 +671,8 @@ and module_type x y =
 let simplify f (x,y)=
   Type.reset_free ();
   match f x y with
-  | Eq x -> dup (x.gen !fuel)
-  | D r -> r.gen !fuel
+  | Eq x -> dup (x.gen @@ get_fuel () )
+  | D r -> r.gen @@ get_fuel ()
 
 let typ = simplify type'
 let sig_item = simplify sig_item

@@ -117,6 +117,8 @@ val dllpaths : string list ref
 val make_package : bool ref
 val for_package : string option ref
 val error_size : int ref
+val error_fuel : int ref
+val error_beta: float ref
 val float_const_prop : bool ref
 val transparent_modules : bool ref
 val dump_source : bool ref

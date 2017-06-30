@@ -77,6 +77,17 @@ let mk_dllpath f =
   "<dir>  Add <dir> to the run-time search path for shared libraries"
 ;;
 
+let mk_errorfuel i =
+  "-error-fuel", Arg.Int i,
+  "<fuel>  Use the given amount of <fuel> to expand outcome tree difference"
+;;
+
+let mk_errorbeta f =
+  "-error-beta", Arg.Float f,
+  "<beta>  Left-to-right decay rate of fuel distribution"
+;;
+
+
 let mk_dtypes f =
   "-dtypes", Arg.Unit f, " (deprecated) same as -annot"
 ;;
@@ -774,6 +785,8 @@ module type Common_options = sig
   val _noassert : unit -> unit
   val _nolabels : unit -> unit
   val _nostdlib : unit -> unit
+  val _error_fuel: int -> unit
+  val _error_beta: float -> unit
   val _open : string -> unit
   val _ppx : string -> unit
   val _principal : unit -> unit
@@ -1001,6 +1014,8 @@ struct
     mk_dllib F._dllib;
     mk_dllpath F._dllpath;
     mk_dtypes F._annot;
+    mk_errorfuel F._error_fuel;
+    mk_errorbeta F._error_beta;
     mk_for_pack_byt F._for_pack;
     mk_g_byt F._g;
     mk_i F._i;
@@ -1100,6 +1115,8 @@ struct
     mk_nopromptcont F._nopromptcont;
     mk_nostdlib F._nostdlib;
     mk_open F._open;
+    mk_errorfuel F._error_fuel;
+    mk_errorbeta F._error_beta;
     mk_ppx F._ppx;
     mk_plugin F._plugin;
     mk_principal F._principal;
@@ -1158,6 +1175,8 @@ struct
     mk_compact F._compact;
     mk_config F._config;
     mk_dtypes F._annot;
+    mk_errorfuel F._error_fuel;
+    mk_errorbeta F._error_beta;
     mk_for_pack_opt F._for_pack;
     mk_g_opt F._g;
     mk_i F._i;
@@ -1312,6 +1331,8 @@ module Make_opttop_options (F : Opttop_options) = struct
     mk_o2 F._o2;
     mk_o3 F._o3;
     mk_open F._open;
+    mk_errorfuel F._error_fuel;
+    mk_errorbeta F._error_beta;
     mk_plugin F._plugin;
     mk_ppx F._ppx;
     mk_principal F._principal;
