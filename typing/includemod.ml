@@ -540,8 +540,12 @@ let include_err ppf =
   | Missing_field (id, loc, kind) ->
       fprintf ppf "The %s `%a' is required but not provided" kind ident id;
       show_loc "Expected declaration" ppf loc
-  | Value_descriptions(id, _expl, d1, d2) ->
-      let t1, t2 = diff (value_description id d1, value_description id d2) in
+  | Value_descriptions(id, expl, d1, d2) ->
+      let t1, t2 =
+        let d1 = match expl with
+          | Includecore.Primitives -> d1
+          | Includecore.Type t -> { d1 with val_type = t } in
+        diff (value_description id d1, value_description id d2) in
       fprintf ppf
         "@[<hv 2>Values do not match:@ %a@;<1 -2>is not included in@ %a@]"
         pp t1 pp t2;

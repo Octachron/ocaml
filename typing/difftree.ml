@@ -1,7 +1,6 @@
 open Outcometree
 
 type content = { primary: int; secondary: int }
-let _empty = { primary=0; secondary=0 }
 let one = { primary=1; secondary = 0 }
 
 let secondary secondary = {secondary; primary = 0 }
@@ -17,6 +16,9 @@ type 'a mk_diff = 'a * 'a -> 'a * 'a
 
 let pure f = Eq { cardinal = 1; shared = f }
 let (//) left right= D { left; right; content = one }
+
+let empty = { primary=0; secondary=0 }
+let ( =~ ) left right = D { left; right; content = empty }
 
 let right = function
   | Eq e -> e.shared
@@ -66,8 +68,12 @@ let list ellipsis diff x y =
     | [], [] -> pure []
     | x :: xs , y :: ys ->
         begin match diff x y with
-        | Eq _ when in_ellipsis -> list true xs ys
-        | Eq _ -> cons ellipsis <*> list true xs ys
+        | Eq _
+        | D {content={primary=0; _ }; _ } ->
+            if in_ellipsis then
+              list true xs ys
+            else
+              cons ellipsis <*> list true xs ys
         | D _ as d -> cons <*> d <$> list false xs ys
         end
     | x :: xs, ([] as ys) -> (cons x // id) <$> list false xs ys
@@ -88,8 +94,10 @@ let keyed_list cmp ellipsis d x y =
         else
           let xs = xs' and ys = ys' in
           begin match d x y with
-          | Eq _ -> may_cons <*> in_ellipsis <$> pure ellipsis <$>
-                    list (pure true) xs ys
+          | Eq _
+          | D {content={primary=0;secondary=0} }->
+              may_cons <*> in_ellipsis <$> pure ellipsis <$>
+              list (pure true) xs ys
           | D _ as d -> cons <*> d <$> list (pure false) xs ys
           end
     | x :: xs, ([] as ys) ->
@@ -154,6 +162,17 @@ let rcmp x y = match x, y with
 
 
 module Type = struct
+  module M = Misc.StringSet
+  let unfree_vars = ref M.empty
+  let reset_free () = unfree_vars := M.empty
+
+  let is_free var =
+    if M.mem var !unfree_vars then
+      false
+    else
+      (unfree_vars := M.add var !unfree_vars; true)
+
+
   let rec type' t1 t2 =
     match t1, t2 with
     | Otyp_abstract, Otyp_abstract
@@ -181,6 +200,7 @@ module Type = struct
     | Otyp_sum s, Otyp_sum s' ->
         sum <*> list Oc_ellipsis dconstr s s'
     | Otyp_tuple l, Otyp_tuple l' -> tuple <*> tylist l l'
+    | Otyp_var(_, name), _ when is_free name -> t1 =~ t2
     | Otyp_var (b,name), Otyp_var(b',name') ->
         var <*> diff b b' <$> diff name name'
     | Otyp_variant (b,fields,b2,tags), Otyp_variant(b',fields',b2',tags') ->
@@ -433,7 +453,9 @@ and module_type x y =
   | _ -> x // y
 
 
-let simplify f (x,y)= match f x y with
+let simplify f (x,y)=
+  Type.reset_free ();
+  match f x y with
   | Eq x -> x.shared, x.shared
   | D r -> r.left, r.right
 
