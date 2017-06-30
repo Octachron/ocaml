@@ -1,123 +1,263 @@
 open Outcometree
 
-type fuel = int
-type content = { primary: int; secondary: int }
-let one = { primary=1; secondary = 0 }
+(** {2 Fuel interface} *)
 
-let secondary secondary = {secondary; primary = 0 }
+(* Fuel decay parameter, control the left to right preference of the diff tree *)
+let beta = ref 0.75
+
+(* Default fuel available for printing an error *)
+let fuel = ref 5
+
+
+(** {2 Two dimensional size } *)
+
+type size = { primary: int; (* size of elements that must be printed *)
+              secondary: int (* size of elements that may be printed if there
+                                is some spare space *)
+            }
+
+let one = { primary=1; secondary = 0 }
+let empty = { primary=0; secondary=0 }
+let secondary secondary = { empty with secondary }
+let primary primary = { empty with primary }
 
 let (++) x y =
   { primary = x.primary + y.primary; secondary = x.secondary + y.secondary }
 
+let card s = s.primary + s.secondary
+
+(** {2 Diffed type } *)
+
+(** Generator type *)
+type ('a,'b) gen = {
+  gen: int -> 'a; (** [gen fuel x] generate a representation of the underlying
+                      element with size fuel *)
+  min_size:'b;
+  max_size:'b;
+}
+
+(** Main type *)
 type 'a diff =
-  | Eq of { cardinal: int; shared:'a }
-  | D of { left: 'a; right:'a; content:content }
+  | Eq of ('a, int) gen
+  | D of ('a * 'a , size) gen
 
 type 'a mk_diff = 'a * 'a -> 'a * 'a
 
-let pure f = Eq { cardinal = 1; shared = f }
-let (//) left right= D { left; right; content = one }
 
-let empty = { primary=0; secondary=0 }
-let ( =~ ) left right = D { left; right; content = empty }
+let _min_size = function
+  | D r -> r.min_size
+  | Eq r -> secondary r.min_size
 
-(*
-let right = function
-  | Eq e -> e.shared
-  | D r -> r.right
+let max_size = function
+  | D r -> r.max_size
+  | Eq r -> secondary r.max_size
+
+let flatten = function
+  | D r -> r
+  | Eq r -> { min_size = secondary r.min_size; max_size = secondary r.max_size;
+              gen = (fun fuel -> let r = r.gen fuel in r, r) }
 
 
-let left = function
-  | Eq e -> e.shared
-  | D r -> r.left
-*)
+(** {3 Combinators } *)
+let const x _fuel = x
+let pure f = Eq { min_size =0; max_size=1; gen = const f }
+let (//) left right=
+  D { gen = const (left, right);
+      max_size = one;
+      min_size = empty;  }
+
+let ( =~ ) left right =
+  D { gen = (fun _ -> (left, right)); min_size = empty; max_size = empty }
+
+
+(** {4 Fuel splitting function } *)
+let split_fuel mx mi fuel =
+    let l = min mx @@ 1 + ( int_of_float @@ float fuel /. ( 1. +. !beta ) ) in
+    let r = max (fuel - l) (mi) in
+    l, r
+
+let split zip x y fuel =
+  if fuel > x.max_size + y.max_size then
+    zip (x.gen @@ fuel + x.max_size) (y.gen @@ fuel + y.max_size)
+  else if fuel < x.min_size + y.min_size then
+    zip (x.gen x.min_size) (y.gen y.min_size)
+  else
+    let l, r = split_fuel x.max_size y.min_size fuel in
+    zip (x.gen l) (y.gen r)
+
+let zip f x sf sx = match f, x with
+  | Eq f, Eq x ->  let r = (f.gen sf) (x.gen sx) in r, r
+  | Eq f, D r -> let x, y = r.gen sx and f = f.gen sf in
+    f x, f y
+  | D f, Eq x ->
+      let x = x.gen sx and f, g = f.gen sf in
+      f x, g x
+  | D f, D x ->
+      let x, y = x.gen sx and f, g = f.gen sf in
+      f x, g y
+
+let _min2 x y =
+  { primary = min x.primary y.primary; secondary = min x.secondary y.secondary}
+
+let _all x = { primary= x; secondary = x }
+
+let split_2d zip x y fuel =
+  if fuel >= card (x.max_size ++ y.max_size) then
+    (* do we have more fuel than needed? *)
+    zip (card @@ x.max_size) (card @@ y.max_size)
+  else if fuel < card (x.min_size ++ y.min_size) then
+    zip (card x.min_size) (card y.min_size)
+  else if fuel < (x.max_size ++ y.max_size).primary then
+    let l, r = split_fuel x.max_size.primary y.min_size.primary fuel in
+    zip l r
+  else
+    let fuel = fuel - (x.max_size++y.max_size).primary in
+    let l, r = split_fuel x.max_size.secondary y.min_size.secondary fuel in
+    zip (x.max_size.primary + l) (y.max_size.primary + r)
 
 let (<$>) f x = match f, x with
-  | Eq f, Eq x -> Eq { cardinal = f.cardinal + x.cardinal;
-                       shared = f.shared x.shared }
-  | Eq f, D r ->
-      D { left = f.shared r.left;
-          right = f.shared r.right;
-          content = r.content ++ secondary f.cardinal
-        }
-  | D f, Eq x ->
-      D {
-        left = f.left x.shared;
-        right = f.right x.shared;
-        content= f.content ++ secondary x.cardinal
-      }
-  | D f, D x ->
-      D { left = f.left x.left;
-          right = f.right x.right;
-          content = f.content ++ x.content
+  | Eq f, Eq x -> Eq { min_size = 1;
+                       max_size = f.max_size + x.max_size;
+                       gen = split (@@) f x }
+  | _ , _ ->
+      D { gen = split_2d (zip f x) (flatten f) (flatten x);
+          min_size = one ;
+          max_size = max_size f ++ max_size x;
         }
 
+(** {3 Applicative combinators } *)
 let (<*>) f x = pure f <$> x
 
 let _diff0 x y = if x = y then pure x else x // y
+
 let diff left right =
   if left = right then
-    Eq { cardinal = 1; shared = right }
+    Eq { min_size = 1; max_size = 1; gen = const right }
   else
-    D { left; right; content = one }
+    D { gen = const (left,right); max_size = one; min_size = one }
 
-let cons = List.cons
+let _cons = List.cons
 let _id x = x
 let ellipsis () = !Oprint.ellipsis
 
+let size_bounds = function
+  | D r -> r.min_size, r.max_size
+  | Eq e -> secondary e.min_size, secondary e.max_size
 
+let cons2 (x,y) (l,l') = x::l, y :: l'
+let dup x = x, x
+
+let is_eq = function
+  | Eq _ -> true
+  | _ -> false
+
+(** {3 List combinators } *)
+let list_diff ellipsis l =
+  let cons_el (b1,b2) (l1,l2) =
+    (if not b1 then ellipsis :: l1 else l1),
+    (if not b2 then ellipsis::l2 else l2) in
+
+  let maycons (b1,b2) (x,y) (l1,l2) =
+    (if not b1 then x :: l1 else l1),
+    (if not b2 then y ::l2 else l2) in
+
+  let (&&&) (a,b) (a',b') = (a && a', b && b') in
+
+  let max_size =
+    List.fold_left (fun mx (x,_) -> let _,mx' = size_bounds x in
+                     mx ++ mx' ) empty l in
+
+  let rec at_least_one ellip = function
+    | [] -> empty
+    | (D x, _) :: _  when x.min_size.primary > 0 -> x.min_size
+    | _ :: q -> primary (if ellip then 0 else 1) ++ at_least_one true q in
+
+  let count_ellipsis (x,y) = if x && y then 0 else 1 in
+
+  let rec ellide in_ellipsis sfuel l fuel =
+    match l with
+    | [] -> [], []
+    | _ when fuel < 1 -> cons_el in_ellipsis ([], [])
+    | x :: xs ->
+        begin match x with
+
+        | Eq e, _ when e.max_size <= sfuel ->
+            (* we print equal element only if we have some spare fuel *)
+            cons2 (dup @@ e.gen e.max_size) @@ ellide (dup false)
+              (sfuel - e.max_size) xs (fuel - e.max_size)
+        | Eq _, _ ->
+            cons_el in_ellipsis @@ ellide (dup true) sfuel xs
+              (fuel - count_ellipsis in_ellipsis)
+
+        | D {max_size={primary=0; _ }; _ }, _ ->
+        (* We are not printing D.max_size.primary elements  because they are
+           potentially distracting since they are equal but not obviously so:
+           Typical example: 'a -> int compared to
+           <a:int; very:long; object:type'; that:is; not:problematic> -> float
+        *)
+            cons_el in_ellipsis @@ ellide (dup true) sfuel xs
+              (fuel - count_ellipsis in_ellipsis)
+
+
+        | D d, x ->
+            (* we check if the current elements contains ellipsis on any side *)
+            let status = match x with
+              | None -> dup false
+              | Some x -> x in
+
+            if d.max_size.secondary <= sfuel then
+              (* if we have some spare fuel, we can extend the current elements *)
+              maycons (status &&& in_ellipsis) (d.gen @@ card d.max_size)
+              @@ ellide status (sfuel - d.max_size.secondary) xs
+                (fuel - card d.max_size)
+            else
+              maycons (status &&& in_ellipsis) (d.gen d.max_size.primary)
+              @@ ellide status sfuel xs (fuel - d.max_size.primary)
+        end
+  in
+
+  let gen fuel =
+      ellide (dup false) (max 0 (fuel - max_size.primary)) l fuel in
+
+  if List.for_all (fun (x,_) -> is_eq x) l then
+    Eq { min_size = 1; (* a list can always ellipsed to "..." *)
+         max_size = card max_size;
+         gen = fun fuel -> fst @@ gen fuel }
+  else
+    D { min_size= at_least_one false l;
+        (* we need to be able to expand at least one element *)
+        max_size;
+        gen }
+
+(* Simple list where the k-th elements should be compared to the k-th element  *)
 let list ellipsis diff x y =
   let rec list xs ys = match xs, ys with
     | [], [] -> []
     | x :: xs , y :: ys ->
-         diff x y :: list xs ys
-    | x :: xs, ([] as ys) -> (x // ellipsis) :: list xs ys
-    | ([] as xs), y :: ys -> (ellipsis // y) :: list xs ys in
-  let rec ellide (fuel:fuel) in_ellipsis =
-    function
-    | [] -> pure []
-    | _ when fuel < 1 && in_ellipsis -> pure []
-    | _ when fuel < 1 -> pure [ellipsis]
-    | x :: xs ->
-        let fuel = fuel - 1 in
-        begin match x with
-        | Eq _
-        | D {content={primary=0; _ }; _ } ->
-            if in_ellipsis then
-              ellide fuel true xs
-            else
-              cons ellipsis <*> ellide fuel true xs
-        | D _ as d -> cons <*> d <$> ellide fuel false xs
-        end
-  in
-  ellide 3 false @@ list x y
+         (diff x y, None) :: list xs ys
+    | x :: xs, ([] as ys) -> ((x // ellipsis), Some (false,true))  :: list xs ys
+    | ([] as xs), y :: ys -> ((ellipsis // y), Some(true,false)) :: list xs ys in
+  list_diff ellipsis @@ list x y
 
+(* Keyed list where the element with key k should be compared to the element
+   associated with the same key *)
 let keyed_list cmp ellipsis diff x y =
+
   let rec mk xs ys = match xs, ys with
     | [], [] -> []
-    | x :: xs, ([] as ys) -> (x // ellipsis) :: mk xs ys
-    | ([] as xs), y :: ys -> (ellipsis // y) :: mk xs ys
+    | x :: xs, ([] as ys) -> ( (x // ellipsis), Some(false,true)) :: mk xs ys
+    | ([] as xs), y :: ys -> ((ellipsis // y), Some(true,false)) :: mk xs ys
     | x :: xs' , y :: ys' ->
         let cmp = cmp x y in
         if  cmp < 0 then
-          ( x // ellipsis ) :: mk xs' ys
+          (( x // ellipsis ), Some(false,true)) :: mk xs' ys
         else if cmp > 0 then
-          ( ellipsis // y )  :: mk xs ys'
+         ( ( ellipsis // y ), Some(true,false))  :: mk xs ys'
         else
-          (diff x y) :: mk xs' ys' in
-  let may_cons b x l = if not b then x :: l else l in
-  let rec ellide fuel in_ellipsis ds = match ds with
-    | [] -> pure []
-    | _ when fuel < 1 -> may_cons <*> in_ellipsis <$> pure ellipsis <$> pure []
-    | d :: ds ->
-        match d with
-        | Eq _
-        | D {content={primary=0; _ } }->
-            may_cons <*> in_ellipsis <$> pure ellipsis <$>
-            ellide (fuel - 1) (pure true) ds
-        | D _ as d -> cons <*> d <$> ellide (fuel - 1) (pure false) ds in
-  ellide 3 (pure false) @@ mk x y
+          (diff x y, None) :: mk xs' ys' in
+  list_diff ellipsis @@ mk x y
 
+(** {2 Utility functions } *)
 
 let rec fn_to_list = function
   | Otyp_arrow (arg,rest) ->
@@ -171,7 +311,7 @@ let rcmp x y = match x, y with
   | Of_ellipsis, _ -> -1
   | _, Of_ellipsis -> 1
 
-
+(** {2 Outcome tree difference computation functions} *)
 module Type = struct
   module M = Misc.StringSet
   let unfree_vars = ref M.empty
@@ -463,12 +603,13 @@ and module_type x y =
 
   | _ -> x // y
 
+(** {2 Exported functions} *)
 
 let simplify f (x,y)=
   Type.reset_free ();
   match f x y with
-  | Eq x -> x.shared, x.shared
-  | D r -> r.left, r.right
+  | Eq x -> dup (x.gen !fuel)
+  | D r -> r.gen !fuel
 
 let typ = simplify type'
 let sig_item = simplify sig_item
