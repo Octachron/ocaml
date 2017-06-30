@@ -148,7 +148,7 @@ let rec add_native_repr_attributes ty attrs =
           | Ofa_arg(label,ty) ->
               Ofa_arg(label, Otyp_attribute (ty, attr) )
           | Ofa_ellipsis ->
-              Ofa_arg("...",Otyp_attribute(Otyp_ellipsis,attr))
+              Ofa_arg(Ofoc_ellipsis, Otyp_attribute(Otyp_ellipsis,attr))
           end
     in
     Otyp_arrow (arg, b)

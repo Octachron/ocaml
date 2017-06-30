@@ -465,7 +465,7 @@ module Type = struct
     | Ofa_ellipsis, Ofa_ellipsis -> pure x
     | Ofa_arg(label,ty),  Ofa_arg(label',ty')  ->
         (fun lbl ty -> Ofa_arg(lbl,ty))
-        <*> sdiff label label'
+        <*> fdiff label label'
         <$> type' ty ty'
     | _ -> x // y
 end open Type

@@ -236,7 +236,8 @@ and print_fn_arg ppf = function
   | Ofa_ellipsis -> ellipsis ppf
   | Ofa_arg(lab,ty1) ->
       begin
-        if lab <> "" then (pp_print_string ppf lab; pp_print_char ppf ':');
+        if lab <> Ofoc_simple "" then
+          (pr_focusable ppf lab; pp_print_char ppf ':');
         print_out_type_2 ppf ty1
       end
 

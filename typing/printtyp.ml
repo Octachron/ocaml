@@ -585,7 +585,7 @@ let rec typexp sch ty =
                   typexp sch ty
               | _ -> Otyp_stuff "<hidden>"
             else typexp sch ty1 in
-          Otyp_arrow ( Ofa_arg(lab, t1), typexp sch ty2) in
+          Otyp_arrow ( Ofa_arg(Ofoc_simple lab, t1), typexp sch ty2) in
         pr_arrow l ty1 ty2
     | Ttuple tyl ->
         Otyp_tuple (typlist sch tyl)
@@ -1087,7 +1087,7 @@ let rec class_type sch params =
          | _ -> newconstr (Path.Pident(Ident.create "<hidden>")) []
        else ty in
       let tr = typexp sch ty in
-      Octy_arrow ( Ofa_arg (lab, tr), class_type sch params cty)
+      Octy_arrow ( Ofa_arg (Ofoc_simple lab, tr), class_type sch params cty)
 
 let class_param param variance =
   let name = (match typexp true param with

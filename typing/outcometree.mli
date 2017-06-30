@@ -75,7 +75,7 @@ type out_type =
   | Otyp_focus of out_type
 
 and out_fn_arg =
-  | Ofa_arg of string * out_type
+  | Ofa_arg of focusable * out_type
   | Ofa_ellipsis
 
 and focusable =
