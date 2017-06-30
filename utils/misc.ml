@@ -530,12 +530,14 @@ module Color = struct
     error: style list;
     warning: style list;
     loc: style list;
+    focus: style list;
   }
 
   let default_styles = {
     warning = [Bold; FG Magenta];
     error = [Bold; FG Red];
     loc = [Bold];
+    focus = [Bold; FG Magenta];
   }
 
   let cur_styles = ref default_styles
@@ -548,6 +550,7 @@ module Color = struct
     | "error" -> (!cur_styles).error
     | "warning" -> (!cur_styles).warning
     | "loc" -> (!cur_styles).loc
+    | "focus" -> (!cur_styles).focus
     | _ -> raise Not_found
 
   let color_enabled = ref true

@@ -269,6 +269,7 @@ module Color : sig
     error: style list;
     warning: style list;
     loc: style list;
+    focus: style list
   }
 
   val default_styles: styles
