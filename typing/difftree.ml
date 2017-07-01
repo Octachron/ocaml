@@ -316,14 +316,16 @@ let dup x = x, x
 (** {3 List combinators } *)
 let list_diff ellipsis l =
   let cons_el (b1,b2) (l1,l2) =
-    (if not b1 then ellipsis :: l1 else l1),
-    (if not b2 then ellipsis::l2 else l2) in
+    (if b1 then ellipsis :: l1 else l1),
+    (if b2 then ellipsis::l2 else l2) in
 
   let maycons (b1,b2) (x,y) (l1,l2) =
     (if not b1 then x :: l1 else l1),
     (if not b2 then y ::l2 else l2) in
 
+  (*  let (|||) (a,b) (a',b') = (a || a', b || b') in*)
   let (&&&) (a,b) (a',b') = (a && a', b && b') in
+  let not2 (a,b) = (not a, not b) in
 
   let bounds = List.map (fun (x,_) -> AppList.size_bounds x) l in
   let global = AppList.global_bounds bounds in
@@ -339,36 +341,40 @@ let list_diff ellipsis l =
 
   let with_fuel fuel = List.map2 (fun x y -> x, y) l (distribute fuel) in
 
-  let rec ellide in_ellipsis = function
-    | [] -> [], []
-    | (_, 0) :: q -> cons_el in_ellipsis @@ ellide (dup true) q
+  let expand x = match x with
+    | None -> dup false
+    | Some x -> x in
+
+  let rec ellide status in_ellipsis = function
+    | [] -> cons_el status @@ dup []
+    | (_ , 0) :: q -> ellide (dup true) (dup true) q
     | (x, f) :: xs ->
         begin match x with
-
         | Eq e, _ ->
             (* we print equal element only if we have some spare fuel *)
-            cons2 (dup @@ e.gen f) @@ ellide (dup false) xs
+            cons_el in_ellipsis @@
+            cons2 (dup @@ e.gen f)
+            @@ ellide (dup false) (dup false) xs
         | D {max_size={primary=0; _ }; _ }, _ ->
         (* We are not printing D.max_size.primary elements  because they are
            potentially distracting since they are equal but not obviously so:
            Typical example: 'a -> int compared to
            <a:int; very:long; object:type'; that:is; not:problematic> -> float
         *)
-            cons_el in_ellipsis @@ ellide (dup true) xs
+            ellide (dup true) (dup true) xs
 
-        | D d, x ->
+        | D d, st ->
+            let st = expand st in
             (* we check if the current elements contains ellipsis on any side *)
-            let status = match x with
-              | None -> dup false
-              | Some x -> x in
-              maycons (status &&& in_ellipsis) (d.gen f)
-              @@ ellide status xs
+            cons_el (in_ellipsis &&& not2 st)
+            @@ maycons st (d.gen f)
+            @@ ellide (status &&& st) st xs
         end
   in
 
   let gen fuel =
     let l = with_fuel fuel in
-    ellide (dup false) l in
+    ellide (dup false) (dup false) l in
 
   if List.for_all (fun (x,_) -> is_eq x) l then
     Eq { min_size = 1; (* a list can always ellipsed to "..." *)
