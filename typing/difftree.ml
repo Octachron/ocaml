@@ -67,7 +67,6 @@ type 'a diff =
   | Eq of ('a, int) gen
   | D of ('a * 'a , size) gen
 
-type 'a mk_diff = 'a * 'a -> 'a * 'a
 
 let is_eq = function
   | Eq _ -> true
@@ -837,13 +836,27 @@ and module_type x y =
 
 (** {2 Exported functions} *)
 
-let simplify f (x,y)=
+module Gen = struct
+
+  type 'a t = 'a * 'a -> int -> 'a * 'a
+
+  let simplify f (x,y)=
   Type.reset_free ();
   match f x y with
-  | Eq x -> dup (x.gen @@ get_fuel () )
-  | D r -> r.gen @@ get_fuel ()
+  | Eq x -> fun fuel -> dup (x.gen fuel )
+  | D r -> fun fuel -> r.gen fuel
 
-let typ = simplify type'
-let sig_item = simplify sig_item
-let class_type = simplify Ct.ct
-let modtype = simplify module_type
+  let typ = simplify type'
+  let sig_item = simplify sig_item
+  let class_type = simplify Ct.ct
+  let modtype = simplify module_type
+
+end
+
+type 'a t = 'a * 'a -> 'a * 'a
+let simplify f x = f x @@ get_fuel ()
+
+let typ = simplify Gen.typ
+let sig_item = simplify Gen.sig_item
+let class_type = simplify Gen.class_type
+let modtype = simplify Gen.modtype
