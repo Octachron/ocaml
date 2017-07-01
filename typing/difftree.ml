@@ -192,34 +192,31 @@ module AppList = struct
       List.fold_left split ([], fuel) l in
     List.rev l
 
+  module Level_map = Map.Make(struct type t = int
+      let compare (x:int) (y:int) = compare x y  end)
+
   let rising_tide proj fuel l =
-    let new_min l =
-      List.fold_left
-        (fun x (s, y) -> if y <> 0 then x else
-            let x' = proj s in
-            if x' = 0 then x else min x x')
-        max_int l in
-    let spend size l fuel =
-      let l, fuel = List.fold_left
-          (fun (l, fuel) (x, _  as s ) ->
-             if proj x = size && fuel >= size then
-              ((x, size) :: l, fuel - size)
-             else
-               (s :: l,fuel)
-          )
-        ([], fuel) l in
-      List.rev l, fuel in
-    let rec finish fuel = function
+    let levels =
+      List.fold_left (fun lvls s ->
+          let lvl = proj s in
+          if lvl <> 0 then
+            let c = try Level_map.find lvl lvls with Not_found -> 0 in
+            Level_map.add lvl (1 + c) lvls
+          else
+            lvls)
+        Level_map.empty l in
+    let max_level, fuel_left = Level_map.fold(fun k x (lvl,fuel) ->
+        if k * x <= fuel then (k, fuel - k * x)
+        else (lvl,fuel)
+      ) levels (0, fuel) in
+     let rec finish fuel = function
       | [] -> []
-      | (x, 0) :: q when proj x > 0 -> fuel :: finish 0 q
-      | (_,f) :: q -> f :: finish fuel q in
-    let rec fixpoint (l,fuel) =
-      let m = new_min l in
-      if m > fuel then
-        finish fuel l
-      else
-        fixpoint (spend m l fuel) in
-    fixpoint (List.map (fun x -> x,0) l, fuel)
+      | x :: q when proj x > max_level ->
+          let consumed = min (proj x) fuel in
+          consumed :: finish (fuel-consumed) q
+      | x :: q -> (proj x) :: finish fuel q in
+    finish fuel_left l
+
 
   let distribute (gmin,gmax) bounds fuel =
     if fuel >= card gmax then
