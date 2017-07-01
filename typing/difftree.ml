@@ -1,5 +1,29 @@
 open Outcometree
 
+(*
+let debug fmt = Format.eprintf ("debug:" ^^ fmt ^^ "@.")
+
+      debug "Distributing [%d] fuel" fuel;
+      debug "bounds: %a" (pp_list pp_bound) bounds;
+      debug "distribution: %a" (pp_list pp_int) distribution;
+
+
+  let pp_list pp ppf l =
+    Format.fprintf ppf "@[<hov 2>[%a]@]"
+    (Format.pp_print_list
+      ~pp_sep:(fun ppf () -> Format.fprintf ppf ";@ ")
+      pp) l
+
+  let pp_size ppf m = Format.fprintf ppf "{p:%d; s:%d}" m.primary m.secondary
+  let pp_int ppf = Format.pp_print_int ppf
+  let pp_bound ppf (x,y) = Format.fprintf ppf "min:%a, max:%a" pp_size x pp_size y
+
+    debug "List, fuel:%d, len:%d size:{%d;%d}" fuel (List.length l)
+   max_size.primary max_size.secondary;
+
+
+*)
+
 (** {2 Fuel interface} *)
 
 (* Fuel decay paramater, control the left to right preference of the diff tree *)
@@ -80,8 +104,8 @@ let d0 left right=
 
 let stitch x y = match x, y with
   | Eq x, Eq y ->
-      D { min_size = secondary @@ max x.min_size y.min_size;
-          max_size = secondary @@ max x.max_size y.max_size;
+      D { min_size = primary 1 ++ secondary (max x.min_size y.min_size);
+          max_size = primary 1 ++ secondary (max x.max_size y.max_size);
           gen =(fun fuel -> x.gen fuel, y.gen fuel)
         }
   | _ -> raise (Invalid_argument "Stitching difference")
@@ -689,6 +713,19 @@ let plist = list Otp_ellipsis dparam
 
 let alist = list {oattr_name=ellipsis() } attr_diff
 
+let rec sig_item_key = function
+  | Osig_ellipsis -> "ellipsis", "..."
+  | Osig_focus x -> sig_item_key x
+  | Osig_class(_,name,_,_,_) -> "class", name
+  | Osig_class_type(_,name,_,_,_) -> "class_type", name
+  | Osig_typext (te,_) -> "type_ext", te.oext_name
+  | Osig_modtype (name,_) -> "modtype", name
+  | Osig_module(name,_,_) -> "module", name
+  | Osig_type(name,_) -> "type", name.otype_name
+  | Osig_value v -> "val", v.oval_name
+
+let sigcmp x y = compare (sig_item_key x) (sig_item_key y)
+
 let rec sig_item s1 s2 =
   Type.reset_free ();
   let open Sig in
@@ -744,7 +781,8 @@ let rec sig_item s1 s2 =
               alist v.oval_attributes  v'.oval_attributes
             ]
       ]
-  | _ -> s1 // s2
+  | _ ->
+      focus_on (fun x -> Osig_focus x) (stitch (sig_item s1 s1) (sig_item s2 s2))
 
 and module_type x y =
   let open Mty in
@@ -756,7 +794,10 @@ and module_type x y =
                     module_type res res' ] (* TODO: expand *)
   | Omty_ident id, Omty_ident id' -> ident <*> [id_diff id id']
   | Omty_signature s, Omty_signature s' ->
-      signature <*> [list Osig_ellipsis sig_item s s']
+      signature <*> [keyed_list sigcmp Osig_ellipsis sig_item
+                       (List.sort sigcmp s)
+                       (List.sort sigcmp s')
+                    ]
   | Omty_alias x, Omty_alias y -> alias <*> [id_diff x y]
 
   | _ -> x // y
