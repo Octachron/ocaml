@@ -22,6 +22,12 @@ open Path
 open Types
 open Outcometree
 
+let unfoc x = Ofoc_unfocused x
+let extract = function
+  | Ofoc_focused x -> x
+  | Ofoc_unfocused x -> x
+  | Ofoc_ellipsis -> assert false
+
 module type OBJ =
   sig
     type t
@@ -99,7 +105,7 @@ module Make(O : OBJ)(EVP : EVALPATH with type valu = O.t) = struct
           else if O.tag arg = Obj.double_tag then
             list := Oval_float (O.obj arg : float) :: !list
           else
-            list := Oval_constr (Oide_ident "_", []) :: !list
+            list := Oval_constr (Oide_ident (unfoc "_"), []) :: !list
         done;
         List.rev !list
       end
@@ -107,7 +113,7 @@ module Make(O : OBJ)(EVP : EVALPATH with type valu = O.t) = struct
 
     let outval_of_untyped_exception bucket =
       if O.tag bucket <> 0 then
-        Oval_constr (Oide_ident (O.obj (O.field bucket 0) : string), [])
+        Oval_constr (Oide_ident (unfoc (O.obj (O.field bucket 0))), [])
       else
       let name = (O.obj(O.field(O.field bucket 0) 0) : string) in
       let args =
@@ -118,7 +124,7 @@ module Make(O : OBJ)(EVP : EVALPATH with type valu = O.t) = struct
         && O.tag(O.field bucket 1) = 0
         then outval_of_untyped_exception_args (O.field bucket 1) 0
         else outval_of_untyped_exception_args bucket 1 in
-      Oval_constr (Oide_ident name, args)
+      Oval_constr (Oide_ident (unfoc name), args)
 
     (* The user-defined printers. Also used for some builtin types. *)
 
@@ -197,7 +203,7 @@ module Make(O : OBJ)(EVP : EVALPATH with type valu = O.t) = struct
           Oide_ident name
       | Pdot(p, _s, _pos) ->
           if try
-               match (lookup_fun (Lident name) env).desc with
+               match (lookup_fun (Lident (extract name)) env).desc with
                | Tconstr(ty_path', _, _) -> Path.same ty_path ty_path'
                | _ -> false
              with Not_found -> false
@@ -360,7 +366,7 @@ module Make(O : OBJ)(EVP : EVALPATH with type valu = O.t) = struct
                    then nest tree_of_val depth forced_obj ty_arg
                    else      tree_of_val depth forced_obj ty_arg
                  in
-                 Oval_constr (Oide_ident "lazy", [v])
+                 Oval_constr (Oide_ident (unfoc "lazy"), [v])
                end
           | Tconstr(path, ty_list, _) -> begin
               try
@@ -410,7 +416,7 @@ module Make(O : OBJ)(EVP : EVALPATH with type valu = O.t) = struct
                               lbls 0 obj unbx
                           in
                           Oval_constr(tree_of_constr env path
-                                        (Ident.name cd_id),
+                                        (unfoc @@ Ident.name cd_id),
                                       [ r ])
                     end
                 | {type_kind = Type_record(lbl_list, rep)} ->
@@ -490,8 +496,8 @@ module Make(O : OBJ)(EVP : EVALPATH with type valu = O.t) = struct
               (* PR#5722: print full module path only
                  for first record field *)
               let lid =
-                if pos = 0 then tree_of_label env path name
-                else Oide_ident name
+                if pos = 0 then tree_of_label env path (unfoc name)
+                else Oide_ident (unfoc name)
               and v =
                 if unboxed
                 then tree_of_val (depth - 1) obj ty_arg
@@ -511,7 +517,7 @@ module Make(O : OBJ)(EVP : EVALPATH with type valu = O.t) = struct
 
       and tree_of_constr_with_args
              tree_of_cstr cstr_name inlined start depth obj ty_args unboxed =
-        let lid = tree_of_cstr cstr_name in
+        let lid = tree_of_cstr (unfoc cstr_name) in
         let args =
           if inlined || unboxed then
             match ty_args with
