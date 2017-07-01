@@ -193,7 +193,7 @@ let list_diff ellipsis l =
     | (D x, _) :: _  when x.min_size.primary > 0 -> x.min_size
     | _ :: q -> primary (if ellip then 0 else 1) ++ at_least_one true q in
 
-  let count_ellipsis (x,y) = if x && y then 0 else 1 in
+  let _count_ellipsis (x,y) = if x && y then 0 else 1 in
 
   let rec ellide in_ellipsis sfuel l fuel =
     match l with
@@ -207,8 +207,7 @@ let list_diff ellipsis l =
             cons2 (dup @@ e.gen e.max_size) @@ ellide (dup false)
               (sfuel - e.max_size) xs (fuel - e.max_size)
         | Eq _, _ ->
-            cons_el in_ellipsis @@ ellide (dup true) sfuel xs
-              (fuel - count_ellipsis in_ellipsis)
+            cons_el in_ellipsis @@ ellide (dup true) sfuel xs fuel
 
         | D {max_size={primary=0; _ }; _ }, _ ->
         (* We are not printing D.max_size.primary elements  because they are
@@ -216,9 +215,7 @@ let list_diff ellipsis l =
            Typical example: 'a -> int compared to
            <a:int; very:long; object:type'; that:is; not:problematic> -> float
         *)
-            cons_el in_ellipsis @@ ellide (dup true) sfuel xs
-              (fuel - count_ellipsis in_ellipsis)
-
+            cons_el in_ellipsis @@ ellide (dup true) sfuel xs fuel
 
         | D d, x ->
             (* we check if the current elements contains ellipsis on any side *)
@@ -232,8 +229,9 @@ let list_diff ellipsis l =
               @@ ellide status (sfuel - d.max_size.secondary) xs
                 (fuel - card d.max_size)
             else
-              maycons (status &&& in_ellipsis) (d.gen d.max_size.primary)
-              @@ ellide status sfuel xs (fuel - d.max_size.primary)
+              let consumed = max (min fuel d.max_size.primary) d.min_size.primary in
+              maycons (status &&& in_ellipsis) (d.gen consumed)
+              @@ ellide status sfuel xs (fuel - consumed)
         end
   in
 
@@ -312,12 +310,12 @@ let arrow = list_to_fn
 let nofocus = id, id
 
 let sdiff: string -> _ = diff nofocus
-let bdiff: bool -> _ = diff nofocus
-let recs_diff: out_rec_status -> _ = diff nofocus
-let priv_diff: Asttypes.private_flag -> _ = diff nofocus
-let ext_diff: out_ext_status -> _ = diff nofocus
+let bdiff: bool -> _ = diff0
+let recs_diff: out_rec_status -> _ = diff0
+let priv_diff: Asttypes.private_flag -> _ = diff0
+let ext_diff: out_ext_status -> _ = diff0
 
-let attr_diff: out_attribute -> _ = diff nofocus
+let attr_diff: out_attribute -> _ = diff0
 
 let focus = function
   | Ofoc_simple s -> Ofoc_focused s
