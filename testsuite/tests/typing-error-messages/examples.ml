@@ -1,4 +1,17 @@
 
+module F: sig
+        val f:int -> int -> int -> int -> int -> int -> int
+end = struct 
+        let f _ _ _ _ x y = x +. y
+end;;
+
+module G: sig
+        val f: ?xyz:int -> int -> int -> int -> int -> int -> int
+end = struct 
+        let f ?xzy:_ _ _ _ x y = x + y
+end;;
+
+
 type c =
   < arma:int; virumque:int; cano:int; troiae:float; qui:float;
     primus:char; ab:int; oris:float; italiam:float; fato:unit; profugus:int list >
@@ -34,6 +47,14 @@ end = struct
   (_:x) (x:quoque) (_:x) (_:bello) (_:x) (_:dum)
   (_:x) (_:urbem) = ()
 end;;
+
+
+
+module N: sig 
+        type c = A | B | C | D | E | F | G
+end = struct 
+        type c = A | B | C | G | H | I | J
+end
 
 
 module N: sig 

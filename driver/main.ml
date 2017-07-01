@@ -43,8 +43,7 @@ module Options = Main_args.Make_bytecomp_options (struct
   let _no_check_prims = set no_check_prims
   let _dllib s = defer (ProcessDLLs (Misc.rev_split_words s))
   let _dllpath s = dllpaths := !dllpaths @ [s]
-  let _error_fuel n = Clflags.error_fuel := n
-  let _error_beta beta = Clflags.error_beta := beta
+  let _error_size n = error_size := n
   let _for_pack s = for_package := Some s
   let _g = set debug
   let _i () = print_types := true; compile_only := true

@@ -26,13 +26,9 @@ let debug fmt = Format.eprintf ("debug:" ^^ fmt ^^ "@.")
 
 (** {2 Fuel interface} *)
 
-(* Fuel decay paramater, control the left to right preference of the diff tree *)
-let beta = Clflags.error_beta
-
 (* Default fuel available for printing an error *)
-let fuel = Clflags.error_fuel
+let fuel = Clflags.error_size
 
-let get_beta () = !beta
 let get_fuel () = !fuel
 
 (** {2 Two dimensional size } *)
@@ -156,8 +152,8 @@ module AppList = struct
     | T.[] -> []
     | T.( a :: q ) -> size_bounds a :: bounds q
 
+  let beta = 0.75
   let z proj l =
-    let beta = get_beta () in
     let _, z, l =
       List.fold_left (fun (m, z, cumulative ) x ->
           beta *. m, z +. m *. float(proj x), z :: cumulative )
@@ -166,7 +162,6 @@ module AppList = struct
 
 
   let _exp_split proj fuel l =
-    let beta = get_beta () in
     let z, zl = z proj l in
     let split (m,l,zl,fuel) x =
       let x = float @@ proj x in
