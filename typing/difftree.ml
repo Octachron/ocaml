@@ -104,7 +104,7 @@ let d0 left right=
 
 let stitch x y = match x, y with
   | Eq x, Eq y ->
-      D { min_size = primary 1 ++ secondary (max x.min_size y.min_size);
+      D { min_size = one;
           max_size = primary 1 ++ secondary (max x.max_size y.max_size);
           gen =(fun fuel -> x.gen fuel, y.gen fuel)
         }
@@ -183,7 +183,7 @@ module AppList = struct
     List.rev l
 
 
-  let first_served proj fuel l =
+  let _first_served proj fuel l =
     let split (l,fuel) x =
       let x = min fuel (proj x) in
       let fuel = fuel - x in
@@ -192,16 +192,50 @@ module AppList = struct
       List.fold_left split ([], fuel) l in
     List.rev l
 
+  let rising_tide proj fuel l =
+    let new_min l =
+      List.fold_left
+        (fun x (s, y) -> if y <> 0 then x else
+            let x' = proj s in
+            if x' = 0 then x else min x x')
+        max_int l in
+    let spend size l fuel =
+      let l, fuel = List.fold_left
+          (fun (l, fuel) (x, _  as s ) ->
+             if proj x = size && fuel >= size then
+              ((x, size) :: l, fuel - size)
+             else
+               (s :: l,fuel)
+          )
+        ([], fuel) l in
+      List.rev l, fuel in
+    let rec finish fuel = function
+      | [] -> []
+      | (x, 0) :: q when proj x > 0 -> fuel :: finish 0 q
+      | (_,f) :: q -> f :: finish fuel q in
+    let rec fixpoint (l,fuel) =
+      let m = new_min l in
+      if m > fuel then
+        finish fuel l
+      else
+        fixpoint (spend m l fuel) in
+    fixpoint (List.map (fun x -> x,0) l, fuel)
+
   let distribute (gmin,gmax) bounds fuel =
     if fuel >= card gmax then
       List.map (fun (_,max) -> card max) bounds
     else if fuel <= gmin.primary then
       List.map(fun (min,_) -> card min) bounds
     else if fuel <= gmax.primary then
-      first_served (fun (_,y) -> y.primary) fuel bounds
+      let fuel' = fuel - gmin.primary in
+      let bounds' = List.map
+          ( fun (x,y) -> (x, { y with primary = max 0 (y.primary - x.primary) }))
+          bounds in
+      let d = rising_tide (fun (_,y) -> y.primary) fuel' bounds' in
+      List.map2 (fun (x,_) y -> x.primary + y) bounds d
     else
       let fuel' = fuel - gmax.primary in
-      let d = first_served (fun (_,y) -> y.secondary) fuel' bounds in
+      let d = rising_tide (fun (_,y) -> y.secondary) fuel' bounds in
       List.map2 (fun (_,x) y -> x.primary + y) bounds d
 
   let rec apply : type a res. a concrete -> (a,res) T.t -> int list
@@ -238,9 +272,9 @@ module AppList = struct
       let distribution = distribute global bounds fuel in
       proj (apply f l distribution) in
     if is_all_eq l then
-      Eq { min_size = 1; max_size = card max_size; gen = gen eq }
+      Eq { min_size = 0; max_size = card max_size; gen = gen eq }
     else
-      D {min_size = one; max_size; gen = gen pair }
+      D {min_size = empty; max_size; gen = gen pair }
 
   let (<*>) f = mkdiff (concrete_pure f)
 
@@ -268,10 +302,10 @@ let diff0 x y = if x = y then pure0 x else d0 x y
 
 let diff (left_focus,right_focus) left right =
   if left = right then
-    Eq { min_size = 1; max_size = 1; gen = const right }
+    Eq { min_size = 0; max_size = 1; gen = const right }
   else
     D { gen = const (left_focus left,right_focus right); max_size = one;
-        min_size = one }
+        min_size = empty }
 
 let _cons = List.cons
 let id x = x
@@ -294,9 +328,8 @@ let list_diff ellipsis l =
 
   let (&&&) (a,b) (a',b') = (a && a', b && b') in
 
-  let max_size =
-    List.fold_left (fun mx (x,_) -> let _,mx' = AppList.size_bounds x in
-                     mx ++ mx' ) empty l in
+  let bounds = List.map (fun (x,_) -> AppList.size_bounds x) l in
+  let global = AppList.global_bounds bounds in
 
   let rec at_least_one ellip = function
     | [] -> empty
@@ -305,57 +338,49 @@ let list_diff ellipsis l =
 
   let _count_ellipsis (x,y) = if x && y then 0 else 1 in
 
-  let rec ellide in_ellipsis sfuel l fuel =
-    match l with
+  let distribute fuel = AppList.distribute global bounds fuel in
+
+  let with_fuel fuel = List.map2 (fun x y -> x, y) l (distribute fuel) in
+
+  let rec ellide in_ellipsis = function
     | [] -> [], []
-    | _ when fuel < 1 -> cons_el in_ellipsis ([], [])
-    | x :: xs ->
+    | (_, 0) :: q -> cons_el in_ellipsis @@ ellide (dup true) q
+    | (x, f) :: xs ->
         begin match x with
 
-        | Eq e, _ when e.max_size <= sfuel ->
+        | Eq e, _ ->
             (* we print equal element only if we have some spare fuel *)
-            cons2 (dup @@ e.gen e.max_size) @@ ellide (dup false)
-              (sfuel - e.max_size) xs (fuel - e.max_size)
-        | Eq _, _ ->
-            cons_el in_ellipsis @@ ellide (dup true) sfuel xs fuel
-
+            cons2 (dup @@ e.gen f) @@ ellide (dup false) xs
         | D {max_size={primary=0; _ }; _ }, _ ->
         (* We are not printing D.max_size.primary elements  because they are
            potentially distracting since they are equal but not obviously so:
            Typical example: 'a -> int compared to
            <a:int; very:long; object:type'; that:is; not:problematic> -> float
         *)
-            cons_el in_ellipsis @@ ellide (dup true) sfuel xs fuel
+            cons_el in_ellipsis @@ ellide (dup true) xs
 
         | D d, x ->
             (* we check if the current elements contains ellipsis on any side *)
             let status = match x with
               | None -> dup false
               | Some x -> x in
-
-            if d.max_size.secondary <= sfuel then
-              (* if we have some spare fuel, we can extend the current elements *)
-              maycons (status &&& in_ellipsis) (d.gen @@ card d.max_size)
-              @@ ellide status (sfuel - d.max_size.secondary) xs
-                (fuel - card d.max_size)
-            else
-              let consumed = max (min fuel d.max_size.primary) d.min_size.primary in
-              maycons (status &&& in_ellipsis) (d.gen consumed)
-              @@ ellide status sfuel xs (fuel - consumed)
+              maycons (status &&& in_ellipsis) (d.gen f)
+              @@ ellide status xs
         end
   in
 
   let gen fuel =
-    ellide (dup false) (max 0 (fuel - max_size.primary)) l fuel in
+    let l = with_fuel fuel in
+    ellide (dup false) l in
 
   if List.for_all (fun (x,_) -> is_eq x) l then
     Eq { min_size = 1; (* a list can always ellipsed to "..." *)
-         max_size = card max_size;
+         max_size = card (snd global);
          gen = fun fuel -> fst @@ gen fuel }
   else
     D { min_size= at_least_one false l;
         (* we need to be able to expand at least one element *)
-        max_size;
+        max_size = snd global;
         gen }
 
 (* Simple list where the k-th elements should be compared to the k-th element  *)
