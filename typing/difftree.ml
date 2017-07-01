@@ -62,11 +62,26 @@ let flatten = function
 
 (** {3 Combinators } *)
 let const x _fuel = x
-let pure f = Eq { min_size =0; max_size=1; gen = const f }
+let pure f = Eq { min_size =0; max_size=0; gen = const f }
 let (//) left right=
   D { gen = const (left, right);
       max_size = one;
       min_size = empty;  }
+
+let pure0 f = Eq { min_size =0; max_size=0; gen = const f }
+let d0 left right=
+  D { gen = const (left, right);
+      max_size = empty;
+      min_size = empty;  }
+
+let stitch x y = match x, y with
+  | Eq x, Eq y ->
+      D { min_size = secondary @@ max x.min_size y.min_size;
+          max_size = secondary @@ max x.max_size y.max_size;
+          gen =(fun fuel -> x.gen fuel, y.gen fuel)
+        }
+  | _ -> raise (Invalid_argument "Stitching difference")
+
 
 let ( =~ ) left right =
   D { gen = (fun _ -> (left, right)); min_size = empty; max_size = empty }
@@ -77,15 +92,15 @@ let focus_on f = function
 
 (** {4 Fuel splitting function } *)
 let split_fuel mx mi fuel =
-    let l = min mx @@ 1 + ( int_of_float @@ float fuel /. ( 1. +. !beta ) ) in
-    let r = max (fuel - l) (mi) in
+  let l = min mx @@ 1 + ( int_of_float @@ float fuel /. ( 1. +. get_beta() ) ) in
+  let r = max (fuel - l) (mi) in
     l, r
 
 let split zip x y fuel =
   if fuel > x.max_size + y.max_size then
-    zip (x.gen @@ fuel + x.max_size) (y.gen @@ fuel + y.max_size)
+     zip (x.gen @@  x.max_size) (y.gen @@ y.max_size)
   else if fuel < x.min_size + y.min_size then
-    zip (x.gen x.min_size) (y.gen y.min_size)
+     zip (x.gen x.min_size) (y.gen y.min_size)
   else
     let l, r = split_fuel x.max_size y.min_size fuel in
     zip (x.gen l) (y.gen r)
@@ -108,10 +123,10 @@ let _all x = { primary= x; secondary = x }
 
 let split_2d zip x y fuel =
   if fuel >= card (x.max_size ++ y.max_size) then
-    (* do we have more fuel than needed? *)
-    zip (card @@ x.max_size) (card @@ y.max_size)
+   (* do we have more fuel than needed? *)
+   zip (card @@ x.max_size) (card @@ y.max_size)
   else if fuel < card (x.min_size ++ y.min_size) then
-    zip (card x.min_size) (card y.min_size)
+     zip (card x.min_size) (card y.min_size)
   else if fuel < (x.max_size ++ y.max_size).primary then
     let l, r = split_fuel x.max_size.primary y.min_size.primary fuel in
     zip l r
@@ -133,13 +148,14 @@ let (<$>) f x = match f, x with
 (** {3 Applicative combinators } *)
 let (<*>) f x = pure f <$> x
 
-let _diff0 x y = if x = y then pure x else x // y
+let diff0 x y = if x = y then pure0 x else d0 x y
 
 let diff (left_focus,right_focus) left right =
   if left = right then
     Eq { min_size = 1; max_size = 1; gen = const right }
   else
-    D { gen = const (left_focus left,right_focus right); max_size = one; min_size = one }
+    D { gen = const (left_focus left,right_focus right); max_size = one;
+        min_size = one }
 
 let _cons = List.cons
 let id x = x
@@ -401,7 +417,7 @@ module Type = struct
     | (Otyp_var _ | Otyp_constr _ ), (Otyp_var _ | Otyp_constr _ ) ->
         focus (t1 // t2)
 
-    | _ -> t1 // t2
+    | _ -> focus @@ stitch (type' t1 t1) (type' t2 t2)
 
   and tylist x y = list Otyp_ellipsis type' x y
   and flist x y = list Ofoc_ellipsis fdiff x y
