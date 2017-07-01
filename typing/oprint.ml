@@ -182,10 +182,10 @@ let out_value = ref print_out_value
 
 (* Types *)
 
-let rec print_list_init pr sep ppf =
+let rec _print_list_init pr sep ppf =
   function
     [] -> ()
-  | a :: l -> sep ppf; pr ppf a; print_list_init pr sep ppf l
+  | a :: l -> sep ppf; pr ppf a; _print_list_init pr sep ppf l
 
 let rec print_list pr sep ppf =
   function
@@ -302,8 +302,8 @@ and print_simple_out_type ppf =
   | Otyp_ellipsis -> ellipsis ppf
   | Otyp_focus t -> fprintf ppf "@{<focus>%a@}" print_out_type t
 and print_record_decl ppf lbls =
-  fprintf ppf "{%a@;<1 -2>}"
-    (print_list_init print_out_label (fun ppf -> fprintf ppf "@ ")) lbls
+  fprintf ppf "{@ %a@;<1 -2>}"
+    (print_list print_out_label (fun ppf -> fprintf ppf ";@ ")) lbls
 and print_fields rest ppf =
   function
     [] ->
@@ -360,7 +360,7 @@ and print_typargs ppf =
 and print_out_label ppf = function
   | Of_ellipsis -> ellipsis ppf
   | Of_field {focus; name; mut; typ} ->
-      with_focus focus ppf "@[<2>%s%s :@ %a@];"
+      with_focus focus ppf "@[<2>%s%s :@ %a@]"
         (if mut then "mutable " else "") name
         print_out_type typ
 
