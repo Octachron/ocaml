@@ -306,8 +306,6 @@ let diff (left_focus,right_focus) left right =
 
 let _cons = List.cons
 let id x = x
-let ellipsis () = !Oprint.ellipsis
-
 
 let cons2 (x,y) (l,l') = x::l, y :: l'
 let dup x = x, x
@@ -392,8 +390,8 @@ let list ellipsis diff x y =
     | [], [] -> []
     | x :: xs , y :: ys ->
          (diff x y, None) :: list xs ys
-    | x :: xs, ([] as ys) -> ((x // ellipsis), Some (false,true))  :: list xs ys
-    | ([] as xs), y :: ys -> ((ellipsis // y), Some(true,false)) :: list xs ys in
+    | x :: xs, ([] as ys) -> ((diff x ellipsis), Some (false,true))  :: list xs ys
+    | ([] as xs), y :: ys -> ((diff ellipsis y), Some(true,false)) :: list xs ys in
   list_diff ellipsis @@ list x y
 
 (* Keyed list where the element with key k should be compared to the element
@@ -443,25 +441,29 @@ let arrow = list_to_fn
 
 let nofocus = id, id
 
+let sfocus = function
+  | Ofoc_unfocused s -> Ofoc_focused s
+  | Ofoc_focused _ as f -> f
+  | Ofoc_ellipsis -> Ofoc_ellipsis
+
 let sdiff: string -> _ = diff nofocus
+
 let bdiff: bool -> _ = diff0
-let recs_diff: out_rec_status -> _ = diff0
-let priv_diff: Asttypes.private_flag -> _ = diff0
+let bfdiff: bool focusable -> _ = diff (dup sfocus)
+
+let recs_diff: out_rec_status focusable -> _ = diff (dup sfocus)
+let recs_diff_0: out_rec_status -> _ = diff0
+
+
+let priv_diff: Asttypes.private_flag focusable -> _ = diff (dup sfocus)
 let ext_diff: out_ext_status -> _ = diff0
 
 let attr_diff: out_attribute -> _ = diff0
 
-let focus = function
-  | Ofoc_simple s -> Ofoc_focused s
-  | Ofoc_focused _ as f -> f
-  | Ofoc_ellipsis -> Ofoc_ellipsis
-
-let fdiff = diff (dup focus)
+let fdiff = diff (dup sfocus)
 
 let id_diff: out_ident -> _ = diff nofocus (*FIXME*)
 
-
-let slist x = list (ellipsis ()) sdiff x
 
 let constr x y = Otyp_constr(x,y)
 let manifest x y = Otyp_manifest(x,y)
@@ -476,7 +478,7 @@ let module' x y z = Otyp_module(x,y,z)
 let attribute x y = Otyp_attribute(x,y)
 
 let ocmp x y = match x, y with
-  | Oof_field (_,n,_) , Oof_field (_,n',_)  -> compare n n'
+  | Oof_field (n,_) , Oof_field (n',_)  -> compare n n'
   | Oof_ellipsis, _ -> -1
   | _, Oof_ellipsis -> 1
 
@@ -491,7 +493,10 @@ module Type = struct
   let unfree_vars = ref M.empty
   let reset_free () = unfree_vars := M.empty
 
-  let is_free var =
+  let is_free =
+    function
+    | Ofoc_ellipsis -> false
+    | Ofoc_focused var | Ofoc_unfocused var ->
     if M.mem var !unfree_vars then
       false
     else
@@ -528,18 +533,18 @@ module Type = struct
     | Otyp_tuple l, Otyp_tuple l' -> tuple <*> [tylist l l']
     | Otyp_var(_, name), _ when is_free name -> t1 =~ t2
     | Otyp_var (b,name), Otyp_var(b',name') ->
-        focus ( var <*> [bdiff b b'; sdiff name name'])
+        focus ( var <*> [bfdiff b b'; fdiff name name'])
     | Otyp_variant (b,fields,b2,tags), Otyp_variant(b',fields',b2',tags') ->
         variant <*> [
-          bdiff b b';
+          bfdiff b b';
           dvariant fields fields';
-          bdiff b2 b2';
+          bfdiff b2 b2';
           opt flist tags tags'
         ]
     | Otyp_poly (forall,ty), Otyp_poly (forall',ty') ->
         poly <*> [flist forall forall'; type' ty ty']
     | Otyp_module (name, args, tyl), Otyp_module (name',args',tyl') ->
-        module' <*> [sdiff name name'; flist args args'; tylist tyl tyl']
+        module' <*> [fdiff name name'; flist args args'; tylist tyl tyl']
     | Otyp_attribute (t,attr), Otyp_attribute (t',attr') ->
         attribute <*> [type' t t'; attr_diff attr attr']
     | Otyp_focus _, Otyp_focus _
@@ -554,24 +559,26 @@ module Type = struct
   and flist x y = list Ofoc_ellipsis fdiff x y
   and fn_args (x,ret) (y,ret') =
     pair <*> [ list Ofa_ellipsis dfn_arg x y; type' ret ret' ]
+  and of_focus = function
+      | Oof_ellipsis -> Oof_ellipsis
+      | Oof_field(n,ty) -> Oof_field(sfocus n,  Otyp_focus ty)
   and dofield x y =
-    focus_on (function Oof_field (_,x,y) -> Oof_field (true,x,y)| x -> x )
     begin match x, y with
     | Oof_ellipsis, Oof_ellipsis -> pure x
-    | Oof_field(_, n,ty), Oof_field(_, n',ty') ->
-        (fun x y -> Oof_field(false,x,y) )
-        <*> [ sdiff n n'; type' ty ty']
-    | _ -> x // y
+    | Oof_field(n,ty), Oof_field(n',ty') ->
+        (fun x y -> Oof_field(x,y) )
+        <*> [ fdiff n n'; type' ty ty']
+    | _ -> focus_on of_focus @@
+        stitch (dofield x x) (dofield y y)
     end
   and olist x = keyed_list ocmp Oof_ellipsis dofield x
 
   and dconstr x y =
-    focus_on (function Oc_constr c -> Oc_constr {c with focus = true}| x -> x )
       begin match x, y with
       | Oc_ellipsis, Oc_ellipsis -> pure x
       | Oc_constr c, Oc_constr c' ->
-          (fun name args ret -> Oc_constr{focus=false;name;args;ret})
-          <*> [ sdiff c.name c'.name;
+          (fun name args ret -> Oc_constr{name;args;ret})
+          <*> [ fdiff c.name c'.name;
                 tylist c.args c'.args;
                 opt type' c.ret c'.ret
               ]
@@ -579,13 +586,12 @@ module Type = struct
       end
 
   and dfield x y =
-    focus_on (function Of_field f -> Of_field {f with focus = true}| x -> x )
     begin match x, y with
     | Of_ellipsis, Of_ellipsis -> pure x
     | Of_field f, Of_field f' ->
-            (fun name mut typ -> Of_field {focus=false; name; mut; typ} )
-            <*> [sdiff f.name f'.name
-                ; bdiff f.mut f'.mut
+            (fun name mut typ -> Of_field {name; mut; typ} )
+            <*> [fdiff f.name f'.name
+                ; bfdiff f.mut f'.mut
                 ; type' f.typ f'.typ ]
     | _ -> x // y
     end
@@ -598,14 +604,12 @@ module Type = struct
     | _ -> x // y
 
   and dvfield x y =
-    focus_on (function Ovf_field f -> Ovf_field { f with focus = true} | x -> x)
       begin match x, y with
       | Ovf_ellipsis, Ovf_ellipsis -> pure x
       | Ovf_field f, Ovf_field f' ->
-          (fun label ampersand conj ->
-             Ovf_field {focus=false;label;ampersand;conj} )
-          <*> [sdiff f.label f'.label;
-               bdiff f.ampersand f'.ampersand;
+          (fun label ampersand conj -> Ovf_field {label;ampersand;conj} )
+          <*> [fdiff f.label f'.label;
+               bfdiff f.ampersand f'.ampersand;
                tylist f.conj f'.conj]
       | _ -> x // y
       end
@@ -632,7 +636,7 @@ module Ct = struct
 
   let signature x y = Octy_signature (x,y)
 
-  let constraint' x y = Ocsg_constraint(Otc_constraint{focus=false;lhs=x;rhs=y})
+  let constraint' x y = Ocsg_constraint(Otc_constraint{lhs=x;rhs=y})
   let method' x y z w = Ocsg_method(x,y,z,w)
   let value x y z w = Ocsg_value(x,y,z,w)
   let csg = focus_on
@@ -664,12 +668,12 @@ module Ct = struct
         pure Ocsg_ellipsis
 
     | Ocsg_method(name,priv,virt,ty), Ocsg_method(name',priv',virt',ty') ->
-        method' <*> [ sdiff name name';
-                      bdiff priv priv'; bdiff virt virt';
+        method' <*> [ fdiff name name';
+                      bfdiff priv priv'; bfdiff virt virt';
                       type' ty ty' ]
     | Ocsg_value(name,priv,virt,ty), Ocsg_value(name',priv',virt',ty') ->
-        value <*> [sdiff name name';
-                   bdiff priv priv'; bdiff virt virt';
+        value <*> [fdiff name name';
+                   bfdiff priv priv'; bfdiff virt virt';
                    type' ty ty']
     | _ -> x//y
 
@@ -710,27 +714,23 @@ let val_decl oval_name oval_type oval_prims oval_attributes =
   {oval_name;oval_type;oval_prims;oval_attributes}
 
 let dparam p p' =
-    focus_on (function Otp_param p -> Otp_param { p with focus = true } | x -> x )
       begin match p, p' with
       | Otp_param p, Otp_param p' ->
-          (fun co cn name ->
-             Otp_param {covariant=co;contravariant=cn;name;focus=false})
-          <*> [bdiff p.contravariant p'.contravariant;
-               bdiff p.covariant p'.covariant;
-               sdiff p.name p'.name ]
+          (fun co cn name -> Otp_param {covariant=co;contravariant=cn;name})
+          <*> [bfdiff p.contravariant p'.contravariant;
+               bfdiff p.covariant p'.covariant;
+               fdiff  p.name p'.name ]
       | _ -> p // p'
       end
 
 let typ = Type.type'
 let dct x x' =
-  focus_on (function Otc_constraint c -> Otc_constraint { c with focus = true }
-                   | x -> x )
     begin
       match x, x' with
       | Otc_ellipsis, Otc_ellipsis -> pure x
       | Otc_constraint c, Otc_constraint c' ->
           (
-            (fun lhs rhs -> Otc_constraint{focus=false;lhs;rhs})
+            (fun lhs rhs -> Otc_constraint{lhs;rhs})
             <*> [typ c.lhs c'.lhs; typ c.rhs c'.rhs]
           )
       | _ -> x // x'
@@ -739,18 +739,23 @@ let dct x x' =
 let clist = list Otc_ellipsis dct
 let plist = list Otp_ellipsis dparam
 
-let alist = list {oattr_name=ellipsis() } attr_diff
+let alist = list {oattr_name= Ofoc_ellipsis } attr_diff
+
+let foc_flatten = function
+  | Ofoc_focused x -> x
+  | Ofoc_unfocused x -> x
+  | Ofoc_ellipsis -> "..."
 
 let rec sig_item_key = function
   | Osig_ellipsis -> "ellipsis", "..."
   | Osig_focus x -> sig_item_key x
-  | Osig_class(_,name,_,_,_) -> "class", name
-  | Osig_class_type(_,name,_,_,_) -> "class_type", name
-  | Osig_typext (te,_) -> "type_ext", te.oext_name
-  | Osig_modtype (name,_) -> "modtype", name
-  | Osig_module(name,_,_) -> "module", name
-  | Osig_type(name,_) -> "type", name.otype_name
-  | Osig_value v -> "val", v.oval_name
+  | Osig_class(_,name,_,_,_) -> "class", foc_flatten name
+  | Osig_class_type(_,name,_,_,_) -> "class_type", foc_flatten name
+  | Osig_typext (te,_) -> "type_ext", foc_flatten te.oext_name
+  | Osig_modtype (name,_) -> "modtype", foc_flatten name
+  | Osig_module(name,_,_) -> "module", foc_flatten name
+  | Osig_type(name,_) -> "type", foc_flatten name.otype_name
+  | Osig_value v -> "val", foc_flatten v.oval_name
 
 let sigcmp x y = compare (sig_item_key x) (sig_item_key y)
 
@@ -762,18 +767,18 @@ let rec sig_item s1 s2 =
   | Osig_focus _, Osig_focus _ -> s1 // s2
 
   | Osig_class (b,name,params,typ,recs), Osig_class (b',name',params',typ',recs') ->
-      class' <*> [bdiff b b'; sdiff name name'; plist params params';
+      class' <*> [bfdiff b b'; fdiff name name'; plist params params';
                   Ct.ct typ typ'; recs_diff recs recs']
   | Osig_class_type (b,name,params,typ,recs),
     Osig_class_type (b',name',params',typ',recs') ->
-      class_type <*> [bdiff b b'; sdiff name name'; plist params params';
+      class_type <*> [bfdiff b b'; fdiff name name'; plist params params';
                       Ct.ct typ typ'; recs_diff recs recs']
   | Osig_typext (te,st), Osig_typext (te',st') ->
       typext <*>
      [ extension_constructor
-        <*> [ sdiff     te.oext_name        te'.oext_name;
-              sdiff     te.oext_type_name   te'.oext_type_name;
-              slist     te.oext_type_params te'.oext_type_params;
+        <*> [ fdiff     te.oext_name        te'.oext_name;
+              fdiff     te.oext_type_name   te'.oext_type_name;
+              flist     te.oext_type_params te'.oext_type_params;
               tylist    te.oext_args        te'.oext_args;
               opt typ   te.oext_ret_type    te'.oext_ret_type;
               priv_diff te.oext_private     te'.oext_private ]
@@ -781,17 +786,17 @@ let rec sig_item s1 s2 =
         ext_diff st st'
       ]
   | Osig_modtype (name,typ), Osig_modtype (name',typ') ->
-      modtype <*> [sdiff name name'; module_type typ typ']
+      modtype <*> [fdiff name name'; module_type typ typ']
 
   | Osig_module (name,typ,recs), Osig_module (name',typ',recs') ->
-      module' <*> [ sdiff       name name';
+      module' <*> [ fdiff       name name';
                     module_type typ  typ';
-                    recs_diff   recs recs'
+                    recs_diff_0 recs recs'
                   ]
   | Osig_type (decl, recs),  Osig_type (decl', recs') ->
       type' <*>
       [ type_decl <*> [
-            sdiff     decl.otype_name      decl'.otype_name;
+            fdiff     decl.otype_name      decl'.otype_name;
             plist     decl.otype_params    decl'.otype_params;
             typ       decl.otype_type      decl'.otype_type;
             priv_diff decl.otype_private   decl'.otype_private;
@@ -799,13 +804,13 @@ let rec sig_item s1 s2 =
             bdiff     decl.otype_unboxed   decl'.otype_unboxed;
             clist     decl.otype_cstrs     decl'.otype_cstrs;
           ];
-        recs_diff recs recs']
+        recs_diff_0 recs recs']
   | Osig_value v, Osig_value v' ->
       value <*>
       [ val_decl
-        <*> [ sdiff v.oval_name        v'.oval_name;
+        <*> [ fdiff v.oval_name        v'.oval_name;
               typ   v.oval_type        v'.oval_type;
-              slist v.oval_prims       v'.oval_prims;
+              flist v.oval_prims       v'.oval_prims;
               alist v.oval_attributes  v'.oval_attributes
             ]
       ]
@@ -818,7 +823,7 @@ and module_type x y =
   | Omty_abstract, Omty_abstract -> pure x
 
   | Omty_functor(name,arg,res), Omty_functor(name',arg',res')->
-      functor' <*> [sdiff name name'; opt module_type arg arg';
+      functor' <*> [fdiff name name'; opt module_type arg arg';
                     module_type res res' ] (* TODO: expand *)
   | Omty_ident id, Omty_ident id' -> ident <*> [id_diff id id']
   | Omty_signature s, Omty_signature s' ->

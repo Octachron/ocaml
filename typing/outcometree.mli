@@ -22,17 +22,26 @@
       [Toploop.print_out_sig_item]
       [Toploop.print_out_phrase] *)
 
+
+type 'a focusable =
+  | Ofoc_focused of 'a
+  | Ofoc_unfocused of 'a
+  | Ofoc_ellipsis
+
+type fstring = string focusable
+type fbool = bool focusable
+
 type out_ident =
   | Oide_apply of out_ident * out_ident
-  | Oide_dot of out_ident * string
-  | Oide_ident of string
+  | Oide_dot of out_ident * fstring
+  | Oide_ident of fstring
 
 type out_string =
   | Ostr_string
   | Ostr_bytes
 
 type out_attribute =
-  { oattr_name: string }
+  { oattr_name: fstring }
 
 type out_value =
   | Oval_array of out_value list
@@ -65,30 +74,25 @@ type out_type =
   | Otyp_stuff of string
   | Otyp_sum of out_constructor list
   | Otyp_tuple of out_type list
-  | Otyp_var of bool * string
+  | Otyp_var of fbool * fstring
   | Otyp_variant of
-      bool * out_variant * bool * focusable list option
-  | Otyp_poly of focusable list * out_type
-  | Otyp_module of string * focusable list * out_type list
+      fbool * out_variant * fbool * fstring list option
+  | Otyp_poly of fstring list * out_type
+  | Otyp_module of fstring * fstring list * out_type list
   | Otyp_attribute of out_type * out_attribute
   | Otyp_ellipsis
   | Otyp_focus of out_type
 
 and out_fn_arg =
-  | Ofa_arg of focusable * out_type
+  | Ofa_arg of fstring * out_type
   | Ofa_ellipsis
 
-and focusable =
-  | Ofoc_simple of string
-  | Ofoc_focused of string
-  | Ofoc_ellipsis
-
 and out_object_field =
-  | Oof_field of bool * string * out_type
+  | Oof_field of fstring * out_type
   | Oof_ellipsis
 
 and out_constructor =
-  | Oc_constr of {focus:bool; name:string; args:out_type list; ret:out_type option}
+  | Oc_constr of {name:fstring; args:out_type list; ret:out_type option}
   | Oc_ellipsis
 
 and out_variant =
@@ -96,15 +100,15 @@ and out_variant =
   | Ovar_typ of out_type
 
 and out_var_field =
-  | Ovf_field of {focus:bool; label:string; ampersand:bool; conj: out_type list}
+  | Ovf_field of {label:fstring; ampersand:fbool; conj: out_type list}
   | Ovf_ellipsis
 
 and out_field =
-  | Of_field of {focus:bool; name:string; mut: bool; typ:out_type}
+  | Of_field of {name:fstring; mut: fbool; typ:out_type}
   | Of_ellipsis
 
 type type_constraint =
-  | Otc_constraint of {focus:bool; lhs:out_type;rhs:out_type}
+  | Otc_constraint of {lhs:out_type;rhs:out_type}
   | Otc_ellipsis
 
 type out_class_type =
@@ -113,59 +117,59 @@ type out_class_type =
   | Octy_signature of out_type option * out_class_sig_item list
 and out_class_sig_item =
   | Ocsg_constraint of type_constraint
-  | Ocsg_method of string * bool * bool * out_type
-  | Ocsg_value of string * bool * bool * out_type
+  | Ocsg_method of fstring * fbool * fbool * out_type
+  | Ocsg_value of fstring * fbool * fbool * out_type
   | Ocsg_focus of out_class_sig_item
   | Ocsg_ellipsis
 
 type type_param =
-  | Otp_param of {focus:bool;covariant:bool;contravariant:bool;name:string}
+  | Otp_param of {covariant:fbool;contravariant:fbool;name:fstring}
   | Otp_ellipsis
 
 type out_module_type =
   | Omty_abstract
-  | Omty_functor of string * out_module_type option * out_module_type
+  | Omty_functor of fstring * out_module_type option * out_module_type
   | Omty_ident of out_ident
   | Omty_signature of out_sig_item list
   | Omty_alias of out_ident
 and out_sig_item =
   | Osig_class of
-      bool * string * type_param list * out_class_type *
-        out_rec_status
+      fbool * fstring * type_param list * out_class_type *
+        out_rec_status focusable
   | Osig_class_type of
-      bool * string * type_param list * out_class_type *
-        out_rec_status
+      fbool * fstring * type_param list * out_class_type *
+        out_rec_status focusable
   | Osig_typext of out_extension_constructor * out_ext_status
-  | Osig_modtype of string * out_module_type
-  | Osig_module of string * out_module_type * out_rec_status
+  | Osig_modtype of fstring * out_module_type
+  | Osig_module of fstring * out_module_type * out_rec_status
   | Osig_type of out_type_decl * out_rec_status
   | Osig_value of out_val_decl
   | Osig_focus of out_sig_item
   | Osig_ellipsis
 and out_type_decl =
-  { otype_name: string;
+  { otype_name: fstring;
     otype_params: type_param list;
     otype_type: out_type;
-    otype_private: Asttypes.private_flag;
+    otype_private: Asttypes.private_flag focusable;
     otype_immediate: bool;
     otype_unboxed: bool;
     otype_cstrs: type_constraint list }
 and out_extension_constructor =
-  { oext_name: string;
-    oext_type_name: string;
-    oext_type_params: string list;
+  { oext_name: fstring;
+    oext_type_name: fstring;
+    oext_type_params: fstring list;
     oext_args: out_type list;
     oext_ret_type: out_type option;
-    oext_private: Asttypes.private_flag }
+    oext_private: Asttypes.private_flag focusable }
 and out_type_extension =
-  { otyext_name: string;
-    otyext_params: string list;
+  { otyext_name: fstring;
+    otyext_params: fstring list;
     otyext_constructors: out_constructor list;
-    otyext_private: Asttypes.private_flag }
+    otyext_private: Asttypes.private_flag focusable }
 and out_val_decl =
-  { oval_name: string;
+  { oval_name: fstring;
     oval_type: out_type;
-    oval_prims: string list;
+    oval_prims: fstring list;
     oval_attributes: out_attribute list }
 and out_rec_status =
   | Orec_not

@@ -25,11 +25,27 @@ let cautious f ppf arg =
   try f ppf arg with
     Ellipsis -> ellipsis ppf
 
+let pr_focusable pp ppf = function
+  | Ofoc_ellipsis -> ellipsis ppf
+  | Ofoc_unfocused s -> pp ppf s
+  | Ofoc_focused s -> fprintf ppf "@{<focus>%a@}" pp s
+
+let fbool name ppf = function
+  | Ofoc_ellipsis -> ()
+  | Ofoc_unfocused b ->
+      if b then fprintf ppf name
+  | Ofoc_focused b ->
+      if b then fprintf ppf ("@{<focus>" ^^ name ^^ "@}")
+
+let string = Format.pp_print_string
+let fstring x = pr_focusable string x
+
+
 let rec print_ident ppf =
   function
-    Oide_ident s -> pp_print_string ppf s
+    Oide_ident s -> fstring ppf s
   | Oide_dot (id, s) ->
-      print_ident ppf id; pp_print_char ppf '.'; pp_print_string ppf s
+      print_ident ppf id; pp_print_char ppf '.'; fstring ppf s
   | Oide_apply (id1, id2) ->
       fprintf ppf "%a(%a)" print_ident id1 print_ident id2
 
@@ -77,7 +93,7 @@ let parenthesize_if_neg ppf fmt v isneg =
   fprintf ppf fmt v;
   if isneg then pp_print_char ppf ')'
 
-let ext_to_constr name args ret = Oc_constr { focus=false; name; args; ret }
+let ext_to_constr name args ret = Oc_constr {name; args; ret }
 let gather_extensions ext proj items =
   (* Gather together the extension constructors *)
   let rec gather_extensions acc items =
@@ -193,22 +209,30 @@ let rec print_list pr sep ppf =
   | [a] -> pr ppf a
   | a :: l -> pr ppf a; sep ppf; print_list pr sep ppf l
 
-let pr_focusable ppf = function
-  | Ofoc_ellipsis -> ellipsis ppf
-  | Ofoc_simple s -> pp_print_string ppf s
-  | Ofoc_focused s -> fprintf ppf "@{<focus>%s@}" s
-
 let with_focus b ppf f =
   fprintf ppf (if b then "@{<focus>" ^^ f ^^"@}" else f)
 
 let pr_present =
   print_list
-    (fun ppf s -> fprintf ppf "`%a" pr_focusable s)
+    (fun ppf s -> fprintf ppf "`%a" fstring s)
     (fun ppf -> fprintf ppf "@ ")
 
 let pr_vars =
-  print_list (fun ppf s -> fprintf ppf "'%a" pr_focusable s)
+  print_list (fun ppf s -> fprintf ppf "'%a" fstring s)
     (fun ppf -> fprintf ppf "@ ")
+
+let pp_nongen = fbool "_"
+
+let pp_closed no_tags ppf closed =
+  let pp ppf closed =
+    fprintf ppf  "%s"
+      (if closed then if no_tags then " " else "< "
+       else if no_tags then "> " else "? ") in
+  pr_focusable pp ppf closed
+
+let print_private ppf = function
+    Asttypes.Private -> fprintf ppf " private"
+  | Asttypes.Public -> ()
 
 
 let rec print_out_type ppf =
@@ -236,8 +260,8 @@ and print_fn_arg ppf = function
   | Ofa_ellipsis -> ellipsis ppf
   | Ofa_arg(lab,ty1) ->
       begin
-        if lab <> Ofoc_simple "" then
-          (pr_focusable ppf lab; pp_print_char ppf ':');
+        if lab <> Ofoc_unfocused "" && lab <> Ofoc_focused "" then
+          (fstring ppf lab; pp_print_char ppf ':');
         print_out_type_2 ppf ty1
       end
 
@@ -259,7 +283,8 @@ and print_simple_out_type ppf =
   | Otyp_object (fields, rest) ->
       fprintf ppf "@[<2>< %a >@]" (print_fields rest) fields
   | Otyp_stuff s -> pp_print_string ppf s
-  | Otyp_var (ng, s) -> fprintf ppf "'%s%s" (if ng then "_" else "") s
+  | Otyp_var (ng, s) ->
+      fprintf ppf "'%a%a" pp_nongen ng fstring s
   | Otyp_variant (non_gen, row_fields, closed, tags) ->
       let print_present ppf =
         function
@@ -273,9 +298,9 @@ and print_simple_out_type ppf =
               ppf fields
         | Ovar_typ typ -> print_simple_out_type ppf typ
       in
-      fprintf ppf "%s[%s@[<hv>@[<hv>%a@]%a ]@]" (if non_gen then "_" else "")
-        (if closed then if tags = None then " " else "< "
-         else if tags = None then "> " else "? ")
+      fprintf ppf "%a[%a@[<hv>@[<hv>%a@]%a ]@]"
+        pp_nongen non_gen
+        (pp_closed (tags = None)) closed
         print_fields row_fields
         print_present tags
   | Otyp_alias _ | Otyp_poly _ | Otyp_arrow _ | Otyp_tuple _ as ty ->
@@ -288,17 +313,17 @@ and print_simple_out_type ppf =
   | Otyp_sum _ | Otyp_manifest (_, _) -> ()
   | Otyp_record lbls -> print_record_decl ppf lbls
   | Otyp_module (p, n, tyl) ->
-      fprintf ppf "@[<1>(module %s" p;
+      fprintf ppf "@[<1>(module %a" fstring p;
       let first = ref true in
       List.iter2
         (fun s t ->
           let sep = if !first then (first := false; "with") else "and" in
-          fprintf ppf " %s type %a = %a" sep pr_focusable s print_out_type t
+          fprintf ppf " %s type %a = %a" sep fstring s print_out_type t
         )
         n tyl;
       fprintf ppf ")@]"
   | Otyp_attribute (t, attr) ->
-      fprintf ppf "@[<1>(%a [@@%s])@]" print_out_type t attr.oattr_name
+      fprintf ppf "@[<1>(%a [@@%a])@]" print_out_type t fstring attr.oattr_name
   | Otyp_ellipsis -> ellipsis ppf
   | Otyp_focus t -> fprintf ppf "@{<focus>%a@}" print_out_type t
 and print_record_decl ppf lbls =
@@ -313,8 +338,8 @@ and print_fields rest ppf =
       end
   | [a] ->
       begin match a with
-      | Oof_field(focused, s, t) ->
-          with_focus focused ppf "%s : %a" s print_out_type t
+      | Oof_field(s, t) ->
+          fprintf ppf "%a : %a" fstring s print_out_type t
       | Oof_ellipsis -> ellipsis ppf
       end;
       begin match rest with
@@ -322,8 +347,8 @@ and print_fields rest ppf =
       | None -> ()
       end;
       print_fields rest ppf []
-  | Oof_field(b, s, t) :: l ->
-      with_focus b ppf "%s : %a" s print_out_type t;
+  | Oof_field(s, t) :: l ->
+      fprintf ppf "%a : %a" fstring s print_out_type t;
       fprintf ppf ";@ %a" (print_fields rest) l
   | Oof_ellipsis :: l ->
       fprintf ppf "%t;@ %a" ellipsis (print_fields rest) l
@@ -331,12 +356,11 @@ and print_row_field ppf = function
   | Ovf_ellipsis -> ellipsis ppf
   | Ovf_field f ->
       let pr_of ppf =
-        if f.ampersand then fprintf ppf " of@ &@ "
-        else if f.conj <> [] then fprintf ppf " of@ "
-        else fprintf ppf ""
+        if f.conj <> [] then
+          fprintf ppf " of%a@ " (fbool "@ &") f.ampersand
       in
-      with_focus f.focus ppf "@[<hv 2>`%s%t%a@]"
-        f.label pr_of (print_typlist print_out_type " &") f.conj
+      fprintf ppf "@[<hv 2>`%a%t%a@]"
+        fstring f.label pr_of (print_typlist print_out_type " &") f.conj
 and print_typlist print_elem sep ppf =
   function
     [] -> ()
@@ -359,21 +383,32 @@ and print_typargs ppf =
       pp_print_space ppf ()
 and print_out_label ppf = function
   | Of_ellipsis -> ellipsis ppf
-  | Of_field {focus; name; mut; typ} ->
-      with_focus focus ppf "@[<2>%s%s :@ %a@]"
-        (if mut then "mutable " else "") name
+  | Of_field {name; mut; typ} ->
+      fprintf ppf "@[<2>%a%a :@ %a@]"
+        (fbool "mutable") mut fstring name
         print_out_type typ
 
 let out_type = ref print_out_type
 
 (* Class types *)
+let pr_typename_0 ppf name =
+  if name = "_" then fprintf ppf "_" else
+    fprintf ppf "'%s" name
+
+let pr_typename = pr_focusable pr_typename_0
+
+let foc_fmap f = function
+  | Ofoc_focused s -> Ofoc_focused (f s)
+  | Ofoc_unfocused s -> Ofoc_unfocused (f s)
+  | Ofoc_ellipsis -> Ofoc_ellipsis
 
 let type_parameter ppf = function
   | Otp_ellipsis -> ellipsis ppf
-  | Otp_param {focus; covariant;contravariant;name} ->
-  with_focus focus ppf "%s%s"
-    (if not contravariant then "+" else if not covariant then "-" else "")
-    (if name = "_" then name else "'"^name)
+  | Otp_param {covariant;contravariant;name} ->
+      fprintf ppf "%a%a%a"
+        (fbool "+") (foc_fmap not contravariant)
+        (fbool "-") (foc_fmap not covariant)
+        fstring name
 
 let print_out_class_params ppf =
   function
@@ -407,18 +442,18 @@ let rec print_out_class_type ppf =
 and print_out_class_sig_item ppf =
   function
     Ocsg_constraint Otc_constraint c ->
-      with_focus c.focus ppf "@[<2>constraint %a =@ %a@]" !out_type c.lhs
+      fprintf ppf "@[<2>constraint %a =@ %a@]" !out_type c.lhs
         !out_type c.rhs
   | Ocsg_constraint Otc_ellipsis -> ellipsis ppf
   | Ocsg_method (name, priv, virt, ty) ->
-      fprintf ppf "@[<2>method %s%s%s :@ %a@]"
-        (if priv then "private " else "") (if virt then "virtual " else "")
-        name !out_type ty
+      fprintf ppf "@[<2>method %a%a%a :@ %a@]"
+        (fbool "private ") priv (fbool "virtual ") virt
+        fstring name !out_type ty
   | Ocsg_value (name, mut, vr, ty) ->
-      fprintf ppf "@[<2>val %s%s%s :@ %a@]"
-        (if mut then "mutable " else "")
-        (if vr then "virtual " else "")
-        name !out_type ty
+      fprintf ppf "@[<2>val %a%a%a :@ %a@]"
+        (fbool "mutable ") mut
+        (fbool "virtual ") vr
+        fstring name !out_type ty
   | Ocsg_focus f -> with_focus true ppf "%a" print_out_class_sig_item f
   | Ocsg_ellipsis -> ellipsis ppf
 
@@ -438,17 +473,17 @@ let rec print_out_functor funct ppf =
       else fprintf ppf "functor@ () %a" (print_out_functor true) mty_res
   | Omty_functor (name, Some mty_arg, mty_res) -> begin
       match name, funct with
-      | "_", true ->
+      | (Ofoc_focused"_"| Ofoc_unfocused"_"), true ->
           fprintf ppf "->@ %a ->@ %a"
             print_out_module_type mty_arg (print_out_functor false) mty_res
-      | "_", false ->
+      | (Ofoc_focused"_"| Ofoc_unfocused"_"), false ->
           fprintf ppf "%a ->@ %a"
             print_out_module_type mty_arg (print_out_functor false) mty_res
       | name, true ->
-          fprintf ppf "(%s : %a) %a" name
+          fprintf ppf "(%a : %a) %a" fstring name
             print_out_module_type mty_arg (print_out_functor true) mty_res
       | name, false ->
-            fprintf ppf "functor@ (%s : %a) %a" name
+            fprintf ppf "functor@ (%a : %a) %a" fstring name
               print_out_module_type mty_arg (print_out_functor true) mty_res
     end
   | m ->
@@ -482,15 +517,18 @@ and print_out_signature ppf =
 and print_out_sig_item ppf =
   function
     Osig_class (vir_flag, name, params, clt, rs) ->
-      fprintf ppf "@[<2>%s%s@ %a%s@ :@ %a@]"
-        (if rs = Orec_next then "and" else "class")
-        (if vir_flag then " virtual" else "") print_out_class_params params
-        name !out_class_type clt
+      let pp_recs ppf rs =
+       fprintf ppf (if rs = Orec_next then "and" else "class") in
+      fprintf ppf "@[<2>%a%a@ %a%a@ :@ %a@]" (pr_focusable pp_recs) rs
+        (fbool " virtual") vir_flag print_out_class_params params
+        fstring name !out_class_type clt
   | Osig_class_type (vir_flag, name, params, clt, rs) ->
-      fprintf ppf "@[<2>%s%s@ %a%s@ =@ %a@]"
-        (if rs = Orec_next then "and" else "class type")
-        (if vir_flag then " virtual" else "") print_out_class_params params
-        name !out_class_type clt
+      let pp_recs ppf rs =
+        fprintf ppf (if rs = Orec_next then "and" else "class type") in
+      fprintf ppf "@[<2>%a%a@ %a%a@ =@ %a@]"
+        (pr_focusable pp_recs) rs
+        (fbool " virtual") vir_flag print_out_class_params params
+        fstring name !out_class_type clt
   | Osig_typext (ext, Oext_exception) ->
       fprintf ppf "@[<2>exception %a@]"
         print_out_constr
@@ -498,17 +536,17 @@ and print_out_sig_item ppf =
   | Osig_typext (ext, _es) ->
       print_out_extension_constructor ppf ext
   | Osig_modtype (name, Omty_abstract) ->
-      fprintf ppf "@[<2>module type %s@]" name
+      fprintf ppf "@[<2>module type %a@]" fstring name
   | Osig_modtype (name, mty) ->
-      fprintf ppf "@[<2>module type %s =@ %a@]" name !out_module_type mty
+      fprintf ppf "@[<2>module type %a =@ %a@]" fstring name !out_module_type mty
   | Osig_module (name, Omty_alias id, _) ->
-      fprintf ppf "@[<2>module %s =@ %a@]" name print_ident id
+      fprintf ppf "@[<2>module %a =@ %a@]" fstring name print_ident id
   | Osig_module (name, mty, rs) ->
-      fprintf ppf "@[<2>%s %s :@ %a@]"
+      fprintf ppf "@[<2>%s %a :@ %a@]"
         (match rs with Orec_not -> "module"
                      | Orec_first -> "module rec"
                      | Orec_next -> "and")
-        name !out_module_type mty
+        fstring name !out_module_type mty
   | Osig_type(td, rs) ->
         print_out_type_decl
           (match rs with
@@ -522,12 +560,14 @@ and print_out_sig_item ppf =
         function
           [] -> ()
         | s :: sl ->
-            fprintf ppf "@ = \"%s\"" s;
-            List.iter (fun s -> fprintf ppf "@ \"%s\"" s) sl
+            fprintf ppf "@ = \"%a\"" fstring s;
+            List.iter (fun s -> fprintf ppf "@ \"%a\"" fstring s) sl
       in
-      fprintf ppf "@[<2>%s %a :@ %a%a%a@]" kwd value_ident vd.oval_name
+      fprintf ppf "@[<2>%s %a :@ %a%a%a@]" kwd (pr_focusable value_ident)
+        vd.oval_name
         !out_type vd.oval_type pr_prims vd.oval_prims
-        (fun ppf -> List.iter (fun a -> fprintf ppf "@ [@@@@%s]" a.oattr_name))
+        (fun ppf -> List.iter (fun a -> fprintf ppf "@ [@@@@%a]"
+                                  fstring a.oattr_name))
         vd.oval_attributes
   | Osig_focus sigitem -> with_focus true ppf "%a" print_out_sig_item sigitem
   | Osig_ellipsis ->
@@ -536,21 +576,21 @@ and print_out_sig_item ppf =
 and print_out_type_decl kwd ppf td =
   let print_constraint ppf = function
     | Otc_ellipsis -> ellipsis ppf
-    | Otc_constraint {focus;lhs;rhs} ->
-        with_focus focus ppf "@[<2>constraint %a =@ %a@]"
+    | Otc_constraint {lhs;rhs} ->
+        fprintf ppf "@[<2>constraint %a =@ %a@]"
           !out_type lhs !out_type rhs in
   let print_constraints ppf =
     print_list print_constraint (fun ppf -> fprintf ppf "@ ") ppf td.otype_cstrs
   in
   let type_defined ppf =
     match td.otype_params with
-      [] -> pp_print_string ppf td.otype_name
-    | [param] -> fprintf ppf "@[%a@ %s@]" type_parameter param td.otype_name
+      [] -> fstring ppf td.otype_name
+    | [param] -> fprintf ppf "@[%a@ %a@]" type_parameter param fstring td.otype_name
     | _ ->
-        fprintf ppf "@[(@[%a)@]@ %s@]"
+        fprintf ppf "@[(@[%a)@]@ %a@]"
           (print_list type_parameter (fun ppf -> fprintf ppf ",@ "))
           td.otype_params
-          td.otype_name
+          fstring td.otype_name
   in
   let print_manifest ppf =
     function
@@ -565,10 +605,6 @@ and print_out_type_decl kwd ppf td =
       Otyp_manifest (_, ty) -> ty
     | _ -> td.otype_type
   in
-  let print_private ppf = function
-    Asttypes.Private -> fprintf ppf " private"
-  | Asttypes.Public -> ()
-  in
   let print_immediate ppf =
     if td.otype_immediate then fprintf ppf " [%@%@immediate]" else ()
   in
@@ -579,17 +615,17 @@ and print_out_type_decl kwd ppf td =
   | Otyp_abstract -> ()
   | Otyp_record lbls ->
       fprintf ppf " =%a %a"
-        print_private td.otype_private
+        (pr_focusable print_private) td.otype_private
         print_record_decl lbls
   | Otyp_sum constrs ->
       fprintf ppf " =%a@;<1 2>%a"
-        print_private td.otype_private
+        (pr_focusable print_private) td.otype_private
         (print_list print_out_constr (fun ppf -> fprintf ppf "@ | ")) constrs
   | Otyp_open ->
       fprintf ppf " = .."
   | ty ->
       fprintf ppf " =%a@;<1 2>%a"
-        print_private td.otype_private
+        (pr_focusable print_private) td.otype_private
         !out_type ty
   in
   fprintf ppf "@[<2>@[<hv 2>%t%a@]%t%t%t@]"
@@ -601,79 +637,67 @@ and print_out_type_decl kwd ppf td =
 
 and print_out_constr ppf = function
   | Oc_ellipsis -> ellipsis ppf
-  | Oc_constr {focus; name; args; ret} ->
-  if focus then pp_open_tag ppf "focus";
+  | Oc_constr {name; args; ret} ->
   let name =
-    match name with
+    foc_fmap (function
     | "::" -> "(::)"   (* #7200 *)
-    | s -> s
+    | s -> s) name
   in
-  begin match ret with
+  match ret with
   | None ->
       begin match args with
       | [] ->
-          pp_print_string ppf name
+          fstring ppf name
       | _ ->
-          fprintf ppf "@[<2>%s of@ %a@]" name
+          fprintf ppf "@[<2>%a of@ %a@]" fstring name
             (print_typlist print_simple_out_type " *") args
       end
   | Some ret_type ->
       begin match args with
       | [] ->
-          fprintf ppf "@[<2>%s :@ %a@]" name print_simple_out_type  ret_type
+          fprintf ppf "@[<2>%a :@ %a@]" fstring name print_simple_out_type  ret_type
       | _ ->
-          fprintf ppf "@[<2>%s :@ %a -> %a@]" name
+          fprintf ppf "@[<2>%a :@ %a -> %a@]" fstring name
             (print_typlist print_simple_out_type " *")
             args print_simple_out_type ret_type
       end
-  end;
-  if focus then pp_close_tag ppf ();
 
 and print_out_extension_constructor ppf ext =
   let print_extended_type ppf =
-    let print_type_parameter ppf ty =
-      fprintf ppf "%s"
-        (if ty = "_" then ty else "'"^ty)
-    in
       match ext.oext_type_params with
-        [] -> fprintf ppf "%s" ext.oext_type_name
+        [] -> fprintf ppf "%a" fstring ext.oext_type_name
       | [ty_param] ->
-        fprintf ppf "@[%a@ %s@]"
-          print_type_parameter
-          ty_param
-          ext.oext_type_name
+        fprintf ppf "@[%a@ %a@]"
+          pr_typename ty_param
+          fstring ext.oext_type_name
       | _ ->
-        fprintf ppf "@[(@[%a)@]@ %s@]"
-          (print_list print_type_parameter (fun ppf -> fprintf ppf ",@ "))
+        fprintf ppf "@[(@[%a)@]@ %a@]"
+          (print_list pr_typename (fun ppf -> fprintf ppf ",@ "))
           ext.oext_type_params
-          ext.oext_type_name
+          fstring ext.oext_type_name
   in
-  fprintf ppf "@[<hv 2>type %t +=%s@;<1 2>%a@]"
+  fprintf ppf "@[<hv 2>type %t +=%a@;<1 2>%a@]"
     print_extended_type
-    (if ext.oext_private = Asttypes.Private then " private" else "")
+    (pr_focusable print_private) ext.oext_private
     print_out_constr @@ ext_to_constr ext.oext_name ext.oext_args ext.oext_ret_type
 
 and print_out_type_extension ppf te =
   let print_extended_type ppf =
-    let print_type_parameter ppf ty =
-      fprintf ppf "%s"
-        (if ty = "_" then ty else "'"^ty)
-    in
     match te.otyext_params with
-      [] -> fprintf ppf "%s" te.otyext_name
+      [] -> fprintf ppf "%a" fstring te.otyext_name
     | [param] ->
-      fprintf ppf "@[%a@ %s@]"
-        print_type_parameter param
-        te.otyext_name
+      fprintf ppf "@[%a@ %a@]"
+        pr_typename param
+        fstring te.otyext_name
     | _ ->
-        fprintf ppf "@[(@[%a)@]@ %s@]"
-          (print_list print_type_parameter (fun ppf -> fprintf ppf ",@ "))
+        fprintf ppf "@[(@[%a)@]@ %a@]"
+          (print_list pr_typename (fun ppf -> fprintf ppf ",@ "))
           te.otyext_params
-          te.otyext_name
+          fstring te.otyext_name
   in
-  fprintf ppf "@[<hv 2>type %t +=%s@;<1 2>%a@]"
+  fprintf ppf "@[<hv 2>type %t +=%a@;<1 2>%a@]"
     print_extended_type
-    (if te.otyext_private = Asttypes.Private then " private" else "")
+    (pr_focusable print_private) te.otyext_private
     (print_list print_out_constr (fun ppf -> fprintf ppf "@ | "))
     te.otyext_constructors
 

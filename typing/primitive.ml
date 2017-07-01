@@ -157,9 +157,9 @@ let rec add_native_repr_attributes ty attrs =
     assert (List.for_all (fun x -> x = None) attrs);
     ty
 
-let oattr_unboxed = { oattr_name = "unboxed" }
-let oattr_untagged = { oattr_name = "untagged" }
-let oattr_noalloc = { oattr_name = "noalloc" }
+let oattr_unboxed = { oattr_name = Ofoc_unfocused "unboxed" }
+let oattr_untagged = { oattr_name = Ofoc_unfocused "untagged" }
+let oattr_noalloc = { oattr_name = Ofoc_unfocused "noalloc" }
 
 let print p osig_val_decl =
   let prims =
@@ -193,7 +193,7 @@ let print p osig_val_decl =
     [attr_of_native_repr p.prim_native_repr_res]
   in
   { osig_val_decl with
-    oval_prims = prims;
+    oval_prims = List.map (fun x -> Ofoc_unfocused x) prims;
     oval_type = add_native_repr_attributes osig_val_decl.oval_type type_attrs;
     oval_attributes = attrs }
 
