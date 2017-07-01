@@ -45,16 +45,20 @@ type 'a diff =
 
 type 'a mk_diff = 'a * 'a -> 'a * 'a
 
+let is_eq = function
+  | Eq _ -> true
+  | _ -> false
+
 
 let _min_size = function
   | D r -> r.min_size
   | Eq r -> secondary r.min_size
 
-let max_size = function
+let _max_size = function
   | D r -> r.max_size
   | Eq r -> secondary r.max_size
 
-let flatten = function
+let _flatten = function
   | D r -> r
   | Eq r -> { min_size = secondary r.min_size; max_size = secondary r.max_size;
               gen = (fun fuel -> let r = r.gen fuel in r, r) }
@@ -90,64 +94,152 @@ let focus_on f = function
   | Eq _ as x -> x
   | D r -> D { r with gen = (fun fuel -> let x, y = r.gen fuel in f x, f y) }
 
-(** {4 Fuel splitting function } *)
-let split_fuel mx mi fuel =
-  let l = min mx @@ 1 + ( int_of_float @@ float fuel /. ( 1. +. get_beta() ) ) in
-  let r = max (fuel - l) (mi) in
-    l, r
+(** {3 Hlist } *)
 
-let split zip x y fuel =
-  if fuel > x.max_size + y.max_size then
-     zip (x.gen @@  x.max_size) (y.gen @@ y.max_size)
-  else if fuel < x.min_size + y.min_size then
-     zip (x.gen x.min_size) (y.gen y.min_size)
-  else
-    let l, r = split_fuel x.max_size y.min_size fuel in
-    zip (x.gen l) (y.gen r)
+module Std = struct
+  type nonrec 'a list = 'a list = [] | (::) of 'a * 'a list
+end
 
-let zip f x sf sx = match f, x with
-  | Eq f, Eq x ->  let r = (f.gen sf) (x.gen sx) in r, r
-  | Eq f, D r -> let x, y = r.gen sx and f = f.gen sf in
-    f x, f y
-  | D f, Eq x ->
-      let x = x.gen sx and f, g = f.gen sf in
-      f x, g x
-  | D f, D x ->
-      let x, y = x.gen sx and f, g = f.gen sf in
-      f x, g y
+module AppList = struct
 
-let _min2 x y =
-  { primary = min x.primary y.primary; secondary = min x.secondary y.secondary}
+  module T = struct
 
-let _all x = { primary= x; secondary = x }
+    type ('a,'res) t =
+      | [] : ('res,'res) t
+      | (::) : 'a diff * ('any,'res) t -> ('a -> 'any, 'res) t
 
-let split_2d zip x y fuel =
-  if fuel >= card (x.max_size ++ y.max_size) then
-   (* do we have more fuel than needed? *)
-   zip (card @@ x.max_size) (card @@ y.max_size)
-  else if fuel < card (x.min_size ++ y.min_size) then
-     zip (card x.min_size) (card y.min_size)
-  else if fuel < (x.max_size ++ y.max_size).primary then
-    let l, r = split_fuel x.max_size.primary y.min_size.primary fuel in
-    zip l r
-  else
-    let fuel = fuel - (x.max_size++y.max_size).primary in
-    let l, r = split_fuel x.max_size.secondary y.min_size.secondary fuel in
-    zip (x.max_size.primary + l) (y.max_size.primary + r)
+  end
 
-let (<$>) f x = match f, x with
-  | Eq f, Eq x -> Eq { min_size = 1;
-                       max_size = f.max_size + x.max_size;
-                       gen = split (@@) f x }
-  | _ , _ ->
-      D { gen = split_2d (zip f x) (flatten f) (flatten x);
-          min_size = one ;
-          max_size = max_size f ++ max_size x;
-        }
+  type 'a concrete = Single of 'a | Pair of 'a * 'a
+
+  let concrete_pure f = Single f
+
+  let map2_2 f x = match f, x with
+    | Single f, Single x -> Single(f x)
+    | Pair (f,g), Single x -> Pair(f x,g x)
+    | Single f, Pair(x,y) -> Pair(f x, f y)
+    | Pair (f,g), Pair(x,y) -> Pair(f x, g y)
+
+  let size_bounds = function
+    | D r -> r.min_size, r.max_size
+    | Eq e -> secondary e.min_size, secondary e.max_size
+
+  let global_bounds l =
+    List.fold_left (fun (mi,mx) (mi',mx') -> mi ++ mi', mx ++ mx' )
+      (empty,empty) l
+
+  let rec bounds: type a b. (a,b) T.t -> (size * size) list =
+    function
+    | T.[] -> []
+    | T.( a :: q ) -> size_bounds a :: bounds q
+
+  let z proj l =
+    let beta = get_beta () in
+    let _, z, l =
+      List.fold_left (fun (m, z, cumulative ) x ->
+          beta *. m, z +. m *. float(proj x), z :: cumulative )
+        (1.,0., []) l in
+    z, l
+
+
+  let _exp_split proj fuel l =
+    let beta = get_beta () in
+    let z, zl = z proj l in
+    let split (m,l,zl,fuel) x =
+      let x = float @@ proj x in
+      let proposition =
+        ceil @@ fuel *. m *. x /. z in
+      let capped = min x proposition in
+      let fuel = ceil @@ (fuel -. proposition)
+                         +. z/.List.hd zl *. ( proposition -. capped )
+      in
+      beta *. m, int_of_float capped :: l, List.tl zl, fuel in
+    let _, l, _, _ =
+      List.fold_left split (1.,[],zl,float fuel) l in
+    List.rev l
+
+
+  let first_served proj fuel l =
+    let split (l,fuel) x =
+      let x = min fuel (proj x) in
+      let fuel = fuel - x in
+      x :: l, fuel in
+    let l , _ =
+      List.fold_left split ([], fuel) l in
+    List.rev l
+
+  let distribute (gmin,gmax) bounds fuel =
+    if fuel >= card gmax then
+      List.map (fun (_,max) -> card max) bounds
+    else if fuel <= gmin.primary then
+      List.map(fun (min,_) -> card min) bounds
+    else if fuel <= gmax.primary then
+      first_served (fun (_,y) -> y.primary) fuel bounds
+    else
+      let fuel' = fuel - gmax.primary in
+      let d = first_served (fun (_,y) -> y.secondary) fuel' bounds in
+      List.map2 (fun (_,x) y -> x.primary + y) bounds d
+
+  let rec apply : type a res. a concrete -> (a,res) T.t -> int list
+    -> res concrete =
+    fun f l fs -> match l, fs with
+      | T.[], [] -> f
+      | T.( a :: q ), fuel :: fs ->
+          let f' = map2_2 f
+          (match a with
+            | D r -> let x, y = r.gen fuel in Pair(x,y)
+            | Eq r -> Single (r.gen fuel)
+          ) in
+          apply f' q fs
+      | _ -> raise (Invalid_argument(
+          "Difftree.H.apply: mismatched fuel and list lenght"
+        ))
+
+  let rec is_all_eq: type a b. (a,b) T.t -> bool  = function
+    | T.(a :: q) -> if is_eq a then is_all_eq q else false
+    | T.[] -> true
+
+  let eq = function
+    | Single x -> x
+    | Pair _ -> raise (Invalid_argument ("Unexpected pair output"))
+
+  let pair = function
+    | Single x -> x, x
+    | Pair (x, y) -> x, y
+
+  let mkdiff f l =
+    let bounds = bounds l in
+    let _min_size, max_size as global = global_bounds bounds in
+    let gen proj fuel =
+      let distribution = distribute global bounds fuel in
+      proj (apply f l distribution) in
+    if is_all_eq l then
+      Eq { min_size = 1; max_size = card max_size; gen = gen eq }
+    else
+      D {min_size = one; max_size; gen = gen pair }
+
+  let (<*>) f = mkdiff (concrete_pure f)
+
+end
 
 (** {3 Applicative combinators } *)
-let (<*>) f x = pure f <$> x
+(*module AppPair = struct
+  let (<$>) f x = match f, x with
+    | Eq f, Eq x -> Eq { min_size = 1;
+                         max_size = f.max_size + x.max_size;
+                         gen = split (@@) f x }
+    | _ , _ ->
+        D { gen = split_2d (zip f x) (flatten f) (flatten x);
+            min_size = one ;
+            max_size = max_size f ++ max_size x;
+          }
 
+  let (<*>) f x = pure f <$> x
+  end*)
+open AppList
+
+
+(** {3 Simple combinators }*)
 let diff0 x y = if x = y then pure0 x else d0 x y
 
 let diff (left_focus,right_focus) left right =
@@ -161,16 +253,10 @@ let _cons = List.cons
 let id x = x
 let ellipsis () = !Oprint.ellipsis
 
-let size_bounds = function
-  | D r -> r.min_size, r.max_size
-  | Eq e -> secondary e.min_size, secondary e.max_size
 
 let cons2 (x,y) (l,l') = x::l, y :: l'
 let dup x = x, x
 
-let is_eq = function
-  | Eq _ -> true
-  | _ -> false
 
 (** {3 List combinators } *)
 let list_diff ellipsis l =
@@ -185,7 +271,7 @@ let list_diff ellipsis l =
   let (&&&) (a,b) (a',b') = (a && a', b && b') in
 
   let max_size =
-    List.fold_left (fun mx (x,_) -> let _,mx' = size_bounds x in
+    List.fold_left (fun mx (x,_) -> let _,mx' = AppList.size_bounds x in
                      mx ++ mx' ) empty l in
 
   let rec at_least_one ellip = function
@@ -236,7 +322,7 @@ let list_diff ellipsis l =
   in
 
   let gen fuel =
-      ellide (dup false) (max 0 (fuel - max_size.primary)) l fuel in
+    ellide (dup false) (max 0 (fuel - max_size.primary)) l fuel in
 
   if List.for_all (fun (x,_) -> is_eq x) l then
     Eq { min_size = 1; (* a list can always ellipsed to "..." *)
@@ -289,17 +375,13 @@ let rec list_to_fn = function
   | arg :: q, ret -> Otyp_arrow (arg,list_to_fn (q,ret))
 
 let pair x y = x, y
-let triple x y z = x, y, z
-let _pair' d1 d2 (x,y) (x',y') =
-  pair <*> (d1 x x') <$> (d2 y y')
-let _triple' d1 d2 d3 (x,y,z) (x',y',z') =
-  triple <*> (d1 x x') <$> (d2 y y') <$> (d3 z z')
-
+let _triple x y z = x, y, z
+open T
 let some x = Some x
 let opt diff x y =
   match x, y with
   | None, None -> pure None
-  | Some x, Some y -> some <*> diff x y
+  | Some x, Some y -> some <*> [diff x y]
   | _ -> x // y
 
 let tuple l = Otyp_tuple l
@@ -375,40 +457,39 @@ module Type = struct
 
 
     | Otyp_alias (ty,as'), Otyp_alias(ty2,as2) ->
-        alias <*> type' ty ty2 <$> sdiff as' as2
+        alias <*> [type' ty ty2; sdiff as' as2]
     | Otyp_arrow _ , Otyp_arrow _ ->
         let fn =  fn_to_list t1 and fn' = fn_to_list t2 in
-        arrow <*> fn_args fn fn'
+        arrow <*> [ fn_args fn fn' ]
     | Otyp_class (b, id, args), Otyp_class (b',id',args') ->
-        class' <*> bdiff b b' <$> id_diff id id' <$> tylist args args'
+        class' <*> [ bdiff b b'; id_diff id id'; tylist args args' ]
     | Otyp_constr (t1, args), Otyp_constr(t2,args2) ->
-        focus (constr <*> id_diff t1 t2 <$> tylist args args2)
+        focus (constr <*> [ id_diff t1 t2; tylist args args2 ])
     | Otyp_manifest(x,y), Otyp_manifest(x',y') ->
-        manifest <*> type' x x' <$> type' y y'
+        manifest <*> [type' x x'; type' y y']
     | Otyp_object (l,closed), Otyp_object (l2,closed2)  ->
-        object'
-        <*> olist l l2
-        <$> (opt bdiff closed closed2)
+        object' <*> [olist l l2; opt bdiff closed closed2]
     | Otyp_record r, Otyp_record r' ->
-        record <*> rlist r r'
+        record <*> [rlist r r']
     | Otyp_sum s, Otyp_sum s' ->
-        sum <*> list Oc_ellipsis dconstr s s'
-    | Otyp_tuple l, Otyp_tuple l' -> tuple <*> tylist l l'
+        sum <*> [list Oc_ellipsis dconstr s s']
+    | Otyp_tuple l, Otyp_tuple l' -> tuple <*> [tylist l l']
     | Otyp_var(_, name), _ when is_free name -> t1 =~ t2
     | Otyp_var (b,name), Otyp_var(b',name') ->
-        focus ( var <*> bdiff b b' <$> sdiff name name')
+        focus ( var <*> [bdiff b b'; sdiff name name'])
     | Otyp_variant (b,fields,b2,tags), Otyp_variant(b',fields',b2',tags') ->
-        variant
-        <*> bdiff b b'
-        <$> dvariant fields fields'
-        <$> bdiff b2 b2'
-        <$> opt flist tags tags'
+        variant <*> [
+          bdiff b b';
+          dvariant fields fields';
+          bdiff b2 b2';
+          opt flist tags tags'
+        ]
     | Otyp_poly (forall,ty), Otyp_poly (forall',ty') ->
-        poly <*> flist forall forall' <$> type' ty ty'
+        poly <*> [flist forall forall'; type' ty ty']
     | Otyp_module (name, args, tyl), Otyp_module (name',args',tyl') ->
-        module' <*> sdiff name name' <$> flist args args' <$> tylist tyl tyl'
+        module' <*> [sdiff name name'; flist args args'; tylist tyl tyl']
     | Otyp_attribute (t,attr), Otyp_attribute (t',attr') ->
-        attribute <*> type' t t' <$> attr_diff attr attr'
+        attribute <*> [type' t t'; attr_diff attr attr']
     | Otyp_focus _, Otyp_focus _
     | Otyp_stuff _, Otyp_stuff _ -> t1 // t2
 
@@ -420,15 +501,14 @@ module Type = struct
   and tylist x y = list Otyp_ellipsis type' x y
   and flist x y = list Ofoc_ellipsis fdiff x y
   and fn_args (x,ret) (y,ret') =
-    pair <*> list Ofa_ellipsis dfn_arg x y <$> type' ret ret'
+    pair <*> [ list Ofa_ellipsis dfn_arg x y; type' ret ret' ]
   and dofield x y =
     focus_on (function Oof_field (_,x,y) -> Oof_field (true,x,y)| x -> x )
     begin match x, y with
     | Oof_ellipsis, Oof_ellipsis -> pure x
     | Oof_field(_, n,ty), Oof_field(_, n',ty') ->
         (fun x y -> Oof_field(false,x,y) )
-        <*> sdiff n n'
-        <$> type' ty ty'
+        <*> [ sdiff n n'; type' ty ty']
     | _ -> x // y
     end
   and olist x = keyed_list ocmp Oof_ellipsis dofield x
@@ -439,9 +519,10 @@ module Type = struct
       | Oc_ellipsis, Oc_ellipsis -> pure x
       | Oc_constr c, Oc_constr c' ->
           (fun name args ret -> Oc_constr{focus=false;name;args;ret})
-          <*> sdiff c.name c'.name
-          <$> tylist c.args c'.args
-          <$> opt type' c.ret c'.ret
+          <*> [ sdiff c.name c'.name;
+                tylist c.args c'.args;
+                opt type' c.ret c'.ret
+              ]
       | _ -> x // y
       end
 
@@ -451,17 +532,17 @@ module Type = struct
     | Of_ellipsis, Of_ellipsis -> pure x
     | Of_field f, Of_field f' ->
             (fun name mut typ -> Of_field {focus=false; name; mut; typ} )
-            <*> sdiff f.name f'.name
-            <$> bdiff f.mut f'.mut
-            <$> type' f.typ f'.typ
+            <*> [sdiff f.name f'.name
+                ; bdiff f.mut f'.mut
+                ; type' f.typ f'.typ ]
     | _ -> x // y
     end
   and rlist x = list Of_ellipsis dfield x
 
   and dvariant x y = match x, y with
-    | Ovar_typ t, Ovar_typ t' -> (fun x -> Ovar_typ x) <*> type' t t'
+    | Ovar_typ t, Ovar_typ t' -> (fun x -> Ovar_typ x) <*> [type' t t']
     | Ovar_fields f, Ovar_fields f' ->
-        (fun x -> Ovar_fields x) <*> list Ovf_ellipsis dvfield f f'
+        (fun x -> Ovar_fields x) <*> [list Ovf_ellipsis dvfield f f']
     | _ -> x // y
 
   and dvfield x y =
@@ -471,9 +552,9 @@ module Type = struct
       | Ovf_field f, Ovf_field f' ->
           (fun label ampersand conj ->
              Ovf_field {focus=false;label;ampersand;conj} )
-          <*> sdiff f.label f'.label
-          <$> bdiff f.ampersand f'.ampersand
-          <$> tylist f.conj f'.conj
+          <*> [sdiff f.label f'.label;
+               bdiff f.ampersand f'.ampersand;
+               tylist f.conj f'.conj]
       | _ -> x // y
       end
 
@@ -481,8 +562,7 @@ module Type = struct
     | Ofa_ellipsis, Ofa_ellipsis -> pure x
     | Ofa_arg(label,ty),  Ofa_arg(label',ty')  ->
         (fun lbl ty -> Ofa_arg(lbl,ty))
-        <*> fdiff label label'
-        <$> type' ty ty'
+        <*> [fdiff label label'; type' ty ty' ]
     | _ -> x // y
 end open Type
 
@@ -491,12 +571,12 @@ module Ct = struct
 
   let rec to_list = function
     | Octy_arrow (arg,z) -> let q, e = to_list z in
-        arg :: q, e
-    | rest -> [], rest
+        Std.(arg :: q), e
+    | rest -> Std.[], rest
 
   let rec arrow = function
-    | [], ret -> ret
-    | arg :: q, ret -> Octy_arrow(arg, arrow (q,ret) )
+    | Std.[], ret -> ret
+    | Std.(arg :: q), ret -> Octy_arrow(arg, arrow (q,ret) )
 
   let signature x y = Octy_signature (x,y)
 
@@ -511,34 +591,34 @@ module Ct = struct
 
   let rec ct x y = match x, y with
     | Octy_constr (id,tyl), Octy_constr(id',tyl') ->
-        constr <*> id_diff id id' <$> tylist tyl tyl'
+        constr <*> [id_diff id id'; tylist tyl tyl']
     | Octy_arrow _ , Octy_arrow _ ->
-        arrow <*> ct_args (to_list x) (to_list y)
+        arrow <*> [ ct_args (to_list x) (to_list y) ]
     | Octy_signature (x,items), Octy_signature(y,items') ->
-        signature <*> opt type' x y <$> item_list items items'
+        signature <*> [opt type' x y; item_list items items']
     | _ -> x // y
   and item_list x = list Ocsg_ellipsis items x
   and ct_args (x,ctx) (y,cty) =
-    pair <*> list Ofa_ellipsis dfn_arg x y <$> ct ctx cty
+    pair <*> [list Ofa_ellipsis dfn_arg x y; ct ctx cty]
   and items x y = csg @@
     match x,y with
     | Ocsg_ellipsis, Ocsg_ellipsis -> pure x
     | Ocsg_focus _, Ocsg_focus _ -> x // y
 
     | Ocsg_constraint Otc_constraint c, Ocsg_constraint Otc_constraint c' ->
-        constraint' <*> type' c.lhs c'.lhs <$> type' c.rhs c'.rhs
+        constraint' <*> [type' c.lhs c'.lhs; type' c.rhs c'.rhs]
 
     | Ocsg_constraint Otc_ellipsis, Ocsg_constraint Otc_ellipsis ->
         pure Ocsg_ellipsis
 
     | Ocsg_method(name,priv,virt,ty), Ocsg_method(name',priv',virt',ty') ->
-        method' <*> sdiff name name'
-        <$> bdiff priv priv' <$> bdiff virt virt'
-        <$> type' ty ty'
+        method' <*> [ sdiff name name';
+                      bdiff priv priv'; bdiff virt virt';
+                      type' ty ty' ]
     | Ocsg_value(name,priv,virt,ty), Ocsg_value(name',priv',virt',ty') ->
-        value <*> sdiff name name'
-        <$> bdiff priv priv' <$> bdiff virt virt'
-        <$> type' ty ty'
+        value <*> [sdiff name name';
+                   bdiff priv priv'; bdiff virt virt';
+                   type' ty ty']
     | _ -> x//y
 
 end
@@ -583,9 +663,9 @@ let dparam p p' =
       | Otp_param p, Otp_param p' ->
           (fun co cn name ->
              Otp_param {covariant=co;contravariant=cn;name;focus=false})
-          <*> bdiff p.contravariant p'.contravariant
-          <$> bdiff p.covariant p'.covariant
-          <$> sdiff p.name p'.name
+          <*> [bdiff p.contravariant p'.contravariant;
+               bdiff p.covariant p'.covariant;
+               sdiff p.name p'.name ]
       | _ -> p // p'
       end
 
@@ -599,7 +679,7 @@ let dct x x' =
       | Otc_constraint c, Otc_constraint c' ->
           (
             (fun lhs rhs -> Otc_constraint{focus=false;lhs;rhs})
-            <*> typ c.lhs c'.lhs <$> typ c.rhs c'.rhs
+            <*> [typ c.lhs c'.lhs; typ c.rhs c'.rhs]
           )
       | _ -> x // x'
     end
@@ -617,52 +697,53 @@ let rec sig_item s1 s2 =
   | Osig_focus _, Osig_focus _ -> s1 // s2
 
   | Osig_class (b,name,params,typ,recs), Osig_class (b',name',params',typ',recs') ->
-      class' <*> bdiff b b' <$> sdiff name name' <$> plist params params'
-      <$> Ct.ct typ typ' <$> recs_diff recs recs'
+      class' <*> [bdiff b b'; sdiff name name'; plist params params';
+                  Ct.ct typ typ'; recs_diff recs recs']
   | Osig_class_type (b,name,params,typ,recs),
     Osig_class_type (b',name',params',typ',recs') ->
-      class_type <*> bdiff b b' <$> sdiff name name' <$> plist params params'
-      <$> Ct.ct typ typ' <$> recs_diff recs recs'
+      class_type <*> [bdiff b b'; sdiff name name'; plist params params';
+                      Ct.ct typ typ'; recs_diff recs recs']
   | Osig_typext (te,st), Osig_typext (te',st') ->
       typext <*>
-      ( extension_constructor
-        <*> sdiff     te.oext_name        te'.oext_name
-        <$> sdiff     te.oext_type_name   te'.oext_type_name
-        <$> slist     te.oext_type_params te'.oext_type_params
-        <$> tylist    te.oext_args        te'.oext_args
-        <$> opt typ   te.oext_ret_type    te'.oext_ret_type
-        <$> priv_diff te.oext_private     te'.oext_private
-      )
-      <$> ext_diff st st'
+     [ extension_constructor
+        <*> [ sdiff     te.oext_name        te'.oext_name;
+              sdiff     te.oext_type_name   te'.oext_type_name;
+              slist     te.oext_type_params te'.oext_type_params;
+              tylist    te.oext_args        te'.oext_args;
+              opt typ   te.oext_ret_type    te'.oext_ret_type;
+              priv_diff te.oext_private     te'.oext_private ]
+        ;
+        ext_diff st st'
+      ]
   | Osig_modtype (name,typ), Osig_modtype (name',typ') ->
-      modtype <*> sdiff name name' <$> module_type typ typ'
+      modtype <*> [sdiff name name'; module_type typ typ']
 
   | Osig_module (name,typ,recs), Osig_module (name',typ',recs') ->
-      module'
-      <*> sdiff       name name'
-      <$> module_type typ  typ'
-      <$> recs_diff   recs recs'
-
+      module' <*> [ sdiff       name name';
+                    module_type typ  typ';
+                    recs_diff   recs recs'
+                  ]
   | Osig_type (decl, recs),  Osig_type (decl', recs') ->
       type' <*>
-      ( type_decl
-        <*> sdiff     decl.otype_name      decl'.otype_name
-        <$> plist     decl.otype_params    decl'.otype_params
-        <$> typ       decl.otype_type      decl'.otype_type
-        <$> priv_diff decl.otype_private   decl'.otype_private
-        <$> bdiff     decl.otype_immediate decl'.otype_immediate
-        <$> bdiff     decl.otype_unboxed   decl'.otype_unboxed
-        <$> clist     decl.otype_cstrs     decl'.otype_cstrs
-      )
-      <$> recs_diff recs recs'
+      [ type_decl <*> [
+            sdiff     decl.otype_name      decl'.otype_name;
+            plist     decl.otype_params    decl'.otype_params;
+            typ       decl.otype_type      decl'.otype_type;
+            priv_diff decl.otype_private   decl'.otype_private;
+            bdiff     decl.otype_immediate decl'.otype_immediate;
+            bdiff     decl.otype_unboxed   decl'.otype_unboxed;
+            clist     decl.otype_cstrs     decl'.otype_cstrs;
+          ];
+        recs_diff recs recs']
   | Osig_value v, Osig_value v' ->
       value <*>
-      ( val_decl
-        <*> sdiff v.oval_name        v'.oval_name
-        <$> typ   v.oval_type        v'.oval_type
-        <$> slist v.oval_prims       v'.oval_prims
-        <$> alist v.oval_attributes  v'.oval_attributes
-      )
+      [ val_decl
+        <*> [ sdiff v.oval_name        v'.oval_name;
+              typ   v.oval_type        v'.oval_type;
+              slist v.oval_prims       v'.oval_prims;
+              alist v.oval_attributes  v'.oval_attributes
+            ]
+      ]
   | _ -> s1 // s2
 
 and module_type x y =
@@ -671,12 +752,12 @@ and module_type x y =
   | Omty_abstract, Omty_abstract -> pure x
 
   | Omty_functor(name,arg,res), Omty_functor(name',arg',res')->
-      functor' <*> sdiff name name' <$> opt module_type arg arg'
-      <$> module_type res res' (* TODO: expand *)
-  | Omty_ident id, Omty_ident id' -> ident <*> id_diff id id'
+      functor' <*> [sdiff name name'; opt module_type arg arg';
+                    module_type res res' ] (* TODO: expand *)
+  | Omty_ident id, Omty_ident id' -> ident <*> [id_diff id id']
   | Omty_signature s, Omty_signature s' ->
-      signature <*> list Osig_ellipsis sig_item s s'
-  | Omty_alias x, Omty_alias y -> alias <*> id_diff x y
+      signature <*> [list Osig_ellipsis sig_item s s']
+  | Omty_alias x, Omty_alias y -> alias <*> [id_diff x y]
 
   | _ -> x // y
 
