@@ -198,11 +198,6 @@ let out_value = ref print_out_value
 
 (* Types *)
 
-let rec _print_list_init pr sep ppf =
-  function
-    [] -> ()
-  | a :: l -> sep ppf; pr ppf a; _print_list_init pr sep ppf l
-
 let rec print_list pr sep ppf =
   function
     [] -> ()
