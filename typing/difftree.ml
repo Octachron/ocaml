@@ -719,9 +719,9 @@ let dparam p p' =
       begin match p, p' with
       | Otp_param p, Otp_param p' ->
           (fun co cn name -> Otp_param {covariant=co;contravariant=cn;name})
-          <*> [bfdiff p.contravariant p'.contravariant;
-               bfdiff p.covariant p'.covariant;
-               fdiff  p.name p'.name ]
+          <*> [ bfdiff p.covariant p'.covariant;
+                bfdiff p.contravariant p'.contravariant;
+                fdiff  p.name p'.name ]
       | _ -> p // p'
       end
 
