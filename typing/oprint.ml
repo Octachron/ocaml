@@ -238,6 +238,7 @@ let rec print_out_type ppf =
       fprintf ppf "@[<hov 2>%a.@ %a@]"
         pr_vars sl
         print_out_type ty
+  | Otyp_focus ty -> print_out_type ppf ty
   | ty ->
       print_out_type_1 ppf ty
 
@@ -320,7 +321,7 @@ and print_simple_out_type ppf =
   | Otyp_attribute (t, attr) ->
       fprintf ppf "@[<1>(%a [@@%a])@]" print_out_type t fstring attr.oattr_name
   | Otyp_ellipsis -> ellipsis ppf
-  | Otyp_focus t -> fprintf ppf "@{<focus>%a@}" print_out_type t
+  | Otyp_focus t -> fprintf ppf "@{<focus>%a@}" print_simple_out_type t
 and print_record_decl ppf lbls =
   fprintf ppf "{@ %a@;<1 -2>}"
     (print_list print_out_label (fun ppf -> fprintf ppf ";@ ")) lbls
@@ -380,7 +381,7 @@ and print_out_label ppf = function
   | Of_ellipsis -> ellipsis ppf
   | Of_field {name; mut; typ} ->
       fprintf ppf "@[<2>%a%a :@ %a@]"
-        (fbool "mutable") mut fstring name
+        (fbool "mutable ") mut fstring name
         print_out_type typ
 
 let out_type = ref print_out_type

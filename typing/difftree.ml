@@ -77,7 +77,7 @@ let _max_size = function
   | D r -> r.max_size
   | Eq r -> secondary r.max_size
 
-let _flatten = function
+let flatten = function
   | D r -> r
   | Eq r -> { min_size = secondary r.min_size; max_size = secondary r.max_size;
               gen = (fun fuel -> let r = r.gen fuel in r, r) }
@@ -97,17 +97,24 @@ let d0 left right=
       max_size = empty;
       min_size = empty;  }
 
-let stitch x y = match x, y with
+let stitch f x y = match (f x x), (f y y) with
   | Eq x, Eq y ->
       D { min_size = one;
           max_size = primary 1 ++ secondary (max x.max_size y.max_size);
           gen =(fun fuel -> x.gen fuel, y.gen fuel)
         }
-  | _ -> raise (Invalid_argument "Stitching difference")
+  | r, r' ->
+      let r = flatten r and r' = flatten r' in
+      D { min_size = one;
+          max_size = primary 1 ++ r.max_size ++ r'.max_size;
+          gen = (fun fuel -> let x, _ = r.gen fuel and _, y = r'.gen fuel in
+                  x, y)
+        }
+      (*raise (Invalid_argument "Stitching difference")*)
 
 
 let ( =~ ) left right =
-  D { gen = (fun _ -> (left, right)); min_size = empty; max_size = empty }
+  D { gen = (fun _ -> (left, right)); min_size = empty; max_size = secondary 1 }
 
 let focus_on f = function
   | Eq _ as x -> x
@@ -347,14 +354,14 @@ let list_diff ellipsis l =
             cons_el in_ellipsis @@
             cons2 (dup @@ e.gen f)
             @@ ellide (dup false) (dup false) xs
-        | D {max_size={primary=0; _ }; _ }, _ ->
+ (*       | D {max_size={primary=0; _ }; _ }, _ ->
         (* We are not printing D.max_size.primary elements  because they are
            potentially distracting since they are equal but not obviously so:
            Typical example: 'a -> int compared to
            <a:int; very:long; object:type'; that:is; not:problematic> -> float
         *)
             ellide (dup true) (dup true) xs
-
+ *)
         | D d, st ->
             let st = expand st in
             (* we check if the current elements contains ellipsis on any side *)
@@ -525,9 +532,10 @@ module Type = struct
     | Otyp_sum s, Otyp_sum s' ->
         sum <*> [list Oc_ellipsis dconstr s s']
     | Otyp_tuple l, Otyp_tuple l' -> tuple <*> [tylist l l']
-    | Otyp_var(_, name), _ when is_free name -> t1 =~ t2
+
     | Otyp_var (b,name), Otyp_var(b',name') ->
         focus ( var <*> [bfdiff b b'; fdiff name name'])
+    | Otyp_var(_, name), _ when is_free name -> t1 =~ t2
     | Otyp_variant (b,fields,b2,tags), Otyp_variant(b',fields',b2',tags') ->
         variant <*> [
           bfdiff b b';
@@ -547,7 +555,7 @@ module Type = struct
     | (Otyp_var _ | Otyp_constr _ ), (Otyp_var _ | Otyp_constr _ ) ->
         focus (t1 // t2)
 
-    | _ -> focus @@ stitch (type' t1 t1) (type' t2 t2)
+    | _ -> focus @@ stitch type' t1 t2
 
   and tylist x y = list Otyp_ellipsis type' x y
   and flist x y = list Ofoc_ellipsis fdiff x y
@@ -563,7 +571,7 @@ module Type = struct
         (fun x y -> Oof_field(x,y) )
         <*> [ fdiff n n'; type' ty ty']
     | _ -> focus_on of_focus @@
-        stitch (dofield x x) (dofield y y)
+        stitch dofield x y
     end
   and olist x = keyed_list ocmp Oof_ellipsis dofield x
 
@@ -809,7 +817,7 @@ let rec sig_item s1 s2 =
             ]
       ]
   | _ ->
-      focus_on (fun x -> Osig_focus x) (stitch (sig_item s1 s1) (sig_item s2 s2))
+      focus_on (fun x -> Osig_focus x) (stitch sig_item s1 s2)
 
 and module_type x y =
   let open Mty in
