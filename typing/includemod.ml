@@ -544,7 +544,7 @@ let include_err ppf =
       let t1, t2 =
         let d1 = match expl with
           | Includecore.Primitives -> d1
-          | Includecore.Type t -> { d1 with val_type = t } in
+          | Includecore.Type _t -> d1 (*{ d1 with val_type = t }*) in
         diff (value_description id d1, value_description id d2) in
       fprintf ppf
         "@[<hv 2>Values do not match:@ %a@;<1 -2>is not included in@ %a@]"
