@@ -358,6 +358,7 @@ type error =
 let pp_ksprintf ?before k fmt =
   let buf = Buffer.create 64 in
   let ppf = Format.formatter_of_buffer buf in
+  setup_colors ();
   Misc.Color.set_color_tag_handling ppf;
   begin match before with
     | None -> ()
