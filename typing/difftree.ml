@@ -458,7 +458,7 @@ module Ident = struct
     | Oide_ident s, Oide_ident s' -> base_ident <*> [fdiff s s']
     | x, y -> x // y
 end
-let id_diff: out_ident -> _ = Ident.diff (*FIXME*)
+let id_diff: out_ident -> _ = Ident.diff
 
 
 let ocmp x y = match x, y with
@@ -802,7 +802,7 @@ let rec sig_item s1 s2 =
             bdiff     decl.otype_unboxed   decl'.otype_unboxed;
             clist     decl.otype_cstrs     decl'.otype_cstrs;
           ];
-        recs_diff_0 recs recs']
+        recs_diff recs recs']
   | Osig_value v, Osig_value v' ->
       value <*>
       [ val_decl

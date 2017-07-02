@@ -142,7 +142,7 @@ and out_sig_item =
   | Osig_typext of out_extension_constructor * out_ext_status
   | Osig_modtype of fstring * out_module_type
   | Osig_module of fstring * out_module_type * out_rec_status
-  | Osig_type of out_type_decl * out_rec_status
+  | Osig_type of out_type_decl * out_rec_status focusable
   | Osig_value of out_val_decl
   | Osig_focus of out_sig_item
   | Osig_ellipsis

@@ -927,7 +927,7 @@ and label l =
              typ=typexp false l.ld_type}
 
 let type_declaration id decl rs =
-  Osig_type (type_decl id decl, rec' rs)
+  Osig_type (type_decl id decl, unfoc @@ rec' rs)
 
 let _pp_constructor_arguments ppf a =
   let tys = constructor_arguments a in

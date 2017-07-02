@@ -566,12 +566,11 @@ and print_out_sig_item ppf =
                      | Orec_next -> "and")
         fstring name !out_module_type mty
   | Osig_type(td, rs) ->
-        print_out_type_decl
-          (match rs with
-           | Orec_not   -> "type nonrec"
-           | Orec_first -> "type"
-           | Orec_next  -> "and")
-          ppf td
+      let print_recs ppf rs = fprintf ppf (match rs with
+          | Orec_not   -> "type nonrec"
+          | Orec_first -> "type"
+          | Orec_next  -> "and") in
+        print_out_type_decl (fun ppf -> pr_focusable print_recs ppf rs) ppf td
   | Osig_value vd ->
       let kwd = if vd.oval_prims = [] then "val" else "external" in
       let pr_prims ppf =
@@ -618,7 +617,7 @@ and print_out_type_decl kwd ppf td =
     | _ -> ()
   in
   let print_name_params ppf =
-    fprintf ppf "%s %t%a" kwd type_defined print_manifest td.otype_type
+    fprintf ppf "%t %t%a" kwd type_defined print_manifest td.otype_type
   in
   let ty =
     match td.otype_type with
