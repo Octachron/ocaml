@@ -1309,7 +1309,12 @@ let print_expansion ppf (t,t') =
   | None ->
     p ppf t
   | Some t' ->
-    fprintf ppf "@[<2>%a@ =@ %a@]"  p t p t'
+      match t, t' with
+      | Otyp_variant _, Otyp_variant _
+      | Otyp_object _, Otyp_object _ ->
+          (* if t is already a structural type, no need to print both t and t' *)
+          p ppf t
+      | _ -> fprintf ppf "@[<2>%a@ =@ %a@]"  p t p t'
 
 let type_expansion t t' =
   let mk = typexp false in
