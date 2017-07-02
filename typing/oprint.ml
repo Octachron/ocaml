@@ -93,23 +93,41 @@ let parenthesize_if_neg ppf fmt v isneg =
   fprintf ppf fmt v;
   if isneg then pp_print_char ppf ')'
 
-let ext_to_constr name args ret = Oc_constr {name; args; ret }
-let gather_extensions ext proj items =
+let ext_to_constr focused name args ret =
+    let rename = function
+      | Ofoc_unfocused s -> Ofoc_focused s
+      | x -> x in
+    let tyfoc = function
+      |Otyp_ellipsis | Otyp_focus _ as x -> x
+      | x -> Otyp_focus x in
+    let opt = function None -> None | Some x -> Some(tyfoc x) in
+    if not focused then
+      Oc_constr {name; args; ret }
+    else
+      Oc_constr {name=rename name; args = List.map tyfoc args; ret = opt ret }
+
+let gather_extensions foc ext proj items =
   (* Gather together the extension constructors *)
   let rec gather_extensions acc items =
     match items with
-    | item :: items ->
+    | item :: items as all ->
         begin match proj item with
         |  Osig_typext(ext, Oext_next) ->
             gather_extensions
-              (ext_to_constr ext.oext_name ext.oext_args ext.oext_ret_type :: acc)
+              (ext_to_constr false ext.oext_name ext.oext_args ext.oext_ret_type
+               :: acc)
               items
-        | _ -> (List.rev acc, items)
+        |  Osig_focus Osig_typext(ext, Oext_next) ->
+            gather_extensions
+              (ext_to_constr true ext.oext_name ext.oext_args ext.oext_ret_type
+               :: acc)
+              items
+        | _ -> (List.rev acc, all)
         end
     | _ -> (List.rev acc, items)
   in
   gather_extensions
-    [ext_to_constr ext.oext_name ext.oext_args ext.oext_ret_type]
+    [ext_to_constr foc ext.oext_name ext.oext_args ext.oext_ret_type]
     items
 
 
@@ -499,8 +517,10 @@ and print_out_signature ppf =
   function
     [] -> ()
   | [item] -> !out_sig_item ppf item
-  | Osig_typext(ext, Oext_first) :: items ->
-      let exts, items = gather_extensions ext (fun x -> x) items in
+  | (Osig_focus Osig_typext(ext, Oext_first)| Osig_typext(ext, Oext_first) as it)
+    :: items ->
+      let foc = match it with Osig_focus _ -> true | _ -> false in
+      let exts, items = gather_extensions foc ext (fun x -> x) items in
       let te =
         { otyext_name = ext.oext_type_name;
           otyext_params = ext.oext_type_params;
@@ -528,9 +548,11 @@ and print_out_sig_item ppf =
   | Osig_typext (ext, Oext_exception) ->
       fprintf ppf "@[<2>exception %a@]"
         print_out_constr
-        (ext_to_constr ext.oext_name ext.oext_args ext.oext_ret_type)
+        (ext_to_constr false ext.oext_name ext.oext_args ext.oext_ret_type)
+  | Osig_focus Osig_typext (ext, _es) ->
+      print_out_extension_constructor ppf (true,ext)
   | Osig_typext (ext, _es) ->
-      print_out_extension_constructor ppf ext
+      print_out_extension_constructor ppf (false,ext)
   | Osig_modtype (name, Omty_abstract) ->
       fprintf ppf "@[<2>module type %a@]" fstring name
   | Osig_modtype (name, mty) ->
@@ -663,7 +685,7 @@ and print_out_constr ppf = function
             args print_simple_out_type ret_type
       end
 
-and print_out_extension_constructor ppf ext =
+and print_out_extension_constructor ppf (foc,ext) =
   let print_extended_type ppf =
       match ext.oext_type_params with
         [] -> fprintf ppf "%a" fstring ext.oext_type_name
@@ -680,7 +702,7 @@ and print_out_extension_constructor ppf ext =
   fprintf ppf "@[<hv 2>type %t +=%a@;<1 2>%a@]"
     print_extended_type
     (pr_focusable print_private) ext.oext_private
-    print_out_constr @@ ext_to_constr ext.oext_name ext.oext_args ext.oext_ret_type
+    print_out_constr @@ ext_to_constr foc ext.oext_name ext.oext_args ext.oext_ret_type
 
 and print_out_type_extension ppf te =
   let print_extended_type ppf =
@@ -720,8 +742,10 @@ let print_out_exception ppf exn outv =
 let rec print_items ppf =
   function
     [] -> ()
-  | (Osig_typext(ext, Oext_first), None) :: items ->
-      let exts, items = gather_extensions ext fst items in
+  | ( (Osig_focus Osig_typext(ext, Oext_first)
+      | Osig_typext(ext, Oext_first) as x ), None) :: items ->
+      let foc = match x with Osig_focus _ -> true | _ -> false in
+      let exts, items = gather_extensions foc ext fst items in
       let te =
         { otyext_name = ext.oext_type_name;
           otyext_params = ext.oext_type_params;

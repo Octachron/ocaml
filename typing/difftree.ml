@@ -344,6 +344,13 @@ let list_diff ellipsis l =
     | None -> dup false
     | Some x -> x in
 
+  let rec full = function
+    | [] -> dup []
+    | ((diff,st),f) :: xs ->
+        maycons (expand st) ( (flatten diff).gen f ) @@ full xs in
+
+  let is_full = List.for_all (fun (_,f) -> f > 0 ) in
+
   let rec ellide not_first status in_ellipsis = function
     | [] -> cons_el (not_first &&& status) @@ dup []
     | ((_,st) , 0) :: q ->
@@ -374,7 +381,10 @@ let list_diff ellipsis l =
 
   let gen fuel =
     let l = with_fuel fuel in
-    ellide (dup false) (dup true) (dup false) l in
+    if is_full l then
+      full l
+    else
+      ellide (dup false) (dup true) (dup false) l in
 
   if List.for_all (fun (x,_) -> is_eq x) l then
     Eq { min_size = 1; (* a list can always ellipsed to "..." *)
