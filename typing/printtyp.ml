@@ -1317,7 +1317,9 @@ let type_expansion t t' =
   then begin add_delayed (proxy t); mk t, None end
   else
     let t' = if proxy t == proxy t' then unalias t' else t' in
-    mk t, Some (mk t')
+    let first = mk t in (* fix order due to side-effect *)
+    let second = mk t' in
+    first, Some second
 
 let type_diff (t,e) (t',e') =
   let t1, e1 = type_expansion t e in
@@ -1386,7 +1388,7 @@ let prepare_expansion (t, t') =
 
 let may_prepare_expansion compact (t, t') =
   match (repr t').desc with
-    Tvariant _ | Tobject _ when false && compact ->
+  | Tvariant _ | Tobject _ when false && compact ->
       mark_loops t; (t, t)
   | _ -> prepare_expansion (t, t')
 
