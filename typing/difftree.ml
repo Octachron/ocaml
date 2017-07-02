@@ -1,29 +1,5 @@
 open Outcometree
 
-(*
-let debug fmt = Format.eprintf ("debug:" ^^ fmt ^^ "@.")
-
-      debug "Distributing [%d] fuel" fuel;
-      debug "bounds: %a" (pp_list pp_bound) bounds;
-      debug "distribution: %a" (pp_list pp_int) distribution;
-
-
-  let pp_list pp ppf l =
-    Format.fprintf ppf "@[<hov 2>[%a]@]"
-    (Format.pp_print_list
-      ~pp_sep:(fun ppf () -> Format.fprintf ppf ";@ ")
-      pp) l
-
-  let pp_size ppf m = Format.fprintf ppf "{p:%d; s:%d}" m.primary m.secondary
-  let pp_int ppf = Format.pp_print_int ppf
-  let pp_bound ppf (x,y) = Format.fprintf ppf "min:%a, max:%a" pp_size x pp_size y
-
-    debug "List, fuel:%d, len:%d size:{%d;%d}" fuel (List.length l)
-   max_size.primary max_size.secondary;
-
-
-*)
-
 (** {2 Fuel interface} *)
 
 (* Default fuel available for printing an error *)
@@ -37,6 +13,27 @@ type size = { primary: int; (* size of elements that must be printed *)
               secondary: int (* size of elements that may be printed if there
                                 is some spare space *)
             }
+(*
+let debug fmt = Format.eprintf ("debug:" ^^ fmt ^^ "@.")
+
+  let pp_list pp ppf l =
+    Format.fprintf ppf "@[<hov 2>[%a]@]"
+    (Format.pp_print_list
+      ~pp_sep:(fun ppf () -> Format.fprintf ppf ";@ ")
+      pp) l
+
+  let pp_size ppf m = Format.fprintf ppf "{p:%d; s:%d}" m.primary m.secondary
+  let pp_int ppf = Format.pp_print_int ppf
+  let pp_bound ppf (x,y) = Format.fprintf ppf "min:%a, max:%a" pp_size x pp_size y
+*)
+(*
+
+      debug "Distributing [%d] fuel" fuel;
+      debug "bounds: %a" (pp_list pp_bound) bounds;
+      debug "distribution: %a" (pp_list pp_int) distribution;
+    debug "List, fuel:%d, len:%d size:{%d;%d}" fuel (List.length l)
+   max_size.primary max_size.secondary;
+*)
 
 let one = { primary=1; secondary = 0 }
 let empty = { primary=0; secondary=0 }
@@ -73,7 +70,7 @@ let _min_size = function
   | D r -> r.min_size
   | Eq r -> secondary r.min_size
 
-let _max_size = function
+let max_size = function
   | D r -> r.max_size
   | Eq r -> secondary r.max_size
 
@@ -99,14 +96,14 @@ let d0 left right=
 
 let stitch f x y = match (f x x), (f y y) with
   | Eq x, Eq y ->
-      D { min_size = one;
-          max_size = primary 1 ++ secondary (max x.max_size y.max_size);
+      D { min_size = empty;
+          max_size = primary (max x.max_size y.max_size);
           gen =(fun fuel -> x.gen fuel, y.gen fuel)
         }
   | r, r' ->
       let r = flatten r and r' = flatten r' in
-      D { min_size = one;
-          max_size = primary 1 ++ r.max_size ++ r'.max_size;
+      D { min_size = empty;
+          max_size = r.max_size ++ r'.max_size;
           gen = (fun fuel -> let x, _ = r.gen fuel and _, y = r'.gen fuel in
                   x, y)
         }
@@ -266,6 +263,7 @@ module AppList = struct
   let mkdiff f l =
     let bounds = bounds l in
     let _min_size, max_size as global = global_bounds bounds in
+
     let gen proj fuel =
       let distribution = distribute global bounds fuel in
       proj (apply f l distribution) in
@@ -298,11 +296,11 @@ open AppList
 (** {3 Simple combinators }*)
 let diff0 x y = if x = y then pure0 x else d0 x y
 
-let diff (left_focus,right_focus) left right =
+let diff size (left_focus,right_focus) left right =
   if left = right then
-    Eq { min_size = 0; max_size = 1; gen = const right }
+    Eq { min_size = 0; max_size = size.primary; gen = const right }
   else
-    D { gen = const (left_focus left,right_focus right); max_size = one;
+    D { gen = const (left_focus left,right_focus right); max_size = size;
         min_size = empty }
 
 let _cons = List.cons
@@ -329,10 +327,10 @@ let list_diff ellipsis l =
   let bounds = List.map (fun (x,_) -> AppList.size_bounds x) l in
   let global = AppList.global_bounds bounds in
 
-  let rec at_least_one ellip = function
+  let rec _at_least_one ellip = function
     | [] -> empty
     | (D x, _) :: _  when x.min_size.primary > 0 -> x.min_size
-    | _ :: q -> primary (if ellip then 0 else 1) ++ at_least_one true q in
+    | _ :: q -> primary (if ellip then 0 else 1) ++ _at_least_one true q in
 
   let _count_ellipsis (x,y) = if x && y then 0 else 1 in
 
@@ -344,16 +342,18 @@ let list_diff ellipsis l =
     | None -> dup false
     | Some x -> x in
 
+  let fueled ((x,_),f) = f > 0 || card (max_size x) = 0 in
+
   let rec full = function
     | [] -> dup []
     | ((diff,st),f) :: xs ->
         maycons (expand st) ( (flatten diff).gen f ) @@ full xs in
 
-  let is_full = List.for_all (fun (_,f) -> f > 0 ) in
+  let is_full = List.for_all fueled in
 
   let rec ellide not_first status in_ellipsis = function
     | [] -> cons_el (not_first &&& status) @@ dup []
-    | ((_,st) , 0) :: q ->
+    | ((_,st) ,  _ as x) :: q when not (fueled x) ->
         ellide (not_first ||| not2 (expand st) ) (dup true) (dup true) q
     | (x, f) :: xs ->
         begin match x with
@@ -387,11 +387,11 @@ let list_diff ellipsis l =
       ellide (dup false) (dup true) (dup false) l in
 
   if List.for_all (fun (x,_) -> is_eq x) l then
-    Eq { min_size = 1; (* a list can always ellipsed to "..." *)
+    Eq { min_size = 0; (* a list can always ellipsed to "..." *)
          max_size = card (snd global);
          gen = fun fuel -> fst @@ gen fuel }
   else
-    D { min_size= at_least_one false l;
+    D { min_size= empty;
         (* we need to be able to expand at least one element *)
         max_size = snd global;
         gen }
@@ -458,23 +458,23 @@ let sfocus = function
   | Ofoc_focused _ as f -> f
   | Ofoc_ellipsis -> Ofoc_ellipsis
 
-let sdiff: string -> _ = diff nofocus
+let sdiff: string -> _ = diff one nofocus
 
 let bdiff: bool -> _ = diff0
-let bfdiff: bool focusable -> _ = diff (dup sfocus)
+let bfdiff: bool focusable -> _ = diff empty (dup sfocus)
 
-let recs_diff: out_rec_status focusable -> _ = diff (dup sfocus)
+let recs_diff: out_rec_status focusable -> _ = diff empty (dup sfocus)
 let recs_diff_0: out_rec_status -> _ = diff0
 
 
-let priv_diff: Asttypes.private_flag focusable -> _ = diff (dup sfocus)
+let priv_diff: Asttypes.private_flag focusable -> _ = diff empty (dup sfocus)
 let ext_diff: out_ext_status -> _ = diff0
 
 let attr_diff: out_attribute -> _ = diff0
 
-let fdiff = diff (dup sfocus)
+let fdiff = diff one (dup sfocus)
 
-let id_diff: out_ident -> _ = diff nofocus (*FIXME*)
+let id_diff: out_ident -> _ = diff one nofocus (*FIXME*)
 
 
 let constr x y = Otyp_constr(x,y)
