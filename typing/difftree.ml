@@ -322,7 +322,7 @@ let list_diff ellipsis l =
     (if not b1 then x :: l1 else l1),
     (if not b2 then y ::l2 else l2) in
 
-  (*  let (|||) (a,b) (a',b') = (a || a', b || b') in*)
+  let (|||) (a,b) (a',b') = (a || a', b || b') in
   let (&&&) (a,b) (a',b') = (a && a', b && b') in
   let not2 (a,b) = (not a, not b) in
 
@@ -344,16 +344,17 @@ let list_diff ellipsis l =
     | None -> dup false
     | Some x -> x in
 
-  let rec ellide status in_ellipsis = function
-    | [] -> cons_el status @@ dup []
-    | (_ , 0) :: q -> ellide (dup true) (dup true) q
+  let rec ellide not_first status in_ellipsis = function
+    | [] -> cons_el (not_first &&& status) @@ dup []
+    | ((_,st) , 0) :: q ->
+        ellide (not_first ||| not2 (expand st) ) (dup true) (dup true) q
     | (x, f) :: xs ->
         begin match x with
-        | Eq e, _ ->
+        | Eq e, st ->
             (* we print equal element only if we have some spare fuel *)
-            cons_el in_ellipsis @@
+            cons_el (in_ellipsis &&& not_first ) @@
             cons2 (dup @@ e.gen f)
-            @@ ellide (dup false) (dup false) xs
+            @@ ellide (expand st) (dup false) (dup false) xs
  (*       | D {max_size={primary=0; _ }; _ }, _ ->
         (* We are not printing D.max_size.primary elements  because they are
            potentially distracting since they are equal but not obviously so:
@@ -365,15 +366,15 @@ let list_diff ellipsis l =
         | D d, st ->
             let st = expand st in
             (* we check if the current elements contains ellipsis on any side *)
-            cons_el (in_ellipsis &&& not2 st)
+            cons_el (in_ellipsis &&& not2 st &&& not_first)
             @@ maycons st (d.gen f)
-            @@ ellide (status &&& st) st xs
+            @@ ellide (not_first ||| not2 st) (status &&& st) st xs
         end
   in
 
   let gen fuel =
     let l = with_fuel fuel in
-    ellide (dup false) (dup false) l in
+    ellide (dup false) (dup true) (dup false) l in
 
   if List.for_all (fun (x,_) -> is_eq x) l then
     Eq { min_size = 1; (* a list can always ellipsed to "..." *)
