@@ -238,7 +238,7 @@ let rec print_out_type ppf =
       fprintf ppf "@[<hov 2>%a.@ %a@]"
         pr_vars sl
         print_out_type ty
-  | Otyp_focus ty -> print_out_type ppf ty
+  | Otyp_focus ty -> pr_focusable print_out_type ppf (Ofoc_focused ty)
   | ty ->
       print_out_type_1 ppf ty
 
@@ -591,7 +591,8 @@ and print_out_type_decl kwd ppf td =
   let print_manifest ppf =
     function
     | Otyp_manifest (ty, _)
-    | Otyp_focus Otyp_manifest (ty,_) -> fprintf ppf " =@ %a" !out_type ty
+    | Otyp_focus Otyp_manifest (ty,_) ->
+        fprintf ppf " =@ %a" (pr_focusable !out_type) (Ofoc_focused ty)
     | _ -> ()
   in
   let print_name_params ppf =
@@ -599,8 +600,8 @@ and print_out_type_decl kwd ppf td =
   in
   let ty =
     match td.otype_type with
-      Otyp_manifest (_, ty)
-    | Otyp_focus Otyp_manifest (_,ty) -> ty
+    | Otyp_manifest (_, ty) -> ty
+    | Otyp_focus Otyp_manifest (_,ty) -> Otyp_focus ty
     | _ -> td.otype_type
   in
   let print_immediate ppf =
