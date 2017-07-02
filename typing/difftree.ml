@@ -51,8 +51,7 @@ let card s = s.primary + s.secondary
 type ('a,'b) gen = {
   gen: int -> 'a; (** [gen fuel x] generate a representation of the underlying
                       element with size fuel *)
-  min_size:'b;
-  max_size:'b;
+  size:'b;
 }
 
 (** Main type *)
@@ -66,52 +65,45 @@ let is_eq = function
   | _ -> false
 
 
-let _min_size = function
-  | D r -> r.min_size
-  | Eq r -> secondary r.min_size
-
-let max_size = function
-  | D r -> r.max_size
-  | Eq r -> secondary r.max_size
+let size = function
+  | D r -> r.size
+  | Eq r -> secondary r.size
 
 let flatten = function
   | D r -> r
-  | Eq r -> { min_size = secondary r.min_size; max_size = secondary r.max_size;
+  | Eq r -> { size = secondary r.size;
               gen = (fun fuel -> let r = r.gen fuel in r, r) }
 
 
 (** {3 Combinators } *)
 let const x _fuel = x
-let pure f = Eq { min_size =0; max_size=0; gen = const f }
+let pure f = Eq { size=0; gen = const f }
 let (//) left right=
   D { gen = const (left, right);
-      max_size = one;
-      min_size = empty;  }
+      size = one }
 
-let pure0 f = Eq { min_size =0; max_size=0; gen = const f }
+let pure0 f = Eq { size =0; gen = const f }
 let d0 left right=
   D { gen = const (left, right);
-      max_size = empty;
-      min_size = empty;  }
+      size = empty }
 
 let stitch f x y = match (f x x), (f y y) with
   | Eq x, Eq y ->
-      D { min_size = empty;
-          max_size = primary (max x.max_size y.max_size);
+      D { size = primary (max x.size y.size);
           gen =(fun fuel -> x.gen fuel, y.gen fuel)
         }
   | r, r' ->
       let r = flatten r and r' = flatten r' in
-      D { min_size = empty;
-          max_size = r.max_size ++ r'.max_size;
-          gen = (fun fuel -> let x, _ = r.gen fuel and _, y = r'.gen fuel in
+      D {
+        size = r.size ++ r'.size;
+        gen = (fun fuel -> let x, _ = r.gen fuel and _, y = r'.gen fuel in
                   x, y)
         }
       (*raise (Invalid_argument "Stitching difference")*)
 
 
 let ( =~ ) left right =
-  D { gen = (fun _ -> (left, right)); min_size = empty; max_size = secondary 1 }
+  D { gen = (fun _ -> (left, right)); size = secondary 1 }
 
 let focus_on f = function
   | Eq _ as x -> x
@@ -143,18 +135,13 @@ module AppList = struct
     | Single f, Pair(x,y) -> Pair(f x, f y)
     | Pair (f,g), Pair(x,y) -> Pair(f x, g y)
 
-  let size_bounds = function
-    | D r -> r.min_size, r.max_size
-    | Eq e -> secondary e.min_size, secondary e.max_size
+  let global_size l =
+    List.fold_left (++) empty l
 
-  let global_bounds l =
-    List.fold_left (fun (mi,mx) (mi',mx') -> mi ++ mi', mx ++ mx' )
-      (empty,empty) l
-
-  let rec bounds: type a b. (a,b) T.t -> (size * size) list =
+  let rec sizes: type a b. (a,b) T.t -> size list =
     function
     | T.[] -> []
-    | T.( a :: q ) -> size_bounds a :: bounds q
+    | T.( a :: q ) -> size a :: sizes q
 
   let beta = 0.75
   let z proj l =
@@ -216,22 +203,15 @@ module AppList = struct
     finish fuel_left l
 
 
-  let distribute (gmin,gmax) bounds fuel =
+  let distribute gmax sizes fuel =
     if fuel >= card gmax then
-      List.map (fun (_,max) -> card max) bounds
-    else if fuel <= gmin.primary then
-      List.map(fun (min,_) -> card min) bounds
+      List.map (fun size -> card size) sizes
     else if fuel <= gmax.primary then
-      let fuel' = fuel - gmin.primary in
-      let bounds' = List.map
-          ( fun (x,y) -> (x, { y with primary = max 0 (y.primary - x.primary) }))
-          bounds in
-      let d = rising_tide (fun (_,y) -> y.primary) fuel' bounds' in
-      List.map2 (fun (x,_) y -> x.primary + y) bounds d
+      rising_tide (fun y -> y.primary) fuel sizes
     else
       let fuel' = fuel - gmax.primary in
-      let d = rising_tide (fun (_,y) -> y.secondary) fuel' bounds in
-      List.map2 (fun (_,x) y -> x.primary + y) bounds d
+      let d = rising_tide (fun y -> y.secondary) fuel' sizes in
+      List.map2 (fun x y -> x.primary + y) sizes d
 
   let rec apply : type a res. a concrete -> (a,res) T.t -> int list
     -> res concrete =
@@ -261,16 +241,16 @@ module AppList = struct
     | Pair (x, y) -> x, y
 
   let mkdiff f l =
-    let bounds = bounds l in
-    let _min_size, max_size as global = global_bounds bounds in
+    let sizes = sizes l in
+    let global = global_size sizes in
 
     let gen proj fuel =
-      let distribution = distribute global bounds fuel in
+      let distribution = distribute global sizes fuel in
       proj (apply f l distribution) in
     if is_all_eq l then
-      Eq { min_size = 0; max_size = card max_size; gen = gen eq }
+      Eq { size = card global; gen = gen eq }
     else
-      D {min_size = empty; max_size; gen = gen pair }
+      D { size=global ; gen = gen pair }
 
   let (<*>) f = mkdiff (concrete_pure f)
 
@@ -298,10 +278,9 @@ let diff0 x y = if x = y then pure0 x else d0 x y
 
 let diff size (left_focus,right_focus) left right =
   if left = right then
-    Eq { min_size = 0; max_size = size.primary; gen = const right }
+    Eq { size = card size; gen = const right }
   else
-    D { gen = const (left_focus left,right_focus right); max_size = size;
-        min_size = empty }
+    D { gen = const (left_focus left,right_focus right); size }
 
 let _cons = List.cons
 let id x = x
@@ -324,17 +303,12 @@ let list_diff ellipsis l =
   let (&&&) (a,b) (a',b') = (a && a', b && b') in
   let not2 (a,b) = (not a, not b) in
 
-  let bounds = List.map (fun (x,_) -> AppList.size_bounds x) l in
-  let global = AppList.global_bounds bounds in
-
-  let rec _at_least_one ellip = function
-    | [] -> empty
-    | (D x, _) :: _  when x.min_size.primary > 0 -> x.min_size
-    | _ :: q -> primary (if ellip then 0 else 1) ++ _at_least_one true q in
+  let sizes = List.map (fun (x,_) -> size x) l in
+  let global = AppList.global_size sizes in
 
   let _count_ellipsis (x,y) = if x && y then 0 else 1 in
 
-  let distribute fuel = AppList.distribute global bounds fuel in
+  let distribute fuel = AppList.distribute global sizes fuel in
 
   let with_fuel fuel = List.map2 (fun x y -> x, y) l (distribute fuel) in
 
@@ -342,7 +316,7 @@ let list_diff ellipsis l =
     | None -> dup false
     | Some x -> x in
 
-  let fueled ((x,_),f) = f > 0 || card (max_size x) = 0 in
+  let fueled ((x,_),f) = f > 0 || card (size x) = 0 in
 
   let rec full = function
     | [] -> dup []
@@ -387,14 +361,9 @@ let list_diff ellipsis l =
       ellide (dup false) (dup true) (dup false) l in
 
   if List.for_all (fun (x,_) -> is_eq x) l then
-    Eq { min_size = 0; (* a list can always ellipsed to "..." *)
-         max_size = card (snd global);
-         gen = fun fuel -> fst @@ gen fuel }
+    Eq { size = card global; gen = fun fuel -> fst @@ gen fuel }
   else
-    D { min_size= empty;
-        (* we need to be able to expand at least one element *)
-        max_size = snd global;
-        gen }
+    D {  size = global; gen }
 
 (* Simple list where the k-th elements should be compared to the k-th element  *)
 let list ellipsis diff x y =
