@@ -1,0 +1,16 @@
+
+#           Characters 70-130:
+  struct
+    type t = { alpha: unit; beta:unit; gamma: unit}
+  end..
+Error: Signature mismatch:
+       Modules do not match:
+         sig type t = { ...; beta : unit; gamma : unit } end
+       is not included in
+         sig type t = { ...; beta : int; delta : unit } end
+       Type declarations do not match:
+         type t = { ...; beta : unit; gamma : unit }
+       is not included in
+         type t = { ...; beta : int; delta : unit }
+       The types for field beta are not equal.
+# 

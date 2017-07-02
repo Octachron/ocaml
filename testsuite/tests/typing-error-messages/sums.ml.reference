@@ -1,0 +1,40 @@
+
+#                                 Characters 64-117:
+  ......struct
+          type c = A | B | C | G | H | I | J
+  end
+Error: Signature mismatch:
+       Modules do not match:
+         sig type c = ... | G | H | ... end
+       is not included in
+         sig type c = ... | D | E | ... end
+       Type declarations do not match:
+         type c = ... | G | H | ...
+       is not included in
+         type c = ... | D | E | ...
+       Fields number 4 have different names, G and D.
+#       Characters 54-97:
+  .......................................struct
+    type t = A | B | C | D | E | G end..
+Error: Signature mismatch:
+       Modules do not match:
+         sig type t = ... | G end
+       is not included in
+         sig type t = ... | F end
+       Type declarations do not match:
+         type t = ... | G
+       is not included in
+         type t = ... | F
+       Fields number 6 have different names, G and F.
+#                   Characters 96-161:
+  ......struct
+  type t = ..
+  type t += A | A2 | B | C0 | C | C2 | E | F
+  end..
+Error: Signature mismatch:
+       Modules do not match:
+         sig ... end
+       is not included in
+         sig ... type t += D ... end
+       The extension constructor `D' is required but not provided
+# 

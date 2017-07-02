@@ -340,7 +340,7 @@ let usage = "Usage: expect_test <options> [script-file [arguments]]\n\
              options are:"
 
 let () =
-  Clflags.error_size := 0;
+  Clflags.error_size := max_int;
   try
     Arg.parse args main usage;
     Printf.eprintf "expect_test: no input file\n";

@@ -1,0 +1,44 @@
+
+#                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 Characters 6236-12502:
+Error: Signature mismatch:
+       Modules do not match:
+         sig
+           type t =
+               [ `Abcde of
+                   [ `_1 of
+                       [ `A of [ `B of [ `C of float | ... ] | ... ]
+                       | `Alep of [ `B of [ `C of float | ... ] | ... ]
+                       | ... ]
+                   | ... ]
+               | ... ]
+         end
+       is not included in
+         sig
+           type t =
+               [ `Abcde of
+                   [ `_1 of
+                       [ `A of [ `B of [ `C of unit | ... ] | ... ]
+                       | `Alep of [ `B of [ `C of unit | ... ] | ... ]
+                       | ... ]
+                   | ... ]
+               | ... ]
+         end
+       Type declarations do not match:
+         type t =
+             [ `Abcde of
+                 [ `_1 of
+                     [ `A of [ `B of [ `C of float | ... ] | ... ]
+                     | `Alep of [ `B of [ `C of float | ... ] | ... ]
+                     | ... ]
+                 | ... ]
+             | ... ]
+       is not included in
+         type t =
+             [ `Abcde of
+                 [ `_1 of
+                     [ `A of [ `B of [ `C of unit | ... ] | ... ]
+                     | `Alep of [ `B of [ `C of unit | ... ] | ... ]
+                     | ... ]
+                 | ... ]
+             | ... ]
+# 

@@ -1,0 +1,26 @@
+
+#     val o : < f : int; g : int; h : int > = <obj>
+val f : < f : int; g : int; h : int; i : int; .. > -> int = <fun>
+#                                           Characters 170-611:
+  .............object
+          method primus='x'
+          method ab=0
+          method oris=1
+          method italiam=1.
+          method fato = ()
+          method profugus = [fun x -> x]
+          method laviniaque = "u"
+          method venit = ()
+          method litora x = 1 + x
+          method multum x = 1. +. x
+          method et l = 1 :: l
+          method terris = 1,0
+          method jactatus _ _ = ()
+          method et' = [2.]
+          method alto = [[]]
+        end..
+Error: This expression has type
+         < ...; alto : ... list; ...; oris : int; ... >
+       but an expression was expected of type c = < ...; oris : float; ... >
+       The second object type has no method alto
+# 
