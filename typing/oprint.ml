@@ -408,7 +408,7 @@ let type_parameter ppf = function
       fprintf ppf "%a%a%a"
         (fbool "+") (foc_fmap not contravariant)
         (fbool "-") (foc_fmap not covariant)
-        fstring name
+        pr_typename name
 
 let print_out_class_params ppf =
   function
