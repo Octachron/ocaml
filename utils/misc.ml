@@ -537,7 +537,7 @@ module Color = struct
     warning = [Bold; FG Magenta];
     error = [Bold; FG Red];
     loc = [Bold];
-    focus = [Bold; FG Magenta];
+    focus = [Bold; FG Blue];
   }
 
   let cur_styles = ref default_styles
