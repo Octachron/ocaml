@@ -590,7 +590,8 @@ and print_out_type_decl kwd ppf td =
   in
   let print_manifest ppf =
     function
-      Otyp_manifest (ty, _) -> fprintf ppf " =@ %a" !out_type ty
+    | Otyp_manifest (ty, _)
+    | Otyp_focus Otyp_manifest (ty,_) -> fprintf ppf " =@ %a" !out_type ty
     | _ -> ()
   in
   let print_name_params ppf =
@@ -598,7 +599,8 @@ and print_out_type_decl kwd ppf td =
   in
   let ty =
     match td.otype_type with
-      Otyp_manifest (_, ty) -> ty
+      Otyp_manifest (_, ty)
+    | Otyp_focus Otyp_manifest (_,ty) -> ty
     | _ -> td.otype_type
   in
   let print_immediate ppf =
@@ -607,7 +609,7 @@ and print_out_type_decl kwd ppf td =
   let print_unboxed ppf =
     if td.otype_unboxed then fprintf ppf " [%@%@unboxed]" else ()
   in
-  let print_out_tkind ppf = function
+  let rec print_out_tkind ppf = function
   | Otyp_abstract -> ()
   | Otyp_record lbls ->
       fprintf ppf " =%a %a"
@@ -619,6 +621,8 @@ and print_out_type_decl kwd ppf td =
         (print_list print_out_constr (fun ppf -> fprintf ppf "@ | ")) constrs
   | Otyp_open ->
       fprintf ppf " = .."
+  | Otyp_focus t ->
+      pr_focusable print_out_tkind ppf (Ofoc_focused t)
   | ty ->
       fprintf ppf " =%a@;<1 2>%a"
         (pr_focusable print_private) td.otype_private
