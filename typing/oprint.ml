@@ -572,7 +572,7 @@ and print_out_type_decl kwd ppf td =
   let print_constraint ppf = function
     | Otc_ellipsis -> ellipsis ppf
     | Otc_constraint {lhs;rhs} ->
-        fprintf ppf "@[<2>constraint %a =@ %a@]"
+        fprintf ppf "@ @[<2>constraint %a =@ %a@]"
           !out_type lhs !out_type rhs in
   let print_constraints ppf =
     print_list print_constraint (fun ppf -> fprintf ppf "@ ") ppf td.otype_cstrs
