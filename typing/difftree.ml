@@ -441,22 +441,25 @@ let ext_diff: out_ext_status -> _ = diff0
 
 let attr_diff: out_attribute -> _ = diff0
 
-let fdiff = diff one (dup sfocus)
+let fdiff: string focusable -> _ = diff one (dup sfocus)
+let _fdiff0: string focusable -> _ = diff empty (dup sfocus)
 
-let id_diff: out_ident -> _ = diff one nofocus (*FIXME*)
 
 
-let constr x y = Otyp_constr(x,y)
-let manifest x y = Otyp_manifest(x,y)
-let object' x y = Otyp_object(x,y)
-let sum x = Otyp_sum x
-let class' x y z = Otyp_class(x,y,z)
-let record x = Otyp_record x
-let var x y = Otyp_var(x,y)
-let variant x y z w = Otyp_variant(x,y,z,w)
-let poly x y = Otyp_poly(x,y)
-let module' x y z = Otyp_module(x,y,z)
-let attribute x y = Otyp_attribute(x,y)
+(** {2 Outcome tree difference computation functions} *)
+module Ident = struct
+  let apply x y = Oide_apply (x,y)
+  let dot x y = Oide_dot (x,y)
+  let base_ident x = Oide_ident x
+
+  let rec diff x y = match x, y with
+    | Oide_apply(x,y), Oide_apply(x',y') -> apply <*> [diff x x'; diff y y']
+    | Oide_dot(x,y), Oide_dot(x',y') -> dot <*> [diff x x'; fdiff y y']
+    | Oide_ident s, Oide_ident s' -> base_ident <*> [fdiff s s']
+    | x, y -> x // y
+end
+let id_diff: out_ident -> _ = Ident.diff (*FIXME*)
+
 
 let ocmp x y = match x, y with
   | Oof_field (n,_) , Oof_field (n',_)  -> compare n n'
@@ -468,8 +471,21 @@ let _rcmp x y = match x, y with
   | Of_ellipsis, _ -> -1
   | _, Of_ellipsis -> 1
 
-(** {2 Outcome tree difference computation functions} *)
+
 module Type = struct
+
+  let constr x y = Otyp_constr(x,y)
+  let manifest x y = Otyp_manifest(x,y)
+  let object' x y = Otyp_object(x,y)
+  let sum x = Otyp_sum x
+  let class' x y z = Otyp_class(x,y,z)
+  let record x = Otyp_record x
+  let var x y = Otyp_var(x,y)
+  let variant x y z w = Otyp_variant(x,y,z,w)
+  let poly x y = Otyp_poly(x,y)
+  let module' x y z = Otyp_module(x,y,z)
+  let attribute x y = Otyp_attribute(x,y)
+
   module M = Misc.StringSet
   let unfree_vars = ref M.empty
   let reset_free () = unfree_vars := M.empty
