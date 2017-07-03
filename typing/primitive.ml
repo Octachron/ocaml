@@ -138,28 +138,28 @@ open Outcometree
 
 let rec add_native_repr_attributes ty attrs =
   match ty, attrs with
-  | Otyp_arrow (arg, b), attr_opt :: rest ->
+  | Otyp_arrow (arg, Ofoc(_,b)), attr_opt :: rest ->
     let b = add_native_repr_attributes b rest in
     let arg =
       match attr_opt with
       | None -> arg
       | Some attr ->
           begin match arg with
-          | Ofa_arg(label,ty) ->
-              Ofa_arg(label, Otyp_attribute (ty, attr) )
-          | Ofa_ellipsis ->
-              Ofa_arg(Ofoc_ellipsis, Otyp_attribute(Otyp_ellipsis,attr))
+          | Ofoc (foc, (label, Ofoc(foc', ty)) ) ->
+                  Ofoc(foc, (label, Ofoc(Off,Otyp_attribute (Ofoc(foc', ty), attr))))
+          | Ofoc (_, (_, Ofoc_ellipsis ))
+          | Ofoc_ellipsis as x -> x
           end
     in
-    Otyp_arrow (arg, b)
-  | _, [Some attr] -> Otyp_attribute (ty, attr)
+    Otyp_arrow (arg, Ofoc(Off,b))
+  | _, [Some attr] -> Otyp_attribute (Ofoc(Off,ty), attr)
   | _ ->
     assert (List.for_all (fun x -> x = None) attrs);
     ty
 
-let oattr_unboxed = { oattr_name = Ofoc_unfocused "unboxed" }
-let oattr_untagged = { oattr_name = Ofoc_unfocused "untagged" }
-let oattr_noalloc = { oattr_name = Ofoc_unfocused "noalloc" }
+let oattr_unboxed = Ofoc(Off,{ oattr_name = "unboxed" })
+let oattr_untagged = Ofoc(Off,{ oattr_name = "untagged" })
+let oattr_noalloc = Ofoc(Off,{ oattr_name = "noalloc" })
 
 let print p osig_val_decl =
   let prims =
@@ -193,9 +193,15 @@ let print p osig_val_decl =
     [attr_of_native_repr p.prim_native_repr_res]
   in
   { osig_val_decl with
-    oval_prims = List.map (fun x -> Ofoc_unfocused x) prims;
-    oval_type = add_native_repr_attributes osig_val_decl.oval_type type_attrs;
+    oval_prims = List.map (fun x -> Ofoc(Off,x)) prims;
+    oval_type =
+      (match osig_val_decl.oval_type with
+       | Ofoc_ellipsis -> Ofoc_ellipsis
+       | Ofoc (foc, x) ->
+           Ofoc(foc,add_native_repr_attributes x type_attrs)
+      );
     oval_attributes = attrs }
+
 
 let native_name p =
   if p.prim_native_name <> ""

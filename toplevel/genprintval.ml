@@ -22,10 +22,9 @@ open Path
 open Types
 open Outcometree
 
-let unfoc x = Ofoc_unfocused x
+let unfoc x = Ofoc(Off, x)
 let extract = function
-  | Ofoc_focused x -> x
-  | Ofoc_unfocused x -> x
+  | Ofoc(_,x) -> x
   | Ofoc_ellipsis -> assert false
 
 module type OBJ =

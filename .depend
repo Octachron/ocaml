@@ -189,12 +189,10 @@ typing/datarepr.cmx : typing/types.cmx typing/path.cmx parsing/location.cmx \
     typing/ident.cmx typing/btype.cmx parsing/asttypes.cmi \
     typing/datarepr.cmi
 typing/datarepr.cmi : typing/types.cmi typing/path.cmi typing/ident.cmi
-typing/diffprint.cmo : typing/outcometree.cmi typing/oprint.cmi
-typing/diffprint.cmx : typing/outcometree.cmi typing/oprint.cmx
-typing/difftree.cmo : typing/outcometree.cmi typing/oprint.cmi \
-    typing/difftree.cmi
-typing/difftree.cmx : typing/outcometree.cmi typing/oprint.cmx \
-    typing/difftree.cmi
+typing/difftree.cmo : typing/outcometree.cmi utils/misc.cmi \
+    utils/clflags.cmi parsing/asttypes.cmi typing/difftree.cmi
+typing/difftree.cmx : typing/outcometree.cmi utils/misc.cmx \
+    utils/clflags.cmx parsing/asttypes.cmi typing/difftree.cmi
 typing/difftree.cmi : typing/outcometree.cmi
 typing/env.cmo : utils/warnings.cmi typing/types.cmi utils/tbl.cmi \
     typing/subst.cmi typing/predef.cmi typing/path.cmi utils/misc.cmi \
@@ -221,11 +219,11 @@ typing/ident.cmo : utils/identifiable.cmi typing/ident.cmi
 typing/ident.cmx : utils/identifiable.cmx typing/ident.cmi
 typing/ident.cmi : utils/identifiable.cmi
 typing/includeclass.cmo : typing/types.cmi typing/printtyp.cmi \
-    typing/path.cmi typing/ctype.cmi parsing/builtin_attributes.cmi \
-    typing/includeclass.cmi
+    typing/path.cmi typing/difftree.cmi typing/ctype.cmi \
+    parsing/builtin_attributes.cmi typing/includeclass.cmi
 typing/includeclass.cmx : typing/types.cmx typing/printtyp.cmx \
-    typing/path.cmx typing/ctype.cmx parsing/builtin_attributes.cmx \
-    typing/includeclass.cmi
+    typing/path.cmx typing/difftree.cmx typing/ctype.cmx \
+    parsing/builtin_attributes.cmx typing/includeclass.cmi
 typing/includeclass.cmi : typing/types.cmi parsing/location.cmi \
     typing/env.cmi typing/ctype.cmi
 typing/includecore.cmo : typing/types.cmi typing/typedtree.cmi \
@@ -242,13 +240,13 @@ typing/includemod.cmo : typing/types.cmi typing/typedtree.cmi utils/tbl.cmi \
     typing/subst.cmi typing/printtyp.cmi typing/primitive.cmi typing/path.cmi \
     typing/mtype.cmi utils/misc.cmi parsing/location.cmi \
     typing/includecore.cmi typing/includeclass.cmi typing/ident.cmi \
-    typing/env.cmi typing/ctype.cmi typing/cmt_format.cmi utils/clflags.cmi \
+    typing/env.cmi typing/difftree.cmi typing/ctype.cmi typing/cmt_format.cmi \
     parsing/builtin_attributes.cmi typing/btype.cmi typing/includemod.cmi
 typing/includemod.cmx : typing/types.cmx typing/typedtree.cmx utils/tbl.cmx \
     typing/subst.cmx typing/printtyp.cmx typing/primitive.cmx typing/path.cmx \
     typing/mtype.cmx utils/misc.cmx parsing/location.cmx \
     typing/includecore.cmx typing/includeclass.cmx typing/ident.cmx \
-    typing/env.cmx typing/ctype.cmx typing/cmt_format.cmx utils/clflags.cmx \
+    typing/env.cmx typing/difftree.cmx typing/ctype.cmx typing/cmt_format.cmx \
     parsing/builtin_attributes.cmx typing/btype.cmx typing/includemod.cmi
 typing/includemod.cmi : typing/types.cmi typing/typedtree.cmi \
     typing/path.cmi parsing/location.cmi typing/includecore.cmi \

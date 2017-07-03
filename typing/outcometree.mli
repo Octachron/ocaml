@@ -23,13 +23,15 @@
       [Toploop.print_out_phrase] *)
 
 
+type highlight = On | Off
+
 type 'a focusable =
-  | Ofoc_focused of 'a
-  | Ofoc_unfocused of 'a
+  | Ofoc of highlight * 'a
   | Ofoc_ellipsis
 
 type fstring = string focusable
 type fbool = bool focusable
+type 'a flist = 'a focusable list
 
 type out_ident =
   | Oide_apply of out_ident * out_ident
@@ -41,7 +43,7 @@ type out_string =
   | Ostr_bytes
 
 type out_attribute =
-  { oattr_name: fstring }
+  { oattr_name: string }
 
 type out_value =
   | Oval_array of out_value list
@@ -64,113 +66,93 @@ type out_value =
 type out_type =
   | Otyp_abstract
   | Otyp_open
-  | Otyp_alias of out_type * string
-  | Otyp_arrow of out_fn_arg * out_type
-  | Otyp_class of bool * out_ident * out_type list
-  | Otyp_constr of out_ident * out_type list
-  | Otyp_manifest of out_type * out_type
-  | Otyp_object of out_object_field list * bool option
-  | Otyp_record of out_field list
+  | Otyp_alias of out_type focusable * fstring
+  | Otyp_arrow of out_labelled focusable * out_type focusable
+  | Otyp_class of bool * out_ident focusable * out_type flist
+  | Otyp_constr of out_ident focusable * out_type flist
+  | Otyp_manifest of out_type focusable * out_type focusable
+  | Otyp_object of out_labelled flist * bool option
+  | Otyp_record of out_field flist
   | Otyp_stuff of string
-  | Otyp_sum of out_constructor list
-  | Otyp_tuple of out_type list
+  | Otyp_sum of out_constructor flist
+  | Otyp_tuple of out_type flist
   | Otyp_var of fbool * fstring
   | Otyp_variant of
-      fbool * out_variant * fbool * fstring list option
-  | Otyp_poly of fstring list * out_type
-  | Otyp_module of fstring * fstring list * out_type list
-  | Otyp_attribute of out_type * out_attribute
-  | Otyp_ellipsis
-  | Otyp_focus of out_type
+      fbool * out_variant * fbool * string flist option
+  | Otyp_poly of string flist * out_type focusable
+  | Otyp_module of fstring * string flist * out_type flist
+  | Otyp_attribute of out_type focusable * out_attribute focusable
 
-and out_fn_arg =
-  | Ofa_arg of fstring * out_type
-  | Ofa_ellipsis
-
-and out_object_field =
-  | Oof_field of fstring * out_type
-  | Oof_ellipsis
+and out_labelled = (fstring * out_type focusable)
 
 and out_constructor =
-  | Oc_constr of {name:fstring; args:out_type list; ret:out_type option}
-  | Oc_ellipsis
+  {cname:fstring; args:out_type flist; ret:out_type focusable option}
 
 and out_variant =
-  | Ovar_fields of out_var_field list
-  | Ovar_typ of out_type
+  | Ovar_fields of out_var_field flist
+  | Ovar_typ of out_type focusable
 
-and out_var_field =
-  | Ovf_field of {label:fstring; ampersand:fbool; conj: out_type list}
-  | Ovf_ellipsis
+and out_var_field = {tag:fstring; ampersand:fbool; conj: out_type flist}
 
-and out_field =
-  | Of_field of {name:fstring; mut: fbool; typ:out_type}
-  | Of_ellipsis
+and out_field = {label:fstring; mut: fbool; typ:out_type focusable}
 
-type type_constraint =
-  | Otc_constraint of {lhs:out_type;rhs:out_type}
-  | Otc_ellipsis
+type type_constraint = {lhs:out_type focusable ;rhs:out_type focusable}
 
 type out_class_type =
-  | Octy_constr of out_ident * out_type list
-  | Octy_arrow of out_fn_arg * out_class_type
-  | Octy_signature of out_type option * out_class_sig_item list
+  | Octy_constr of out_ident focusable * out_type flist
+  | Octy_arrow of out_labelled focusable * out_class_type focusable
+  | Octy_signature of out_type focusable option * out_class_sig_item flist
 and out_class_sig_item =
   | Ocsg_constraint of type_constraint
-  | Ocsg_method of fstring * fbool * fbool * out_type
-  | Ocsg_value of fstring * fbool * fbool * out_type
-  | Ocsg_focus of out_class_sig_item
-  | Ocsg_ellipsis
+  | Ocsg_method of fstring * fbool * fbool * out_type focusable
+  | Ocsg_value of fstring * fbool * fbool * out_type focusable
 
-type type_param =
-  | Otp_param of {covariant:fbool;contravariant:fbool;name:fstring}
-  | Otp_ellipsis
+type type_param = {covariant:fbool;contravariant:fbool;name:fstring}
 
 type out_module_type =
   | Omty_abstract
-  | Omty_functor of fstring * out_module_type option * out_module_type
-  | Omty_ident of out_ident
-  | Omty_signature of out_sig_item list
-  | Omty_alias of out_ident
+  | Omty_functor of
+      fstring * out_module_type focusable option * out_module_type focusable
+  | Omty_ident of out_ident focusable
+  | Omty_signature of out_sig_item flist
+  | Omty_alias of out_ident focusable
 and out_sig_item =
   | Osig_class of
-      fbool * fstring * type_param list * out_class_type *
-        out_rec_status focusable
+      fbool * fstring * type_param flist * out_class_type focusable
+      * out_rec_status focusable
   | Osig_class_type of
-      fbool * fstring * type_param list * out_class_type *
-        out_rec_status focusable
-  | Osig_typext of out_extension_constructor * out_ext_status
-  | Osig_modtype of fstring * out_module_type
-  | Osig_module of fstring * out_module_type * out_rec_status
+      fbool * fstring * type_param flist * out_class_type focusable
+      * out_rec_status focusable
+  | Osig_typext of out_extension_constructor * out_ext_status focusable
+  | Osig_modtype of fstring * out_module_type focusable
+  | Osig_module of fstring * out_module_type focusable * out_rec_status focusable
   | Osig_type of out_type_decl * out_rec_status focusable
   | Osig_value of out_val_decl
-  | Osig_focus of out_sig_item
-  | Osig_ellipsis
 and out_type_decl =
   { otype_name: fstring;
-    otype_params: type_param list;
-    otype_type: out_type;
+    otype_params: type_param flist;
+    otype_type: out_type focusable;
     otype_private: Asttypes.private_flag focusable;
-    otype_immediate: bool;
-    otype_unboxed: bool;
-    otype_cstrs: type_constraint list }
+    otype_immediate: fbool;
+    otype_unboxed: fbool;
+    otype_cstrs: type_constraint flist }
 and out_extension_constructor =
   { oext_name: fstring;
     oext_type_name: fstring;
-    oext_type_params: fstring list;
-    oext_args: out_type list;
-    oext_ret_type: out_type option;
+    oext_type_params: string flist;
+    oext_args: out_type flist;
+    oext_ret_type: out_type focusable option;
     oext_private: Asttypes.private_flag focusable }
 and out_type_extension =
   { otyext_name: fstring;
-    otyext_params: fstring list;
-    otyext_constructors: out_constructor list;
+    otyext_params: string flist;
+    otyext_constructors: out_constructor flist;
     otyext_private: Asttypes.private_flag focusable }
 and out_val_decl =
   { oval_name: fstring;
-    oval_type: out_type;
-    oval_prims: fstring list;
-    oval_attributes: out_attribute list }
+    oval_type: out_type focusable;
+    oval_prims: string flist;
+    oval_attributes: out_attribute flist }
 and out_rec_status =
   | Orec_not
   | Orec_first
