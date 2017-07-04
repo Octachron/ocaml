@@ -68,9 +68,9 @@ let rec path = function
   | Pdot(_, s, _pos) as path when non_shadowed_pervasive path ->
       Oide_ident (unfoc s)
   | Pdot(p, s, _pos) ->
-      Oide_dot (path p, unfoc s)
+      Oide_dot (unfoc (path p), unfoc s)
   | Papply(p1, p2) ->
-      Oide_apply (path p1, path p2)
+      Oide_apply (unfoc (path p1), unfoc(path p2))
 
 let rec pp_path ppf = function
   | Pident id ->
@@ -86,10 +86,12 @@ let rec pp_path ppf = function
 
 let rec string_of_out_ident = function
   | Oide_ident s -> f_extract s
-  | Oide_dot (id, s) -> String.concat "." [string_of_out_ident id; f_extract s]
+  | Oide_dot (id, s) -> String.concat "." [string_of_out_ident (f_extract id);
+                                           f_extract s]
   | Oide_apply (id1, id2) ->
       String.concat ""
-        [string_of_out_ident id1; "("; string_of_out_ident id2; ")"]
+        [string_of_out_ident (f_extract id1); "(";
+         string_of_out_ident (f_extract id2); ")"]
 
 let string_of_path p = string_of_out_ident (path p)
 

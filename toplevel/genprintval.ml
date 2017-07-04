@@ -207,7 +207,7 @@ module Make(O : OBJ)(EVP : EVALPATH with type valu = O.t) = struct
                | _ -> false
              with Not_found -> false
           then Oide_ident name
-          else Oide_dot (Printtyp.tpath p, name)
+          else Oide_dot (unfoc (Printtyp.tpath p), name)
       | Papply _ ->
           Printtyp.tpath ty_path
 

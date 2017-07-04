@@ -34,8 +34,8 @@ type fbool = bool focusable
 type 'a flist = 'a focusable list
 
 type out_ident =
-  | Oide_apply of out_ident * out_ident
-  | Oide_dot of out_ident * fstring
+  | Oide_apply of out_ident focusable * out_ident focusable
+  | Oide_dot of out_ident focusable * fstring
   | Oide_ident of fstring
 
 type out_string =

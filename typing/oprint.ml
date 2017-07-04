@@ -45,9 +45,9 @@ let rec print_ident ppf =
   function
     Oide_ident s -> fstring ppf s
   | Oide_dot (id, s) ->
-      print_ident ppf id; pp_print_char ppf '.'; fstring ppf s
+      prf print_ident ppf id; pp_print_char ppf '.'; fstring ppf s
   | Oide_apply (id1, id2) ->
-      fprintf ppf "%a(%a)" print_ident id1 print_ident id2
+      fprintf ppf "%a(%a)" (prf print_ident) id1 (prf print_ident) id2
 
 let parenthesized_ident name =
   (List.mem name ["or"; "mod"; "land"; "lor"; "lxor"; "lsl"; "lsr"; "asr"])
