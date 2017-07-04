@@ -305,12 +305,7 @@ let diff size (left_focus,right_focus) left right =
   else
     D { gen = const (left_focus left,right_focus right); size }
 
-let _cons = List.cons
-
-let cons2 (x,y) (l,l') = x::l, y :: l'
 let dup x = x, x
-
-
 
 let fmap2 f x y = match x, y with
   | Ofoc(_,x), Ofoc(_,y) ->  nofoc @@ f x y
@@ -330,7 +325,7 @@ let bind2 f x y = match x, y with
 
 
 (** {3 List combinators } *)
-let ellipsis = Ofoc_ellipsis 1
+let ellipses n = Ofoc_ellipsis n
 
 let fueled x f = f > 0 || card (size x) = 0
 
@@ -345,14 +340,13 @@ let rec full = function
 
 let is_full x = List.for_all (fun ((x,_),f) -> fueled x f) x
 
-let list_diff l =
-  let cons_el (b1,b2) (l1,l2) =
-    (if b1 then ellipsis :: l1 else l1),
-    (if b2 then ellipsis::l2 else l2) in
+let map2 f (x,y) (x',y') = (f x x',f y y')
 
-  let (|||) (a,b) (a',b') = (a || a', b || b') in
-  let (&&&) (a,b) (a',b') = (a && a', b && b') in
-  let not2 (a,b) = (not a, not b) in
+let cons_el n1 l1 = if n1 > 0 then ellipses n1 :: l1 else l1
+
+let list_diff l =
+
+  let (++) = map2 (+) in
 
   let sizes = List.map (fun (x,_) -> size x) l in
   let global = AppList.global_size sizes in
@@ -363,53 +357,46 @@ let list_diff l =
 
   let with_fuel fuel = List.map2 (fun x y -> x, y) l (distribute fuel) in
 
-  let rec ellide not_first status in_ellipsis = function
-    | [] -> cons_el (not_first &&& status) @@ dup []
-    | ((x,st) ,  f) :: q when not (fueled x f) ->
-        ellide (not_first ||| not2 st ) (dup true) (dup true) q
-    | (x, f) :: xs ->
-        begin match x with
-        | Eq e, st ->
-            (* we print equal element only if we have some spare fuel *)
-            cons_el (in_ellipsis &&& not_first ) @@
-            cons2 (dup @@ e.gen f)
-            @@ ellide st (dup false) (dup false) xs
- (*       | D {max_size={primary=0; _ }; _ }, _ ->
-        (* We are not printing D.max_size.primary elements  because they are
-           potentially distracting since they are equal but not obviously so:
-           Typical example: 'a -> int compared to
-           <a:int; very:long; object:type'; that:is; not:problematic> -> float
-        *)
-            ellide (dup true) (dup true) xs
- *)
-        | D d, st ->
-            (* we check if the current elements contains ellipsis on any side *)
-            cons_el (in_ellipsis &&& not2 st &&& not_first)
-            @@ maycons st (d.gen f)
-            @@ ellide (not_first ||| not2 st) (status &&& st) st xs
-        end
-  in
+  let maybe_ellipsis stat ellisions x =
+    if stat then  [], ellisions + 1
+    else if ellisions > 0 then
+      [ellipses ellisions; x], 0
+    else
+      [x], 0
+in
+
+  let (<$>) (f,g) (x,y) = (f x,g y) in
+
+  let rec ellide ellisions = function
+    | [] -> dup cons_el <$> ellisions <$> dup []
+    | ((x,_) ,  f) :: q when not (fueled x f) ->
+        ellide (ellisions ++ dup 1) q
+    | ((x,st), f) :: xs ->
+        let (l, el), (l', el') =
+          dup maybe_ellipsis <$> st <$> ellisions <$> ((flatten x).gen f) in
+        map2 (@) (l,l') @@ ellide (el,el') xs in
 
   let gen fuel =
     let l = with_fuel fuel in
     if is_full l then
       full l
     else
-      ellide (dup false) (dup true) (dup false) l in
+      ellide (dup 0) l in
 
   if List.for_all (fun (x,_) -> is_eq x) l then
     Eq { size = card global; gen = fun fuel -> fst @@ gen fuel }
   else
     D {  size = global; gen }
 
+let ellipsis = ellipses 1
 (* Simple list where the k-th elements should be compared to the k-th element  *)
 let list diff x y =
   let rec list xs ys = match xs, ys with
     | [], [] -> []
     | x :: xs , y :: ys ->
          (diff x y, (false,false)) :: list xs ys
-    | x :: xs, ([] as ys) -> ((diff x ellipsis), (false,true))  :: list xs ys
-    | ([] as xs), y :: ys -> ((diff ellipsis y), (true,false)) :: list xs ys in
+    | x :: xs, ([] as ys) -> (diff x ellipsis, (false,true))  :: list xs ys
+    | ([] as xs), y :: ys -> (diff ellipsis y, (true,false)) :: list xs ys in
   list_diff @@ list x y
 
 (* Keyed list where the element with key k should be compared to the element

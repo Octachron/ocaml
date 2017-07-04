@@ -5,26 +5,26 @@
   end..
 Error: Signature mismatch:
        Modules do not match:
-         sig val f : ... -> float -> ... -> float end
+         sig val f : ... * 4 -> float -> ... -> float end
        is not included in
-         sig val f : ... -> int -> ... -> int end
+         sig val f : ... * 4 -> int -> ... -> int end
        Values do not match:
-         val f : ... -> float -> ... -> float
+         val f : ... * 4 -> float -> ... -> float
        is not included in
-         val f : ... -> int -> ... -> int
+         val f : ... * 4 -> int -> ... -> int
 #           Characters 87-136:
   ......struct
           let f ?xzy:_ _ _ _ x y = x + y
   end..
 Error: Signature mismatch:
        Modules do not match:
-         sig val f : ?xzy:'a -> ... -> int end
+         sig val f : ?xzy:'a -> ... * 5 -> int end
        is not included in
-         sig val f : ?xyz:int -> ... -> int end
+         sig val f : ?xyz:int -> ... * 5 -> int end
        Values do not match:
-         val f : ?xzy:'a -> ... -> int
+         val f : ?xzy:'a -> ... * 5 -> int
        is not included in
-         val f : ?xyz:int -> ... -> int
+         val f : ?xyz:int -> ... * 5 -> int
 #                             Characters 345-491:
   ......struct
     let f (_:ui) (_:x) (_:saevae) (_:x) (_:luonis) (_:x) (_:iram)
@@ -33,13 +33,13 @@ Error: Signature mismatch:
   end..
 Error: Signature mismatch:
        Modules do not match:
-         sig val f : ... -> x -> ... -> x -> ... -> unit end
+         sig val f : ... -> x -> ... -> x -> ... * 11 -> unit end
        is not included in
-         sig val f : ... -> superum -> ... -> memorem -> ... -> unit end
+         sig val f : ... -> superum -> ... -> memorem -> ... * 11 -> unit end
        Values do not match:
-         val f : ... -> x -> ... -> x -> ... -> unit
+         val f : ... -> x -> ... -> x -> ... * 11 -> unit
        is not included in
-         val f : ... -> superum -> ... -> memorem -> ... -> unit
+         val f : ... -> superum -> ... -> memorem -> ... * 11 -> unit
 #                   Characters 106-166:
   ........struct
                   let f ~lbll ?optt () = ()
@@ -59,16 +59,16 @@ Error: Signature mismatch:
           end
 Error: Signature mismatch:
        Modules do not match:
-         sig val f : int -> ... -> int end
+         sig val f : int -> ... * 4 -> int end
        is not included in
-         sig val f : unit -> ... -> unit end
+         sig val f : unit -> ... * 4 -> unit end
        Values do not match:
-         val f : int -> ... -> int
+         val f : int -> ... * 4 -> int
        is not included in
-         val f : unit -> ... -> unit
+         val f : unit -> ... * 4 -> unit
 #                                   Characters 49-50:
   let f: int -> int -> int -> int -> int -> int = 0
                                                   ^
 Error: This expression has type int but an expression was expected of type
-         int -> ... -> int
+         int -> ... * 4 -> int
 # 

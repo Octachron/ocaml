@@ -29,7 +29,7 @@ let cautious f ppf arg =
 let prf pp ppf = function
   | Ofoc_ellipsis n ->
       if n > 1 then
-        fprintf ppf "%t%s%d" ellipsis !times n
+        fprintf ppf "%t %s %d" ellipsis !times n
       else ellipsis ppf
   | Ofoc(Off, s) -> pp ppf s
   | Ofoc(On, s) -> fprintf ppf "@{<focus>%a@}" pp s

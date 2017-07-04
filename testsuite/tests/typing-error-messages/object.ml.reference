@@ -20,7 +20,8 @@ val f : < f : int; g : int; h : int; i : int; .. > -> int = <fun>
           method alto = [[]]
         end..
 Error: This expression has type
-         < ...; alto : ... list; ...; oris : int; ... >
-       but an expression was expected of type c = < ...; oris : float; ... >
+         < ...; alto : ... list; ... * 10; oris : int; ... * 7 >
+       but an expression was expected of type
+         c = < ... * 12; oris : float; ... * 7 >
        The second object type has no method alto
 # 

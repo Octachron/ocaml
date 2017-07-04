@@ -5,26 +5,26 @@
   end
 Error: Signature mismatch:
        Modules do not match:
-         sig type c = ... | G | H | ... end
+         sig type c = ... * 3 | G | H | ... * 2 end
        is not included in
-         sig type c = ... | D | E | ... end
+         sig type c = ... * 3 | D | E | ... * 2 end
        Type declarations do not match:
-         type c = ... | G | H | ...
+         type c = ... * 3 | G | H | ... * 2
        is not included in
-         type c = ... | D | E | ...
+         type c = ... * 3 | D | E | ... * 2
        Fields number 4 have different names, G and D.
 #       Characters 54-97:
   .......................................struct
     type t = A | B | C | D | E | G end..
 Error: Signature mismatch:
        Modules do not match:
-         sig type t = ... | G end
+         sig type t = ... * 5 | G end
        is not included in
-         sig type t = ... | F end
+         sig type t = ... * 5 | F end
        Type declarations do not match:
-         type t = ... | G
+         type t = ... * 5 | G
        is not included in
-         type t = ... | F
+         type t = ... * 5 | F
        Fields number 6 have different names, G and F.
 #                   Characters 96-161:
   ......struct
@@ -33,8 +33,8 @@ Error: Signature mismatch:
   end..
 Error: Signature mismatch:
        Modules do not match:
-         sig ... end
+         sig ... * 9 end
        is not included in
-         sig ... type t += D ... end
+         sig ... * 7 type t += D ... * 2 end
        The extension constructor `D' is required but not provided
 # 

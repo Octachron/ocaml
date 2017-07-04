@@ -8,8 +8,8 @@ Error: Signature mismatch:
                    [ `_1 of
                        [ `A of [ `B of [ `C of float | ... ] | ... ]
                        | `Alep of [ `B of [ `C of float | ... ] | ... ]
-                       | ... ]
-                   | ... ]
+                       | ... * 2 ]
+                   | ... * 4 ]
                | ... ]
          end
        is not included in
@@ -19,8 +19,8 @@ Error: Signature mismatch:
                    [ `_1 of
                        [ `A of [ `B of [ `C of unit | ... ] | ... ]
                        | `Alep of [ `B of [ `C of unit | ... ] | ... ]
-                       | ... ]
-                   | ... ]
+                       | ... * 2 ]
+                   | ... * 4 ]
                | ... ]
          end
        Type declarations do not match:
@@ -29,8 +29,8 @@ Error: Signature mismatch:
                  [ `_1 of
                      [ `A of [ `B of [ `C of float | ... ] | ... ]
                      | `Alep of [ `B of [ `C of float | ... ] | ... ]
-                     | ... ]
-                 | ... ]
+                     | ... * 2 ]
+                 | ... * 4 ]
              | ... ]
        is not included in
          type t =
@@ -38,7 +38,7 @@ Error: Signature mismatch:
                  [ `_1 of
                      [ `A of [ `B of [ `C of unit | ... ] | ... ]
                      | `Alep of [ `B of [ `C of unit | ... ] | ... ]
-                     | ... ]
-                 | ... ]
+                     | ... * 2 ]
+                 | ... * 4 ]
              | ... ]
 # 
