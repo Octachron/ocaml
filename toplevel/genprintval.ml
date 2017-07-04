@@ -25,7 +25,7 @@ open Outcometree
 let unfoc x = Ofoc(Off, x)
 let extract = function
   | Ofoc(_,x) -> x
-  | Ofoc_ellipsis -> assert false
+  | Ofoc_ellipsis _ -> assert false
 
 module type OBJ =
   sig

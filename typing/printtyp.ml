@@ -48,7 +48,7 @@ let ident ppf id = pp_print_string ppf (ident_name id)
 
 let unfoc x = Ofoc(Off, x)
 let f_extract = function
-  | Ofoc_ellipsis -> raise (Invalid_argument "f_extract: ellipsis")
+  | Ofoc_ellipsis _ -> raise (Invalid_argument "f_extract: ellipsis")
   | Ofoc(_, s) -> s
 
 (* Print a path *)
@@ -1204,7 +1204,7 @@ let rec modtype ?(ellipsis=false) = function
   | Mty_ident p ->
       Omty_ident (unfoc @@ path p)
   | Mty_signature sg ->
-      Omty_signature (if ellipsis then [Ofoc_ellipsis]
+      Omty_signature (if ellipsis then [Ofoc_ellipsis 1]
                       else List.map unfoc (signature sg))
   | Mty_functor(param, ty_arg, ty_res) ->
       let res =

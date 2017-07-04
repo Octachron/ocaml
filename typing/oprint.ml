@@ -19,6 +19,7 @@ open Outcometree
 exception Ellipsis
 
 let ref_ellipsis = ref "..."
+let times = ref "*"
 let ellipsis ppf = fprintf ppf "%s" !ref_ellipsis
 
 let cautious f ppf arg =
@@ -26,12 +27,15 @@ let cautious f ppf arg =
     Ellipsis -> ellipsis ppf
 
 let prf pp ppf = function
-  | Ofoc_ellipsis -> ellipsis ppf
+  | Ofoc_ellipsis n ->
+      if n > 1 then
+        fprintf ppf "%t%s%d" ellipsis !times n
+      else ellipsis ppf
   | Ofoc(Off, s) -> pp ppf s
   | Ofoc(On, s) -> fprintf ppf "@{<focus>%a@}" pp s
 
 let fbool name ppf = function
-  | Ofoc_ellipsis -> ()
+  | Ofoc_ellipsis _ -> ()
   | Ofoc(Off, b) ->
       if b then fprintf ppf name
   | Ofoc(On, b) ->
@@ -382,7 +386,7 @@ let pr_typename = prf pr_typename_0
 
 let foc_fmap f = function
   | Ofoc(flag, s) -> Ofoc(flag, f s)
-  | Ofoc_ellipsis -> Ofoc_ellipsis
+  | Ofoc_ellipsis _ as x -> x
 
 let type_parameter ppf {covariant;contravariant;name} =
       fprintf ppf "%a%a%a"

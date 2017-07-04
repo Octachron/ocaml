@@ -94,10 +94,10 @@ let _refoc = function
   | x -> x
 
 let focus_ellide_diff x y = match x, y with
-  | Ofoc_ellipsis, Ofoc(Off, x) ->
-     Ofoc_ellipsis, Ofoc(On,x)
-  | Ofoc(Off,x), Ofoc_ellipsis ->
-      Ofoc(On,x), Ofoc_ellipsis
+  | Ofoc_ellipsis _ as e, Ofoc(Off, x) ->
+     e, Ofoc(On,x)
+  | Ofoc(Off,x), (Ofoc_ellipsis _ as e) ->
+      Ofoc(On,x), e
   | _ -> x, y
 
 let stitch2 x y = match x, y with
@@ -310,23 +310,27 @@ let _cons = List.cons
 let cons2 (x,y) (l,l') = x::l, y :: l'
 let dup x = x, x
 
+
+
 let fmap2 f x y = match x, y with
   | Ofoc(_,x), Ofoc(_,y) ->  nofoc @@ f x y
-  | Ofoc_ellipsis, Ofoc(_,x) -> stitch2 (pure Ofoc_ellipsis) (do_focus @@ f x x)
-  | Ofoc(_,x), Ofoc_ellipsis -> stitch2 (do_focus @@ f x x) (pure Ofoc_ellipsis)
-  | Ofoc_ellipsis, Ofoc_ellipsis -> pure Ofoc_ellipsis
+  | Ofoc_ellipsis _ as e, Ofoc(_,x) ->
+      stitch2 (pure e) (do_focus @@ f x x)
+  | Ofoc(_,x), (Ofoc_ellipsis _ as e) ->
+      stitch2 (do_focus @@ f x x) (pure e)
+  | Ofoc_ellipsis n, Ofoc_ellipsis n' -> pure @@ Ofoc_ellipsis(max n n')
 
 
 let bind2 f x y = match x, y with
   | Ofoc(_,x), Ofoc(_,y) ->  f x y
-  | Ofoc_ellipsis, Ofoc(_,x) -> stitch2 (pure Ofoc_ellipsis) (f x x)
-  | Ofoc(_,x), Ofoc_ellipsis -> stitch2 (f x x) (pure Ofoc_ellipsis)
-  | Ofoc_ellipsis, Ofoc_ellipsis -> pure Ofoc_ellipsis
+  | Ofoc_ellipsis _ as e, Ofoc(_,x) -> stitch2 (pure e) (f x x)
+  | Ofoc(_,x), (Ofoc_ellipsis _ as e) -> stitch2 (f x x) (pure e)
+  | Ofoc_ellipsis n, Ofoc_ellipsis n' -> pure @@ Ofoc_ellipsis(max n n')
 
 
 
 (** {3 List combinators } *)
-let ellipsis = Ofoc_ellipsis
+let ellipsis = Ofoc_ellipsis 1
 
 let fueled x f = f > 0 || card (size x) = 0
 
@@ -412,8 +416,8 @@ let list diff x y =
    associated with the same key *)
 
 let lift_cmp cmp x y = match x,y with
-  | Ofoc_ellipsis, _ -> -1
-  | _, Ofoc_ellipsis  -> 1
+  | Ofoc_ellipsis _, _ -> -1
+  | _, Ofoc_ellipsis _  -> 1
   | Ofoc(_,x), Ofoc(_,y) -> cmp x y
 
 
@@ -443,7 +447,7 @@ let map_like cmp diff x y =
     List.rev @@ snd @@ List.fold_left (fun (i,l) x -> i+1,(i,x)::l) (0,[]) l in
   let sort = List.sort (fun (_,y) (_,y') -> lift_cmp cmp y y') in
   let x, y = sort(decorate x), sort(decorate y) in
-  let companion x = Array.make (List.length x) Ofoc_ellipsis in
+  let companion x = Array.make (List.length x) (Ofoc_ellipsis 1) in
 
   let pos = function Some (x,_) -> Some x | None -> None in
   let zip x y = pos x, pos y in
@@ -464,7 +468,7 @@ let map_like cmp diff x y =
   let rec reorder out l fuel  =  match l, fuel with
     | [], _  |  _, [] -> ()
     | (x, ns):: xs , f :: fs when not (fueled x f) ->
-        dispatch out ns (dup Ofoc_ellipsis);
+        dispatch out ns (dup @@ Ofoc_ellipsis 1);
         reorder out xs fs
     | (x, ns) :: xs, f :: fs  ->
         let x = (flatten x).gen f in
@@ -473,7 +477,8 @@ let map_like cmp diff x y =
 
   let rec ellide = function
     | [] -> []
-    | Ofoc_ellipsis :: (Ofoc_ellipsis :: _ as q) -> ellide q
+    | Ofoc_ellipsis k :: Ofoc_ellipsis l :: q ->
+        ellide (Ofoc_ellipsis(k+l) :: q)
     | a :: q -> a :: ellide q in
 
   let gen fuel =
@@ -505,7 +510,7 @@ let nofocus = id, id
 
 let sfocus = function
   | Ofoc(_, s) -> Ofoc(On,s)
-  | Ofoc_ellipsis -> Ofoc_ellipsis
+  | Ofoc_ellipsis _ as e -> e
 
 let _sdiff: string -> _ = diff one nofocus
 
@@ -569,7 +574,7 @@ module Type = struct
     | Otyp_arrow (arg,Ofoc(_,rest)) ->
         let rest, ret = fn_to_list rest in
         arg :: rest, ret
-    | Otyp_arrow (arg, (Ofoc_ellipsis as ret)) ->
+    | Otyp_arrow (arg, (Ofoc_ellipsis _ as ret)) ->
         [arg], ret
     | rest -> [], unfoc rest
 
@@ -587,7 +592,7 @@ module Type = struct
 
   let is_free =
     function
-    | Ofoc_ellipsis -> false
+    | Ofoc_ellipsis _ -> false
     | Ofoc(_,var) ->
     if M.mem var !unfree_vars then
       false
@@ -686,8 +691,8 @@ module Ct = struct
   let rec to_list = function
     | Octy_arrow (arg,Ofoc(_,z)) -> let q, e = to_list z in
         Std.(arg :: q), e
-    | Octy_arrow (arg,Ofoc_ellipsis) ->
-       Std.[arg], Ofoc_ellipsis
+    | Octy_arrow (arg,Ofoc_ellipsis k) ->
+       Std.[arg], Ofoc_ellipsis k
     | rest -> Std.[], unfoc rest
 
   let rec arrow = function
@@ -779,7 +784,7 @@ let alist = list (fmap2 attr_diff)
 
 let foc_flatten = function
   | Ofoc(_,x) -> x
-  | Ofoc_ellipsis -> "..."
+  | Ofoc_ellipsis _ -> "..."
 
 let sig_item_key = function
   | Osig_class(_,name,_,_,_) -> "class", foc_flatten name
@@ -869,7 +874,7 @@ module Gen = struct
   type 'a t = 'a * 'a -> int -> 'a * 'a
 
   let extract = function
-    | Ofoc_ellipsis -> assert false
+    | Ofoc_ellipsis _ -> assert false
     | Ofoc(_,x) -> x
 
   let simplify f (x,y)=

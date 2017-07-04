@@ -147,8 +147,8 @@ let rec add_native_repr_attributes ty attrs =
           begin match arg with
           | Ofoc (foc, (label, Ofoc(foc', ty)) ) ->
                   Ofoc(foc, (label, Ofoc(Off,Otyp_attribute (Ofoc(foc', ty), attr))))
-          | Ofoc (_, (_, Ofoc_ellipsis ))
-          | Ofoc_ellipsis as x -> x
+          | Ofoc (_, (_, Ofoc_ellipsis _ ))
+          | Ofoc_ellipsis _ as x -> x
           end
     in
     Otyp_arrow (arg, Ofoc(Off,b))
@@ -196,7 +196,7 @@ let print p osig_val_decl =
     oval_prims = List.map (fun x -> Ofoc(Off,x)) prims;
     oval_type =
       (match osig_val_decl.oval_type with
-       | Ofoc_ellipsis -> Ofoc_ellipsis
+       | Ofoc_ellipsis _ as x -> x
        | Ofoc (foc, x) ->
            Ofoc(foc,add_native_repr_attributes x type_attrs)
       );

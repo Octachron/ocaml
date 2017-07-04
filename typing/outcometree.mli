@@ -27,7 +27,7 @@ type highlight = On | Off
 
 type 'a focusable =
   | Ofoc of highlight * 'a
-  | Ofoc_ellipsis
+  | Ofoc_ellipsis of int (** ellipsis lenght *)
 
 type fstring = string focusable
 type fbool = bool focusable
