@@ -271,7 +271,8 @@ and print_out_type_2 ppf =
 and print_simple_out_type ppf =
   function
     Otyp_class (ng, id, tyl) ->
-      fprintf ppf "@[%a%s#%a@]" print_typargs tyl (if ng then "_" else "")
+      fprintf ppf "@[%a%a#%a@]" print_typargs tyl
+        (fbool "_") ng
         (prf print_ident) id
   | Otyp_constr (id, tyl) ->
       pp_open_box ppf 0;
@@ -298,9 +299,9 @@ and print_simple_out_type ppf =
       in
       fprintf ppf "%a[%a@[<hv>@[<hv>%a@]%a ]@]"
         pp_nongen non_gen
-        (pp_closed (tags = None)) closed
+        (pp_closed (match tags with H.Item(_,None) -> true | _ -> false)) closed
         print_fields row_fields
-        print_present tags
+        (prf print_present) tags
   | Otyp_alias _ | Otyp_poly _ | Otyp_arrow _ | Otyp_tuple _ as ty ->
       pp_open_box ppf 1;
       pp_print_char ppf '(';
@@ -332,14 +333,15 @@ and print_field ppf (s,t) =
 and print_fields rest ppf =
   function
     [] ->
-      begin match rest with
-        Some non_gen -> fprintf ppf "%s.." (if non_gen then "_" else "")
-      | None -> ()
-      end
+      let pp_rest ppf = function
+          Some non_gen -> fprintf ppf "%a.." (fbool "_") non_gen
+        | None -> ()
+      in
+      prf pp_rest ppf rest
   | [a] -> prf print_field ppf a;
       begin match rest with
-        Some _ -> fprintf ppf ";@ "
-      | None -> ()
+        H.Item(_, Some _) -> fprintf ppf ";@ "
+      | H.Item(_,None) | H.Ellipsis _ -> ()
       end;
       print_fields rest ppf []
   | a :: l ->
@@ -423,7 +425,7 @@ let rec print_out_class_type ppf =
           Some ty -> fprintf ppf "@ @[(%a)@]" (prf !out_type) ty
         | None -> ()
       in
-      fprintf ppf "@[<hv 2>@[<2>object%a@]@ %a@;<1 -2>end@]" pr_param self_ty
+      fprintf ppf "@[<hv 2>@[<2>object%a@]@ %a@;<1 -2>end@]" (prf pr_param) self_ty
         (print_list (prf print_out_class_sig_item) (fun ppf -> fprintf ppf "@ "))
         csil
 and print_out_class_sig_item ppf =
@@ -452,10 +454,11 @@ let out_type_extension = ref (fun _ -> failwith "Oprint.out_type_extension")
 
 let rec print_out_functor funct ppf =
   function
-    Omty_functor (_, None, mty_res) ->
-      if funct then fprintf ppf "() %a" (prf @@ print_out_functor true) mty_res
-      else fprintf ppf "functor@ () %a" (prf @@ print_out_functor true) mty_res
-  | Omty_functor (name, Some mty_arg, mty_res) -> begin
+    Omty_functor (_, H.Item(h,None), mty_res) ->
+      let arg ppf = prf string ppf (H.Item(h,"()")) in
+      if funct then fprintf ppf "%t %a" arg (prf @@ print_out_functor true) mty_res
+      else fprintf ppf "functor@ %t %a" arg (prf @@ print_out_functor true) mty_res
+  | Omty_functor (name,H.Item(_,Some mty_arg), mty_res) -> begin
       match name, funct with
       | H.Item(_,"_"), true ->
           fprintf ppf "->@ %a ->@ %a"
@@ -629,25 +632,26 @@ and print_out_constr ppf {cname; args; ret} =
     | "::" -> "(::)"   (* #7200 *)
     | s -> s) cname
   in
-  match ret with
-  | None ->
-      begin match args with
-      | [] ->
-          fstring ppf name
-      | _ ->
-          fprintf ppf "@[<2>%a of@ %a@]" fstring name
-            (print_typlist print_simple_out_type " *") args
-      end
-  | Some ret_type ->
-      begin match args with
-      | [] ->
-          fprintf ppf "@[<2>%a :@ %a@]" fstring name
-            (prf print_simple_out_type) ret_type
-      | _ ->
-          fprintf ppf "@[<2>%a :@ %a -> %a@]" fstring name
-            (print_typlist print_simple_out_type " *")
-            args (prf print_simple_out_type) ret_type
-      end
+  let pp_ret ppf = function
+    | None ->
+        begin match args with
+        | [] ->
+            fstring ppf name
+        | _ ->
+            fprintf ppf "@[<2>%a of@ %a@]" fstring name
+              (print_typlist print_simple_out_type " *") args
+        end
+    | Some ret_type ->
+        begin match args with
+        | [] ->
+            fprintf ppf "@[<2>%a :@ %a@]" fstring name
+              (prf print_simple_out_type) ret_type
+        | _ ->
+            fprintf ppf "@[<2>%a :@ %a -> %a@]" fstring name
+              (print_typlist print_simple_out_type " *")
+              args (prf print_simple_out_type) ret_type
+        end in
+  prf pp_ret ppf ret
 
 and print_out_extension_constructor ppf (foc,ext) =
   let print_extended_type ppf =

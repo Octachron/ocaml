@@ -36,7 +36,6 @@ type out_ext_status =
 
 module Make(Ext:Extension) = struct
   type 'a ext = 'a Ext.t
-
   type out_ident =
     | Oide_apply of out_ident ext * out_ident ext
     | Oide_dot of out_ident ext * string ext
@@ -60,22 +59,23 @@ module Make(Ext:Extension) = struct
     | Oval_tuple of out_value list
     | Oval_variant of string * out_value option
 
+
   type out_type =
     | Otyp_abstract
     | Otyp_open
     | Otyp_alias of out_type ext * string ext
     | Otyp_arrow of out_labelled ext * out_type ext
-    | Otyp_class of bool * out_ident ext * out_type ext list
+    | Otyp_class of bool ext * out_ident ext * out_type ext list
     | Otyp_constr of out_ident ext * out_type ext list
     | Otyp_manifest of out_type ext * out_type ext
-    | Otyp_object of out_labelled ext list * bool option
+    | Otyp_object of out_labelled ext list * bool ext option ext
     | Otyp_record of out_field ext list
     | Otyp_stuff of string
     | Otyp_sum of out_constructor ext list
     | Otyp_tuple of out_type ext list
     | Otyp_var of bool ext * string ext
     | Otyp_variant of
-        bool ext * out_variant * bool ext * string ext list option
+        bool ext * out_variant * bool ext * string ext list option ext
     | Otyp_poly of string ext list * out_type ext
     | Otyp_module of string ext * string ext list * out_type ext list
     | Otyp_attribute of out_type ext * out_attribute ext
@@ -83,7 +83,7 @@ module Make(Ext:Extension) = struct
   and out_labelled = (string ext * out_type ext)
 
   and out_constructor =
-    {cname:string ext; args:out_type ext list; ret:out_type ext option}
+    {cname:string ext; args:out_type ext list; ret:out_type ext option ext}
 
   and out_variant =
     | Ovar_fields of out_var_field ext list
@@ -98,7 +98,7 @@ module Make(Ext:Extension) = struct
   type out_class_type =
     | Octy_constr of out_ident ext * out_type ext list
     | Octy_arrow of out_labelled ext * out_class_type ext
-    | Octy_signature of out_type ext option * out_class_sig_item ext list
+    | Octy_signature of out_type ext option ext * out_class_sig_item ext list
   and out_class_sig_item =
     | Ocsg_constraint of type_constraint
     | Ocsg_method of string ext * bool ext * bool ext * out_type ext
@@ -109,7 +109,7 @@ module Make(Ext:Extension) = struct
   type out_module_type =
     | Omty_abstract
     | Omty_functor of
-        string ext * out_module_type ext option * out_module_type ext
+        string ext * out_module_type ext option ext * out_module_type ext
     | Omty_ident of out_ident ext
     | Omty_signature of out_sig_item ext list
     | Omty_alias of out_ident ext
@@ -139,7 +139,7 @@ module Make(Ext:Extension) = struct
       oext_type_name: string ext;
       oext_type_params: string ext list;
       oext_args: out_type ext list;
-      oext_ret_type: out_type ext option;
+      oext_ret_type: out_type ext option ext;
       oext_private: Asttypes.private_flag ext }
   and out_type_extension =
     { otyext_name: string ext;
@@ -156,6 +156,7 @@ module Make(Ext:Extension) = struct
     | Ophr_eval of out_value * out_type
     | Ophr_signature of (out_sig_item * out_value option) list
     | Ophr_exception of (exn * out_value)
+
 end
 
 module type S = module type of Make(struct type 'a t end)
@@ -176,6 +177,7 @@ module Decorate = struct
   and ident x = fmap out_ident x
 
   let may f = function None -> None | Some x -> Some (f x)
+  let mayf f x = fwd (may f @@ x)
 
   let rec out_value = function
     | Oval_array x -> D.Oval_array (List.map out_value x)
@@ -201,17 +203,17 @@ module Decorate = struct
     | Otyp_open -> D.Otyp_open
     | Otyp_alias(x,y) -> D.Otyp_alias(typ x,fwd y)
     | Otyp_arrow(l,t) -> D.Otyp_arrow(label l, typ t)
-    | Otyp_class(b,id,ts) -> D.Otyp_class(b, ident id,types ts)
+    | Otyp_class(b,id,ts) -> D.Otyp_class(fwd b, ident id,types ts)
     | Otyp_constr(id,ts) -> D.Otyp_constr(ident id, types ts)
     | Otyp_manifest(t,t') -> D.Otyp_manifest(typ t, typ t')
-    | Otyp_object(lbls, o) -> D.Otyp_object(labels lbls, o)
+    | Otyp_object(lbls, o) -> D.Otyp_object(labels lbls, mayf fwd o)
     | Otyp_record r -> D.Otyp_record(fields r)
     | Otyp_stuff s -> D.Otyp_stuff s
     | Otyp_sum cntrs -> D.Otyp_sum (List.map constr cntrs)
     | Otyp_tuple ts -> D.Otyp_tuple(types ts)
     | Otyp_var(b,s) -> D.Otyp_var(fwd b, fwd s)
     | Otyp_variant (b,vars,b',tags) ->
-      D.Otyp_variant(fwd b,out_variant vars, fwd b', may fwds tags )
+      D.Otyp_variant(fwd b,out_variant vars, fwd b', mayf fwds tags )
     | Otyp_poly(us, t) -> D.Otyp_poly(fwds us, typ t)
     | Otyp_module (name,with',ts) -> D.Otyp_module(fwd name, fwds with', types ts)
     | Otyp_attribute(t, attrs) -> D.Otyp_attribute(typ t, fwd attrs)
@@ -221,7 +223,7 @@ module Decorate = struct
   and label (lbl,t) = fwd (fwd lbl, typ t)
   and labels x = List.map label x
   and constr c =
-    fwd {D.cname = fwd c.cname; args = types c.args; ret = may typ c.ret}
+    fwd {D.cname = fwd c.cname; args = types c.args; ret = mayf typ c.ret}
 
   and out_variant = function
     | Ovar_fields fs -> D.Ovar_fields (List.map var_field fs)
@@ -241,7 +243,7 @@ module Decorate = struct
     | Octy_constr(id,ts) -> D.Octy_constr(ident id, types ts)
     | Octy_arrow(lbl,t) -> D.Octy_arrow(label lbl, class_type t)
     | Octy_signature(self, items) ->
-        D.Octy_signature(may typ self, List.map (fmap out_class_sig_item) items)
+        D.Octy_signature(mayf typ self, List.map (fmap out_class_sig_item) items)
   and out_class_sig_item = function
     | Ocsg_constraint x -> D.Ocsg_constraint (type_constraint x)
     | Ocsg_method(name,priv,virt,t) ->
@@ -258,7 +260,7 @@ module Decorate = struct
   let rec out_module_type = function
     | Omty_abstract -> D.Omty_abstract
     | Omty_functor (name, arg, res) ->
-        D.Omty_functor(fwd name, may module_type arg, module_type res)
+        D.Omty_functor(fwd name, mayf module_type arg, module_type res)
     | Omty_ident id -> D.Omty_ident (ident id)
     | Omty_signature items -> D.Omty_signature (sigitems items)
     | Omty_alias id -> D.Omty_alias(ident id)
@@ -290,7 +292,7 @@ module Decorate = struct
       oext_type_name = fwd e.oext_type_name;
       oext_type_params = fwds e.oext_type_params;
       oext_args = types e.oext_args;
-      oext_ret_type = may typ e.oext_ret_type;
+      oext_ret_type = mayf typ e.oext_ret_type;
       oext_private = fwd e.oext_private }
   and out_type_extension e =
     { D.otyext_name= fwd e.otyext_name;

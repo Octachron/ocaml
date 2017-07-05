@@ -104,23 +104,6 @@ let focus_ellide_diff x y = match x, y with
   | H.Item(_,x), H.Item(_,y) -> H.Item(H.On,x) , H.Item(H.On,y)
   | H.Ellipsis _ , H.Ellipsis _ -> x, y
 
-
-let stitch0 x y = match x, y with
-  | Eq x, Eq y ->
-      D { size = primary (max x.size y.size);
-          gen =(fun fuel -> x.gen fuel, y.gen fuel)
-        }
-  | r, r' ->
-      (* Note that this branch is used for type aliases,
-         cf. Otyp_alias, Not Otyp_alias branch *)
-      let r = flatten r and r' = flatten r' in
-      D {
-        size = r.size ++ r'.size;
-        gen = (fun fuel -> let x, _ = r.gen fuel and _, y = r'.gen fuel in
-                x, y
-              )
-        }
-
 let stitch2 x y = match x, y with
   | Eq x, Eq y ->
       D { size = primary (max x.size y.size);
@@ -515,20 +498,33 @@ let _triple x y z = x, y, z
 open T
 let some x = Some x
 
-let opt diff x y =
-  let fsome = fmap some some in
+let opt_ext diff x y =
+  let fmap f x = fmap f f x in
+  let fsome x = unfoc (some x) in
+  let ff = fmap fsome in
   match x, y with
-  | None, None -> pure None
-  | Some x, Some y -> fsome (diff x y)
-  | Some x, None ->  stitch0 (fsome @@ diff x x) (pure None)
-  | None, Some x ->  stitch0 (pure None) (fsome @@ diff x x)
+  | None, None -> pure (unfoc None)
+  | Some x, Some y -> ff (diff x y)
+  | Some x, None ->  stitch2 (ff @@ diff x x) (pure @@ unfoc None)
+  | None, Some x ->  stitch2 (pure @@ unfoc None) (ff @@ diff x x)
+
+(*
+let opt_ext diff x y =
+  let fmap f x = fmap f f x in
+  let fsome x = unfoc (some x) in
+  let ff = fmap fsome in
+  | None, None -> pure (unfoc None)
+  | Some x, Some y ->  (diff x y)
+  | Some x, None ->  stitch2 (ff @@ diff x x) (pure @@ unfoc None)
+  | None, Some x ->  stitch2 (pure @@ unfoc None) (ff @@ diff x x)
+*)
 
 
 let _nofocus = unfoc, unfoc
 let focus = foc, foc
 
 
-let bdiff: bool -> _ = diff0
+let _bdiff: bool -> _ = diff0
 let bfdiff: bool -> _ = diff empty (dup foc)
 
 let recs_diff: out_rec_status -> _ = diff empty focus
@@ -629,13 +625,13 @@ module Type = struct
         let fn =  fn_to_list t1 and fn' = fn_to_list t2 in
         arrow <*> [ fn_args fn fn' ]
     | Otyp_class (b, id, args), Otyp_class (b',id',args') ->
-        class' <*> [ bdiff b b'; id_diff id id'; tylist args args' ]
+        class' <*> [ bfdiff b b'; id_diff id id'; tylist args args' ]
     | Otyp_constr (t1, args), Otyp_constr(t2,args2) ->
         constr <*> [ id_diff t1 t2; tylist args args2 ]
     | Otyp_manifest(x,y), Otyp_manifest(x',y') ->
         manifest <*> [typ x x'; typ y y']
     | Otyp_object (l,closed), Otyp_object (l2,closed2)  ->
-        object' <*> [olist l l2; opt bdiff closed closed2]
+        object' <*> [olist l l2; opt_ext bfdiff closed closed2]
     | Otyp_record r, Otyp_record r' ->
         record <*> [rlist r r']
     | Otyp_sum s, Otyp_sum s' ->
@@ -651,7 +647,7 @@ module Type = struct
           bfdiff b b';
           dvariant fields fields';
           bfdiff b2 b2';
-          opt flist tags tags'
+          opt_ext flist tags tags'
         ]
     | Otyp_poly (forall,ty), Otyp_poly (forall',ty') ->
         poly <*> [flist forall forall'; typ ty ty']
@@ -678,7 +674,7 @@ module Type = struct
     (fun cname args ret -> unfoc {D.cname;args;ret})
           <*> [ fdiff c.cname c'.cname;
                 tylist c.args c'.args;
-                opt typ c.ret c'.ret
+                opt_ext typ c.ret c'.ret
               ]
 
   and dfield f f' =
@@ -730,7 +726,7 @@ module Ct = struct
     | Octy_arrow _ , Octy_arrow _ ->
         arrow <*> [ ct_args x y ]
     | Octy_signature (x,items), Octy_signature(y,items') ->
-        signature <*> [opt typ x y; item_list items items']
+        signature <*> [opt_ext typ x y; item_list items items']
     | _ -> stitch ct x y
   and item_list x = list (bind2 items) x
   and ct_args c c' =
@@ -828,12 +824,12 @@ let rec sig_item s1 s2 =
   | Osig_typext (te,st), Osig_typext (te',st') ->
       typext <*>
      [ extension_constructor
-        <*> [ fdiff     te.oext_name        te'.oext_name;
-              fdiff     te.oext_type_name   te'.oext_type_name;
-              flist     te.oext_type_params te'.oext_type_params;
-              tylist    te.oext_args        te'.oext_args;
-              opt typ  te.oext_ret_type    te'.oext_ret_type;
-              priv_diff te.oext_private     te'.oext_private ]
+        <*> [ fdiff       te.oext_name        te'.oext_name;
+              fdiff       te.oext_type_name   te'.oext_type_name;
+              flist       te.oext_type_params te'.oext_type_params;
+              tylist      te.oext_args        te'.oext_args;
+              opt_ext typ te.oext_ret_type    te'.oext_ret_type;
+              priv_diff   te.oext_private     te'.oext_private ]
         ;
         ext_diff st st'
       ]
@@ -874,7 +870,7 @@ and module_type x y =
   | Omty_abstract, Omty_abstract -> std @@ Decorate.out_module_type x
 
   | Omty_functor(name,arg,res), Omty_functor(name',arg',res')->
-      functor' <*> [fdiff name name'; opt module_type arg arg';
+      functor' <*> [fdiff name name'; opt_ext module_type arg arg';
                     module_type res res' ] (* TODO: expand *)
   | Omty_ident id, Omty_ident id' -> ident <*> [id_diff id id']
   | Omty_signature s, Omty_signature s' ->
