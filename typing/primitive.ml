@@ -138,28 +138,21 @@ open Outcometree
 
 let rec add_native_repr_attributes ty attrs =
   match ty, attrs with
-  | Otyp_arrow (arg, Ofoc(_,b)), attr_opt :: rest ->
+  | Otyp_arrow ((l,ty) as arg, b), attr_opt :: rest ->
     let b = add_native_repr_attributes b rest in
     let arg =
       match attr_opt with
       | None -> arg
-      | Some attr ->
-          begin match arg with
-          | Ofoc (foc, (label, Ofoc(foc', ty)) ) ->
-                  Ofoc(foc, (label, Ofoc(Off,Otyp_attribute (Ofoc(foc', ty), attr))))
-          | Ofoc (_, (_, Ofoc_ellipsis _ ))
-          | Ofoc_ellipsis _ as x -> x
-          end
-    in
-    Otyp_arrow (arg, Ofoc(Off,b))
-  | _, [Some attr] -> Otyp_attribute (Ofoc(Off,ty), attr)
+      | Some attr -> l, Otyp_attribute(ty,attr)
+    in Otyp_arrow (arg, b)
+  | _, [Some attr] -> Otyp_attribute (ty, attr)
   | _ ->
     assert (List.for_all (fun x -> x = None) attrs);
     ty
 
-let oattr_unboxed = Ofoc(Off,{ oattr_name = "unboxed" })
-let oattr_untagged = Ofoc(Off,{ oattr_name = "untagged" })
-let oattr_noalloc = Ofoc(Off,{ oattr_name = "noalloc" })
+let oattr_unboxed = { oattr_name = "unboxed" }
+let oattr_untagged = { oattr_name = "untagged" }
+let oattr_noalloc = { oattr_name = "noalloc" }
 
 let print p osig_val_decl =
   let prims =
@@ -193,13 +186,8 @@ let print p osig_val_decl =
     [attr_of_native_repr p.prim_native_repr_res]
   in
   { osig_val_decl with
-    oval_prims = List.map (fun x -> Ofoc(Off,x)) prims;
-    oval_type =
-      (match osig_val_decl.oval_type with
-       | Ofoc_ellipsis _ as x -> x
-       | Ofoc (foc, x) ->
-           Ofoc(foc,add_native_repr_attributes x type_attrs)
-      );
+    oval_prims = prims;
+    oval_type = add_native_repr_attributes osig_val_decl.oval_type type_attrs;
     oval_attributes = attrs }
 
 

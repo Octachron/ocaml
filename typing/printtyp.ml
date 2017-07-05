@@ -46,11 +46,6 @@ let add_unique id =
 
 let ident ppf id = pp_print_string ppf (ident_name id)
 
-let unfoc x = Ofoc(Off, x)
-let f_extract = function
-  | Ofoc_ellipsis _ -> raise (Invalid_argument "f_extract: ellipsis")
-  | Ofoc(_, s) -> s
-
 (* Print a path *)
 
 let ident_pervasives = Ident.create_persistent "Pervasives"
@@ -64,13 +59,13 @@ let non_shadowed_pervasive = function
 
 let rec path = function
   | Pident id ->
-      Oide_ident (unfoc @@ ident_name id)
+      Oide_ident ( ident_name id)
   | Pdot(_, s, _pos) as path when non_shadowed_pervasive path ->
-      Oide_ident (unfoc s)
+      Oide_ident (s)
   | Pdot(p, s, _pos) ->
-      Oide_dot (unfoc (path p), unfoc s)
+      Oide_dot ((path p), s)
   | Papply(p1, p2) ->
-      Oide_apply (unfoc (path p1), unfoc(path p2))
+      Oide_apply ((path p1), path p2)
 
 let rec pp_path ppf = function
   | Pident id ->
@@ -85,13 +80,13 @@ let rec pp_path ppf = function
       fprintf ppf "%a(%a)" pp_path p1 pp_path p2
 
 let rec string_of_out_ident = function
-  | Oide_ident s -> f_extract s
-  | Oide_dot (id, s) -> String.concat "." [string_of_out_ident (f_extract id);
-                                           f_extract s]
+  | Oide_ident s -> s
+  | Oide_dot (id, s) -> String.concat "." [string_of_out_ident (id);
+                                           s]
   | Oide_apply (id1, id2) ->
       String.concat ""
-        [string_of_out_ident (f_extract id1); "(";
-         string_of_out_ident (f_extract id2); ")"]
+        [string_of_out_ident (id1); "(";
+         string_of_out_ident (id2); ")"]
 
 let string_of_path p = string_of_out_ident (path p)
 
@@ -571,14 +566,14 @@ let rec typexp sch ty =
   let px = proxy ty in
   if List.mem_assq px !names && not (List.memq px !delayed) then
    let mark = is_non_gen sch ty in
-   Otyp_var (unfoc mark, unfoc @@ name_of_type px) else
+   Otyp_var (mark,  name_of_type px) else
 
   let pr_typ () =
     match ty.desc with
     | Tvar _ ->
         (*let lev =
           if is_non_gen sch ty then "/" ^ string_of_int ty.level else "" in*)
-        Otyp_var (unfoc @@ is_non_gen sch ty, unfoc @@ name_of_type ty)
+        Otyp_var ( is_non_gen sch ty,  name_of_type ty)
     | Tarrow(l, ty1, ty2, _) ->
         let pr_arrow l ty1 ty2 =
           let lab =
@@ -592,7 +587,7 @@ let rec typexp sch ty =
                   typexp sch ty
               | _ -> Otyp_stuff "<hidden>"
             else typexp sch ty1 in
-          Otyp_arrow ( unfoc(unfoc lab, unfoc t1), unfoc @@ typexp sch ty2) in
+          Otyp_arrow ((lab, t1),  typexp sch ty2) in
         pr_arrow l ty1 ty2
     | Ttuple tyl ->
         Otyp_tuple (typlist sch tyl)
@@ -600,7 +595,7 @@ let rec typexp sch ty =
         let p', s = best_type_path p in
         let tyl' = apply_subst s tyl in
         if is_nth s && not (tyl'=[]) then typexp sch (List.hd tyl') else
-        Otyp_constr (unfoc (path p'), typlist sch tyl')
+        Otyp_constr ((path p'), typlist sch tyl')
     | Tvariant row ->
         let row = row_repr row in
         let fields =
@@ -622,25 +617,24 @@ let rec typexp sch ty =
             let id = path p' in
             let args = typlist sch (apply_subst s tyl) in
             let out_variant =
-              if is_nth s then List.hd args else unfoc
-                @@ Otyp_constr (unfoc id, args) in
+              if is_nth s then List.hd args else Otyp_constr (id, args) in
             if row.row_closed && all_present then
-              f_extract out_variant
+              out_variant
             else
               let non_gen = is_non_gen sch px in
               let tags =
                 if all_present then None else
-                  Some (List.map (fun (x,_) -> unfoc x) present) in
-              Otyp_variant (unfoc non_gen, Ovar_typ out_variant,
-                            unfoc row.row_closed, tags)
+                  Some (List.map (fun (x,_) -> x) present) in
+              Otyp_variant (non_gen, Ovar_typ out_variant,
+                            row.row_closed, tags)
         | _ ->
             let non_gen =
               not (row.row_closed && all_present) &&  is_non_gen sch px in
             let fields = List.map (row_field sch) fields in
             let tags =
               if all_present then None else
-                Some (List.map (fun (x,_) -> unfoc x) present) in
-            Otyp_variant (unfoc non_gen, Ovar_fields fields, unfoc row.row_closed,
+                Some (List.map (fun (x,_) -> x) present) in
+            Otyp_variant (non_gen, Ovar_fields fields, row.row_closed,
                           tags)
         end
     | Tobject (fi, nm) ->
@@ -663,40 +657,40 @@ let rec typexp sch ty =
           (* Make the names delayed, so that the real type is
              printed once when used as proxy *)
           List.iter add_delayed tyl;
-          let tl = List.map (fun x -> unfoc (name_of_type x)) tyl in
-          let tr = Otyp_poly (tl, unfoc @@ typexp sch ty) in
+          let tl = List.map (fun x -> (name_of_type x)) tyl in
+          let tr = Otyp_poly (tl,  typexp sch ty) in
           (* Forget names when we leave scope *)
           remove_names tyl;
           delayed := old_delayed; tr
         end
     | Tunivar _ ->
-        Otyp_var (unfoc false, unfoc @@ name_of_type ty)
+        Otyp_var (false,  name_of_type ty)
     | Tpackage (p, n, tyl) ->
         let n =
-          List.map (fun li -> unfoc (
+          List.map (fun li -> (
               String.concat "." (Longident.flatten li) )
             ) n in
-        Otyp_module ( unfoc @@ Path.name p, n, typlist sch tyl)
+        Otyp_module (  Path.name p, n, typlist sch tyl)
   in
   if List.memq px !delayed then delayed := List.filter ((!=) px) !delayed;
   if is_aliased px && aliasable ty then begin
     check_name_of_type px;
-    Otyp_alias (unfoc @@ pr_typ (), unfoc @@ name_of_type px) end
+    Otyp_alias ( pr_typ (),  name_of_type px) end
   else pr_typ ()
 
 and row_field sch (l, f) =
-  let mk (tag,ampersand, conj) = unfoc @@ {tag;ampersand;conj} in
+  let mk (tag,ampersand, conj) =  {tag;ampersand;conj} in
   mk @@ match row_field_repr f with
-  | Rpresent None | Reither(true, [], _, _) -> (unfoc l, unfoc false, [])
-  | Rpresent(Some ty) -> (unfoc l, unfoc false, [unfoc @@ typexp sch ty])
+  | Rpresent None | Reither(true, [], _, _) -> (l, false, [])
+  | Rpresent(Some ty) -> (l, false, [ typexp sch ty])
   | Reither(c, tyl, _, _) ->
       if c (* contradiction: constant constructor with an argument *)
-      then (unfoc l, unfoc true, typlist sch tyl)
-      else (unfoc l, unfoc false, typlist sch tyl)
-  | Rabsent -> (unfoc l, unfoc false, [] (* actually, an error *))
+      then (l, true, typlist sch tyl)
+      else (l, false, typlist sch tyl)
+  | Rabsent -> (l, false, [] (* actually, an error *))
 
 and typlist sch tyl =
-  List.map (fun x -> unfoc @@ typexp sch x) tyl
+  List.map (fun x ->  typexp sch x) tyl
 
 and typobject sch fi nm =
   begin match nm with
@@ -721,7 +715,7 @@ and typobject sch fi nm =
       let args = typlist sch tyl in
       let (p', s) = best_type_path p in
       assert (s = Id);
-      Otyp_class (non_gen, unfoc(path p'), args)
+      Otyp_class (non_gen, path p', args)
   | _ ->
       fatal_error "Printtyp.typobject"
   end
@@ -740,12 +734,12 @@ and typfields sch rest = function
       in
       ([], rest)
   | (s, t) :: l ->
-      let field = unfoc (unfoc s, unfoc @@ typexp sch t) in
+      let field = (s,  typexp sch t) in
       let (fields, rest) = typfields sch rest l in
       (field :: fields, rest)
 
 let pp_typexp sch ppf ty =
-  !Oprint.out_type ppf (typexp sch ty)
+  !Oprint.out_type ppf (Decorate.out_type @@ typexp sch ty)
 
 let type_expr ppf ty = pp_typexp false ppf ty
 
@@ -769,7 +763,7 @@ let constraints params =
        let ty' = unalias ty in
        if proxy ty != proxy ty' then
          let tr = typexp true ty in
-         unfoc {lhs=unfoc tr; rhs= unfoc @@ typexp true ty'} :: list
+         {lhs=tr; rhs=  typexp true ty'} :: list
        else list)
     params []
 
@@ -840,7 +834,7 @@ let rec type_decl id decl =
 
   let type_param =
     function
-    | Otyp_var (_, id) -> f_extract id
+    | Otyp_var (_, id) -> id
     | _ -> "?"
   in
   let type_defined decl =
@@ -865,16 +859,16 @@ let rec type_decl id decl =
     in
     (Ident.name id,
      List.map2 (fun ty (covariant,contravariant) ->
-         unfoc {name = unfoc @@ type_param (typexp false ty);
-                covariant = unfoc covariant;
-                contravariant = unfoc contravariant;
+         {name =  type_param (typexp false ty);
+                covariant = covariant;
+                contravariant = contravariant;
                })
        params vari)
   in
   let manifest ty1 =
     match ty_manifest with
     | None -> ty1
-    | Some ty -> Otyp_manifest (unfoc @@ typexp false ty, unfoc ty1)
+    | Some ty -> Otyp_manifest ( typexp false ty, ty1)
   in
   let (name, args) = type_defined decl in
   let constraints = constraints params in
@@ -899,21 +893,21 @@ let rec type_decl id decl =
   let immediate =
     Builtin_attributes.immediate decl.type_attributes
   in
-    { otype_name = unfoc name;
+    { otype_name = name;
       otype_params = args;
-      otype_type = unfoc ty;
-      otype_private = unfoc priv;
-      otype_immediate = unfoc immediate;
-      otype_unboxed = unfoc decl.type_unboxed.unboxed;
+      otype_type = ty;
+      otype_private = priv;
+      otype_immediate = immediate;
+      otype_unboxed = decl.type_unboxed.unboxed;
       otype_cstrs = constraints }
 
 and constructor_arguments = function
   | Cstr_tuple l -> typlist false l
-  | Cstr_record l -> [ unfoc @@ Otyp_record (List.map label l) ]
+  | Cstr_record l -> [  Otyp_record (List.map label l) ]
 
 and constructor cd =
   let name = Ident.name cd.cd_id in
-  let mk name args ret = unfoc @@ {cname=unfoc name;args; ret} in
+  let mk name args ret =  {cname=name;args; ret} in
   let arg () = constructor_arguments cd.cd_args in
   match cd.cd_res with
   | None -> mk name (arg ()) None
@@ -923,18 +917,18 @@ and constructor cd =
       let ret = typexp false res in
       let args = arg () in
       names := nm;
-      mk name args (Some (unfoc ret))
+      mk name args (Some (ret))
 
 and label l =
-    unfoc {label= unfoc @@ Ident.name l.ld_id; mut= unfoc (l.ld_mutable = Mutable);
-           typ=unfoc @@typexp false l.ld_type}
+    {label=  Ident.name l.ld_id; mut= (l.ld_mutable = Mutable);
+           typ=typexp false l.ld_type}
 
 let type_declaration id decl rs =
-  Osig_type (type_decl id decl, unfoc @@ rec' rs)
+  Osig_type (type_decl id decl,  rec' rs)
 
 let _pp_constructor_arguments ppf a =
   let tys = constructor_arguments a in
-  !Oprint.out_type ppf (Otyp_tuple tys)
+  !Oprint.out_type ppf (Decorate.out_type @@ Otyp_tuple tys)
 
 (* Print an extension declaration *)
 
@@ -950,7 +944,7 @@ let extension_constructor id ext es =
   let type_param =
     function
     | Otyp_var (_, id) -> id
-    | _ -> unfoc "?"
+    | _ -> "?"
   in
   let ty_params =
     List.map (fun ty -> type_param (typexp false ty)) ty_params
@@ -965,15 +959,15 @@ let extension_constructor id ext es =
         let ret = typexp false res in
         let args = constructor_arguments ext.ext_args in
         names := nm;
-        (args, Some (unfoc ret))
+        (args, Some (ret))
   in
   let ext =
-    { oext_name = unfoc name;
-      oext_type_name = unfoc ty_name;
+    { oext_name = name;
+      oext_type_name = ty_name;
       oext_type_params = ty_params;
       oext_args = args;
       oext_ret_type = ret;
-      oext_private = unfoc ext.ext_private }
+      oext_private = ext.ext_private }
   in
   let es =
     match es with
@@ -981,7 +975,7 @@ let extension_constructor id ext es =
       | Text_next -> Oext_next
       | Text_exception -> Oext_exception
   in
-    Osig_typext (ext, unfoc es)
+    Osig_typext (ext, es)
 
 (* Print a value declaration *)
 
@@ -990,8 +984,8 @@ let value_description id decl =
   let id = Ident.name id in
   let ty = type_scheme decl.val_type in
   let vd =
-    { oval_name = unfoc id;
-      oval_type = unfoc ty;
+    { oval_name = id;
+      oval_type = ty;
       oval_prims = [];
       oval_attributes = [] }
   in
@@ -1017,7 +1011,7 @@ let metho sch concrete csil (lab, kind, ty) =
     let (ty, tyl) = method_type (lab, kind, ty) in
     let tty = typexp sch ty in
     remove_names tyl;
-    unfoc (Ocsg_method (unfoc lab, unfoc priv, unfoc virt, unfoc tty)) :: csil
+    (Ocsg_method (lab, priv, virt, tty)) :: csil
   end
   else csil
 
@@ -1053,12 +1047,12 @@ let rec class_type sch params =
       then
         class_type sch params cty
       else
-        Octy_constr (unfoc(path p'), typlist true tyl)
+        Octy_constr (path p', typlist true tyl)
   | Cty_signature sign ->
       let sty = repr sign.csig_self in
       let self_ty =
         if is_aliased sty then
-          Some (unfoc @@ Otyp_var (unfoc false, unfoc @@ name_of_type (proxy sty)))
+          Some ( Otyp_var (false,  name_of_type (proxy sty)))
         else None
       in
       let (fields, _) =
@@ -1067,7 +1061,7 @@ let rec class_type sch params =
       let csil = [] in
       let csil =
         List.fold_left
-          (fun csil c -> (unfoc @@ Ocsg_constraint (f_extract c)) :: csil)
+          (fun csil c -> ( Ocsg_constraint (c)) :: csil)
           csil (constraints params)
       in
       let all_vars =
@@ -1078,8 +1072,8 @@ let rec class_type sch params =
       let csil =
         List.fold_left
           (fun csil (l, m, v, t) ->
-            ( unfoc @@ Ocsg_value (unfoc l, unfoc (m = Mutable), unfoc (v = Virtual),
-                         unfoc (typexp sch t))) :: csil)
+            (  Ocsg_value (l, (m = Mutable), (v = Virtual),
+                         (typexp sch t))) :: csil)
           csil all_vars
       in
       let csil =
@@ -1097,14 +1091,14 @@ let rec class_type sch params =
          | _ -> newconstr (Path.Pident(Ident.create "<hidden>")) []
        else ty in
       let tr = typexp sch ty in
-      Octy_arrow ( unfoc (unfoc lab, unfoc tr), unfoc @@ class_type sch params cty)
+      Octy_arrow ( (lab, tr),  class_type sch params cty)
 
 let class_param param variance =
   let name = (match typexp true param with
     Otyp_var (_, s) -> s
-  | _ -> unfoc "?") in
+  | _ -> "?") in
   let co, cn = if is_Tvar (repr param) then (true, true) else variance in
-      unfoc { name; covariant= unfoc co;contravariant= unfoc cn}
+      { name; covariant= co;contravariant= cn}
 
 let class_variance =
   List.map Variance.(fun v -> mem May_pos v, mem May_neg v)
@@ -1123,10 +1117,10 @@ let class_declaration id cl rs =
 
   let vir_flag = cl.cty_new = None in
   Osig_class
-    (unfoc vir_flag, unfoc (Ident.name id),
+    (vir_flag, (Ident.name id),
      List.map2 class_param params (class_variance cl.cty_variance),
-     unfoc @@ class_type true params cl.cty_type,
-     unfoc (rec' rs))
+      class_type true params cl.cty_type,
+     (rec' rs))
 
 let cltype_declaration id cl rs =
   let params = List.map repr cl.clty_params in
@@ -1153,10 +1147,10 @@ let cltype_declaration id cl rs =
   in
 
   Osig_class_type
-    (unfoc virt, unfoc (Ident.name id),
+    (virt, (Ident.name id),
      List.map2 class_param params (class_variance cl.clty_variance),
-     unfoc @@ class_type true params cl.clty_type,
-     unfoc (rec' rs) )
+      class_type true params cl.clty_type,
+     (rec' rs) )
 
 (* Print a module type *)
 
@@ -1202,10 +1196,9 @@ let hide_rec_items = function
 
 let rec modtype ?(ellipsis=false) = function
   | Mty_ident p ->
-      Omty_ident (unfoc @@ path p)
+      Omty_ident ( path p)
   | Mty_signature sg ->
-      Omty_signature (if ellipsis then [Ofoc_ellipsis 1]
-                      else List.map unfoc (signature sg))
+      Omty_signature (if ellipsis then [Osig_ellipsis] else signature sg)
   | Mty_functor(param, ty_arg, ty_res) ->
       let res =
         match ty_arg with None -> modtype ~ellipsis ty_res
@@ -1213,11 +1206,11 @@ let rec modtype ?(ellipsis=false) = function
             wrap_env (Env.add_module ~arg:true param mty)
                      (modtype ~ellipsis) ty_res
       in
-      Omty_functor ( unfoc (Ident.name param),
-                     may_map unfoc @@ may_map (modtype ~ellipsis:false) ty_arg,
-                     unfoc res)
+      Omty_functor ( (Ident.name param),
+                      may_map (modtype ~ellipsis:false) ty_arg,
+                     res)
   | Mty_alias(_, p) ->
-      Omty_alias (unfoc @@ path p)
+      Omty_alias ( path p)
 
 and signature sg =
   wrap_env (fun env -> env) (signature_rec !printing_env false) sg
@@ -1266,12 +1259,12 @@ and modtype_declaration id decl =
     | None -> Omty_abstract
     | Some mty -> modtype mty
   in
-  Osig_modtype (unfoc (Ident.name id), unfoc mty)
+  Osig_modtype ((Ident.name id), mty)
 
 and module' id ?ellipsis mty rs =
-  Osig_module (unfoc (Ident.name id),
-               unfoc @@ modtype ?ellipsis mty,
-               unfoc @@ rec' rs)
+  Osig_module ((Ident.name id),
+                modtype ?ellipsis mty,
+                rec' rs)
 
 (* For the toplevel: merge with signature? *)
 let rec print_items showval env = function
@@ -1315,8 +1308,8 @@ let print_expansion ppf (t,t') =
     p ppf t
   | Some t' ->
       match t, t' with
-      | Otyp_variant _, Otyp_variant _
-      | Otyp_object _, Otyp_object _ ->
+      | Decorated.Otyp_variant _, Decorated.Otyp_variant _
+      | Decorated.Otyp_object _, Decorated.Otyp_object _ ->
           (* if t is already a structural type, no need to print both t and t' *)
           p ppf t
       | _ -> fprintf ppf "@[<2>%a@ =@ %a@]"  p t p t'
@@ -1337,16 +1330,16 @@ let type_diff (t,e) (t',e') =
   match e1, e2 with
   | Some e1, Some e2 ->
       let e1, e2 = Difftree.typ (e1, e2) in
-        (t1, Some e1), (t2, Some e2)
+        (Decorate.out_type t1, Some e1), (Decorate.out_type t2, Some e2)
   | None, None ->
       let t1, t2 = Difftree.typ (t1,t2) in
       (t1, None), (t2,None)
   | Some e1, None ->
       let e1, t2 = Difftree.typ (e1,t2) in
-      (t1, Some e1), (t2, None)
+      (Decorate.out_type t1, Some e1), (t2, None)
   | None, Some e2 ->
       let t1, e2  = Difftree.typ (t1,e2) in
-      (t1,None), (t2,Some e2)
+      (t1,None), (Decorate.out_type t2,Some e2)
 
 let type_path_expansion tp ppf tp' =
   if Path.same tp tp' then pp_path ppf tp else
@@ -1644,9 +1637,11 @@ let cltype_declaration x y = cltype_declaration x y Trec_first
 
 let print_type ppf = !Oprint.out_type ppf
 let print_constructor_args ppf l= !Oprint.out_type ppf
-  @@ Otyp_tuple (List.map unfoc l)
+  @@ Decorate.out_type (Otyp_tuple l)
 
 let tpath = path
 let path = pp_path
 
-let constructor_arguments x = List.map f_extract (constructor_arguments x)
+let constructor_arguments x = constructor_arguments x
+
+let module' id = module' id ~ellipsis:false

@@ -191,7 +191,7 @@ typing/datarepr.cmx : typing/types.cmx typing/path.cmx parsing/location.cmx \
 typing/datarepr.cmi : typing/types.cmi typing/path.cmi typing/ident.cmi
 typing/difftree.cmo : typing/outcometree.cmi utils/misc.cmi \
     utils/clflags.cmi parsing/asttypes.cmi typing/difftree.cmi
-typing/difftree.cmx : typing/outcometree.cmi utils/misc.cmx \
+typing/difftree.cmx : typing/outcometree.cmx utils/misc.cmx \
     utils/clflags.cmx parsing/asttypes.cmi typing/difftree.cmi
 typing/difftree.cmi : typing/outcometree.cmi
 typing/env.cmo : utils/warnings.cmi typing/types.cmi utils/tbl.cmi \
@@ -263,9 +263,11 @@ typing/mtype.cmi : typing/types.cmi typing/path.cmi typing/ident.cmi \
     typing/env.cmi
 typing/oprint.cmo : typing/outcometree.cmi parsing/asttypes.cmi \
     typing/oprint.cmi
-typing/oprint.cmx : typing/outcometree.cmi parsing/asttypes.cmi \
+typing/oprint.cmx : typing/outcometree.cmx parsing/asttypes.cmi \
     typing/oprint.cmi
 typing/oprint.cmi : typing/outcometree.cmi
+typing/outcometree.cmo : parsing/asttypes.cmi typing/outcometree.cmi
+typing/outcometree.cmx : parsing/asttypes.cmi typing/outcometree.cmi
 typing/outcometree.cmi : parsing/asttypes.cmi
 typing/parmatch.cmo : utils/warnings.cmi typing/untypeast.cmi \
     typing/types.cmi typing/typedtreeIter.cmi typing/typedtree.cmi \
@@ -295,7 +297,7 @@ typing/predef.cmi : typing/types.cmi typing/path.cmi typing/ident.cmi
 typing/primitive.cmo : parsing/parsetree.cmi typing/outcometree.cmi \
     utils/misc.cmi parsing/location.cmi parsing/attr_helper.cmi \
     typing/primitive.cmi
-typing/primitive.cmx : parsing/parsetree.cmi typing/outcometree.cmi \
+typing/primitive.cmx : parsing/parsetree.cmi typing/outcometree.cmx \
     utils/misc.cmx parsing/location.cmx parsing/attr_helper.cmx \
     typing/primitive.cmi
 typing/primitive.cmi : parsing/parsetree.cmi typing/outcometree.cmi \
@@ -309,7 +311,7 @@ typing/printtyp.cmo : typing/types.cmi typing/primitive.cmi \
     typing/printtyp.cmi
 typing/printtyp.cmx : typing/types.cmx typing/primitive.cmx \
     typing/predef.cmx typing/path.cmx parsing/parsetree.cmi \
-    typing/outcometree.cmi typing/oprint.cmx utils/misc.cmx \
+    typing/outcometree.cmx typing/oprint.cmx utils/misc.cmx \
     parsing/longident.cmx parsing/location.cmx typing/ident.cmx \
     typing/env.cmx typing/difftree.cmx typing/ctype.cmx utils/clflags.cmx \
     parsing/builtin_attributes.cmx typing/btype.cmx parsing/asttypes.cmi \
@@ -2142,7 +2144,7 @@ toplevel/genprintval.cmo : typing/types.cmi typing/printtyp.cmi \
     typing/env.cmi typing/datarepr.cmi typing/ctype.cmi typing/btype.cmi \
     toplevel/genprintval.cmi
 toplevel/genprintval.cmx : typing/types.cmx typing/printtyp.cmx \
-    typing/predef.cmx typing/path.cmx typing/outcometree.cmi \
+    typing/predef.cmx typing/path.cmx typing/outcometree.cmx \
     typing/oprint.cmx utils/misc.cmx parsing/longident.cmx typing/ident.cmx \
     typing/env.cmx typing/datarepr.cmx typing/ctype.cmx typing/btype.cmx \
     toplevel/genprintval.cmi
@@ -2180,7 +2182,7 @@ toplevel/opttoploop.cmx : utils/warnings.cmx typing/types.cmx \
     typing/printtyped.cmx typing/printtyp.cmx bytecomp/printlambda.cmx \
     parsing/printast.cmx typing/predef.cmx parsing/pprintast.cmx \
     driver/pparse.cmx typing/path.cmx parsing/parsetree.cmi parsing/parse.cmx \
-    typing/outcometree.cmi typing/oprint.cmx utils/misc.cmx \
+    typing/outcometree.cmx typing/oprint.cmx utils/misc.cmx \
     middle_end/middle_end.cmx parsing/longident.cmx parsing/location.cmx \
     parsing/lexer.cmx bytecomp/lambda.cmx typing/includemod.cmx \
     asmcomp/import_approx.cmx typing/ident.cmx toplevel/genprintval.cmx \
@@ -2244,7 +2246,7 @@ toplevel/toploop.cmx : utils/warnings.cmx typing/typetexp.cmx \
     bytecomp/simplif.cmx typing/printtyped.cmx typing/printtyp.cmx \
     bytecomp/printlambda.cmx bytecomp/printinstr.cmx parsing/printast.cmx \
     typing/predef.cmx parsing/pprintast.cmx driver/pparse.cmx typing/path.cmx \
-    parsing/parsetree.cmi parsing/parse.cmx typing/outcometree.cmi \
+    parsing/parsetree.cmi parsing/parse.cmx typing/outcometree.cmx \
     typing/oprint.cmx utils/misc.cmx bytecomp/meta.cmx parsing/longident.cmx \
     parsing/location.cmx parsing/lexer.cmx typing/includemod.cmx \
     typing/ident.cmx toplevel/genprintval.cmx typing/env.cmx \

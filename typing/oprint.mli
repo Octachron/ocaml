@@ -14,7 +14,7 @@
 (**************************************************************************)
 
 open Format
-open Outcometree
+open Outcometree.Decorated
 
 val ellipsis: string ref
 val out_value : (formatter -> out_value -> unit) ref

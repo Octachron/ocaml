@@ -44,7 +44,8 @@ let interface ppf sourcefile outputprefix =
         Printtyp.wrap_printing_env initial_env (fun () ->
             fprintf std_formatter "%a@."
               Printtyp.print_signature
-              (Printtyp.signature @@ Typemod.simplify_signature sg));
+              (List.map Outcometree.Decorate.out_sig_item
+               @@ Printtyp.signature @@ Typemod.simplify_signature sg));
       ignore (Includemod.signatures initial_env sg sg);
       Typecore.force_delayed_checks ();
       Warnings.check_fatal ();

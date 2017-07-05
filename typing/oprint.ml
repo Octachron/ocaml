@@ -15,6 +15,8 @@
 
 open Format
 open Outcometree
+open Decorated
+module H = Highlightable
 
 exception Ellipsis
 
@@ -27,18 +29,18 @@ let cautious f ppf arg =
     Ellipsis -> ellipsis ppf
 
 let prf pp ppf = function
-  | Ofoc_ellipsis n ->
+  | H.Ellipsis n ->
       if n > 1 then
         fprintf ppf "%t %s %d" ellipsis !times n
       else ellipsis ppf
-  | Ofoc(Off, s) -> pp ppf s
-  | Ofoc(On, s) -> fprintf ppf "@{<focus>%a@}" pp s
+  | H.Item(H.Off, s) -> pp ppf s
+  | H.Item(H.On, s) -> fprintf ppf "@{<focus>%a@}" pp s
 
 let fbool name ppf = function
-  | Ofoc_ellipsis _ -> ()
-  | Ofoc(Off, b) ->
+  | H.Ellipsis _ -> ()
+  | H.Item(H.Off, b) ->
       if b then fprintf ppf name
-  | Ofoc(On, b) ->
+  | H.Item(H.On, b) ->
       if b then fprintf ppf ("@{<focus>" ^^ name ^^ "@}")
 
 let string = Format.pp_print_string
@@ -98,7 +100,7 @@ let parenthesize_if_neg ppf fmt v isneg =
   if isneg then pp_print_char ppf ')'
 
 let ext_to_constr focused cname args ret =
-      Ofoc(focused, {cname; args; ret })
+      H.Item(focused, {cname; args; ret })
 
 let gather_extensions foc ext proj items =
   (* Gather together the extension constructors *)
@@ -106,7 +108,7 @@ let gather_extensions foc ext proj items =
     match items with
     |  item :: items as all ->
         begin match proj item with
-        |  Ofoc(foc, Osig_typext(ext, Ofoc(_, Oext_next))) ->
+        | H.Item(foc, Osig_typext(ext, H.Item(_, Oext_next))) ->
             gather_extensions
               (ext_to_constr foc ext.oext_name ext.oext_args ext.oext_ret_type
                :: acc) items
@@ -256,7 +258,7 @@ and print_out_type_1 ppf =
   | ty -> print_out_type_2 ppf ty
 and print_fn_arg ppf (lab,ty1) =
         begin match lab with
-        | Ofoc(_, "") -> ()
+        | H.Item(_, "") -> ()
         | _ ->
           (fstring ppf lab; pp_print_char ppf ':') end;
         prf print_out_type_2 ppf ty1
@@ -384,14 +386,14 @@ let pr_typename_0 ppf name =
 
 let pr_typename = prf pr_typename_0
 
-let foc_fmap f = function
-  | Ofoc(flag, s) -> Ofoc(flag, f s)
-  | Ofoc_ellipsis _ as x -> x
+let hmap f = function
+  | H.Item(flag, s) -> H.Item(flag, f s)
+  | H.Ellipsis _ as x -> x
 
 let type_parameter ppf {covariant;contravariant;name} =
       fprintf ppf "%a%a%a"
-        (fbool "+") (foc_fmap not contravariant)
-        (fbool "-") (foc_fmap not covariant)
+        (fbool "+") (hmap not contravariant)
+        (fbool "-") (hmap not covariant)
         pr_typename name
 
 let print_out_class_params ppf =
@@ -455,11 +457,11 @@ let rec print_out_functor funct ppf =
       else fprintf ppf "functor@ () %a" (prf @@ print_out_functor true) mty_res
   | Omty_functor (name, Some mty_arg, mty_res) -> begin
       match name, funct with
-      | Ofoc(_,"_"), true ->
+      | H.Item(_,"_"), true ->
           fprintf ppf "->@ %a ->@ %a"
             (prf print_out_module_type) mty_arg
             (prf @@ print_out_functor false) mty_res
-      | Ofoc(_, "_"), false ->
+      | H.Item(_, "_"), false ->
           fprintf ppf "%a ->@ %a"
             (prf print_out_module_type) mty_arg
             (prf @@ print_out_functor false) mty_res
@@ -489,7 +491,7 @@ and print_out_signature ppf =
   function
     [] -> ()
   | [item] -> prf !out_sig_item ppf item
-  | Ofoc(foc, Osig_typext(ext, Ofoc( _, Oext_first)))
+  | H.Item(foc, Osig_typext(ext, H.Item( _, Oext_first)))
     :: items ->
       let exts, items = gather_extensions foc ext (fun x -> x) items in
       let te =
@@ -516,18 +518,18 @@ and print_out_sig_item ppf =
         (prf pp_recs) rs
         (fbool " virtual") vir_flag print_out_class_params params
         fstring name (prf !out_class_type) clt
-  | Osig_typext (ext, Ofoc(foc,Oext_exception)) ->
+  | Osig_typext (ext, H.Item(foc,Oext_exception)) ->
       fprintf ppf "@[<2>exception %a@]"
         (prf print_out_constr)
         (ext_to_constr foc ext.oext_name ext.oext_args ext.oext_ret_type)
   | Osig_typext (ext, _es) ->
-      print_out_extension_constructor ppf (Off,ext)
-  | Osig_modtype (name, Ofoc(_, Omty_abstract)) ->
+      print_out_extension_constructor ppf (H.Off,ext)
+  | Osig_modtype (name, H.Item(_, Omty_abstract)) ->
       fprintf ppf "@[<2>module type %a@]" fstring name
   | Osig_modtype (name, mty) ->
       fprintf ppf "@[<2>module type %a =@ %a@]" fstring name
         (prf !out_module_type) mty
-  | Osig_module (name, Ofoc(_, Omty_alias id), _) ->
+  | Osig_module (name, H.Item(_, Omty_alias id), _) ->
       fprintf ppf "@[<2>module %a =@ %a@]" fstring name (prf print_ident) id
   | Osig_module (name, mty, rs) ->
       let print_rec ppf rs = fprintf ppf
@@ -557,6 +559,7 @@ and print_out_sig_item ppf =
         (prf !out_type) vd.oval_type pr_prims vd.oval_prims
         (fun ppf -> List.iter (prf pr_attr ppf))
         vd.oval_attributes
+  | Osig_ellipsis -> ellipsis ppf
 
 and print_out_type_decl kwd ppf td =
   let print_constraint ppf {lhs;rhs} =
@@ -587,7 +590,7 @@ and print_out_type_decl kwd ppf td =
   in
   let ty =
     match td.otype_type with
-    | Ofoc(_, Otyp_manifest (_, ty)) -> ty
+    | H.Item(_, Otyp_manifest (_, ty)) -> ty
     | _ -> td.otype_type
   in
   let print_immediate ppf =
@@ -622,7 +625,7 @@ and print_out_type_decl kwd ppf td =
 
 and print_out_constr ppf {cname; args; ret} =
   let name =
-    foc_fmap (function
+    hmap (function
     | "::" -> "(::)"   (* #7200 *)
     | s -> s) cname
   in
@@ -688,7 +691,7 @@ and print_out_type_extension ppf te =
 
 let _ = out_module_type := print_out_module_type
 let _ = out_signature :=
-    (fun ppf x -> print_out_signature ppf (List.map (fun x -> Ofoc(Off,x)) x))
+    (fun ppf x -> print_out_signature ppf (List.map (fun x -> H.Item(H.Off,x)) x))
 let _ = out_sig_item := print_out_sig_item
 let _ = out_type_extension := print_out_type_extension
 
@@ -705,7 +708,7 @@ let print_out_exception ppf exn outv =
 let rec print_items ppf =
   function
     [] -> ()
-  | (Ofoc(foc, Osig_typext(ext, Ofoc(_,Oext_first))), None) :: items ->
+  | (H.Item(foc, Osig_typext(ext, H.Item(_,Oext_first))), None) :: items ->
       let exts, items = gather_extensions foc ext fst items in
       let te =
         { otyext_name = ext.oext_type_name;
@@ -731,7 +734,7 @@ let print_out_phrase ppf =
   | Ophr_signature [] -> ()
   | Ophr_signature items ->
       fprintf ppf "@[<v>%a@]@." print_items
-        (List.map (fun (x,y) -> Ofoc(Off,x),y ) items )
+        (List.map (fun (x,y) -> H.Item(H.Off,x),y ) items )
   | Ophr_exception (exn, outv) -> print_out_exception ppf exn outv
 
 let out_phrase = ref print_out_phrase

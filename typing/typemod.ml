@@ -1609,7 +1609,7 @@ let type_implementation sourcefile outputprefix modulename initial_env ast =
   if !Clflags.print_types then begin
     Printtyp.wrap_printing_env initial_env
       (fun () -> fprintf std_formatter "%a@." Printtyp.print_signature @@
-        Printtyp.signature simple_sg);
+        List.map Outcometree.Decorate.out_sig_item @@ Printtyp.signature simple_sg);
     (str, Tcoerce_none)   (* result is ignored by Compile.implementation *)
   end else begin
     let sourceintf =
@@ -1750,7 +1750,7 @@ let report_error ppf = function
     Cannot_apply mty ->
       fprintf ppf
         "@[This module is not a functor; it has type@ %a@]"
-        print_modtype (modtype mty)
+        print_modtype (Outcometree.Decorate.out_module_type @@ modtype mty)
   | Not_included errs ->
       fprintf ppf
         "@[<v>Signature mismatch:@ %a@]" Includemod.report_error errs
@@ -1759,12 +1759,12 @@ let report_error ppf = function
         "@[This functor has type@ %a@ \
            The parameter cannot be eliminated in the result type.@  \
          Please bind the argument to a module identifier.@]"
-        print_modtype (modtype mty)
+        print_modtype (Outcometree.Decorate.out_module_type @@ modtype mty)
   | Signature_expected -> fprintf ppf "This module type is not a signature"
   | Structure_expected mty ->
       fprintf ppf
         "@[This module is not a structure; it has type@ %a"
-        print_modtype (modtype mty)
+        print_modtype (Outcometree.Decorate.out_module_type @@ modtype mty)
   | With_no_component lid ->
       fprintf ppf
         "@[The signature constrained by `with' has no component named %a@]"
@@ -1785,17 +1785,18 @@ let report_error ppf = function
       fprintf ppf
         "@[The type of this expression,@ %a,@ \
          contains type variables that cannot be generalized@]"
-        print_type (type_scheme typ)
+        print_type (Outcometree.Decorate.out_type @@ type_scheme typ)
   | Non_generalizable_class (id, desc) ->
       fprintf ppf
         "@[The type of this class,@ %a,@ \
            contains type variables that cannot be generalized@]"
-        print_sigitem (class_declaration id desc)
+        print_sigitem
+        (Outcometree.Decorate.out_sig_item @@ class_declaration id desc)
   | Non_generalizable_module mty ->
       fprintf ppf
         "@[The type of this module,@ %a,@ \
          contains type variables that cannot be generalized@]"
-        print_modtype (modtype mty)
+        print_modtype (Outcometree.Decorate.out_module_type @@ modtype mty)
   | Implementation_is_required intf_name ->
       fprintf ppf
         "@[The interface %a@ declares values, not just types.@ \
