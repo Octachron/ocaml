@@ -94,11 +94,12 @@ let _refoc = function
   | x -> x
 
 let focus_ellide_diff x y = match x, y with
-  | Ofoc_ellipsis _ as e, Ofoc(Off, x) ->
+  | Ofoc_ellipsis _ as e, Ofoc(_, x) ->
      e, Ofoc(On,x)
-  | Ofoc(Off,x), (Ofoc_ellipsis _ as e) ->
+  | Ofoc(_,x), (Ofoc_ellipsis _ as e) ->
       Ofoc(On,x), e
-  | _ -> x, y
+  | Ofoc(_,x), Ofoc(_,y) -> Ofoc(On,x) , Ofoc(On,y)
+  | Ofoc_ellipsis _ , Ofoc_ellipsis _ -> x, y
 
 let stitch2 x y = match x, y with
   | Eq x, Eq y ->
@@ -106,6 +107,8 @@ let stitch2 x y = match x, y with
           gen =(fun fuel -> focus_ellide_diff (x.gen fuel) (y.gen fuel))
         }
   | r, r' ->
+      (* Note that this branch is used for type aliases,
+         cf. Otyp_alias, Not Otyp_alias branch *)
       let r = flatten r and r' = flatten r' in
       D {
         size = r.size ++ r'.size;
@@ -131,6 +134,10 @@ let fmap f g = function
 let focus_diff x = fmap unfoc foc x
 let nofoc x = fmap unfoc unfoc x
 let do_focus x = fmap foc foc x
+
+let foc_flatten = function
+  | Ofoc(_,x) -> x
+  | Ofoc_ellipsis _ -> "..."
 
 (** {3 Hlist } *)
 
@@ -586,14 +593,22 @@ module Type = struct
     else
       (unfree_vars := M.add var !unfree_vars; true)
 
-  let pure f = nofoc @@ pure f
   let rec type' t1 t2 =
     match t1, t2 with
     | Otyp_abstract, Otyp_abstract
-    | Otyp_open, Otyp_open -> pure t1
+    | Otyp_open, Otyp_open -> pure (unfoc t1)
+
 
     | Otyp_alias (ty,as'), Otyp_alias(ty2,as2) ->
-       alias <*> [typ ty ty2; fdiff as' as2]
+        alias <*> [typ ty ty2; fdiff as' as2]
+
+    | Otyp_alias (ty,as'), y when is_free as' ->
+        let d = typ ty (unfoc y) in
+        stitch2 (alias <*> [d; pure as']) d
+    | x, Otyp_alias (ty,as') when is_free as' ->
+        let d = typ (unfoc x) ty in
+        stitch2 d (alias <*> [d; pure as'])
+
     | Otyp_arrow _ , Otyp_arrow _ ->
         let fn =  fn_to_list t1 and fn' = fn_to_list t2 in
         arrow <*> [ fn_args fn fn' ]
@@ -656,11 +671,13 @@ module Type = struct
         ; typ f.typ f'.typ ]
   and rlist x = list (fmap2 dfield) x
 
+  and variant_cmp x y = compare x.tag y.tag
   and dvariant x y = match x, y with
     | Ovar_typ t, Ovar_typ t' -> (fun x -> Ovar_typ x) <*> [typ t t']
     | Ovar_fields f, Ovar_fields f' ->
-        (fun x -> Ovar_fields x) <*> [list (fmap2 dvfield) f f']
-    | _ -> (x // y)
+        (fun x -> Ovar_fields x)
+        <*> [keyed_list variant_cmp (fmap2 dvfield) f f']
+    | _ -> x//y
 
   and dvfield f f' =
           (fun tag ampersand conj -> {tag;ampersand;conj} )
@@ -769,10 +786,6 @@ let plist = list (fmap2 dparam)
 
 let alist = list (fmap2 attr_diff)
 
-let foc_flatten = function
-  | Ofoc(_,x) -> x
-  | Ofoc_ellipsis _ -> "..."
-
 let sig_item_key = function
   | Osig_class(_,name,_,_,_) -> "class", foc_flatten name
   | Osig_class_type(_,name,_,_,_) -> "class_type", foc_flatten name
@@ -842,7 +855,7 @@ let rec sig_item s1 s2 =
 and module_type x y =
   let open Mty in
   match x, y with
-  | Omty_abstract, Omty_abstract -> pure x
+  | Omty_abstract, Omty_abstract -> pure (unfoc x)
 
   | Omty_functor(name,arg,res), Omty_functor(name',arg',res')->
       functor' <*> [fdiff name name'; opt (bind2 module_type) arg arg';
