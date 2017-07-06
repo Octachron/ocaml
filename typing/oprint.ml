@@ -43,6 +43,8 @@ let fbool name ppf = function
   | H.Item(H.On, b) ->
       if b then fprintf ppf ("@{<focus>" ^^ name ^^ "@}")
 
+let bool name ppf b = if b then fprintf ppf name
+
 let string = Format.pp_print_string
 let fstring x = prf string x
 
@@ -452,34 +454,38 @@ let out_sig_item = ref (fun _ -> failwith "Oprint.out_sig_item")
 let out_signature = ref (fun _ -> failwith "Oprint.out_signature")
 let out_type_extension = ref (fun _ -> failwith "Oprint.out_type_extension")
 
-let rec print_out_functor funct ppf =
-  function
-    Omty_functor (_, H.Item(h,None), mty_res) ->
-      let arg ppf = prf string ppf (H.Item(h,"()")) in
-      if funct then fprintf ppf "%t %a" arg (prf @@ print_out_functor true) mty_res
-      else fprintf ppf "functor@ %t %a" arg (prf @@ print_out_functor true) mty_res
-  | Omty_functor (name,H.Item(_,Some mty_arg), mty_res) -> begin
-      match name, funct with
-      | H.Item(_,"_"), true ->
-          fprintf ppf "->@ %a ->@ %a"
-            (prf print_out_module_type) mty_arg
-            (prf @@ print_out_functor false) mty_res
-      | H.Item(_, "_"), false ->
-          fprintf ppf "%a ->@ %a"
-            (prf print_out_module_type) mty_arg
-            (prf @@ print_out_functor false) mty_res
-      | name, true ->
-          fprintf ppf "(%a : %a) %a" fstring name
-            (prf print_out_module_type) mty_arg
-            (prf @@ print_out_functor true) mty_res
-      | name, false ->
-            fprintf ppf "functor@ (%a : %a) %a" fstring name
-              (prf print_out_module_type) mty_arg
-              (prf @@ print_out_functor true) mty_res
-    end
-  | m ->
-      if funct then fprintf ppf "->@ %a" print_out_module_type m
-      else print_out_module_type ppf m
+let rec print_out_functor funct ppf = function
+  | Omty_functor (arg , mty_res) ->
+      fprintf ppf "%a%a"
+        (prf @@ print_arg funct) arg
+        (prf @@ print_out_functor @@ as_funct arg) mty_res
+  | m -> fprintf ppf "%a%a" (bool "->@ ") funct print_out_module_type m
+and as_funct = function
+  | H.Item(_, (_, H.Item(_, None))) -> true
+  | H.Ellipsis _ -> false
+  | H.Item(_, (H.Item(_, "_"), _)) -> false
+  | _ -> true
+and print_arg funct ppf (name,mty) =
+    match mty with
+    | H.Item(h, None) ->
+        let arg ppf = prf string ppf (H.Item(h,"()")) in
+        fprintf ppf "%a%t "
+          (bool "functor@ ") (not funct) arg
+    | H.Ellipsis n ->
+        print_arg_name funct (H.Ellipsis n) ppf name
+    | H.Item(h,Some f) ->
+        let f = match f with
+          | H.Item(H.Off,f) -> H.Item(h,f)
+          | x -> x in
+        print_arg_name funct f ppf name
+and print_arg_name funct mty ppf = function
+    | H.Item(_, "_") ->
+        fprintf ppf "%a%a ->@ " (bool "->@ ") funct
+          (prf print_out_module_type) mty
+    | name ->
+        fprintf ppf "%a(%a : %a) " (bool "functor@ ") (not funct)
+          fstring name
+          (prf print_out_module_type) mty
 
 and print_out_module_type ppf =
   function

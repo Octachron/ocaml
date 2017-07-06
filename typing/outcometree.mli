@@ -123,10 +123,11 @@ module type S = sig
   type out_module_type =
     | Omty_abstract
     | Omty_functor of
-        string ext * out_module_type ext option ext * out_module_type ext
+        functor_arg ext * out_module_type ext
     | Omty_ident of out_ident ext
     | Omty_signature of out_sig_item ext list
     | Omty_alias of out_ident ext
+  and functor_arg = string ext * out_module_type ext option ext
   and out_sig_item =
     | Osig_class of
         bool ext * string ext * type_param ext list * out_class_type ext

@@ -761,7 +761,20 @@ module Sig = struct
 end
 
 module Mty = struct
-  let functor' x y z = unfoc @@ D.Omty_functor(x,y,z)
+
+  let rec list_of_functor = function
+    | Omty_functor(arg,res) ->
+        let args, res = list_of_functor res in
+       Std.( arg  :: args ), res
+    | rest -> Std.[], rest
+
+  let rec functor' l res =
+    let open Std in
+    match l with
+    | [] -> res
+    | arg :: q ->
+        unfoc @@ D.Omty_functor(arg, functor' q res)
+
   let ident x = unfoc @@ D.Omty_ident x
   let signature x = unfoc @@ D.Omty_signature x
   let alias x = unfoc @@ D.Omty_alias x
@@ -869,15 +882,25 @@ and module_type x y =
   match x, y with
   | Omty_abstract, Omty_abstract -> std @@ Decorate.out_module_type x
 
-  | Omty_functor(name,arg,res), Omty_functor(name',arg',res')->
-      functor' <*> [fdiff name name'; opt_ext module_type arg arg';
-                    module_type res res' ] (* TODO: expand *)
+  | Omty_functor _ , Omty_functor _ ->
+      functor' <*> functor_diff x y
   | Omty_ident id, Omty_ident id' -> ident <*> [id_diff id id']
   | Omty_signature s, Omty_signature s' ->
       signature <*> [ map_like sigcmp (bind2 sig_item) s s' ]
   | Omty_alias x, Omty_alias y -> alias <*> [id_diff x y]
 
   | _ -> stitch module_type x y
+
+and functor_diff t t'=
+  let (f,res), (f',res') = Mty.(list_of_functor t, list_of_functor t') in
+  let name_diff name name' =
+    if name ="_" || name' ="_" then
+      name =~ name'
+    else
+      diff one focus name name' in
+  let arg (name,mty) (name',mty') =
+    pair <*> [ name_diff name name'; opt_ext module_type mty mty'] in
+  [list (fmap2 arg) f f'; module_type res res']
 
 (** {2 Exported functions} *)
 

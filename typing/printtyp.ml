@@ -1206,8 +1206,7 @@ let rec modtype ?(ellipsis=false) = function
             wrap_env (Env.add_module ~arg:true param mty)
                      (modtype ~ellipsis) ty_res
       in
-      Omty_functor ( (Ident.name param),
-                      may_map (modtype ~ellipsis:false) ty_arg,
+      Omty_functor ( (Ident.name param, may_map (modtype ~ellipsis:false) ty_arg),
                      res)
   | Mty_alias(_, p) ->
       Omty_alias ( path p)
