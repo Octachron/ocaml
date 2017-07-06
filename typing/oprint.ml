@@ -328,7 +328,7 @@ and print_simple_out_type ppf =
       let pr_attr ppf attr = fprintf ppf " [@@%s]" attr.oattr_name in
       fprintf ppf "@[<1>(%a%a)@]" (prf print_out_type) t (prf pr_attr) attr
 and print_record_decl ppf lbls =
-  fprintf ppf "{@ %a@;<1 -2>}"
+  fprintf ppf "{@ %a;@;<1 -2>}"
     (print_list (prf print_out_label) (fun ppf -> fprintf ppf ";@ ")) lbls
 and print_field ppf (s,t) =
   fprintf ppf "%a : %a" fstring s (prf print_out_type) t
