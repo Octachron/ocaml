@@ -39,7 +39,7 @@ val reset_and_mark_loops_list: type_expr list -> unit
 val type_expr: formatter -> type_expr -> unit
 val constructor_arguments: constructor_arguments -> out_type list
 val type_scheme: type_expr -> out_type
-val print_type: Format.formatter -> Decorated.out_type -> unit
+val print_type: Format.formatter -> Decorated.out_type Decorated.ext -> unit
 val type_sch : formatter -> type_expr -> unit
 val pp_type_scheme: formatter -> type_expr -> unit
 (* Maxence *)
@@ -47,7 +47,7 @@ val reset_names: unit -> unit
 val type_scheme_max: ?b_reset_names: bool ->
         formatter -> type_expr -> unit
 (* End Maxence *)
-val print_sigitem: formatter -> Decorated.out_sig_item -> unit
+val print_sigitem: formatter -> Decorated.out_sig_item Decorated.ext -> unit
 val value_description: Ident.t -> value_description -> out_sig_item
 val type_declaration: Ident.t -> type_declaration -> out_sig_item
 val extension_constructor:
@@ -55,11 +55,13 @@ val extension_constructor:
 val module':
   Ident.t -> (*?ellipsis:bool ->*) module_type -> rec_status -> out_sig_item
 val modtype:  module_type -> out_module_type
-val print_modtype: Format.formatter -> Decorated.out_module_type -> unit
+val print_modtype: Format.formatter -> Decorated.out_module_type Decorated.ext
+  -> unit
 val modtype_declaration:
     Ident.t -> modtype_declaration -> out_sig_item
 val signature: Types.signature -> out_sig_item list
-val print_signature: Format.formatter -> Decorated.out_sig_item list -> unit
+val print_signature: Format.formatter -> Decorated.out_sig_item Decorated.ext list
+  -> unit
 val typexp: bool -> type_expr -> out_type
 
 val class_declaration:
@@ -68,7 +70,7 @@ val cltype_declaration:
     Ident.t -> class_type_declaration -> out_sig_item
 
 val class_type: class_type -> out_class_type
-val print_class_type: Format.formatter -> Decorated.out_class_type -> unit
+val print_class_type: Format.formatter -> Decorated.out_class_type Decorated.ext -> unit
 
 val print_constructor_args: Format.formatter -> out_type list -> unit
 
@@ -77,10 +79,10 @@ val type_expansion:
   type_expr -> type_expr -> (Outcometree.out_type as 'ty) * 'ty option
 
 val type_diff: (type_expr * type_expr as 'pair) -> 'pair ->
-  ((Decorated.out_type as 'ty) * 'ty option as 'diffpair) * 'diffpair
+  ((Decorated.out_type Decorated.ext as 'ty) * 'ty option as 'diffpair) * 'diffpair
 
 val print_expansion:
-  Format.formatter -> (Decorated.out_type as 'ty) * 'ty option -> unit
+  Format.formatter -> (Decorated.out_type Decorated.ext as 'ty) * 'ty option -> unit
 
 val prepare_expansion: type_expr * type_expr -> type_expr * type_expr
 val trace:

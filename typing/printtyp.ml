@@ -739,7 +739,7 @@ and typfields sch rest = function
       (field :: fields, rest)
 
 let pp_typexp sch ppf ty =
-  !Oprint.out_type ppf (Decorate.out_type @@ typexp sch ty)
+  !Oprint.out_type ppf (Decorate.typ @@ typexp sch ty)
 
 let type_expr ppf ty = pp_typexp false ppf ty
 
@@ -928,7 +928,7 @@ let type_declaration id decl rs =
 
 let _pp_constructor_arguments ppf a =
   let tys = constructor_arguments a in
-  !Oprint.out_type ppf (Decorate.out_type @@ Otyp_tuple tys)
+  !Oprint.out_type ppf (Decorate.typ @@ Otyp_tuple tys)
 
 (* Print an extension declaration *)
 
@@ -1301,14 +1301,15 @@ let same_path t t' =
       false
 
 let print_expansion ppf (t,t') =
+  let open Outcometree.Highlightable in
   let p = !Oprint.out_type in
   match t' with
   | None ->
     p ppf t
   | Some t' ->
       match t, t' with
-      | Decorated.Otyp_variant _, Decorated.Otyp_variant _
-      | Decorated.Otyp_object _, Decorated.Otyp_object _ ->
+      | Item(_, Decorated.Otyp_variant _), Item(_,Decorated.Otyp_variant _ )
+      | Item(_,Decorated.Otyp_object _), Item(_,Decorated.Otyp_object _ ) ->
           (* if t is already a structural type, no need to print both t and t' *)
           p ppf t
       | _ -> fprintf ppf "@[<2>%a@ =@ %a@]"  p t p t'
@@ -1329,16 +1330,16 @@ let type_diff (t,e) (t',e') =
   match e1, e2 with
   | Some e1, Some e2 ->
       let e1, e2 = Difftree.typ (e1, e2) in
-        (Decorate.out_type t1, Some e1), (Decorate.out_type t2, Some e2)
+        (Decorate.typ t1, Some e1), (Decorate.typ t2, Some e2)
   | None, None ->
       let t1, t2 = Difftree.typ (t1,t2) in
       (t1, None), (t2,None)
   | Some e1, None ->
       let e1, t2 = Difftree.typ (e1,t2) in
-      (Decorate.out_type t1, Some e1), (t2, None)
+      (Decorate.typ t1, Some e1), (t2, None)
   | None, Some e2 ->
       let t1, e2  = Difftree.typ (t1,e2) in
-      (t1,None), (Decorate.out_type t2,Some e2)
+      (t1,None), (Decorate.typ t2,Some e2)
 
 let type_path_expansion tp ppf tp' =
   if Path.same tp tp' then pp_path ppf tp else
@@ -1636,7 +1637,7 @@ let cltype_declaration x y = cltype_declaration x y Trec_first
 
 let print_type ppf = !Oprint.out_type ppf
 let print_constructor_args ppf l= !Oprint.out_type ppf
-  @@ Decorate.out_type (Otyp_tuple l)
+  @@ Decorate.typ (Otyp_tuple l)
 
 let tpath = path
 let path = pp_path

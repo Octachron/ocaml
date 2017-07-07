@@ -4333,7 +4333,7 @@ let report_error env ppf = function
       report_unification_error ppf env trace
         (function ppf ->
            let ty, ty' = prepare_expansion (ty, ty') in
-           let decorate = Outcometree.Decorate.out_type in
+           let decorate = Outcometree.Decorate.typ in
            let ty, ty' = type_expansion ty ty' in
 
            fprintf ppf

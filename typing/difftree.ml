@@ -92,11 +92,11 @@ let d0 left right=
   D { gen = const (left, right);
       size = empty }
 
-let _refoc = function
+let refoc = function
   | H.Item(H.Off,x) -> H.Item(H.On,x)
   | x -> x
 
-let focus_ellide_diff x y = match x, y with
+let _focus_ellide_diff x y = match x, y with
   | H.Ellipsis _ as e, H.Item(_, x) ->
      e, H.Item(H.On,x)
   | H.Item(_,x), (H.Ellipsis _ as e) ->
@@ -107,7 +107,7 @@ let focus_ellide_diff x y = match x, y with
 let stitch2 x y = match x, y with
   | Eq x, Eq y ->
       D { size = primary (max x.size y.size);
-          gen =(fun fuel -> focus_ellide_diff (x.gen fuel) (y.gen fuel))
+          gen =(fun fuel -> refoc (x.gen fuel), refoc (y.gen fuel))
         }
   | r, r' ->
       (* Note that this branch is used for type aliases,
@@ -115,8 +115,8 @@ let stitch2 x y = match x, y with
       let r = flatten r and r' = flatten r' in
       D {
         size = r.size ++ r'.size;
-        gen = (fun fuel -> let x, _ = r.gen fuel and _, y = r'.gen fuel in
-                x, y
+        gen = (fun fuel -> let x, _ =  r.gen fuel and _, y = r'.gen fuel in
+                refoc x, refoc y
               )
         }
       (*raise (Invalid_argument "Stitching difference")*)
@@ -126,12 +126,16 @@ let stitch f x y = stitch2 (f x x) (f y y)
 let ( =~ ) left right =
   D { gen = (fun _ -> (unfoc left, unfoc right)); size = secondary 1 }
 
+let ( =~~ ) left right =
+  D { gen = const (left, right); size = secondary 1 }
+
+
 let fmap f g = function
   | Eq r -> Eq { r with gen = (fun fuel -> f (r.gen fuel) ) }
   | D r -> D { r with gen = (fun fuel -> let x, y = r.gen fuel in g x, g y) }
 
 
-let focus_diff x = fmap unfoc foc x
+(*let focus_diff x = fmap unfoc foc x*)
 let nofoc x = fmap unfoc unfoc x
 let do_focus x = fmap foc foc x
 
@@ -608,7 +612,7 @@ module Type = struct
   let rec type' t1 t2 =
     match t1, t2 with
     | Otyp_abstract, Otyp_abstract
-    | Otyp_open, Otyp_open -> std (Decorate.out_type t1)
+    | Otyp_open, Otyp_open -> pure (Decorate.typ t1)
 
 
     | Otyp_alias (ty,as'), Otyp_alias(ty2,as2) ->
@@ -641,7 +645,7 @@ module Type = struct
     | Otyp_var (b,name), Otyp_var(b',name') ->
         var <*> [bfdiff b b'; fdiff name name']
     | Otyp_var(_, name), _ when is_free name ->
-        Decorate.out_type t1 =~ Decorate.out_type t2
+        Decorate.typ t1 =~~ Decorate.typ t2
     | Otyp_variant (b,fields,b2,tags), Otyp_variant(b',fields',b2',tags') ->
         variant <*> [
           bfdiff b b';
@@ -656,10 +660,10 @@ module Type = struct
     | Otyp_attribute (t,attr), Otyp_attribute (t',attr') ->
         attribute <*> [typ t t'; attr_diff attr attr']
     | Otyp_stuff _, Otyp_stuff _ ->
-        nofoc (Decorate.out_type t1 // Decorate.out_type t2)
+        (Decorate.typ t1 // Decorate.typ t2)
 
     | (Otyp_var _ | Otyp_constr _ ), (Otyp_var _ | Otyp_constr _ ) ->
-        focus_diff ( Decorate.out_type t1 // Decorate.out_type t2)
+        fmap (fun x -> x) refoc ( Decorate.typ t1 // Decorate.typ t2)
 
     | _ -> stitch type' t1 t2
   and typ x = type' x
@@ -686,11 +690,11 @@ module Type = struct
 
   and variant_cmp x y = compare x.tag y.tag
   and dvariant x y = match x, y with
-    | Ovar_typ t, Ovar_typ t' -> (fun x -> D.Ovar_typ x) <*> [typ t t']
+    | Ovar_typ t, Ovar_typ t' -> (fun x -> unfoc @@ D.Ovar_typ x) <*> [typ t t']
     | Ovar_fields f, Ovar_fields f' ->
-        (fun x -> D.Ovar_fields x)
+        (fun x -> unfoc @@ D.Ovar_fields x)
         <*> [keyed_list variant_cmp (fmap2 dvfield) f f']
-    | _ -> Decorate.out_variant x // Decorate.out_variant y
+    | _ ->  stitch dvariant x y
 
   and dvfield f f' =
           (fun tag ampersand conj -> {D.tag;ampersand;conj} )
@@ -880,7 +884,7 @@ let rec sig_item s1 s2 =
 and module_type x y =
   let open Mty in
   match x, y with
-  | Omty_abstract, Omty_abstract -> std @@ Decorate.out_module_type x
+  | Omty_abstract, Omty_abstract -> pure @@ Decorate.module_type x
 
   | Omty_functor _ , Omty_functor _ ->
       functor' <*> functor_diff x y
@@ -906,17 +910,13 @@ and functor_diff t t'=
 
 module Gen = struct
 
-  type ('a,'b) t = 'a * 'a -> int -> 'b * 'b
-
-  let extract = function
-    | H.Ellipsis _ -> assert false
-    | H.Item(_,x) -> x
+  type ('a,'b) t = 'a * 'a -> int -> 'b H.t * 'b H.t
 
   let simplify f (x,y)=
   Type.reset_free ();
   match f x y with
-  | Eq x -> fun fuel -> dup ( extract @@ x.gen fuel )
-  | D r -> fun fuel -> let x, y = r.gen fuel in extract x, extract y
+  | Eq x -> fun fuel -> dup ( x.gen fuel )
+  | D r -> fun fuel -> r.gen fuel
 
   let typ = simplify type'
   let sig_item = simplify sig_item
@@ -925,7 +925,7 @@ module Gen = struct
 
 end
 
-type ('a, 'b) t = 'a * 'a -> 'b * 'b
+type ('a, 'b) t = 'a * 'a -> 'b H.t * 'b H.t
 let simplify f x = f x @@ get_fuel ()
 
 let typ = simplify Gen.typ

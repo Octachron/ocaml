@@ -89,7 +89,7 @@ module type S = sig
     | Otyp_tuple of out_type ext list
     | Otyp_var of bool ext * string ext
     | Otyp_variant of
-        bool ext * out_variant * bool ext * string ext list option ext
+        bool ext * out_variant ext * bool ext * string ext list option ext
     | Otyp_poly of string ext list * out_type ext
     | Otyp_module of string ext * string ext list * out_type ext list
     | Otyp_attribute of out_type ext * out_attribute ext
@@ -178,14 +178,16 @@ include S with type 'a ext = 'a
 module Decorated: sig   include S with type 'a ext = 'a Highlightable.t end
 
 module Decorate:sig
-  val out_value: out_value -> Decorated.out_value
-  val out_ident:  out_ident -> Decorated.out_ident
-  val out_type:  out_type -> Decorated.out_type
-  val out_variant: out_variant -> Decorated.out_variant
-  val out_type_extension: out_type_extension ->  Decorated.out_type_extension
-  val out_sig_item: out_sig_item -> Decorated.out_sig_item
-  val out_signature: out_sig_item list -> Decorated.out_sig_item list
-  val out_module_type: out_module_type -> Decorated.out_module_type
-  val out_class_type: out_class_type -> Decorated.out_class_type
-  val out_phrase: out_phrase -> Decorated.out_phrase
+  val value: out_value -> Decorated.out_value Decorated.ext
+  val ident:  out_ident -> Decorated.out_ident Decorated.ext
+  val typ:  out_type -> Decorated.out_type Decorated.ext
+  val variant: out_variant -> Decorated.out_variant Decorated.ext
+  val type_extension: out_type_extension ->
+    Decorated.out_type_extension Decorated.ext
+  val sig_item: out_sig_item -> Decorated.out_sig_item Decorated.ext
+  val signature: out_sig_item list ->
+    Decorated.out_sig_item Decorated.ext list
+  val module_type: out_module_type -> Decorated.out_module_type Decorated.ext
+  val class_type: out_class_type -> Decorated.out_class_type Decorated.ext
+  val phrase: out_phrase -> Decorated.out_phrase
 end

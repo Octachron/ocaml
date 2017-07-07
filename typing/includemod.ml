@@ -565,8 +565,8 @@ let include_err ppf =
       fprintf ppf
        "@[<hv 2>Extension declarations do not match:@ \
         %a@;<1 -2>is not included in@ %a@]"
-       pp (Outcometree.Decorate.out_sig_item t1)
-       pp (Outcometree.Decorate.out_sig_item t2);
+       pp (Outcometree.Decorate.sig_item t1)
+       pp (Outcometree.Decorate.sig_item t2);
       show_locs ppf (x1.ext_loc, x2.ext_loc)
   | Module_types(mty1, mty2)->
       let t1, t2 = Difftree.modtype (modtype mty1, modtype mty2) in

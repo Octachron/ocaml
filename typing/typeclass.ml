@@ -1544,7 +1544,7 @@ let final_decl env define_class
     None        -> ()
   | Some reason ->
       let printer =
-        let decorate = Outcometree.Decorate.out_sig_item in
+        let decorate = Outcometree.Decorate.sig_item in
         if define_class
         then function ppf ->
           Printtyp.(print_sigitem ppf @@ decorate @@ class_declaration id clty)
@@ -1769,7 +1769,7 @@ let report_error env ppf = function
       fprintf ppf
         "@[This class expression is not a class structure; it has type@ %a@]"
         Printtyp.print_class_type
-        (Outcometree.Decorate.out_class_type @@ Printtyp.class_type clty)
+        (Outcometree.Decorate.class_type @@ Printtyp.class_type clty)
   | Cannot_apply _ ->
       fprintf ppf
         "This class expression is not a class function, it cannot be applied"
@@ -1869,26 +1869,26 @@ let report_error env ppf = function
                 %a@]@,\
            It would escape the scope of its class@]"
         Printtyp.print_type
-        (Outcometree.Decorate.out_type @@ Printtyp.type_scheme ty)
+        (Outcometree.Decorate.typ @@ Printtyp.type_scheme ty)
   | Non_generalizable_class (id, clty) ->
       fprintf ppf
         "@[The type of this class,@ %a,@ \
            contains type variables that cannot be generalized@]"
         Printtyp.print_sigitem
-        (Outcometree.Decorate.out_sig_item @@ Printtyp.class_declaration id clty)
+        (Outcometree.Decorate.sig_item @@ Printtyp.class_declaration id clty)
   | Cannot_coerce_self ty ->
       fprintf ppf
         "@[The type of self cannot be coerced to@ \
            the type of the current class:@ %a.@.\
            Some occurrences are contravariant@]"
         Printtyp.print_type
-        (Outcometree.Decorate.out_type @@ Printtyp.type_scheme ty)
+        (Outcometree.Decorate.typ @@ Printtyp.type_scheme ty)
   | Non_collapsable_conjunction (id, clty, trace) ->
       fprintf ppf
         "@[The type of this class,@ %a,@ \
            contains non-collapsible conjunctive types in constraints@]"
         Printtyp.print_sigitem
-        (Outcometree.Decorate.out_sig_item @@ Printtyp.class_declaration id clty);
+        (Outcometree.Decorate.sig_item @@ Printtyp.class_declaration id clty);
       Printtyp.report_unification_error ppf env trace
         (fun ppf -> fprintf ppf "Type")
         (fun ppf -> fprintf ppf "is not compatible with type")

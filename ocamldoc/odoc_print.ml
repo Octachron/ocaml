@@ -70,7 +70,7 @@ let string_of_module_type ?code ?(complete=false) t =
   try
     let t2 = if complete then t else simpl_module_type ?code t in
     Printtyp.print_modtype modtype_fmt
-      (Outcometree.Decorate.out_module_type @@ Printtyp.modtype t2);
+      (Outcometree.Decorate.module_type @@ Printtyp.modtype t2);
     flush_modtype_fmt ()
   with
     Use_code s -> s
@@ -101,5 +101,5 @@ let string_of_class_type ?(complete=false) t =
   let t2 = if complete then t else simpl_class_type t in
   (* FIXME : my own Printtyp.class_type variant to avoid reset_names *)
   Printtyp.print_class_type modtype_fmt
-    (Outcometree.Decorate.out_class_type @@ Printtyp.class_type t2);
+    (Outcometree.Decorate.class_type @@ Printtyp.class_type t2);
   flush_modtype_fmt ()
