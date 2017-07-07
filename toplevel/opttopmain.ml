@@ -186,6 +186,7 @@ module Options = Main_args.Make_opttop_options (struct
   let _noprompt = set noprompt
   let _nopromptcont = set nopromptcont
   let _nostdlib = set no_std_include
+  let _error_size n = Clflags.error_size := n
   let _ppx s = Compenv.first_ppx := s :: !Compenv.first_ppx
   let _principal = set principal
   let _no_principal = clear principal
