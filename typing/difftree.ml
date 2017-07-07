@@ -15,9 +15,8 @@ type size = { primary: int; (* size of elements that must be printed *)
               secondary: int (* size of elements that may be printed if there
                                 is some spare space *)
             }
-
-(*let debug fmt = Format.eprintf ("debug:" ^^ fmt ^^ "@.")*)
 (*
+let debug fmt = Format.eprintf ("debug:" ^^ fmt ^^ "@.")
   let pp_list pp ppf l =
     Format.fprintf ppf "@[<hov 2>[%a]@]"
     (Format.pp_print_list
@@ -26,7 +25,7 @@ type size = { primary: int; (* size of elements that must be printed *)
 
   let pp_size ppf m = Format.fprintf ppf "{p:%d; s:%d}" m.primary m.secondary
   let pp_int ppf = Format.pp_print_int ppf
-  let pp_bound ppf (x,y) = Format.fprintf ppf "min:%a, max:%a" pp_size x pp_size y
+  let _pp_bound ppf (x,y) = Format.fprintf ppf "min:%a, max:%a" pp_size x pp_size y
 *)
 (*
 
@@ -38,12 +37,16 @@ type size = { primary: int; (* size of elements that must be printed *)
 *)
 
 let one = { primary=1; secondary = 0 }
+
 let empty = { primary=0; secondary=0 }
 let secondary secondary = { empty with secondary }
 let primary primary = { empty with primary }
 
-let (++) x y =
-  { primary = x.primary + y.primary; secondary = x.secondary + y.secondary }
+let smap2 (%) x y =
+  { primary = x.primary % y.primary; secondary = x.secondary % y.secondary }
+
+let (++) = smap2 (+)
+let size_max = smap2 max
 
 let card s = s.primary + s.secondary
 
@@ -87,7 +90,7 @@ let (//) left right=
 let foc x = H.Item(H.On,x)
 let unfoc x = H.Item(H.Off,x)
 
-let pure0 f = Eq { size =0; gen = const f }
+let pure0 f = Eq { size = 0; gen = const f }
 let d0 left right=
   D { gen = const (left, right);
       size = empty }
@@ -114,7 +117,7 @@ let stitch2 x y = match x, y with
          cf. Otyp_alias, Not Otyp_alias branch *)
       let r = flatten r and r' = flatten r' in
       D {
-        size = r.size ++ r'.size;
+        size = size_max r.size r'.size;
         gen = (fun fuel -> let x, _ =  r.gen fuel and _, y = r'.gen fuel in
                 refoc x, refoc y
               )
@@ -226,10 +229,11 @@ module AppList = struct
           else
             lvls)
         Level_map.empty l in
-    let max_level, fuel_left = Level_map.fold(fun k x (lvl,fuel) ->
-        if k * x <= fuel then (k, fuel - k * x)
-        else (lvl,fuel)
-      ) levels (0, fuel) in
+    let _, max_level, fuel_left =
+      Level_map.fold(fun k x (keep_going, old , fuel) ->
+        if keep_going && k * x <= fuel then (true, k, fuel - k * x)
+        else (false, old, fuel)
+      ) levels (true, 0, fuel) in
      let rec finish fuel = function
       | [] -> []
       | x :: q when proj x > max_level ->
@@ -248,6 +252,7 @@ module AppList = struct
       let fuel' = fuel - gmax.primary in
       let d = rising_tide (fun y -> y.secondary) fuel' sizes in
       List.map2 (fun x y -> x.primary + y) sizes d
+
 
   let rec apply : type a res. a concrete -> (a,res) T.t -> int list
     -> res concrete =
@@ -286,7 +291,7 @@ module AppList = struct
     if is_all_eq l then
       Eq { size = card global; gen = gen eq }
     else
-      D { size=global ; gen = gen pair }
+      D { size= global; gen = gen pair }
 
   let (<*>) f = mkdiff (concrete_pure f)
 
@@ -663,7 +668,7 @@ module Type = struct
         (Decorate.typ t1 // Decorate.typ t2)
 
     | (Otyp_var _ | Otyp_constr _ ), (Otyp_var _ | Otyp_constr _ ) ->
-        fmap (fun x -> x) refoc ( Decorate.typ t1 // Decorate.typ t2)
+        stitch typ t1 t2
 
     | _ -> stitch type' t1 t2
   and typ x = type' x
