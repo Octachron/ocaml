@@ -138,7 +138,7 @@ open Format
 ;;
 
 let is_cons = function
-| {cstr_name = "::"} -> true
+| {cstr_name = "(::)"} -> true
 | _ -> false
 
 let pretty_const c = match c with
@@ -177,7 +177,7 @@ let rec pretty_val ppf v =
   | Tpat_construct (_, cstr, vs) ->
       let name = cstr.cstr_name in
       begin match (name, vs) with
-        ("::", [v1;v2]) ->
+        ("(::)", [v1;v2]) ->
           fprintf ppf "@[%a::@,%a@]" pretty_car v1 pretty_cdr v2
       |  _ ->
           fprintf ppf "@[<2>%s@ @[(%a)@]@]" name (pretty_vals ",") vs

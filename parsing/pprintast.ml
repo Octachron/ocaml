@@ -102,13 +102,13 @@ let view_expr x =
   match x.pexp_desc with
   | Pexp_construct ( {txt= Lident "()"; _},_) -> `tuple
   | Pexp_construct ( {txt= Lident "[]";_},_) -> `nil
-  | Pexp_construct ( {txt= Lident"::";_},Some _) ->
+  | Pexp_construct ( {txt= Lident"(::)";_},Some _) ->
       let rec loop exp acc = match exp with
           | {pexp_desc=Pexp_construct ({txt=Lident "[]";_},_);
              pexp_attributes = []} ->
               (List.rev acc,true)
           | {pexp_desc=
-             Pexp_construct ({txt=Lident "::";_},
+             Pexp_construct ({txt=Lident "(::)";_},
                              Some ({pexp_desc= Pexp_tuple([e1;e2]);
                                     pexp_attributes = []}));
              pexp_attributes = []}
@@ -359,7 +359,7 @@ and pattern1 ctxt (f:Format.formatter) (x:pattern) : unit =
   let rec pattern_list_helper f = function
     | {ppat_desc =
          Ppat_construct
-           ({ txt = Lident("::") ;_},
+           ({ txt = Lident("(::)") ;_},
             Some ({ppat_desc = Ppat_tuple([pat1; pat2]);_}));
        ppat_attributes = []}
 
@@ -374,7 +374,7 @@ and pattern1 ctxt (f:Format.formatter) (x:pattern) : unit =
     | Ppat_construct (({txt=Lident("()"|"[]");_}), _) -> simple_pattern ctxt f x
     | Ppat_construct (({txt;_} as li), po) ->
         (* FIXME The third field always false *)
-        if txt = Lident "::" then
+        if txt = Lident "(::)" then
           pp f "%a" pattern_list_helper x
         else
           (match po with
@@ -1389,10 +1389,6 @@ and type_extension ctxt f x =
     (item_attributes ctxt) x.ptyext_attributes
 
 and constructor_declaration ctxt f (name, args, res, attrs) =
-  let name =
-    match name with
-    | "::" -> "(::)"
-    | s -> s in
   match res with
   | None ->
       pp f "%s%a@;%a" name

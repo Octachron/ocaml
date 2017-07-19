@@ -686,7 +686,7 @@ module PpxContext = struct
   let rec make_list f lst =
     match lst with
     | x :: rest ->
-      Exp.construct (lid "::") (Some (Exp.tuple [f x; make_list f rest]))
+      Exp.construct (lid "(::)") (Some (Exp.tuple [f x; make_list f rest]))
     | [] ->
       Exp.construct (lid "[]") None
 
@@ -746,7 +746,7 @@ module PpxContext = struct
                              { %s }] bool syntax" name
       and get_list elem = function
         | {pexp_desc =
-             Pexp_construct ({txt = Longident.Lident "::"},
+             Pexp_construct ({txt = Longident.Lident "(::)"},
                              Some {pexp_desc = Pexp_tuple [exp; rest]}) } ->
             elem exp :: get_list elem rest
         | {pexp_desc =

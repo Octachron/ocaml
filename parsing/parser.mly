@@ -99,10 +99,10 @@ let mkuplus name arg =
       mkexp(Pexp_apply(mkoperator ("~" ^ name) 1, [Nolabel, arg]))
 
 let mkexp_cons consloc args loc =
-  Exp.mk ~loc (Pexp_construct(mkloc (Lident "::") consloc, Some args))
+  Exp.mk ~loc (Pexp_construct(mkloc (Lident "(::)") consloc, Some args))
 
 let mkpat_cons consloc args loc =
-  Pat.mk ~loc (Ppat_construct(mkloc (Lident "::") consloc, Some args))
+  Pat.mk ~loc (Ppat_construct(mkloc (Lident "(::)") consloc, Some args))
 
 let rec mktailexp nilloc = function
     [] ->
@@ -2370,7 +2370,7 @@ constr_ident:
     UIDENT                                      { $1 }
   | LBRACKET RBRACKET                           { "[]" }
   | LPAREN RPAREN                               { "()" }
-  | LPAREN COLONCOLON RPAREN                    { "::" }
+  | LPAREN COLONCOLON RPAREN                    { "(::)" }
   | FALSE                                       { "false" }
   | TRUE                                        { "true" }
 ;
@@ -2381,9 +2381,9 @@ val_longident:
 ;
 constr_longident:
     mod_longident       %prec below_DOT         { $1 }
-  | mod_longident DOT LPAREN COLONCOLON RPAREN  { Ldot($1,"::") }
+  | mod_longident DOT LPAREN COLONCOLON RPAREN  { Ldot($1,"(::)") }
   | LBRACKET RBRACKET                           { Lident "[]" }
-  | LPAREN COLONCOLON RPAREN                    { Lident "::" }
+  | LPAREN COLONCOLON RPAREN                    { Lident "(::)" }
   | LPAREN RPAREN                               { Lident "()"}
   | FALSE                                       { Lident "false" }
   | TRUE                                        { Lident "true" }
