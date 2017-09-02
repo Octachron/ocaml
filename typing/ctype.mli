@@ -18,14 +18,37 @@
 open Asttypes
 open Types
 
-exception Unify of (type_expr * type_expr) list
+type pos = First | Second
+type 'typ error_source =
+  | Diff of 'typ
+  | Scope_escape of int
+  | Escaping_self_type
+  | Escaping_type_constructor of Path.t
+  | Escaping_universal
+  | Occur_in of 'typ * 'typ
+  | Unifying_self_with_closed
+  | Incompatible_methods of string * 'typ
+  | No_method of pos * string
+  | Closing_abstract_row of pos
+  | No_intersecting_variants
+  | Not_allowed_variant_tag of pos * 'typ * (label * row_field) list
+  | Incompatible_tag_types of string * 'typ
+
+type 'typ error = {ty:'typ; err: 'typ error_source}
+type direction = Direct | Reverse
+
+type 'a gen_trace = {dir:direction; errs: 'a error list}
+type trace = type_expr gen_trace
+type expanded_trace = (type_expr * type_expr) gen_trace
+
+exception Unify of trace
+exception Unify_expanded of expanded_trace
 exception Tags of label * label
-exception Subtype of
-        (type_expr * type_expr) list * (type_expr * type_expr) list
+exception Subtype of expanded_trace * trace
 exception Cannot_expand
 exception Cannot_apply
 exception Recursive_abbrev
-exception Unification_recursive_abbrev of (type_expr * type_expr) list
+exception Unification_recursive_abbrev of expanded_trace
 
 val init_def: int -> unit
         (* Set the initial variable level *)
@@ -197,11 +220,11 @@ val matches: Env.t -> type_expr -> type_expr -> bool
 type class_match_failure =
     CM_Virtual_class
   | CM_Parameter_arity_mismatch of int * int
-  | CM_Type_parameter_mismatch of Env.t * (type_expr * type_expr) list
+  | CM_Type_parameter_mismatch of Env.t * expanded_trace
   | CM_Class_type_mismatch of Env.t * class_type * class_type
-  | CM_Parameter_mismatch of Env.t * (type_expr * type_expr) list
-  | CM_Val_type_mismatch of string * Env.t * (type_expr * type_expr) list
-  | CM_Meth_type_mismatch of string * Env.t * (type_expr * type_expr) list
+  | CM_Parameter_mismatch of Env.t * expanded_trace
+  | CM_Val_type_mismatch of string * Env.t * expanded_trace
+  | CM_Meth_type_mismatch of string * Env.t * expanded_trace
   | CM_Non_mutable_value of string
   | CM_Non_concrete_value of string
   | CM_Missing_value of string

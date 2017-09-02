@@ -75,11 +75,11 @@ val prepare_expansion: type_expr * type_expr -> type_expr * type_expr
 val trace:
     bool -> bool-> string -> formatter -> (type_expr * type_expr) list -> unit
 val report_unification_error:
-    formatter -> Env.t -> ?unif:bool -> (type_expr * type_expr) list ->
+    formatter -> Env.t -> ?unif:bool -> Ctype.expanded_trace ->
     (formatter -> unit) -> (formatter -> unit) ->
     unit
 val report_subtyping_error:
-    formatter -> Env.t -> (type_expr * type_expr) list ->
+    formatter -> Env.t -> Ctype.expanded_trace ->
     string -> (type_expr * type_expr) list -> unit
 val report_ambiguous_type_error:
     formatter -> Env.t -> (Path.t * Path.t) -> (Path.t * Path.t) list ->
