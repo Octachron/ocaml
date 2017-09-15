@@ -178,16 +178,26 @@ include S with type 'a ext = 'a
 module Decorated: sig   include S with type 'a ext = 'a Highlightable.t end
 
 module Decorate:sig
-  val value: out_value -> Decorated.out_value Decorated.ext
-  val ident:  out_ident -> Decorated.out_ident Decorated.ext
-  val typ:  out_type -> Decorated.out_type Decorated.ext
-  val variant: out_variant -> Decorated.out_variant Decorated.ext
-  val type_extension: out_type_extension ->
+  val value: ?highlight:Highlightable.status
+    -> out_value -> Decorated.out_value Decorated.ext
+  val ident: ?highlight:Highlightable.status
+    ->  out_ident -> Decorated.out_ident Decorated.ext
+  val typ: ?highlight:Highlightable.status
+    ->  out_type -> Decorated.out_type Decorated.ext
+  val variant: ?highlight:Highlightable.status
+    -> out_variant -> Decorated.out_variant Decorated.ext
+  val type_extension: ?highlight:Highlightable.status
+    -> out_type_extension ->
     Decorated.out_type_extension Decorated.ext
-  val sig_item: out_sig_item -> Decorated.out_sig_item Decorated.ext
-  val signature: out_sig_item list ->
+  val sig_item: ?highlight:Highlightable.status
+    -> out_sig_item -> Decorated.out_sig_item Decorated.ext
+  val signature: ?highlight:Highlightable.status
+    -> out_sig_item list ->
     Decorated.out_sig_item Decorated.ext list
-  val module_type: out_module_type -> Decorated.out_module_type Decorated.ext
-  val class_type: out_class_type -> Decorated.out_class_type Decorated.ext
-  val phrase: out_phrase -> Decorated.out_phrase
+  val module_type: ?highlight:Highlightable.status
+    -> out_module_type -> Decorated.out_module_type Decorated.ext
+  val class_type: ?highlight:Highlightable.status
+    ->out_class_type -> Decorated.out_class_type Decorated.ext
+  val phrase: ?highlight:Highlightable.status
+    -> out_phrase -> Decorated.out_phrase
 end

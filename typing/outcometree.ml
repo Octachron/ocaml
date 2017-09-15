@@ -166,156 +166,189 @@ module Decorated = Make(Highlightable)
 
 module Decorate = struct
   module D = Decorated
-  let fwd x = Highlightable.(Item(Off,x))
-  let fwds x = List.map fwd x
-  let fmap f x = fwd (f x)
+  open Highlightable
+  let fwd status x = Item(status,x)
+  let fwds status x = List.map (fwd status) x
+  let fmap status f x = fwd status (f status x)
 
-  let rec out_ident = function
-    | Oide_apply(x,y) -> D.Oide_apply(ident x, ident y)
-    | Oide_dot(x,y) -> D.Oide_dot(ident x, fwd y)
-    | Oide_ident x -> D.Oide_ident(fwd x)
-  and ident x = fmap out_ident x
+  let rec out_ident h = function
+    | Oide_apply(x,y) ->
+        D.Oide_apply(ident h x, ident h y)
+    | Oide_dot(x,y) -> D.Oide_dot(ident h x, fwd h y)
+    | Oide_ident x -> D.Oide_ident(fwd h x)
+  and ident h x = fmap h out_ident x
 
   let may f = function None -> None | Some x -> Some (f x)
-  let mayf f x = fwd (may f @@ x)
+  let mayf st f x = fwd st (may (f st) @@ x)
 
-  let rec out_value = function
-    | Oval_array x -> D.Oval_array (List.map out_value x)
+  let rec out_value h = function
+    | Oval_array x -> D.Oval_array (List.map (out_value h) x)
     | Oval_char x -> D.Oval_char x
-    | Oval_constr(x,y) -> D.Oval_constr( out_ident x, List.map out_value y)
+    | Oval_constr(x,y) ->
+        D.Oval_constr( out_ident h x, List.map (out_value h) y)
     | Oval_ellipsis -> D.Oval_ellipsis
     | Oval_float f -> D.Oval_float f
     | Oval_int f -> D.Oval_int f
     | Oval_int32 n -> D.Oval_int32 n
     | Oval_int64 n -> D.Oval_int64 n
     | Oval_nativeint n -> D.Oval_nativeint n
-    | Oval_list l -> D.Oval_list (List.map out_value l)
+    | Oval_list l -> D.Oval_list (List.map (out_value h) l)
     | Oval_printer p -> D.Oval_printer p
     | Oval_record l ->
-        D.Oval_record (List.map (fun (x,y) -> out_ident x, out_value y) l)
+        D.Oval_record
+          (List.map (fun (x,y) -> out_ident h x, out_value h y) l)
     | Oval_string (s,n,k) -> D.Oval_string(s,n, k)
     | Oval_stuff s -> D.Oval_stuff s
-    | Oval_tuple v -> D.Oval_tuple (List.map out_value v)
-    | Oval_variant (s,ov) -> D.Oval_variant (s, may out_value ov)
+    | Oval_tuple v -> D.Oval_tuple (List.map (out_value h) v)
+    | Oval_variant (s,ov) -> D.Oval_variant (s, may (out_value h) ov)
 
-  let value = fmap out_value
+  let value h = fmap h out_value
 
-  let rec out_type = function
+  let rec out_type h = function
     | Otyp_abstract -> D.Otyp_abstract
     | Otyp_open -> D.Otyp_open
-    | Otyp_alias(x,y) -> D.Otyp_alias(typ x,fwd y)
-    | Otyp_arrow(l,t) -> D.Otyp_arrow(label l, typ t)
-    | Otyp_class(b,id,ts) -> D.Otyp_class(fwd b, ident id,types ts)
-    | Otyp_constr(id,ts) -> D.Otyp_constr(ident id, types ts)
-    | Otyp_manifest(t,t') -> D.Otyp_manifest(typ t, typ t')
-    | Otyp_object(lbls, o) -> D.Otyp_object(labels lbls, mayf fwd o)
-    | Otyp_record r -> D.Otyp_record(fields r)
+    | Otyp_alias(x,y) -> D.Otyp_alias(typ h x,fwd h y)
+    | Otyp_arrow(l,t) -> D.Otyp_arrow(label h l, typ h t)
+    | Otyp_class(b,id,ts) ->
+        D.Otyp_class(fwd h b, ident h id,types h ts)
+    | Otyp_constr(id,ts) ->
+        D.Otyp_constr(ident h id, types h ts)
+    | Otyp_manifest(t,t') ->
+        D.Otyp_manifest(typ h t, typ h t')
+    | Otyp_object(lbls, o) ->
+        D.Otyp_object(labels h lbls, mayf h fwd o)
+    | Otyp_record r -> D.Otyp_record(fields h r)
     | Otyp_stuff s -> D.Otyp_stuff s
-    | Otyp_sum cntrs -> D.Otyp_sum (List.map constr cntrs)
-    | Otyp_tuple ts -> D.Otyp_tuple(types ts)
-    | Otyp_var(b,s) -> D.Otyp_var(fwd b, fwd s)
+    | Otyp_sum cntrs -> D.Otyp_sum (List.map (constr h) cntrs)
+    | Otyp_tuple ts -> D.Otyp_tuple(types h ts)
+    | Otyp_var(b,s) -> D.Otyp_var(fwd h b, fwd h s)
     | Otyp_variant (b,vars,b',tags) ->
-      D.Otyp_variant(fwd b,variant vars, fwd b', mayf fwds tags )
-    | Otyp_poly(us, t) -> D.Otyp_poly(fwds us, typ t)
-    | Otyp_module (name,with',ts) -> D.Otyp_module(fwd name, fwds with', types ts)
-    | Otyp_attribute(t, attrs) -> D.Otyp_attribute(typ t, fwd attrs)
+        D.Otyp_variant(fwd h b,variant h vars, fwd h b',
+                       mayf h fwds tags )
+    | Otyp_poly(us, t) -> D.Otyp_poly(fwds h us, typ h t)
+    | Otyp_module (name,with',ts) ->
+        D.Otyp_module(fwd h name, fwds h with', types h ts)
+    | Otyp_attribute(t, attrs) ->
+        D.Otyp_attribute(typ h t, fwd h attrs)
 
-  and typ x = fmap out_type x
-  and types l = List.map typ l
-  and label (lbl,t) = fwd (fwd lbl, typ t)
-  and labels x = List.map label x
-  and constr c =
-    fwd {D.cname = fwd c.cname; args = types c.args; ret = mayf typ c.ret}
+  and typ h x = fmap h out_type x
+  and types h l = List.map (typ h) l
+  and label h (lbl,t) = fwd h (fwd h lbl, typ h t)
+  and labels h x = List.map (label h) x
+  and constr h c =
+    fwd h {D.cname = fwd h c.cname; args = types h c.args;
+         ret = mayf h typ c.ret}
 
-  and out_variant = function
-    | Ovar_fields fs -> D.Ovar_fields (List.map var_field fs)
-    | Ovar_typ t -> D.Ovar_typ (typ t)
+  and out_variant h = function
+    | Ovar_fields fs -> D.Ovar_fields (List.map (var_field h) fs)
+    | Ovar_typ t -> D.Ovar_typ (typ h t)
 
-  and variant x = fmap out_variant x
+  and variant h x = fmap h out_variant x
 
-  and var_field f =
-    fwd {D.tag = fwd f.tag; ampersand = fwd f.ampersand; conj = types f.conj }
+  and var_field h f =
+    fwd h {D.tag = fwd h f.tag; ampersand = fwd h f.ampersand;
+         conj = types h f.conj }
 
-  and field f =
-    {D.label= fwd f.label; mut = fwd f.mut; typ = typ f.typ }
-  and fields x = List.map (fmap field) x
+  and field h f =
+    {D.label= fwd h f.label; mut = fwd h f.mut; typ = typ h f.typ }
+  and fields h x = List.map (fmap h field) x
 
-  let type_constraint c=
-   {D.lhs= typ c.lhs ;rhs = typ c.rhs}
+  let type_constraint h c=
+   {D.lhs= typ h c.lhs ;rhs = typ h c.rhs}
 
-  let rec out_class_type = function
-    | Octy_constr(id,ts) -> D.Octy_constr(ident id, types ts)
-    | Octy_arrow(lbl,t) -> D.Octy_arrow(label lbl, class_type t)
+  let rec out_class_type h = function
+    | Octy_constr(id,ts) -> D.Octy_constr(ident h id, types h ts)
+    | Octy_arrow(lbl,t) -> D.Octy_arrow(label h lbl, class_type h t)
     | Octy_signature(self, items) ->
-        D.Octy_signature(mayf typ self, List.map (fmap out_class_sig_item) items)
-  and out_class_sig_item = function
-    | Ocsg_constraint x -> D.Ocsg_constraint (type_constraint x)
+        D.Octy_signature(mayf h typ self,
+                         List.map (fmap h out_class_sig_item) items)
+  and out_class_sig_item h = function
+    | Ocsg_constraint x -> D.Ocsg_constraint (type_constraint h x)
     | Ocsg_method(name,priv,virt,t) ->
-        D.Ocsg_method(fwd name,fwd priv,fwd virt, typ t)
+        D.Ocsg_method(fwd h name,fwd h priv,fwd h virt, typ h t)
     | Ocsg_value(name,priv,virt,t) ->
-        D.Ocsg_value(fwd name,fwd priv,fwd virt, typ t)
-  and class_type x = fmap out_class_type x
-  let type_param tp =
-    fwd {D.covariant= fwd tp.covariant; contravariant= fwd tp.contravariant;
-     name = fwd tp.name}
+        D.Ocsg_value(fwd h name,fwd h priv,fwd h virt, typ h t)
+  and class_type h x = fmap h out_class_type x
+  let type_param h tp =
+    fwd h {D.covariant= fwd h tp.covariant;
+         contravariant= fwd h tp.contravariant;
+     name = fwd h tp.name}
 
-  let type_params = List.map type_param
+  let type_params h = List.map (type_param h)
 
-  let rec out_module_type = function
+  let rec out_module_type h = function
     | Omty_abstract -> D.Omty_abstract
     | Omty_functor ( (name, arg), res) ->
-        D.Omty_functor(fwd (fwd name, mayf module_type arg), module_type res)
-    | Omty_ident id -> D.Omty_ident (ident id)
-    | Omty_signature items -> D.Omty_signature (sigitems items)
-    | Omty_alias id -> D.Omty_alias(ident id)
-  and module_type x = fmap out_module_type x
-  and out_sig_item = function
+        D.Omty_functor(fwd h (fwd h name, mayf h module_type arg),
+                       module_type h res)
+    | Omty_ident id -> D.Omty_ident (ident h id)
+    | Omty_signature items -> D.Omty_signature (sigitems h items)
+    | Omty_alias id -> D.Omty_alias(ident h id)
+  and module_type h x = fmap h out_module_type x
+  and out_sig_item h = function
     | Osig_class (virt, name, tps, ct, recs) ->
-        D.Osig_class(fwd virt,fwd name, type_params tps, class_type ct,fwd recs)
+        D.Osig_class(fwd h virt,fwd h name, type_params h tps,
+                     class_type h ct, fwd h recs)
     | Osig_class_type(virt, name, tps, ct, recs) ->
-        D.Osig_class_type(fwd virt,fwd name, type_params tps, class_type ct,fwd recs)
+        D.Osig_class_type(fwd h virt,fwd h name, type_params h tps,
+                          class_type h ct,fwd h recs)
     | Osig_typext(ext,est) ->
-        D.Osig_typext(extension_constructor ext, fwd est)
-    | Osig_modtype(name,mt) -> D.Osig_modtype(fwd name,module_type mt)
+        D.Osig_typext(extension_constructor h ext, fwd h est)
+    | Osig_modtype(name,mt) ->
+        D.Osig_modtype(fwd h name,module_type h mt)
     | Osig_module(name,mt,recs) ->
-        D.Osig_module(fwd name,module_type mt, fwd recs)
-    | Osig_type(decl, recs) -> D.Osig_type(type_decl decl, fwd recs)
-    | Osig_value v -> D.Osig_value (val_decl v)
+        D.Osig_module(fwd h name,module_type h mt, fwd h recs)
+    | Osig_type(decl, recs) ->
+        D.Osig_type(type_decl h decl, fwd h recs)
+    | Osig_value v -> D.Osig_value (val_decl h v)
     | Osig_ellipsis -> D.Osig_ellipsis
-  and sig_item x = fmap out_sig_item x
-  and sigitems x = List.map sig_item x
-  and type_decl d =
-    { D.otype_name= fwd d.otype_name;
-      otype_params= type_params d.otype_params;
-      otype_type = typ d.otype_type;
-      otype_private= fwd d.otype_private;
-      otype_immediate= fwd d.otype_immediate;
-      otype_unboxed= fwd d.otype_unboxed;
-      otype_cstrs= List.map (fmap type_constraint) d.otype_cstrs }
-  and extension_constructor e=
-    { D.oext_name = fwd e.oext_name;
-      oext_type_name = fwd e.oext_type_name;
-      oext_type_params = fwds e.oext_type_params;
-      oext_args = types e.oext_args;
-      oext_ret_type = mayf typ e.oext_ret_type;
-      oext_private = fwd e.oext_private }
-  and type_extension e =
-    fwd { D.otyext_name= fwd e.otyext_name;
-      otyext_params= fwds e.otyext_params;
-      otyext_constructors= List.map constr e.otyext_constructors;
-      otyext_private = fwd e.otyext_private}
-  and val_decl v =
-    { D.oval_name = fwd v.oval_name;
-      oval_type = typ  v.oval_type;
-      oval_prims = fwds v.oval_prims;
-      oval_attributes = fwds v.oval_attributes}
+  and sig_item h x = fmap h out_sig_item x
+  and sigitems h x = List.map (sig_item h) x
+  and type_decl h d =
+    { D.otype_name= fwd h d.otype_name;
+      otype_params= type_params h d.otype_params;
+      otype_type = typ h d.otype_type;
+      otype_private= fwd h d.otype_private;
+      otype_immediate= fwd h d.otype_immediate;
+      otype_unboxed= fwd h d.otype_unboxed;
+      otype_cstrs= List.map (fmap h type_constraint) d.otype_cstrs }
+  and extension_constructor h e =
+    { D.oext_name = fwd h e.oext_name;
+      oext_type_name = fwd h e.oext_type_name;
+      oext_type_params = fwds h e.oext_type_params;
+      oext_args = types h e.oext_args;
+      oext_ret_type = mayf h typ e.oext_ret_type;
+      oext_private = fwd h e.oext_private }
+  and type_extension h e =
+    fwd h { D.otyext_name= fwd h e.otyext_name;
+      otyext_params= fwds h e.otyext_params;
+      otyext_constructors= List.map (constr h) e.otyext_constructors;
+      otyext_private = fwd h e.otyext_private}
+  and val_decl h v =
+    { D.oval_name = fwd h v.oval_name;
+      oval_type = typ h v.oval_type;
+      oval_prims = fwds h v.oval_prims;
+      oval_attributes = fwds h v.oval_attributes}
 
   let signature = sigitems
-  let phrase = function
-    | Ophr_eval(v,t) -> D.Ophr_eval (out_value v, out_type t)
+  let phrase h = function
+    | Ophr_eval(v,t) ->
+        D.Ophr_eval (out_value h v, out_type h t)
     | Ophr_signature l ->
-        D.Ophr_signature( List.map (fun (x,y) -> out_sig_item x, may out_value y) l )
+        D.Ophr_signature(List.map (fun (x,y) ->
+            out_sig_item h x, may (out_value h) y) l )
     | Ophr_exception (exn, v) ->
-        D.Ophr_exception(exn, out_value v)
+        D.Ophr_exception(exn, out_value h v)
 
+  let export f ?highlight:(h=Off) = f h
+  let value = export value
+  let ident = export ident
+  let typ = export typ
+  let variant = export variant
+  let type_extension = export type_extension
+  let sig_item = export sig_item
+  let signature = export signature
+  let module_type = export module_type
+  let class_type = export class_type
+  let phrase = export phrase
 end
