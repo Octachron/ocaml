@@ -15,9 +15,10 @@ type size = { primary: int; (* size of elements that must be printed *)
               secondary: int (* size of elements that may be printed if there
                                 is some spare space *)
             }
+
 (*
 let debug fmt = Format.eprintf ("debug:" ^^ fmt ^^ "@.")
-  let pp_list pp ppf l =
+let pp_list pp ppf l =
     Format.fprintf ppf "@[<hov 2>[%a]@]"
     (Format.pp_print_list
       ~pp_sep:(fun ppf () -> Format.fprintf ppf ";@ ")
@@ -137,6 +138,23 @@ let fmap f g = function
   | Eq r -> Eq { r with gen = (fun fuel -> f (r.gen fuel) ) }
   | D r -> D { r with gen = (fun fuel -> let x, y = r.gen fuel in g x, g y) }
 
+let fork size f g = function
+  | Eq r ->
+      D {
+        gen = (fun fuel ->
+            let common = r.gen fuel in
+            f common, g common
+          );
+        size = size ++ secondary r.size
+      }
+  | D r ->
+       D {
+        gen = (fun fuel ->
+            let x, y = r.gen fuel in
+            f x, g y
+          );
+        size = size ++ r.size
+      }
 
 (*let focus_diff x = fmap unfoc foc x*)
 let nofoc x = fmap unfoc unfoc x
@@ -635,6 +653,18 @@ module Type = struct
         arrow <*> [ fn_args fn fn' ]
     | Otyp_class (b, id, args), Otyp_class (b',id',args') ->
         class' <*> [ bfdiff b b'; id_diff id id'; tylist args args' ]
+    | Otyp_constr(t1, ([_] as args)), Otyp_constr(t2, ([_] as args2))->
+        constr <*> [ id_diff t1 t2; tylist args args2 ]
+    | Otyp_constr(t1, [arg]), t2 ->
+        fork (primary 1)
+          (fun x -> constr (Decorate.ident ~highlight:H.On t1) [x])
+          (fun x -> x)
+          (type' arg t2)
+    | t1, Otyp_constr(t2, [arg]) ->
+        fork (primary 1)
+          (fun x -> x)
+          (fun x -> constr (Decorate.ident ~highlight:H.On t2) [x])
+          (type' t1 arg)
     | Otyp_constr (t1, args), Otyp_constr(t2,args2) ->
         constr <*> [ id_diff t1 t2; tylist args args2 ]
     | Otyp_manifest(x,y), Otyp_manifest(x',y') ->
