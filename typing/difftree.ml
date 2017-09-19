@@ -10,46 +10,27 @@ let fuel = Clflags.error_size
 let get_fuel () = !fuel
 
 (** {2 Two dimensional size } *)
+module Size = struct
+  type t = {
+    (* size of elements that should be printed in priority *)
+    primary: int;
+    (* size of elements that may be printed if there is some spare space *)
+    secondary: int
+  }
+  let one = { primary=1; secondary = 0 }
+  let empty = { primary=0; secondary=0 }
 
-type size = { primary: int; (* size of elements that must be printed *)
-              secondary: int (* size of elements that may be printed if there
-                                is some spare space *)
-            }
+  let secondary secondary = { empty with secondary }
+  let primary primary = { empty with primary }
 
-(*
-let debug fmt = Format.eprintf ("debug:" ^^ fmt ^^ "@.")
-let pp_list pp ppf l =
-    Format.fprintf ppf "@[<hov 2>[%a]@]"
-    (Format.pp_print_list
-      ~pp_sep:(fun ppf () -> Format.fprintf ppf ";@ ")
-      pp) l
+  let map2 (%) x y =
+    { primary = x.primary % y.primary; secondary = x.secondary % y.secondary }
 
-  let pp_size ppf m = Format.fprintf ppf "{p:%d; s:%d}" m.primary m.secondary
-  let pp_int ppf = Format.pp_print_int ppf
-  let _pp_bound ppf (x,y) = Format.fprintf ppf "min:%a, max:%a" pp_size x pp_size y
-*)
-(*
+  let (++) = map2 (+)
+  let max = max
 
-      debug "Distributing [%d] fuel" fuel;
-      debug "bounds: %a" (pp_list pp_bound) bounds;
-      debug "distribution: %a" (pp_list pp_int) distribution;
-    debug "List, fuel:%d, len:%d size:{%d;%d}" fuel (List.length l)
-   max_size.primary max_size.secondary;
-*)
-
-let one = { primary=1; secondary = 0 }
-
-let empty = { primary=0; secondary=0 }
-let secondary secondary = { empty with secondary }
-let primary primary = { empty with primary }
-
-let smap2 (%) x y =
-  { primary = x.primary % y.primary; secondary = x.secondary % y.secondary }
-
-let (++) = smap2 (+)
-let size_max = smap2 max
-
-let card s = s.primary + s.secondary
+  let card s = s.primary + s.secondary
+end
 
 (** {2 Diffed type } *)
 
@@ -63,7 +44,7 @@ type ('a,'b) gen = {
 (** Main type *)
 type 'a diff =
   | Eq of ('a, int) gen
-  | D of ('a * 'a , size) gen
+  | D of ('a * 'a , Size.t) gen
 
 
 let is_eq = function
@@ -73,11 +54,11 @@ let is_eq = function
 
 let size = function
   | D r -> r.size
-  | Eq r -> secondary r.size
+  | Eq r -> Size.secondary r.size
 
 let flatten = function
   | D r -> r
-  | Eq r -> { size = secondary r.size;
+  | Eq r -> { size = Size.secondary r.size;
               gen = (fun fuel -> let r = r.gen fuel in r, r) }
 
 
@@ -86,7 +67,7 @@ let const x _fuel = x
 let pure f = Eq { size=0; gen = const f }
 let (//) left right=
   D { gen = const (left, right);
-      size = one }
+      size = Size.one }
 
 let foc x = H.Item(H.On,x)
 let unfoc x = H.Item(H.Off,x)
@@ -94,7 +75,7 @@ let unfoc x = H.Item(H.Off,x)
 let pure0 f = Eq { size = 0; gen = const f }
 let d0 left right=
   D { gen = const (left, right);
-      size = empty }
+      size =  Size.empty }
 
 let refoc = function
   | H.Item(H.Off,x) -> H.Item(H.On,x)
@@ -110,7 +91,7 @@ let _focus_ellide_diff x y = match x, y with
 
 let stitch2 x y = match x, y with
   | Eq x, Eq y ->
-      D { size = primary (max x.size y.size);
+      D { size =  Size.primary (max x.size y.size);
           gen =(fun fuel -> refoc (x.gen fuel), refoc (y.gen fuel))
         }
   | r, r' ->
@@ -118,7 +99,7 @@ let stitch2 x y = match x, y with
          cf. Otyp_alias, Not Otyp_alias branch *)
       let r = flatten r and r' = flatten r' in
       D {
-        size = size_max r.size r'.size;
+        size = Size.max r.size r'.size;
         gen = (fun fuel -> let x, _ =  r.gen fuel and _, y = r'.gen fuel in
                 refoc x, refoc y
               )
@@ -128,10 +109,10 @@ let stitch2 x y = match x, y with
 let stitch f x y = stitch2 (f x x) (f y y)
 
 let ( =~ ) left right =
-  D { gen = (fun _ -> (unfoc left, unfoc right)); size = secondary 1 }
+  D { gen = (fun _ -> (unfoc left, unfoc right)); size = Size.secondary 1 }
 
 let ( =~~ ) left right =
-  D { gen = const (left, right); size = secondary 1 }
+  D { gen = const (left, right); size = Size.secondary 1 }
 
 
 let fmap f g = function
@@ -145,7 +126,7 @@ let fork size f g = function
             let common = r.gen fuel in
             f common, g common
           );
-        size = size ++ secondary r.size
+        size = Size.(size ++ secondary r.size)
       }
   | D r ->
        D {
@@ -153,7 +134,7 @@ let fork size f g = function
             let x, y = r.gen fuel in
             f x, g y
           );
-        size = size ++ r.size
+        size = Size.( size ++ r.size )
       }
 
 (*let focus_diff x = fmap unfoc foc x*)
@@ -193,9 +174,9 @@ module AppList = struct
     | Pair (f,g), Pair(x,y) -> Pair(f x, g y)
 
   let global_size l =
-    List.fold_left (++) empty l
+    List.fold_left Size.(++) Size.empty l
 
-  let rec sizes: type a b. (a,b) T.t -> size list =
+  let rec sizes: type a b. (a,b) T.t -> Size.t list =
     function
     | T.[] -> []
     | T.( a :: q ) -> size a :: sizes q
@@ -262,6 +243,7 @@ module AppList = struct
 
 
   let distribute gmax sizes fuel =
+    let open Size in
     if fuel >= card gmax then
       List.map (fun size -> card size) sizes
     else if fuel <= gmax.primary then
@@ -307,7 +289,7 @@ module AppList = struct
       let distribution = distribute global sizes fuel in
       proj (apply f l distribution) in
     if is_all_eq l then
-      Eq { size = card global; gen = gen eq }
+      Eq { size = Size.card global; gen = gen eq }
     else
       D { size= global; gen = gen pair }
 
@@ -337,7 +319,7 @@ let diff0 x y = if x = y then pure0 x else d0 x y
 
 let diff size (left_focus,right_focus) left right =
   if left = right then
-    Eq { size = card size; gen = const (unfoc right) }
+    Eq { size = Size.card size; gen = const (unfoc right) }
   else
     D { gen = const (left_focus left,right_focus right); size }
 
@@ -363,7 +345,7 @@ let bind2 f x y = match x, y with
 (** {3 List combinators } *)
 let ellipses n = H.Ellipsis n
 
-let fueled x f = f > 0 || card (size x) = 0
+let fueled x f = f > 0 || Size.card (size x) = 0
 
 let maycons (b1,b2) (x,y) (l1,l2) =
   (if not b1 then x :: l1 else l1),
@@ -420,7 +402,7 @@ in
       ellide (dup 0) l in
 
   if List.for_all (fun (x,_) -> is_eq x) l then
-    Eq { size = card global; gen = fun fuel -> fst @@ gen fuel }
+    Eq { size = Size.card global; gen = fun fuel -> fst @@ gen fuel }
   else
     D {  size = global; gen }
 
@@ -513,7 +495,7 @@ let map_like cmp diff x y =
     ellide (Array.to_list x), ellide (Array.to_list y) in
 
   if List.for_all (fun (x,_) -> is_eq x) l then
-    Eq { size = card global; gen = (fun fuel -> fst (gen fuel)) }
+    Eq { size = Size.card global; gen = (fun fuel -> fst (gen fuel)) }
   else
     D { size = global; gen }
 
@@ -552,17 +534,17 @@ let focus = foc, foc
 
 
 let _bdiff: bool -> _ = diff0
-let bfdiff: bool -> _ = diff empty (dup foc)
+let bfdiff: bool -> _ = diff Size.empty (dup foc)
 
-let recs_diff: out_rec_status -> _ = diff empty focus
+let recs_diff: out_rec_status -> _ = diff Size.empty focus
 
-let priv_diff: Asttypes.private_flag -> _ = diff empty focus
-let ext_diff: out_ext_status -> _ = diff empty focus
+let priv_diff: Asttypes.private_flag -> _ = diff Size.empty focus
+let ext_diff: out_ext_status -> _ = diff Size.empty focus
 
-let attr_diff: out_attribute -> _ = diff empty focus
+let attr_diff: out_attribute -> _ = diff Size.empty focus
 
-let fdiff: string -> _ = diff one focus
-let _fdiff0: string -> _ = diff empty focus
+let fdiff: string -> _ = diff Size.one focus
+let _fdiff0: string -> _ = diff Size.empty focus
 
 
 
@@ -656,12 +638,12 @@ module Type = struct
     | Otyp_constr(t1, ([_] as args)), Otyp_constr(t2, ([_] as args2))->
         constr <*> [ id_diff t1 t2; tylist args args2 ]
     | Otyp_constr(t1, [arg]), t2 ->
-        fork (primary 1)
+        fork (Size.primary 1)
           (fun x -> constr (Decorate.ident ~highlight:H.On t1) [x])
           (fun x -> x)
           (type' arg t2)
     | t1, Otyp_constr(t2, [arg]) ->
-        fork (primary 1)
+        fork (Size.primary 1)
           (fun x -> x)
           (fun x -> constr (Decorate.ident ~highlight:H.On t2) [x])
           (type' t1 arg)
@@ -936,7 +918,7 @@ and functor_diff t t'=
     if name ="_" || name' ="_" then
       name =~ name'
     else
-      diff one focus name name' in
+      diff Size.one focus name name' in
   let arg (name,mty) (name',mty') =
     pair <*> [ name_diff name name'; opt_ext module_type mty mty'] in
   [list (fmap2 arg) f f'; module_type res res']
