@@ -46,11 +46,9 @@ type 'a diff =
   | Eq of ('a, int) gen
   | D of ('a * 'a , Size.t) gen
 
-
 let is_eq = function
   | Eq _ -> true
   | _ -> false
-
 
 let size = function
   | D r -> r.size
@@ -64,32 +62,19 @@ let flatten = function
 
 (** {3 Combinators } *)
 let const x _fuel = x
-let pure f = Eq { size=0; gen = const f }
-let (//) left right=
-  D { gen = const (left, right);
-      size = Size.one }
+let pure ?(size=0) f = Eq { size; gen = const f }
+let split size left right=
+  D { gen = const (left, right); size}
+let (|*|) left = split Size.one left
 
 let foc x = H.Item(H.On,x)
 let unfoc x = H.Item(H.Off,x)
-
-let pure0 f = Eq { size = 0; gen = const f }
-let d0 left right=
-  D { gen = const (left, right);
-      size =  Size.empty }
 
 let refoc = function
   | H.Item(H.Off,x) -> H.Item(H.On,x)
   | x -> x
 
-let _focus_ellide_diff x y = match x, y with
-  | H.Ellipsis _ as e, H.Item(_, x) ->
-     e, H.Item(H.On,x)
-  | H.Item(_,x), (H.Ellipsis _ as e) ->
-      H.Item(H.On,x), e
-  | H.Item(_,x), H.Item(_,y) -> H.Item(H.On,x) , H.Item(H.On,y)
-  | H.Ellipsis _ , H.Ellipsis _ -> x, y
-
-let stitch2 x y = match x, y with
+let stitch x y = match x, y with
   | Eq x, Eq y ->
       D { size =  Size.primary (max x.size y.size);
           gen =(fun fuel -> refoc (x.gen fuel), refoc (y.gen fuel))
@@ -106,7 +91,7 @@ let stitch2 x y = match x, y with
         }
       (*raise (Invalid_argument "Stitching difference")*)
 
-let stitch f x y = stitch2 (f x x) (f y y)
+let sym f g x y = f (g x x) (g y y)
 
 let ( =~ ) left right =
   D { gen = (fun _ -> (unfoc left, unfoc right)); size = Size.secondary 1 }
@@ -156,7 +141,6 @@ end
 module AppList = struct
 
   module T = struct
-
     type ('a,'res) t =
       | [] : ('res,'res) t
       | (::) : 'a diff * ('any,'res) t -> ('a -> 'any, 'res) t
@@ -315,7 +299,7 @@ open AppList
 
 
 (** {3 Simple combinators }*)
-let diff0 x y = if x = y then pure0 x else d0 x y
+let diff0 x y = if x = y then pure x else split Size.empty x y
 
 let diff size (left_focus,right_focus) left right =
   if left = right then
@@ -328,23 +312,21 @@ let dup x = x, x
 let fmap2 f x y = match x, y with
   | H.Item(_,x), H.Item(_,y) ->  nofoc @@ f x y
   | H.Ellipsis _ as e, H.Item(_,x) ->
-      stitch2 (pure e) (do_focus @@ f x x)
+      stitch (pure e) (do_focus @@ f x x)
   | H.Item(_,x), (H.Ellipsis _ as e) ->
-      stitch2 (do_focus @@ f x x) (pure e)
+      stitch (do_focus @@ f x x) (pure e)
   | H.Ellipsis n, H.Ellipsis n' -> pure @@ H.Ellipsis(max n n')
 
 
 let bind2 f x y = match x, y with
   | H.Item(_,x), H.Item(_,y) ->  f x y
-  | H.Ellipsis _ as e, H.Item(_,x) -> stitch2 (pure e) (f x x)
-  | H.Item(_,x), (H.Ellipsis _ as e) -> stitch2 (f x x) (pure e)
+  | H.Ellipsis _ as e, H.Item(_,x) -> stitch (pure e) (f x x)
+  | H.Item(_,x), (H.Ellipsis _ as e) -> stitch (f x x) (pure e)
   | H.Ellipsis n, H.Ellipsis n' -> pure @@ H.Ellipsis(max n n')
-
 
 
 (** {3 List combinators } *)
 let ellipses n = H.Ellipsis n
-
 let fueled x f = f > 0 || Size.card (size x) = 0
 
 let maycons (b1,b2) (x,y) (l1,l2) =
@@ -514,8 +496,8 @@ let opt_ext diff x y =
   match x, y with
   | None, None -> pure (unfoc None)
   | Some x, Some y -> ff (diff x y)
-  | Some x, None ->  stitch2 (ff @@ diff x x) (pure @@ unfoc None)
-  | None, Some x ->  stitch2 (pure @@ unfoc None) (ff @@ diff x x)
+  | Some x, None ->  stitch (ff @@ diff x x) (pure @@ unfoc None)
+  | None, Some x ->  stitch (pure @@ unfoc None) (ff @@ diff x x)
 
 (*
 let opt_ext diff x y =
@@ -524,8 +506,8 @@ let opt_ext diff x y =
   let ff = fmap fsome in
   | None, None -> pure (unfoc None)
   | Some x, Some y ->  (diff x y)
-  | Some x, None ->  stitch2 (ff @@ diff x x) (pure @@ unfoc None)
-  | None, Some x ->  stitch2 (pure @@ unfoc None) (ff @@ diff x x)
+  | Some x, None ->  stitch (ff @@ diff x x) (pure @@ unfoc None)
+  | None, Some x ->  stitch (pure @@ unfoc None) (ff @@ diff x x)
 *)
 
 
@@ -558,10 +540,9 @@ module Ident = struct
     | Oide_apply(x,y), Oide_apply(x',y') -> apply <*> [main x x'; main y y']
     | Oide_dot(x,y), Oide_dot(x',y') -> dot <*> [main x x'; fdiff y y']
     | Oide_ident s, Oide_ident s' -> base_ident <*> [fdiff s s']
-    | x, y -> stitch main x y
+    | x, y -> sym stitch main x y
 end
 let id_diff: out_ident -> _ = Ident.main
-
 
 let ocmp (n,_) (n',_) = compare n n'
 
@@ -625,10 +606,10 @@ module Type = struct
 
     | Otyp_alias (ty,as'), y when is_free as' ->
         let d = typ ty y in
-        stitch2 (alias <*> [d; std as']) d
+        stitch (alias <*> [d; std as']) d
     | x, Otyp_alias (ty,as') when is_free as' ->
         let d = typ x ty in
-        stitch2 d (alias <*> [d; std as'])
+        stitch d (alias <*> [d; std as'])
 
     | Otyp_arrow _ , Otyp_arrow _ ->
         let fn =  fn_to_list t1 and fn' = fn_to_list t2 in
@@ -677,12 +658,12 @@ module Type = struct
     | Otyp_attribute (t,attr), Otyp_attribute (t',attr') ->
         attribute <*> [typ t t'; attr_diff attr attr']
     | Otyp_stuff _, Otyp_stuff _ ->
-        (Decorate.typ t1 // Decorate.typ t2)
+        (Decorate.typ t1 |*| Decorate.typ t2)
 
     | (Otyp_var _ | Otyp_constr _ ), (Otyp_var _ | Otyp_constr _ ) ->
-        stitch typ t1 t2
+        sym stitch typ t1 t2
 
-    | _ -> stitch type' t1 t2
+    | _ -> sym stitch type' t1 t2
   and typ x = type' x
   and tylist x y = list (bind2 typ) x y
   and fn_args (x,ret) (y,ret') =
@@ -711,7 +692,7 @@ module Type = struct
     | Ovar_fields f, Ovar_fields f' ->
         (fun x -> unfoc @@ D.Ovar_fields x)
         <*> [keyed_list variant_cmp (fmap2 dvfield) f f']
-    | _ ->  stitch dvariant x y
+    | _ ->  sym stitch dvariant x y
 
   and dvfield f f' =
           (fun tag ampersand conj -> {D.tag;ampersand;conj} )
@@ -748,7 +729,7 @@ module Ct = struct
         arrow <*> [ ct_args x y ]
     | Octy_signature (x,items), Octy_signature(y,items') ->
         signature <*> [opt_ext typ x y; item_list items items']
-    | _ -> stitch ct x y
+    | _ -> sym stitch ct x y
   and item_list x = list (bind2 items) x
   and ct_args c c' =
     let (x,ctx), (y,cty) = to_list c, to_list c' in
@@ -766,7 +747,7 @@ module Ct = struct
         value <*> [fdiff name name';
                    bfdiff priv priv'; bfdiff virt virt';
                    typ ty ty']
-    | _ -> stitch items x y
+    | _ -> sym stitch items x y
 
 end
 
@@ -896,7 +877,7 @@ let rec sig_item s1 s2 =
               alist v.oval_attributes  v'.oval_attributes
             ]
       ]
-  | _ -> stitch sig_item s1 s2
+  | _ -> sym stitch sig_item s1 s2
 
 and module_type x y =
   let open Mty in
@@ -910,7 +891,7 @@ and module_type x y =
       signature <*> [ map_like sigcmp (bind2 sig_item) s s' ]
   | Omty_alias x, Omty_alias y -> alias <*> [id_diff x y]
 
-  | _ -> stitch module_type x y
+  | _ -> sym stitch module_type x y
 
 and functor_diff t t'=
   let (f,res), (f',res') = Mty.(list_of_functor t, list_of_functor t') in
