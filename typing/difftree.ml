@@ -89,14 +89,13 @@ let stitch x y = match x, y with
                 refoc x, refoc y
               )
         }
-      (*raise (Invalid_argument "Stitching difference")*)
 
 let sym f g x y = f (g x x) (g y y)
 
 let ( =~ ) left right =
   D { gen = (fun _ -> (unfoc left, unfoc right)); size = Size.secondary 1 }
 
-let ( =~~ ) left right =
+let ( |~| ) left right =
   D { gen = const (left, right); size = Size.secondary 1 }
 
 
@@ -128,9 +127,6 @@ let do_focus x = fmap foc foc x
 
 let hmap2 f x y = f (unfoc x) (unfoc y)
 
-let _hmap f = function
-  | H.Item(h,x) -> H.Item(h,f x)
-  | H.Ellipsis n -> H.Ellipsis n
 
 (** {3 Hlist } *)
 
@@ -165,42 +161,8 @@ module AppList = struct
     | T.[] -> []
     | T.( a :: q ) -> size a :: sizes q
 
-  let beta = 0.75
-  let z proj l =
-    let _, z, l =
-      List.fold_left (fun (m, z, cumulative ) x ->
-          beta *. m, z +. m *. float(proj x), z :: cumulative )
-        (1.,0., []) l in
-    z, l
-
-
-  let _exp_split proj fuel l =
-    let z, zl = z proj l in
-    let split (m,l,zl,fuel) x =
-      let x = float @@ proj x in
-      let proposition =
-        ceil @@ fuel *. m *. x /. z in
-      let capped = min x proposition in
-      let fuel = ceil @@ (fuel -. proposition)
-                         +. z/.List.hd zl *. ( proposition -. capped )
-      in
-      beta *. m, int_of_float capped :: l, List.tl zl, fuel in
-    let _, l, _, _ =
-      List.fold_left split (1.,[],zl,float fuel) l in
-    List.rev l
-
-
-  let _first_served proj fuel l =
-    let split (l,fuel) x =
-      let x = min fuel (proj x) in
-      let fuel = fuel - x in
-      x :: l, fuel in
-    let l , _ =
-      List.fold_left split ([], fuel) l in
-    List.rev l
-
-  module Level_map = Map.Make(struct type t = int
-      let compare (x:int) (y:int) = compare x y  end)
+  module Level_map =
+    Map.Make(struct type t = int let compare (x:int) (y:int) = compare x y end)
 
   let rising_tide proj fuel l =
     let levels =
@@ -236,7 +198,6 @@ module AppList = struct
       let fuel' = fuel - gmax.primary in
       let d = rising_tide (fun y -> y.secondary) fuel' sizes in
       List.map2 (fun x y -> x.primary + y) sizes d
-
 
   let rec apply : type a res. a concrete -> (a,res) T.t -> int list
     -> res concrete =
@@ -281,23 +242,7 @@ module AppList = struct
 
 end
 
-(** {3 Applicative combinators } *)
-(*module AppPair = struct
-  let (<$>) f x = match f, x with
-    | Eq f, Eq x -> Eq { min_size = 1;
-                         max_size = f.max_size + x.max_size;
-                         gen = split (@@) f x }
-    | _ , _ ->
-        D { gen = split_2d (zip f x) (flatten f) (flatten x);
-            min_size = one ;
-            max_size = max_size f ++ max_size x;
-          }
-
-  let (<*>) f x = pure f <$> x
-  end*)
 open AppList
-
-
 (** {3 Simple combinators }*)
 let diff0 x y = if x = y then pure x else split Size.empty x y
 
@@ -316,7 +261,6 @@ let fmap2 f x y = match x, y with
   | H.Item(_,x), (H.Ellipsis _ as e) ->
       stitch (do_focus @@ f x x) (pure e)
   | H.Ellipsis n, H.Ellipsis n' -> pure @@ H.Ellipsis(max n n')
-
 
 let bind2 f x y = match x, y with
   | H.Item(_,x), H.Item(_,y) ->  f x y
@@ -499,23 +443,8 @@ let opt_ext diff x y =
   | Some x, None ->  stitch (ff @@ diff x x) (pure @@ unfoc None)
   | None, Some x ->  stitch (pure @@ unfoc None) (ff @@ diff x x)
 
-(*
-let opt_ext diff x y =
-  let fmap f x = fmap f f x in
-  let fsome x = unfoc (some x) in
-  let ff = fmap fsome in
-  | None, None -> pure (unfoc None)
-  | Some x, Some y ->  (diff x y)
-  | Some x, None ->  stitch (ff @@ diff x x) (pure @@ unfoc None)
-  | None, Some x ->  stitch (pure @@ unfoc None) (ff @@ diff x x)
-*)
-
-
-let _nofocus = unfoc, unfoc
 let focus = foc, foc
 
-
-let _bdiff: bool -> _ = diff0
 let bfdiff: bool -> _ = diff Size.empty (dup foc)
 
 let recs_diff: out_rec_status -> _ = diff Size.empty focus
@@ -524,10 +453,7 @@ let priv_diff: Asttypes.private_flag -> _ = diff Size.empty focus
 let ext_diff: out_ext_status -> _ = diff Size.empty focus
 
 let attr_diff: out_attribute -> _ = diff Size.empty focus
-
 let fdiff: string -> _ = diff Size.one focus
-let _fdiff0: string -> _ = diff Size.empty focus
-
 
 
 (** {2 Outcome tree difference computation functions} *)
@@ -545,9 +471,6 @@ end
 let id_diff: out_ident -> _ = Ident.main
 
 let ocmp (n,_) (n',_) = compare n n'
-
-let _rcmp r r' = compare r.name r'.name
-
 
 module Type = struct
 
@@ -643,7 +566,7 @@ module Type = struct
     | Otyp_var (b,name), Otyp_var(b',name') ->
         var <*> [bfdiff b b'; fdiff name name']
     | Otyp_var(_, name), _ when is_free name ->
-        Decorate.typ t1 =~~ Decorate.typ t2
+        Decorate.typ t1 |~| Decorate.typ t2
     | Otyp_variant (b,fields,b2,tags), Otyp_variant(b',fields',b2',tags') ->
         variant <*> [
           bfdiff b b';
