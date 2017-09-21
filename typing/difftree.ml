@@ -82,10 +82,22 @@ let at_least st = function
   | H.Ellipsis _ as i -> i
   | H.Item(st',x) -> H.Item(st' +^ st,x)
 
+type 'a sided = { left:'a; right:'a }
+let uniform x = { left=x; right=x}
+let all = uniform On
+
+let fmap f g = function
+  | Eq r -> Eq { r with gen = (fun fuel -> f (r.gen fuel) ) }
+  | D r -> D { r with gen = (fun fuel -> let x, y = r.gen fuel in g x, g y) }
+
+let sym f g = f g g
+let (%) x status = sym fmap (foc status) x
+let (%%) x status = sym fmap (at_least status) x
+
 let stitch x y = match x, y with
   | Eq x, Eq y ->
       D { size =  Size.primary (max x.size y.size);
-          gen =(fun fuel -> at_least On (x.gen fuel), at_least On (y.gen fuel))
+          gen =(fun fuel -> x.gen fuel,y.gen fuel)
         }
   | r, r' ->
       (* Note that this branch is used for type aliases,
@@ -94,25 +106,17 @@ let stitch x y = match x, y with
       D {
         size = Size.max r.size r'.size;
         gen = (fun fuel -> let x, _ =  r.gen fuel and _, y = r'.gen fuel in
-                at_least On x, at_least On y
+               x, y
               )
         }
 
-let sym2 f (/) x y = f (x / x) (y / y)
+let sym2 f (/) x y = f ((x / x)%%On) ((y / y)%%On)
 
 let ( =~ ) left right =
   D { gen = (fun _ -> (left#:Off, right#:Off )); size = Size.secondary 1 }
 
 let ( |~| ) left right =
   D { gen = const (left, right); size = Size.secondary 1 }
-
-
-let fmap f g = function
-  | Eq r -> Eq { r with gen = (fun fuel -> f (r.gen fuel) ) }
-  | D r -> D { r with gen = (fun fuel -> let x, y = r.gen fuel in g x, g y) }
-
-let sym f g = f g g
-let (%) x status = sym fmap (foc status) x
 
 let fork size f g = function
   | Eq r ->
@@ -256,18 +260,19 @@ let diff size (left_focus,right_focus) left right =
     D { gen = const (left_focus left,right_focus right); size }
 
 let dup x = x, x
-let fmap2 f x y = match x, y with
+
+let fmap2 ?(side=all) f x y = match x, y with
   | H.Item(hl,x), H.Item(hr,y) -> f x y % (hl +^ hr)
   | H.Ellipsis _ as e, H.Item(_,x) ->
-      stitch (pure e) (f x x % On)
+      stitch (pure e) (f x x % side.right)
   | H.Item(_,x), (H.Ellipsis _ as e) ->
-      stitch (f x x % On) (pure e)
+      stitch (f x x % side.right ) (pure e)
   | H.Ellipsis n, H.Ellipsis n' -> pure @@ H.Ellipsis(max n n')
 
-let bind2 f x y = match x, y with
+let bind2 ?(side=all) f x y = match x, y with
   | H.Item(hx,x), H.Item(hy,y) ->  sym fmap (at_least @@ hx+^hy ) (f x y)
-  | H.Ellipsis _ as e, H.Item(_,x) -> stitch (pure e) (f x x)
-  | H.Item(_,x), (H.Ellipsis _ as e) -> stitch (f x x) (pure e)
+  | H.Ellipsis _ as e, H.Item(_,x) -> stitch (pure e) (f x x %% side.right )
+  | H.Item(_,x), (H.Ellipsis _ as e) -> stitch (f x x  %% side.left ) (pure e)
   | H.Ellipsis n, H.Ellipsis n' -> pure @@ H.Ellipsis(max n n')
 
 
@@ -437,13 +442,13 @@ let some x = Some x
 
 let opt_ext diff x y =
   let fmap f x = fmap f f x in
-  let fsome x = (some x)#:Off in
-  let ff = fmap fsome in
+  let fsome st x = (some x)#:st in
+  let ff st = fmap @@ fsome st in
   match x, y with
   | None, None -> pure None#:Off
-  | Some x, Some y -> ff (diff x y)
-  | Some x, None ->  stitch (ff @@ diff x x) (pure None#:Off)
-  | None, Some x ->  stitch (pure None#:Off) (ff @@ diff x x)
+  | Some x, Some y -> ff Off (diff x y)
+  | Some x, None ->  stitch (ff On @@ diff x x) (pure None#:On)
+  | None, Some x ->  stitch (pure None#:On) (ff On @@ diff x x)
 
 let focus st = foc st, foc st
 
@@ -558,7 +563,9 @@ module Type = struct
     | Otyp_manifest(x,y), Otyp_manifest(x',y') ->
         manifest <*> [typ x x'; typ y y']
     | Otyp_object (l,closed), Otyp_object (l2,closed2)  ->
-        object' <*> [olist l l2; opt_ext bfdiff closed closed2]
+        let st = function Some _ -> Off | None -> On in
+        object' <*> [olist {left= st closed2; right = st closed } l l2;
+                     opt_ext bfdiff closed closed2]
     | Otyp_record r, Otyp_record r' ->
         record <*> [rlist r r']
     | Otyp_sum s, Otyp_sum s' ->
@@ -595,7 +602,7 @@ module Type = struct
     pair <*> [ dfn_args x y; typ ret ret' ]
   and dofield (n,ty) (n',ty') =
         pair <*> [ fdiff n n'; typ ty ty']
-  and olist x = keyed_list ocmp (fmap2 dofield) x
+  and olist side x = keyed_list ocmp (fmap2 ~side dofield) x
 
   and dconstr c c' =
     (fun cname args ret -> {D.cname;args;ret}#:Off )
