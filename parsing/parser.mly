@@ -487,6 +487,7 @@ let package_type_of_module_type pmty =
 %token DONE
 %token DOT
 %token DOTDOT
+%token <string> DOTOP
 %token DOWNTO
 %token ELSE
 %token END
