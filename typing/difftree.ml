@@ -31,7 +31,9 @@ module Size = struct
 
   let (++) = map2 (+)
   let max = max
+  let sum = List.fold_left (++) empty
 
+  let word s = primary @@ String.length s
   let card s = s.primary + s.secondary
 end
 
@@ -161,9 +163,6 @@ module AppList = struct
     | Single f, Pair(x,y) -> Pair(f x, f y)
     | Pair (f,g), Pair(x,y) -> Pair(f x, g y)
 
-  let global_size l =
-    List.fold_left Size.(++) Size.empty l
-
   let rec sizes: type a b. (a,b) T.t -> Size.t list =
     function
     | T.[] -> []
@@ -236,7 +235,7 @@ module AppList = struct
 
   let mkdiff f l =
     let sizes = sizes l in
-    let global = global_size sizes in
+    let global = Size.sum sizes in
 
     let gen proj fuel =
       let distribution = distribute global sizes fuel in
@@ -300,7 +299,7 @@ let list_diff l =
   let (++) = map2 (+) in
 
   let sizes = List.map (fun (x,_) -> size x) l in
-  let global = AppList.global_size sizes in
+  let global = Size.sum sizes in
 
   let _count_ellipsis (x,y) = if x && y then 0 else 1 in
 
@@ -393,7 +392,7 @@ let map_like cmp diff x y =
   let zip x y = pos x, pos y in
   let l = pair_list (snd,zip) (lift_cmp cmp) diff x y in
   let sizes = List.map (fun (x,_) -> size x) l in
-  let global = AppList.global_size sizes in
+  let global = Size.sum sizes in
 
   let distribute = AppList.distribute global sizes in
   let dispatch_side a n x =
