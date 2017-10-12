@@ -830,7 +830,7 @@ and functor_diff t t'=
     if name ="_" || name' ="_" then
       name =~ name'
     else
-      diff Size.one (focus On) name name' in
+      fdiff name name' in
   let arg (name,mty) (name',mty') =
     pair <*> [ name_diff name name'; opt_ext module_type mty mty'] in
   [list (fmap2 arg) f f'; module_type res res']
