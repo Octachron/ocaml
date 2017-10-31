@@ -293,45 +293,40 @@ let map2 f (x,y) (x',y') = (f x x',f y y')
 
 let cons_el n1 l1 = if n1 > 0 then ellipses n1 :: l1 else l1
 
+module Pair = struct
+  let (<$>) (f,g) (x,y) = (f x,g y)
+  let (<*>) f = (<$>) (dup f)
+  let (++) = map2 (+)
+end
+
+let maybe_ellipsis stat ellisions x =
+  if stat then  [], ellisions + 1
+  else if ellisions > 0 then
+    [ellipses ellisions; x], 0
+  else
+    [x], 0
+
+
+let rec ellide ellisions =
+  let open Pair in
+  function
+  | [] -> cons_el <*> ellisions <$> dup []
+  | ((x,_) ,  f) :: q when not (fueled x f) ->
+      ellide (ellisions ++ dup 1) q
+  | ((x,st), f) :: xs ->
+      let (l, el), (l', el') =
+        maybe_ellipsis <*> st <$> ellisions <$> ((flatten x).gen f) in
+      map2 (@) (l,l') @@ ellide (el,el') xs
+
+
 let list_diff l =
-
-  let (++) = map2 (+) in
-
   let sizes = List.map (fun (x,_) -> size x) l in
   let global = Size.sum sizes in
-
-  let _count_ellipsis (x,y) = if x && y then 0 else 1 in
-
   let distribute fuel = AppList.distribute global sizes fuel in
-
   let with_fuel fuel = List.map2 (fun x y -> x, y) l (distribute fuel) in
-
-  let maybe_ellipsis stat ellisions x =
-    if stat then  [], ellisions + 1
-    else if ellisions > 0 then
-      [ellipses ellisions; x], 0
-    else
-      [x], 0
-in
-
-  let (<$>) (f,g) (x,y) = (f x,g y) in
-
-  let rec ellide ellisions = function
-    | [] -> dup cons_el <$> ellisions <$> dup []
-    | ((x,_) ,  f) :: q when not (fueled x f) ->
-        ellide (ellisions ++ dup 1) q
-    | ((x,st), f) :: xs ->
-        let (l, el), (l', el') =
-          dup maybe_ellipsis <$> st <$> ellisions <$> ((flatten x).gen f) in
-        map2 (@) (l,l') @@ ellide (el,el') xs in
-
   let gen fuel =
     let l = with_fuel fuel in
-    if is_full l then
-      full l
-    else
-      ellide (dup 0) l in
-
+    if is_full l then full l else ellide (dup 0) l in
   if List.for_all (fun (x,_) -> is_eq x) l then
     Eq { size = Size.card global; gen = fun fuel -> fst @@ gen fuel }
   else
@@ -339,6 +334,7 @@ in
 
 
 let ellipsis = ellipses 1
+
 (* Simple list where the k-th elements should be compared to the k-th element  *)
 let list diff x y =
   let rec list xs ys = match xs, ys with
@@ -349,15 +345,14 @@ let list diff x y =
     | ([] as xs), y :: ys -> (diff ellipsis (y#:Off), (true,false)) :: list xs ys in
   list_diff @@ list x y
 
-(* Keyed list where the element with key k should be compared to the element
-   associated with the same key *)
 
 let lift_cmp cmp x y = match x,y with
   | H.Ellipsis _, _ -> -1
   | _, H.Ellipsis _  -> 1
   | H.Item(_,x), H.Item(_,y) -> cmp x y
 
-
+(* Keyed list where the element with key k should be compared to the element
+   associated with the same *)
 let rec pair_list (proj,zip as f) cmp diff xs ys = match xs, ys with
   | [], [] -> []
   | x :: xs, ([] as ys) ->
