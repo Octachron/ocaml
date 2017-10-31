@@ -447,9 +447,18 @@ let focus st = foc st, foc st
 
 let bfdiff: bool -> _ = diff Size.empty (dup @@ foc On)
 
-let recs_diff: out_rec_status -> _ = diff Size.empty (focus On)
+let positive_rec x y = match x, y with
+  | Orec_first, _ | _, Orec_first -> diff Size.one (focus On) x y
+  | _ -> diff Size.empty (focus On) x y
 
-let priv_diff: Asttypes.private_flag -> _ = diff Size.empty (focus On)
+let negative_rec x y = match x, y with
+  | Orec_not, _ | _, Orec_not -> diff Size.one (focus On) x y
+  | _ -> diff Size.empty (focus On) x y
+
+let priv_diff x y = match x, y with
+  | Asttypes.Private, _ | _, Asttypes.Private -> diff Size.one (focus On) x y
+  | _ -> diff Size.empty (focus On) x y
+
 let ext_diff: out_ext_status -> _ = diff Size.empty (focus On)
 
 let attr_diff: out_attribute -> _ = diff Size.empty (focus On)
@@ -756,11 +765,11 @@ let rec sig_item s1 s2 =
 
   | Osig_class (b,name,params,typ,recs), Osig_class (b',name',params',typ',recs') ->
       class' <*> [bfdiff b b'; fdiff name name'; plist params params';
-                  Ct.ct typ typ'; recs_diff recs recs']
+                  Ct.ct typ typ'; positive_rec recs recs']
   | Osig_class_type (b,name,params,typ,recs),
     Osig_class_type (b',name',params',typ',recs') ->
       class_type <*> [bfdiff b b'; fdiff name name'; plist params params';
-                      Ct.ct typ typ'; recs_diff recs recs']
+                      Ct.ct typ typ'; positive_rec recs recs']
   | Osig_typext (te,st), Osig_typext (te',st') ->
       typext <*>
      [ extension_constructor
@@ -779,7 +788,7 @@ let rec sig_item s1 s2 =
   | Osig_module (name,typ,recs), Osig_module (name',typ',recs') ->
       module' <*> [ fdiff       name name';
                     module_type typ  typ';
-                    recs_diff recs recs'
+                    positive_rec recs recs'
                   ]
   | Osig_type (decl, recs),  Osig_type (decl', recs') ->
       type' <*>
@@ -792,7 +801,7 @@ let rec sig_item s1 s2 =
             bfdiff    decl.otype_unboxed   decl'.otype_unboxed;
             clist     decl.otype_cstrs     decl'.otype_cstrs;
           ];
-        recs_diff recs recs']
+        negative_rec recs recs']
   | Osig_value v, Osig_value v' ->
       value <*>
       [ val_decl
