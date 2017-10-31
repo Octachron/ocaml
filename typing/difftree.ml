@@ -33,7 +33,6 @@ module Size = struct
   let max = max
   let sum = List.fold_left (++) empty
 
-  let word s = primary @@ String.length s
   let card s = s.primary + s.secondary
 end
 
