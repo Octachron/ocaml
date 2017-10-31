@@ -564,7 +564,7 @@ module Color = struct
         ansi_of_style_l style
        else "")
       ^ if s = "focus" && !marker_enabled then
-        "!"
+        "!{"
       else
         ""
     with Not_found -> or_else s
@@ -572,7 +572,8 @@ module Color = struct
   let mark_close_tag ~or_else s =
     try
       let _ = style_of_tag s in
-      if !color_enabled then ansi_of_style_l [Reset] else ""
+      (if !marker_enabled && s = "focus" then "}" else "")
+      ^ (if !color_enabled then ansi_of_style_l [Reset] else "")
     with Not_found -> or_else s
 
   (* add color handling to formatter [ppf] *)
