@@ -592,6 +592,10 @@ let mk_color f =
   \    not empty or \"dumb\", and that isatty(stderr) holds."
 ;;
 
+let mk_diffmarker f =
+  "-diff-marker", Arg.Unit f,
+  " Emphasize difference with a prefix marker in type errors."
+
 let mk_where f =
   "-where", Arg.Unit f, " Print location of standard library and exit"
 ;;
@@ -851,6 +855,7 @@ module type Compiler_options = sig
   val _verbose : unit -> unit
   val _where : unit -> unit
   val _color : string -> unit
+  val _diffmarker: unit -> unit
 
   val _nopervasives : unit -> unit
   val _dtimings : unit -> unit
@@ -1005,6 +1010,7 @@ struct
     mk_compat_32 F._compat_32;
     mk_config F._config;
     mk_custom F._custom;
+    mk_diffmarker F._diffmarker;
     mk_dllib F._dllib;
     mk_dllpath F._dllpath;
     mk_dtypes F._annot;

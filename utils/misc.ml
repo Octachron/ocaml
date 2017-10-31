@@ -554,12 +554,19 @@ module Color = struct
     | _ -> raise Not_found
 
   let color_enabled = ref true
+  let marker_enabled = ref false
 
   (* either prints the tag of [s] or delegate to [or_else] *)
   let mark_open_tag ~or_else s =
     try
       let style = style_of_tag s in
-      if !color_enabled then ansi_of_style_l style else ""
+      (if !color_enabled then
+        ansi_of_style_l style
+       else "")
+      ^ if s = "focus" && !marker_enabled then
+        "!"
+      else
+        ""
     with Not_found -> or_else s
 
   let mark_close_tag ~or_else s =
@@ -598,7 +605,7 @@ module Color = struct
     let formatter_l =
       [Format.std_formatter; Format.err_formatter; Format.str_formatter]
     in
-    fun o ->
+    fun m o ->
       if !first then (
         first := false;
         Format.set_mark_tags true;
@@ -609,6 +616,7 @@ module Color = struct
             | Some Never -> false
             | None -> should_enable_color ())
       );
+      if m then marker_enabled := true;
       ()
 end
 

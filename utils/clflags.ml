@@ -361,6 +361,7 @@ let parse_color_setting = function
   | "never" -> Some Misc.Color.Never
   | _ -> None
 let color = ref None ;; (* -color *)
+let diffmarker = ref false
 
 let unboxed_types = ref false
 

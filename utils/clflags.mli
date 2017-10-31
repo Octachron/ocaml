@@ -206,6 +206,7 @@ val set_dumped_pass : string -> bool -> unit
 
 val parse_color_setting : string -> Misc.Color.setting option
 val color : Misc.Color.setting option ref
+val diffmarker: bool ref
 
 val unboxed_types : bool ref
 

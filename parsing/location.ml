@@ -254,7 +254,7 @@ let get_pos_info pos =
 ;;
 
 let setup_colors () =
-  Misc.Color.setup !Clflags.color
+  Misc.Color.setup !Clflags.diffmarker !Clflags.color
 
 let print_loc ppf loc =
   setup_colors ();

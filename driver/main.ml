@@ -109,6 +109,7 @@ module Options = Main_args.Make_bytecomp_options (struct
           | None -> ()
           | Some setting -> color := Some setting
     end
+  let _diffmarker = set diffmarker
   let _where = print_standard_library
   let _verbose = set verbose
   let _nopervasives = set nopervasives

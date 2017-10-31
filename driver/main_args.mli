@@ -98,6 +98,7 @@ module type Compiler_options = sig
   val _verbose : unit -> unit
   val _where : unit -> unit
   val _color : string -> unit
+  val _diffmarker: unit -> unit
 
   val _nopervasives : unit -> unit
   val _dtimings : unit -> unit
