@@ -6,8 +6,8 @@ Error: Signature mismatch:
            type t =
                [ `Abcde of
                    [ `_1 of
-                       [ `A of [ `B of [ `C of float | ... ] | ... ]
-                       | `Alep of [ `B of [ `C of float | ... ] | ... ]
+                       [ `A of [ `B of [ `C of !{float} | ... ] | ... ]
+                       | `Alep of [ `B of [ `C of !{float} | ... ] | ... ]
                        | ... * 2 ]
                    | ... * 4 ]
                | ... ]
@@ -17,8 +17,8 @@ Error: Signature mismatch:
            type t =
                [ `Abcde of
                    [ `_1 of
-                       [ `A of [ `B of [ `C of unit | ... ] | ... ]
-                       | `Alep of [ `B of [ `C of unit | ... ] | ... ]
+                       [ `A of [ `B of [ `C of !{unit} | ... ] | ... ]
+                       | `Alep of [ `B of [ `C of !{unit} | ... ] | ... ]
                        | ... * 2 ]
                    | ... * 4 ]
                | ... ]
@@ -27,8 +27,8 @@ Error: Signature mismatch:
          type t =
              [ `Abcde of
                  [ `_1 of
-                     [ `A of [ `B of [ `C of float | ... ] | ... ]
-                     | `Alep of [ `B of [ `C of float | ... ] | ... ]
+                     [ `A of [ `B of [ `C of !{float} | ... ] | ... ]
+                     | `Alep of [ `B of [ `C of !{float} | ... ] | ... ]
                      | ... * 2 ]
                  | ... * 4 ]
              | ... ]
@@ -36,8 +36,8 @@ Error: Signature mismatch:
          type t =
              [ `Abcde of
                  [ `_1 of
-                     [ `A of [ `B of [ `C of unit | ... ] | ... ]
-                     | `Alep of [ `B of [ `C of unit | ... ] | ... ]
+                     [ `A of [ `B of [ `C of !{unit} | ... ] | ... ]
+                     | `Alep of [ `B of [ `C of !{unit} | ... ] | ... ]
                      | ... * 2 ]
                  | ... * 4 ]
              | ... ]
