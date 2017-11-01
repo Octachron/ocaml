@@ -341,8 +341,8 @@ let list diff x y =
     | [], [] -> []
     | x :: xs , y :: ys ->
          (diff x#:Off y#:Off, (false,false)) :: list xs ys
-    | x :: xs, ([] as ys) -> (diff (x#:Off) ellipsis, (false,true))  :: list xs ys
-    | ([] as xs), y :: ys -> (diff ellipsis (y#:Off), (true,false)) :: list xs ys in
+    | x :: xs, ([] as ys) -> (diff x#:Off ellipsis, (false,true))  :: list xs ys
+    | ([] as xs), y :: ys -> (diff ellipsis y#:Off, (true,false)) :: list xs ys in
   list_diff @@ list x y
 
 
@@ -374,6 +374,31 @@ let keyed_list cmp diff x y =
   list_diff @@ pair_list (foc Off,zip) (lift_cmp cmp) diff x y
 
 (** Compare free-form structure like module *)
+
+let dispatch arrays ns xs =
+  let dispatch_side a x = function
+    | Some n -> a.(n)<-x
+    | None -> () in
+  dispatch_side (fst arrays) (fst xs) (fst ns);
+  dispatch_side (snd arrays) (snd xs) (snd ns)
+
+let rec reorder out l fuel  =  match l, fuel with
+  | [], _  |  _, [] -> ()
+  | (x, ns):: xs , f :: fs when not (fueled x f) ->
+      dispatch out ns (dup @@ H.Ellipsis 1);
+      reorder out xs fs
+  | (x, ns) :: xs, f :: fs  ->
+      let x = (flatten x).gen f in
+      dispatch out ns x;
+      reorder out xs fs
+
+let rec ellide = function
+  | [] -> []
+  | H.Ellipsis k :: H.Ellipsis l :: q ->
+      ellide (H.Ellipsis(k+l) :: q)
+  | a :: q -> a :: ellide q
+
+
 let map_like cmp diff x y =
   let decorate l =
     List.rev @@ snd @@
@@ -381,42 +406,14 @@ let map_like cmp diff x y =
   let sort = List.sort (fun (_,y) (_,y') -> lift_cmp cmp y y') in
   let x, y = sort(decorate x), sort(decorate y) in
   let companion x = Array.make (List.length x) (H.Ellipsis 1) in
-
   let pos = function Some (x,_) -> Some x | None -> None in
   let zip x y = pos x, pos y in
   let l = pair_list (snd,zip) (lift_cmp cmp) diff x y in
   let sizes = List.map (fun (x,_) -> size x) l in
   let global = Size.sum sizes in
-
-  let distribute = AppList.distribute global sizes in
-  let dispatch_side a n x =
-    match n with
-    | Some n -> a.(n)<-x
-    | None -> () in
-  let dispatch arrays ns xs =
-    dispatch_side (fst arrays) (fst ns) (fst xs);
-    dispatch_side (snd arrays) (snd ns) (snd xs) in
-
-
-  let rec reorder out l fuel  =  match l, fuel with
-    | [], _  |  _, [] -> ()
-    | (x, ns):: xs , f :: fs when not (fueled x f) ->
-        dispatch out ns (dup @@ H.Ellipsis 1);
-        reorder out xs fs
-    | (x, ns) :: xs, f :: fs  ->
-        let x = (flatten x).gen f in
-        dispatch out ns x;
-        reorder out xs fs  in
-
-  let rec ellide = function
-    | [] -> []
-    | H.Ellipsis k :: H.Ellipsis l :: q ->
-        ellide (H.Ellipsis(k+l) :: q)
-    | a :: q -> a :: ellide q in
-
   let gen fuel =
     let x,y as out = companion x, companion y in
-    let fuels = distribute fuel in
+    let fuels = AppList.distribute global sizes fuel in
     reorder out l fuels;
     ellide (Array.to_list x), ellide (Array.to_list y) in
 
@@ -426,13 +423,8 @@ let map_like cmp diff x y =
     D { size = global; gen }
 
 (** {2 Utility functions } *)
-
-
 let pair x y = x, y
-let _triple x y z = x, y, z
-open T
 let some x = Some x
-
 let opt_ext diff x y =
   let fmap f x = fmap f f x in
   let fsome st x = (some x)#:st in
@@ -460,10 +452,8 @@ let priv_diff x y = match x, y with
   | _ -> diff Size.empty (focus On) x y
 
 let ext_diff: out_ext_status -> _ = diff Size.empty (focus On)
-
 let attr_diff: out_attribute -> _ = diff Size.empty (focus On)
 let fdiff: string -> _ = diff Size.one (focus On)
-
 
 (** {2 Outcome tree difference computation functions} *)
 module Ident = struct
