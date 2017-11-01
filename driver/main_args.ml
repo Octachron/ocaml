@@ -784,6 +784,7 @@ module type Common_options = sig
   val _noassert : unit -> unit
   val _nolabels : unit -> unit
   val _nostdlib : unit -> unit
+  val _diffmarker: unit -> unit
   val _error_size: int -> unit
   val _open : string -> unit
   val _ppx : string -> unit
@@ -855,7 +856,6 @@ module type Compiler_options = sig
   val _verbose : unit -> unit
   val _where : unit -> unit
   val _color : string -> unit
-  val _diffmarker: unit -> unit
 
   val _nopervasives : unit -> unit
   val _dtimings : unit -> unit
@@ -1114,6 +1114,7 @@ struct
     mk_nopromptcont F._nopromptcont;
     mk_nostdlib F._nostdlib;
     mk_open F._open;
+    mk_diffmarker F._diffmarker;
     mk_errorsize F._error_size;
     mk_ppx F._ppx;
     mk_plugin F._plugin;
@@ -1173,6 +1174,7 @@ struct
     mk_compact F._compact;
     mk_config F._config;
     mk_dtypes F._annot;
+    mk_diffmarker F._diffmarker;
     mk_errorsize F._error_size;
     mk_for_pack_opt F._for_pack;
     mk_g_opt F._g;
@@ -1328,6 +1330,7 @@ module Make_opttop_options (F : Opttop_options) = struct
     mk_o2 F._o2;
     mk_o3 F._o3;
     mk_open F._open;
+    mk_diffmarker F._diffmarker;
     mk_errorsize F._error_size;
     mk_plugin F._plugin;
     mk_ppx F._ppx;

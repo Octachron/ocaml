@@ -114,7 +114,8 @@ module Options = Main_args.Make_bytetop_options (struct
   let _noprompt = set noprompt
   let _nopromptcont = set nopromptcont
   let _nostdlib = set no_std_include
-  let _error_size n = Clflags.error_size := n
+  let _diffmarker = set diffmarker
+  let _error_size n = error_size := n
   let _open s = open_modules := s :: !open_modules
   let _plugin p = Compplugin.load p
   let _ppx s = first_ppx := s :: !first_ppx
