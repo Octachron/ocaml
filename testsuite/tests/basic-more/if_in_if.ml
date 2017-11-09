@@ -1,3 +1,8 @@
+(* TEST
+   * native with testing
+   ocamlopt_flags ="-inline 20"
+   * bytecode with testing
+*)
 
 let sequor b1 b2 =
   let b1 = ref b1 in

@@ -1,3 +1,9 @@
+(* TEST
+   * native with testing
+   ocamlopt_flags ="-inline 20"
+   * bytecode with testing
+*)
+
 (* Dummy substitute function. *)
 
 open Testing;;
