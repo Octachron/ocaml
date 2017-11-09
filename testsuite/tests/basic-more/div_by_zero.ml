@@ -1,3 +1,8 @@
+(* TEST
+   * native with testing
+   ocamlopt_flags ="-inline 20"
+   * bytecode with testing
+*)
 
 let check f n =
   assert (

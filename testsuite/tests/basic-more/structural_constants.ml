@@ -1,3 +1,8 @@
+(* TEST
+   * native with testing
+   ocamlopt_flags ="-inline 20"
+   * bytecode with testing
+*)
 
 type t1 =
   | A | B | C of t1 | D of float

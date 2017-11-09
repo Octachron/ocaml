@@ -1,3 +1,9 @@
+(* TEST
+   * native with testing
+   ocamlopt_flags ="-inline 20"
+   * bytecode with testing
+*)
+
 (* PR6216: wrong inlining of GADT match *)
 
 type _ t =

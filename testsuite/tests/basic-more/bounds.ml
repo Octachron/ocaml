@@ -1,3 +1,8 @@
+(* TEST
+  * native with testing
+  ocamlopt_flags="-inline 20"
+*)
+
 (* Test bound checks with ocamlopt *)
 
 let a = [| 0; 1; 2 |]
