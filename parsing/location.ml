@@ -251,7 +251,7 @@ let msg_line () = I18n.s "\", line "
 let msg_chars () = I18n.s ", characters "
 let msg_to = "-"
 let msg_colon () = I18n.s
-    (":"[@i18n { context = "\"Error:\" or \"Warning 9:\""}])
+    (":"[@ocaml.doc "\"Error:\" or \"Warning 9:\""])
 (** i18n: French requires a narrow non-breaking space before
    a colon.
 *)

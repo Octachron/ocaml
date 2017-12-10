@@ -414,19 +414,30 @@ let message = function
                     Its type is exported as a private type."
         s
   | Unused_extension (s, is_exception, cu_pattern, cu_privatize) ->
-      let kind =
-        if is_exception then I18n.s "exception" else I18n.s"extension constructor" in
      begin match cu_pattern, cu_privatize with
-     | false, false -> I18n.sprintf "unused %a %s" I18n.pp kind s
-     | true, _ ->
-         I18n.sprintf "%a %s is never used to build values.\n\
-                  (However, this constructor appears in patterns.)"
-           I18n.pp kind s
-     | false, true ->
-         I18n.sprintf
-           "%a %s is never used to build values.\n\
-             It is exported or rebound as a private extension."
-           I18n.pp kind s
+     | false, false ->
+         if is_exception then
+           I18n.sprintf "unused exception %s" s
+         else
+           I18n.sprintf "unused extension constructor %s" s
+     | _ ->
+         let never_used =
+           if is_exception then
+             I18n.sprintf "exception %s is never used to build values." s
+           else
+             I18n.sprintf
+               "extension constructor %s is never used to build values." s in
+         begin match cu_pattern with
+         | true ->
+             I18n.sprintf
+               "%a\n(However, this constructor appears in patterns.)"
+               I18n.pp never_used
+         | false ->
+             I18n.sprintf
+               "%a\n\
+                It is exported or rebound as a private extension."
+               I18n.pp never_used
+         end
      end
   | Unused_rec_flag ->
       I18n.s "unused rec flag."
@@ -508,18 +519,18 @@ let message = function
   | Inlining_impossible reason ->
       I18n.sprintf "Cannot inline: %a" I18n.pp reason
   | Ambiguous_pattern vars ->
-      let msg =
-        let vars = List.sort String.compare vars in
-        match vars with
+      let varlist =
+        match List.sort String.compare vars with
         | [] -> assert false
-        | l ->
-            I18n.snprintf (List.length l)
-              "variable %s" "variables %s"
-              (String.concat "," vars) in
-      I18n.sprintf
+        | l -> String.concat "," l in
+      I18n.snprintf (List.length vars)
         "Ambiguous or-pattern variables under guard;\n\
-         %a may match different arguments. (See manual section 8.5)"
-        I18n.pp msg
+         variable %s may match different arguments. (See manual section 9.5)"
+        ("Ambiguous or-pattern variables under guard;\n\
+         variables %s may match different arguments. (See manual section 9.5)"
+         [@ocaml.doc {|%s is a list of comma separated variable name in
+                       variables %s|} ])
+        varlist
   | No_cmx_file name ->
       I18n.sprintf
         "no cmx file was found in path for module %s, \
@@ -659,7 +670,8 @@ let descriptions () =
 
 let help_warnings () =
   List.iter (fun (i, s) -> Format.printf "%3i %a\n" i I18n.pp s) (descriptions ());
-  print_endline "  A all warnings";
+  I18n.printf
+    ("  A all warnings@."[@ocaml.doc {| A is the letter A not an article |}]);
   for i = Char.code 'b' to Char.code 'z' do
     let c = Char.chr i in
     match letter c with
