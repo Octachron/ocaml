@@ -144,7 +144,7 @@ let highlight_dumb ppf lb loc =
     end
   done;
   (* Print character location (useful for Emacs) *)
-  Format.fprintf ppf "@[<v>Characters %i-%i:@,"
+  I18n.fprintf ppf "@[<v>Characters %i-%i:@,"
                  loc.loc_start.pos_cnum loc.loc_end.pos_cnum;
   (* Print the input, underlining the location *)
   Format.pp_print_string ppf "  ";
@@ -246,8 +246,15 @@ let print_filename ppf file =
 let reset () =
   num_loc_lines := 0
 
-let (msg_file, msg_line, msg_chars, msg_to, msg_colon) =
-  ("File \"", "\", line ", ", characters ", "-", ":")
+let msg_file () = I18n.s "File \""
+let msg_line () = I18n.s "\", line "
+let msg_chars () = I18n.s ", characters "
+let msg_to = "-"
+let msg_colon () = I18n.s
+    (":"[@i18n { context = "\"Error:\" or \"Warning 9:\""}])
+(** i18n: French requires a narrow non-breaking space before
+   a colon.
+*)
 
 (* return file, line, char from the given position *)
 let get_pos_info pos =
@@ -266,9 +273,13 @@ let print_loc ppf loc =
       fprintf ppf "Characters %i-%i"
               loc.loc_start.pos_cnum loc.loc_end.pos_cnum
   end else begin
-    fprintf ppf "%s@{<loc>%a%s%i" msg_file print_filename file msg_line line;
+    fprintf ppf "%a@{<loc>%a%a%i"
+      I18n.pp (msg_file ())
+      print_filename file
+      I18n.pp (msg_line ())
+      line;
     if startchar >= 0 then
-      fprintf ppf "%s%i%s%i" msg_chars startchar msg_to endchar;
+      fprintf ppf "%a%i%s%i" I18n.pp (msg_chars()) startchar msg_to endchar;
     fprintf ppf "@}"
   end
 ;;
@@ -277,7 +288,7 @@ let default_printer ppf loc =
   setup_colors ();
   if loc.loc_start.pos_fname = "//toplevel//"
   && highlight_locations ppf [loc] then ()
-  else fprintf ppf "@{<loc>%a@}%s@," print_loc loc msg_colon
+  else fprintf ppf "@{<loc>%a@}%a@," print_loc loc I18n.pp (msg_colon())
 ;;
 
 let printer = ref default_printer
@@ -306,7 +317,7 @@ let print_compact ppf loc =
 ;;
 
 let print_error ppf loc =
-  fprintf ppf "%a%t:" print loc print_error_prefix;
+  fprintf ppf "%a%t%a" print loc print_error_prefix I18n.pp (msg_colon());
 ;;
 
 let print_error_cur_file ppf () = print_error ppf (in_file !input_name);;
@@ -322,8 +333,8 @@ let default_warning_printer loc ppf w =
     then
       fprintf ppf "%t (%a %d): %a@," print_error_prefix
            I18n.pp (u_warning_prefix ()) number I18n.pp message
-    else fprintf ppf "@{<warning>%a@} %d: %a@," I18n.pp (warning_prefix()) number
-        I18n.pp message;
+    else fprintf ppf "@{<warning>%a@} %d%a %a@," I18n.pp (warning_prefix()) number
+        I18n.pp (msg_colon()) I18n.pp message;
     List.iter
       (fun (loc, msg) ->
          if loc <> none then fprintf ppf "  %a  %a@," print loc I18n.pp msg
