@@ -70,6 +70,9 @@ val name_pattern : string -> Typedtree.case list -> Ident.t
 
 val self_coercion : (Path.t * Location.t list ref) list ref
 
+type type_kind = Record | Variant
+(** Type kind for disambiguation error messages *)
+
 type error =
     Polymorphic_label of Longident.t
   | Constructor_arity_mismatch of Longident.t * int * int
@@ -84,9 +87,10 @@ type error =
   | Label_multiply_defined of string
   | Label_missing of Ident.t list
   | Label_not_mutable of Longident.t
-  | Wrong_name of string * type_expr * string * Path.t * string * string list
+  | Wrong_name of
+      I18n.s option * type_expr * type_kind * Path.t * string * string list
   | Name_type_mismatch of
-      string * Longident.t * (Path.t * Path.t) * (Path.t * Path.t) list
+      type_kind * Longident.t * (Path.t * Path.t) * (Path.t * Path.t) list
   | Invalid_format of string
   | Undefined_method of type_expr * string * string list option
   | Undefined_inherited_method of string * string list

@@ -47,9 +47,12 @@ type class_type_info = {
   clsty_info : Typedtree.class_type_declaration;
 }
 
+type field_kind = Method | Variable
+(** For internationalized error messages *)
+
 type error =
     Unconsistent_constraint of (type_expr * type_expr) list
-  | Field_type_mismatch of I18n.s * string * (type_expr * type_expr) list
+  | Field_type_mismatch of field_kind * string * (type_expr * type_expr) list
   | Structure_expected of class_type
   | Cannot_apply of class_type
   | Apply_wrong_label of arg_label
@@ -73,8 +76,8 @@ type error =
       Ident.t * Types.class_declaration * (type_expr * type_expr) list
   | Final_self_clash of (type_expr * type_expr) list
   | Mutability_mismatch of string * mutable_flag
-  | No_overriding of I18n.s * string
-  | Duplicate of I18n.s * string
+  | No_overriding of field_kind option * string
+  | Duplicate of field_kind * string
 
 exception Error of Location.t * Env.t * error
 exception Error_forward of Location.error
@@ -264,7 +267,7 @@ let enter_val cl_num vars inh lab mut virt ty val_env met_env par_env loc =
     with
       Ctype.Unify tr ->
         raise (Error(loc, val_env,
-                     Field_type_mismatch(I18n.s"instance variable", lab, tr)))
+                     Field_type_mismatch(Variable, lab, tr)))
     | Not_found -> None, virt
   in
   let (id, _, _, _) as result =
@@ -291,7 +294,7 @@ let inheritance self_type env ovf concr_meths warn_vals loc parent =
       with Ctype.Unify trace ->
         match trace with
           _::_::_::({desc = Tfield(n, _, _, _)}, _)::rem ->
-            raise(Error(loc, env, Field_type_mismatch (I18n.s "method", n, rem)))
+            raise(Error(loc, env, Field_type_mismatch (Method, n, rem)))
         | _ ->
             assert false
       end;
@@ -316,7 +319,7 @@ let inheritance self_type env ovf concr_meths warn_vals loc parent =
                  (cname :: Concr.elements over_vals));
       | Some Override
         when Concr.is_empty over_meths && Concr.is_empty over_vals ->
-        raise (Error(loc, env, No_overriding (I18n.raw"","")))
+        raise (Error(loc, env, No_overriding (None,"")))
       | _ -> ()
       end;
 
@@ -337,7 +340,7 @@ let virtual_method val_env meths self_type lab priv sty loc =
   let ty = cty.ctyp_type in
   begin
     try Ctype.unify val_env ty ty' with Ctype.Unify trace ->
-        raise(Error(loc, val_env, Field_type_mismatch (I18n.s "method", lab, trace)));
+        raise(Error(loc, val_env, Field_type_mismatch (Method, lab, trace)));
   end;
   cty
 
@@ -349,7 +352,7 @@ let declare_method val_env meths self_type lab priv sty loc =
   in
   let unif ty =
     try Ctype.unify val_env ty ty' with Ctype.Unify trace ->
-      raise(Error(loc, val_env, Field_type_mismatch (I18n.s "method", lab, trace)))
+      raise(Error(loc, val_env, Field_type_mismatch (Method, lab, trace)))
   in
   let sty = Ast_helper.Typ.force_poly sty in
   match sty.ptyp_desc, priv with
@@ -648,7 +651,7 @@ and class_field_aux self_loc cl_num self_type meths vars
 
   | Pcf_val (lab, mut, Cfk_concrete (ovf, sexp)) ->
       if Concr.mem lab.txt local_vals then
-        raise(Error(loc, val_env, Duplicate (I18n.s "instance variable", lab.txt)));
+        raise(Error(loc, val_env, Duplicate (Variable, lab.txt)));
       if Concr.mem lab.txt warn_vals then begin
         if ovf = Fresh then
           Location.prerr_warning lab.loc
@@ -656,7 +659,7 @@ and class_field_aux self_loc cl_num self_type meths vars
       end else begin
         if ovf = Override then
           raise(Error(loc, val_env,
-                      No_overriding (I18n.s "instance variable", lab.txt)))
+                      No_overriding (Some Variable, lab.txt)))
       end;
       if !Clflags.principal then Ctype.begin_def ();
       let exp =
@@ -692,13 +695,13 @@ and class_field_aux self_loc cl_num self_type meths vars
         | _ -> Ast_helper.Exp.poly ~loc:expr.pexp_loc expr None
       in
       if Concr.mem lab.txt local_meths then
-        raise(Error(loc, val_env, Duplicate (I18n.s "method", lab.txt)));
+        raise(Error(loc, val_env, Duplicate (Method, lab.txt)));
       if Concr.mem lab.txt concr_meths then begin
         if ovf = Fresh then
           Location.prerr_warning loc (Warnings.Method_override [lab.txt])
       end else begin
         if ovf = Override then
-          raise(Error(loc, val_env, No_overriding(I18n.s "method", lab.txt)))
+          raise(Error(loc, val_env, No_overriding(Some Method, lab.txt)))
       end;
       let (_, ty) =
         Ctype.filter_self_method val_env lab.txt priv meths self_type
@@ -726,7 +729,7 @@ and class_field_aux self_loc cl_num self_type meths vars
       | _ -> assert false
       with Ctype.Unify trace ->
         raise(Error(loc, val_env,
-                    Field_type_mismatch (I18n.s "method", lab.txt, trace)))
+                    Field_type_mismatch (Method, lab.txt, trace)))
       end;
       let meth_expr = make_method self_loc cl_num expr in
       (* backup variables for Pexp_override *)
@@ -1824,8 +1827,11 @@ let report_error env ppf = function
         (fun ppf -> I18n.fprintf ppf "Type")
         (fun ppf -> I18n.fprintf ppf "is not compatible with type")
   | Field_type_mismatch (k, m, trace) ->
+      let introduction ppf = match k with
+        | Method -> I18n.fprintf ppf "The method %s@ has type" m
+        | Variable -> I18n.fprintf ppf "The instance variable %s@ has type" m in
       Printtyp.report_unification_error ppf env trace
-        (fun ppf -> I18n.fprintf ppf  "The %a %s@ has type" I18n.pp k m)
+        introduction
         (fun ppf -> I18n.fprintf ppf "but is expected to have type")
   | Structure_expected clty ->
       I18n.fprintf ppf
@@ -1911,15 +1917,21 @@ let report_error env ppf = function
         let ty1 =
           if real then ty0 else Btype.newgenty(Tobject(ty0, ref None)) in
         List.iter Printtyp.mark_loops [ty; ty1];
-        I18n.fprintf ppf
-          "The %a %s@ has type@;<1 2>%a@ where@ %a@ is unbound"
-            I18n.pp kind lab Printtyp.type_expr ty Printtyp.type_expr ty0
+        match kind with
+        | Method ->
+            I18n.fprintf ppf
+              "The method %s@ has type@;<1 2>%a@ where@ %a@ is unbound"
+              lab Printtyp.type_expr ty Printtyp.type_expr ty0
+        | Variable ->
+            I18n.fprintf ppf
+              "The instance variable %s@ has type@;<1 2>%a@ where@ %a@ is unbound"
+              lab Printtyp.type_expr ty Printtyp.type_expr ty0
       in
       let print_reason ppf = function
       | Ctype.CC_Method (ty0, real, lab, ty) ->
-          print_common ppf (I18n.s "method") ty0 real lab ty
+          print_common ppf Method ty0 real lab ty
       | Ctype.CC_Value (ty0, real, lab, ty) ->
-          print_common ppf (I18n.s "instance variable") ty0 real lab ty
+          print_common ppf Variable ty0 real lab ty
       in
       Printtyp.reset ();
       I18n.fprintf ppf
@@ -1966,12 +1978,27 @@ let report_error env ppf = function
     I18n.fprintf ppf
       "@[This inheritance does not override any method@ instance variable@]"
   | No_overriding (kind, name) ->
-      I18n.fprintf ppf "@[The %a `%s'@ has no previous definition@]"
-        I18n.pp kind name
+      begin match kind with
+      | None -> I18n.fprintf ppf "@[`%s'@ has no previous definition@]" name
+      | Some Variable ->
+          I18n.fprintf ppf
+            "@[The instance variable `%s'@ has no previous definition@]" name
+      | Some Method ->
+          I18n.fprintf ppf "@[The method `%s'@ has no previous definition@]"
+            name
+      end
   | Duplicate (kind, name) ->
-      I18n.fprintf ppf "@[The %a `%s'@ has multiple definitions in this object@]"
-        I18n.pp kind name
-
+      begin match kind with
+      | Method ->
+          I18n.fprintf ppf
+            "@[The method `%s'@ has multiple definitions in this object@]"
+            name
+      | Variable ->
+          I18n.fprintf ppf
+            "@[The instance variable `%s'@ \
+             has multiple definitions in this object@]"
+            name
+      end
 let report_error env ppf err =
   Printtyp.wrap_printing_env env (fun () -> report_error env ppf err)
 

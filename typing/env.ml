@@ -506,19 +506,20 @@ let same_constr = ref (fun _ _ _ -> assert false)
    Later, one could also interpret some attributes on value and
    type declarations to silence the shadowing warnings. *)
 
+
 let check_shadowing env = function
   | `Constructor (Some (c1, c2))
     when not (!same_constr env c1.cstr_res c2.cstr_res) ->
-      Some ("constructor", I18n.s"constructor")
+      Some `Constructor
   | `Label (Some (l1, l2))
-    when not (!same_constr env l1.lbl_res l2.lbl_res) ->
-      Some ("label", I18n.s"label")
-  | `Value (Some _) -> Some ("value", I18n.s"value")
-  | `Type (Some _) -> Some ("type", I18n.s"type")
-  | `Module (Some _) | `Component (Some _) -> Some ("module", I18n.s"module")
-  | `Module_type (Some _) -> Some ("module_type", I18n.s"module type")
-  | `Class (Some _) -> Some ("class", I18n.s"class")
-  | `Class_type (Some _) -> Some ("class_type", I18n.s"class type")
+    when not (!same_constr env l1.lbl_res l2.lbl_res) -> Some(`Label)
+  | `Value (Some _) -> Some `Value
+  | `Type (Some _) -> Some `Type
+  | `Module (Some _) | `Component (Some _) ->
+      Some `Module
+  | `Module_type (Some _) -> Some  `Module_type
+  | `Class (Some _) -> Some `Class
+  | `Class_type (Some _) -> Some `Class_type
   | `Constructor _ | `Label _
   | `Value None | `Type None | `Module None | `Module_type None
   | `Class None | `Class_type None | `Component None ->
@@ -2100,9 +2101,9 @@ let open_signature
   if not toplevel && ovf = Asttypes.Fresh && not loc.Location.loc_ghost
      && (Warnings.is_active (Warnings.Unused_open "")
          || Warnings.is_active
-           (Warnings.Open_shadow_identifier (I18n.raw "", ""))
+           (Warnings.Open_shadow_identifier (`Value, ""))
          || Warnings.is_active
-           (Warnings.Open_shadow_label_constructor (I18n.raw "","")))
+           (Warnings.Open_shadow_label_constructor (`Label,"")))
   then begin
     let used = used_slot in
     !add_delayed_check_forward
@@ -2115,13 +2116,15 @@ let open_signature
     let shadowed = ref [] in
     let slot s b =
       begin match check_shadowing env b with
-      | Some (kind,translation) when not (List.mem (kind, s) !shadowed) ->
-          shadowed := (kind, s) :: !shadowed;
+      | Some kind when not (List.mem kind !shadowed) ->
+          shadowed := kind :: !shadowed;
           let w =
             match kind with
-            | "label" | "constructor" ->
-                Warnings.Open_shadow_label_constructor (translation, s)
-            | _ -> Warnings.Open_shadow_identifier (translation, s)
+            | `Label | `Constructor as l ->
+                Warnings.Open_shadow_label_constructor (l, s)
+            | `Type | `Value | `Class | `Class_type
+            | `Module | `Module_type as l ->
+                Warnings.Open_shadow_identifier (l, s)
           in
           Location.prerr_warning loc w
       | _ -> ()

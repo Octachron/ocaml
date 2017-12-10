@@ -19,6 +19,19 @@ type loc = {
   loc_ghost: bool;
 }
 
+type name_kind = [ `Constructor | `Label ]
+(** Variants of duplicated definitions*)
+
+type identifier_kind =
+  [ `Value
+  | `Type
+  | `Module
+  | `Module_type
+  | `Class
+  | `Class_type
+  ]
+(** Variants for shadowed identifiers *)
+
 type t =
   | Comment_start                           (*  1 *)
   | Comment_not_end                         (*  2 *)
@@ -49,7 +62,7 @@ type t =
   | Unused_var_strict of string             (* 27 *)
   | Wildcard_arg_to_constant_constr         (* 28 *)
   | Eol_in_string                           (* 29 *)
-  | Duplicate_definitions of string * string * string * string (* 30 *)
+  | Duplicate_definitions of name_kind * string * string * string (* 30 *)
   | Multiple_definition of string * string * string (* 31 *)
   | Unused_value_declaration of string      (* 32 *)
   | Unused_open of string                   (* 33 *)
@@ -63,8 +76,8 @@ type t =
   | Ambiguous_name of string list * string list * bool (* 41 *)
   | Disambiguated_name of string            (* 42 *)
   | Nonoptional_label of string             (* 43 *)
-  | Open_shadow_identifier of I18n.s * string (* 44 *)
-  | Open_shadow_label_constructor of I18n.s * string (* 45 *)
+  | Open_shadow_identifier of identifier_kind * string (* 44 *)
+  | Open_shadow_label_constructor of name_kind * string (* 45 *)
   | Bad_env_variable of string * string     (* 46 *)
   | Attribute_payload of string * string    (* 47 *)
   | Eliminated_optional_arguments of string list (* 48 *)

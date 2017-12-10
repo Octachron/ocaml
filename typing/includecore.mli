@@ -36,6 +36,11 @@ type type_mismatch =
   | Unboxed_representation of bool
   | Immediate
 
+type mismatch_case =
+  | Extension_definition
+  | Declaration
+  | Original_definition
+
 val value_descriptions:
   loc:Location.t -> Env.t -> string ->
   value_description -> value_description -> module_coercion
@@ -56,4 +61,4 @@ val class_types:
 *)
 
 val report_type_mismatch:
-    I18n.s -> I18n.s -> I18n.s -> Format.formatter -> type_mismatch list -> unit
+    mismatch_case -> Format.formatter -> type_mismatch list -> unit

@@ -26,6 +26,20 @@ type loc = {
   loc_ghost: bool;
 }
 
+
+type name_kind = [ `Constructor | `Label ]
+(** Variants of duplicated definitions*)
+
+type identifier_kind =
+  [  `Value
+  | `Type
+  | `Module
+  | `Module_type
+  | `Class
+  | `Class_type
+  ]
+(** Variants for shadowed identifiers *)
+
 type t =
   | Comment_start                           (*  1 *)
   | Comment_not_end                         (*  2 *)
@@ -56,7 +70,7 @@ type t =
   | Unused_var_strict of string             (* 27 *)
   | Wildcard_arg_to_constant_constr         (* 28 *)
   | Eol_in_string                           (* 29 *)
-  | Duplicate_definitions of string * string * string * string (*30 *)
+  | Duplicate_definitions of name_kind * string * string * string (*30 *)
   | Multiple_definition of string * string * string (* 31 *)
   | Unused_value_declaration of string      (* 32 *)
   | Unused_open of string                   (* 33 *)
@@ -70,8 +84,8 @@ type t =
   | Ambiguous_name of string list * string list *  bool    (* 41 *)
   | Disambiguated_name of string            (* 42 *)
   | Nonoptional_label of string             (* 43 *)
-  | Open_shadow_identifier of I18n.s * string (* 44 *)
-  | Open_shadow_label_constructor of I18n.s  * string (* 45 *)
+  | Open_shadow_identifier of identifier_kind * string (* 44 *)
+  | Open_shadow_label_constructor of name_kind  * string (* 45 *)
   | Bad_env_variable of string * string     (* 46 *)
   | Attribute_payload of string * string    (* 47 *)
   | Eliminated_optional_arguments of string list (* 48 *)
@@ -392,9 +406,14 @@ let message = function
   | Eol_in_string ->
      I18n.s"unescaped end-of-line in a string constant (non-portable code)"
   | Duplicate_definitions (kind, cname, tc1, tc2) ->
-      I18n.sprintf "the %a %s is defined in both types %s and %s."
-        I18n.pp (I18n.s kind) cname tc1 tc2
-  | Multiple_definition(modname, file1, file2) ->
+      begin match kind with
+      | `Constructor ->
+          I18n.sprintf "the constructor %s is defined in both types %s and %s."
+      | `Label ->
+          I18n.sprintf "the label %s is defined in both types %s and %s."
+      end
+        cname tc1 tc2
+  | Multiple_definition (modname, file1, file2) ->
       I18n.sprintf
         "files %s and %s both define a module named %s"
         file1 file2 modname
@@ -472,14 +491,48 @@ let message = function
   | Nonoptional_label s ->
       I18n.sprintf "the label %s is not optional." s
   | Open_shadow_identifier (kind, s) ->
-      I18n.sprintf
-        "this open statement shadows the %a identifier %s \
-         (which is later used)"
-        I18n.pp kind s
+      begin match kind with
+      | `Value ->
+          I18n.sprintf
+            "this open statement shadows the value identifier %s \
+             (which is later used)"
+            s
+      | `Type ->
+          I18n.sprintf
+          "this open statement shadows the type identifier %s \
+           (which is later used)"
+          s
+      | `Module ->
+          I18n.sprintf
+          "this open statement shadows the module identifier %s \
+           (which is later used)"
+          s
+      | `Module_type ->
+          I18n.sprintf
+          "this open statement shadows the module type identifier %s \
+           (which is later used)"
+          s
+      | `Class ->
+          I18n.sprintf
+          "this open statement shadows the class identifier %s \
+           (which is later used)"
+          s
+      | `Class_type ->
+          I18n.sprintf
+            "this open statement shadows the type identifier %s \
+             (which is later used)"
+            s
+      end
   | Open_shadow_label_constructor (kind, s) ->
-      I18n.sprintf
-        "this open statement shadows the %a %s (which is later used)"
-        I18n.pp kind s
+      begin match kind with
+      | `Label ->
+          I18n.sprintf
+            "this open statement shadows the label %s (which is later used)"
+      | `Constructor ->
+          I18n.sprintf
+            "this open statement shadows the constructor %s (which is later used)"
+      end
+        s
   | Bad_env_variable (var, s) ->
       I18n.sprintf "illegal environment variable %s : %s" var s
   | Attribute_payload (a, s) ->

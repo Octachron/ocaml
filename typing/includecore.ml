@@ -138,7 +138,12 @@ type type_mismatch =
   | Unboxed_representation of bool  (* true means second one is unboxed *)
   | Immediate
 
-let report_type_mismatch0 first second decl ppf err =
+type mismatch_case =
+  | Extension_definition (* "the type" "this extension" "definition" *)
+  | Declaration (* "the first" "the second" "declaration" *)
+  | Original_definition (*the original*) (*this*) (*definition*)
+
+let report_type_mismatch0 subcase ppf err =
   match err with
     Arity -> I18n.fprintf ppf "They have different arities"
   | Privacy -> I18n.fprintf ppf "A private type would be revealed"
@@ -156,23 +161,91 @@ let report_type_mismatch0 first second decl ppf err =
       I18n.fprintf ppf"Fields number %i have different names, %s and %s"
         n (Ident.name name1) (Ident.name name2)
   | Field_missing (b, s) ->
-      I18n.fprintf ppf"The field %s is only present in %a %a"
-        (Ident.name s) I18n.pp (if b then second else first) I18n.pp decl
+      begin match subcase, b with
+      | Extension_definition, false ->
+          I18n.fprintf ppf "The field %s is only present in the type definition"
+      | Extension_definition, true ->
+          I18n.fprintf ppf
+            "The field %s is only present in this extension definition"
+      | Declaration, false ->
+          I18n.fprintf ppf "The field %s is only present in the first declaration"
+      | Declaration, true ->
+          I18n.fprintf ppf "The field %s is only present in the second declaration"
+      | Original_definition, false ->
+          I18n.fprintf ppf "The field %s is only present in the original definition"
+      | Original_definition, true ->
+          I18n.fprintf ppf "The field %s is only present in this definition"
+      end
+        (Ident.name s)
   | Record_representation b ->
-      I18n.fprintf ppf"Their internal representations differ:@ %a %a %a"
-        I18n.pp (if b then second else first) I18n.pp decl
-        I18n.pp (I18n.s"uses unboxed float representation")
+      begin match subcase, b with
+      | Extension_definition, false ->
+          I18n.fprintf ppf
+            "Their internal representations differ:@ the type definition \
+             uses unboxed float representation"
+      | Extension_definition, true ->
+          I18n.fprintf ppf
+            "Their internal representations differ:@ this extension definition \
+             uses unboxed float representation"
+      | Declaration, false ->
+          I18n.fprintf ppf
+            "Their internal representations differ:@ the first declaration \
+             uses unboxed float representation"
+      | Declaration, true ->
+          I18n.fprintf ppf
+            "Their internal representations differ:@ the second declaration \
+             uses unboxed float representation"
+      | Original_definition, false ->
+          I18n.fprintf ppf
+            "Their internal representations differ:@ the original definition \
+             uses unboxed float representation"
+      | Original_definition, true ->
+          I18n.fprintf ppf
+            "Their internal representations differ:@ this definition \
+             uses unboxed float representation"
+      end;
   | Unboxed_representation b ->
-      I18n.fprintf ppf "Their internal representations differ:@ %a %a %a"
-         I18n.pp (if b then second else first) I18n.pp decl
-         I18n.pp (I18n.s "uses unboxed representation")
-  | Immediate -> I18n.fprintf ppf"%a is not an immediate type" I18n.pp first
+           begin match subcase, b with
+      | Extension_definition, false ->
+          I18n.fprintf ppf
+            "Their internal representations differ:@ the type definition \
+             uses unboxed float representation"
+      | Extension_definition, true ->
+          I18n.fprintf ppf
+            "Their internal representations differ:@ this extension definition \
+             uses unboxed representation"
+      | Declaration, false ->
+          I18n.fprintf ppf
+            "Their internal representations differ:@ the first declaration \
+             uses unboxed representation"
+      | Declaration, true ->
+          I18n.fprintf ppf
+            "Their internal representations differ:@ the second declaration \
+             uses unboxed representation"
+      | Original_definition, false ->
+          I18n.fprintf ppf
+            "Their internal representations differ:@ the original definition \
+             uses unboxed representation"
+      | Original_definition, true ->
+          I18n.fprintf ppf
+            "Their internal representations differ:@ this definition \
+             uses unboxed representation"
+        end;
+  | Immediate ->
+      begin match subcase with
+      | Extension_definition ->
+          I18n.fprintf ppf"the type is not an immediate type"
+      | Declaration ->
+          I18n.fprintf ppf"the first is not an immediate type"
+      | Original_definition ->
+          I18n.fprintf ppf"the original is not an immediate type"
+      end
 
-let report_type_mismatch first second decl ppf =
+let report_type_mismatch subcase ppf =
   List.iter
     (fun err ->
       if err = Manifest then () else
-      Format.fprintf ppf "@ %a." (report_type_mismatch0 first second decl) err)
+      Format.fprintf ppf "@ %a." (report_type_mismatch0 subcase) err)
 
 let rec compare_constructor_arguments ~loc env cstr params1 params2 arg1 arg2 =
   match arg1, arg2 with

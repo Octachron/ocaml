@@ -1228,7 +1228,7 @@ let check_duplicates sdecl_list =
               let name' = Hashtbl.find constrs pcd.pcd_name.txt in
               Location.prerr_warning pcd.pcd_loc
                 (Warnings.Duplicate_definitions
-                   ("constructor", pcd.pcd_name.txt, name',
+                   (`Constructor, pcd.pcd_name.txt, name',
                     sdecl.ptype_name.txt))
             with Not_found ->
               Hashtbl.add constrs pcd.pcd_name.txt sdecl.ptype_name.txt)
@@ -1240,7 +1240,7 @@ let check_duplicates sdecl_list =
               let name' = Hashtbl.find labels cname.txt in
               Location.prerr_warning loc
                 (Warnings.Duplicate_definitions
-                   ("label", cname.txt, name', sdecl.ptype_name.txt))
+                   (`Label, cname.txt, name', sdecl.ptype_name.txt))
             with Not_found -> Hashtbl.add labels cname.txt sdecl.ptype_name.txt)
           fl
     | Ptype_abstract -> ()
@@ -1927,46 +1927,80 @@ let check_recmod_typedecl env loc recmod_ids path decl =
 
 (**** Error report ****)
 
-let explain_unbound_gen ppf tv tl typ kwd pr =
+let find_unbound tv tl typ =
+  let ti = List.find (fun ti -> Ctype.deep_occur tv (typ ti)) tl in
+  let ty0 = (* Hack to force aliasing when needed *)
+    Btype.newgenty (Tobject(tv, ref None)) in
+  Printtyp.reset_and_mark_loops_list [typ ti; ty0];
+  ti
+
+let unbound_type ppf tv tl =
   try
-    let ti = List.find (fun ti -> Ctype.deep_occur tv (typ ti)) tl in
-    let ty0 = (* Hack to force aliasing when needed *)
-      Btype.newgenty (Tobject(tv, ref None)) in
-    Printtyp.reset_and_mark_loops_list [typ ti; ty0];
-    I18n.fprintf ppf
-      ".@.@[<hov2>In %a@ %a@;<1 -2>the variable %a is unbound@]"
-      I18n.pp kwd pr ti Printtyp.type_expr tv
+    let ti = find_unbound tv tl (fun t -> t) in
+    I18n.fprintf ppf ".@.@[<hov2>In type@ %a@;<1 -2>the variable %a is unbound@]"
+      Printtyp.type_expr ti Printtyp.type_expr tv
   with Not_found -> ()
 
-let explain_unbound ppf tv tl typ kwd lab =
-  explain_unbound_gen ppf tv tl typ kwd
-    (fun ppf ti -> Format.fprintf ppf "%s%a" (lab ti) Printtyp.type_expr (typ ti))
+let unbound_field ppf tv tl =
+  try
+    let typ l = l.Types.ld_type in
+    let ti = find_unbound tv tl typ in
+    I18n.fprintf ppf
+      ".@.@[<hov2>In field %s:@ %a@;<1 -2>the variable %a is unbound@]"
+      (Ident.name ti.Types.ld_id) Printtyp.type_expr (typ ti)
+      Printtyp.type_expr tv
+  with Not_found -> ()
 
-let explain_unbound_single ppf tv ty =
-  let trivial ty =
-    explain_unbound ppf tv [ty] (fun t -> t) (I18n.s "type") (fun _ -> "") in
-  match (Ctype.repr ty).desc with
-    Tobject(fi,_) ->
-      let (tl, rv) = Ctype.flatten_fields fi in
-      if rv == tv then trivial ty else
-      explain_unbound ppf tv tl (fun (_,_,t) -> t)
-        (I18n.s "method") (fun (lab,_,_) -> lab ^ ": ")
-  | Tvariant row ->
-      let row = Btype.row_repr row in
-      if row.row_more == tv then trivial ty else
-      explain_unbound ppf tv row.row_fields
-        (fun (_l,f) -> match Btype.row_field_repr f with
-          Rpresent (Some t) -> t
-        | Reither (_,[t],_,_) -> t
-        | Reither (_,tl,_,_) -> Btype.newgenty (Ttuple tl)
-        | _ -> Btype.newgenty (Ttuple[]))
-        (I18n.s "case") (fun (lab,_) -> "`" ^ lab ^ " of ")
-  | _ -> trivial ty
+let unbound_method ppf tv tl =
+  try
+    let (lbl, _, ti) = find_unbound tv tl (fun (_,_,t) -> t) in
+    I18n.fprintf ppf
+      ".@.@[<hov2>In method %s:@ %a@;<1 -2> the variable %a is unbound@]"
+      lbl Printtyp.type_expr ti Printtyp.type_expr tv
+  with Not_found -> ()
 
+let unbound_case ppf tv tl =
+  let typ (_,f) =
+    match Btype.row_field_repr f with
+      Rpresent (Some t) -> t
+    | Reither (_,[t],_,_) -> t
+    | Reither (_,tl,_,_) -> Btype.newgenty (Ttuple tl)
+    | _ -> Btype.newgenty (Ttuple[]) in
+  try
+    let (lbl, _) as ti = find_unbound tv tl typ in
+    I18n.fprintf ppf
+      ".@.@[<hov2>In case `%s of@ %a@;<1 -2> the variable %a is unbound@]"
+      lbl Printtyp.type_expr (typ ti) Printtyp.type_expr tv
+  with Not_found -> ()
 
 let tys_of_constr_args = function
   | Types.Cstr_tuple tl -> tl
   | Types.Cstr_record lbls -> List.map (fun l -> l.Types.ld_type) lbls
+
+let unbound_variant ppf tv tyl =
+  try
+    let typ c =
+      let tl = tys_of_constr_args c.Types.cd_args in
+      Btype.newgenty (Ttuple tl) in
+    let ti = find_unbound tv tyl typ in
+    I18n.fprintf ppf
+      ".@.@[<hov2>In case %s of@ %a@;<1 -2> the variable %a is unbound@]"
+      (Ident.name ti.Types.cd_id)
+      Printtyp.constructor_arguments ti.Types.cd_args
+      Printtyp.type_expr tv
+  with Not_found -> ()
+
+let explain_unbound_single ppf tv ty =
+  match (Ctype.repr ty).desc with
+    Tobject(fi,_) ->
+      let (tl, rv) = Ctype.flatten_fields fi in
+      if rv == tv then unbound_type ppf tv [ty] else
+        unbound_method ppf tv tl
+  | Tvariant row ->
+      let row = Btype.row_repr row in
+      if row.row_more == tv then unbound_type ppf tv [ty] else
+        unbound_case ppf tv row.row_fields
+  | _ -> unbound_type ppf tv [ty]
 
 let report_error ppf =
   function
@@ -1993,16 +2027,13 @@ let report_error ppf =
         "@[<v>@[<hov>This variant or record definition@ \
          does not match that of type@;<1 2>%a@]%a@]"
         Printtyp.type_expr ty
-        (Includecore.report_type_mismatch
-           (I18n.s"the original")
-           (I18n.s"this")
-           (I18n.s"definition"))
+        Includecore.(report_type_mismatch Original_definition)
         errs
   | Constraint_failed (ty, ty') ->
       Printtyp.reset_and_mark_loops ty;
       Printtyp.mark_loops ty';
-      I18n.fprintf ppf "@[%a@ @[<hv>Type@ %a@ should be an instance of@ %a@]@]"
-        I18n.pp (I18n.s "Constraints are not satisfied in this type.")
+      I18n.fprintf ppf "@[Constraints are not satisfied in this type.@ \
+                        @[<hv>Type@ %a@ should be an instance of@ %a@]@]"
         Printtyp.type_expr ty Printtyp.type_expr ty'
   | Parameters_differ (path, ty, ty') ->
       Printtyp.reset_and_mark_loops ty;
@@ -2029,18 +2060,8 @@ let report_error ppf =
       I18n.fprintf ppf "A type variable is unbound in this type declaration";
       let ty = Ctype.repr ty in
       begin match decl.type_kind, decl.type_manifest with
-      | Type_variant tl, _ ->
-          explain_unbound_gen ppf ty tl (fun c ->
-              let tl = tys_of_constr_args c.Types.cd_args in
-              Btype.newgenty (Ttuple tl)
-            )
-            (I18n.s"case") (fun ppf c ->
-                Format.fprintf ppf
-                  "%s of %a" (Ident.name c.Types.cd_id)
-                  Printtyp.constructor_arguments c.Types.cd_args)
-      | Type_record (tl, _), _ ->
-          explain_unbound ppf ty tl (fun l -> l.Types.ld_type)
-            (I18n.s"field") (fun l -> Ident.name l.Types.ld_id ^ ": ")
+      | Type_variant tl, _ -> unbound_variant ppf ty tl
+      | Type_record (tl, _), _ -> unbound_field ppf ty tl
       | Type_abstract, Some ty' ->
           explain_unbound_single ppf ty ty'
       | _ -> ()
@@ -2048,21 +2069,19 @@ let report_error ppf =
   | Unbound_type_var_ext (ty, ext) ->
       I18n.fprintf ppf "A type variable is unbound in this extension constructor";
       let args = tys_of_constr_args ext.ext_args in
-      explain_unbound ppf ty args (fun c -> c) (I18n.s "type") (fun _ -> "")
+      unbound_type ppf ty args
   | Cannot_extend_private_type path ->
       I18n.fprintf ppf "@[Cannot extend private type definition@ %a@]"
         Printtyp.path path
   | Not_extensible_type path ->
-      Format.fprintf ppf "@[%a@ %a@ is not extensible@]"
-        I18n.pp (I18n.s "Type definition")
+      Format.fprintf ppf "@[Type definition@ %a@ is not extensible@]"
         Printtyp.path path
   | Extension_mismatch (path, errs) ->
       I18n.fprintf ppf
         "@[<v>@[<hov>This extension@ \
          does not match the definition of type %s@]%a@]"
         (Path.name path)
-        (Includecore.report_type_mismatch
-           (I18n.s "the type") (I18n.s "this extension") (I18n.s "definition"))
+        Includecore.(report_type_mismatch Extension_definition)
         errs
   | Rebind_wrong_type (lid, env, trace) ->
       Printtyp.report_unification_error ppf env trace

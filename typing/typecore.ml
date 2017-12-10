@@ -23,6 +23,9 @@ open Typedtree
 open Btype
 open Ctype
 
+type type_kind = Record | Variant
+(** Type kind for disambiguation error messages *)
+
 type error =
     Polymorphic_label of Longident.t
   | Constructor_arity_mismatch of Longident.t * int * int
@@ -37,9 +40,10 @@ type error =
   | Label_multiply_defined of string
   | Label_missing of Ident.t list
   | Label_not_mutable of Longident.t
-  | Wrong_name of string * type_expr * string * Path.t * string * string list
+  | Wrong_name of I18n.s option * type_expr * type_kind * Path.t * string
+                  * string list
   | Name_type_mismatch of
-      string * Longident.t * (Path.t * Path.t) * (Path.t * Path.t) list
+      type_kind * Longident.t * (Path.t * Path.t) * (Path.t * Path.t) list
   | Invalid_format of string
   | Undefined_method of type_expr * string * string list option
   | Undefined_inherited_method of string * string list
@@ -652,12 +656,10 @@ let compare_type_path env tpath1 tpath2 =
   Path.same (expand_path env tpath1) (expand_path env tpath2)
 
 (* Records *)
-let label_of_kind kind =
-  if kind = "record" then "field" else "constructor"
 
 module NameChoice(Name : sig
   type t
-  val type_kind: string
+  val type_kind: type_kind
   val get_name: t -> string
   val get_type: t -> type_expr
   val get_descrs: Env.type_descriptions -> t list
@@ -681,7 +683,7 @@ end) = struct
         with Not_found ->
           let names = List.map get_name descrs in
           raise (Error (lid.loc, env,
-                        Wrong_name ("", newvar (), type_kind, tpath, s, names)))
+                        Wrong_name (None, newvar (), type_kind, tpath, s, names)))
       end
     | _ -> raise Not_found
 
@@ -725,10 +727,11 @@ end) = struct
         end
     | Some(tpath0, tpath, pr) ->
         let warn_pr () =
-          let label = label_of_kind type_kind in
+          let msg = match type_kind with
+            | Record -> I18n.s "this type-based field disambiguation"
+            | Variant -> I18n.s "this type-based constructor disambiguation" in
           warn lid.loc
-            (Warnings.Not_principal
-               (I18n.sprintf "this type-based %s disambiguation" label))
+            (Warnings.Not_principal msg)
         in
         try
           let lbl, use = disambiguate_by_type env tpath scope in
@@ -784,12 +787,12 @@ end) = struct
 end
 
 let wrap_disambiguate kind ty f x =
-  try f x with Error (loc, env, Wrong_name ("",_,tk,tp,name,valid_names)) ->
+  try f x with Error (loc, env, Wrong_name(None,_,tk,tp,name,valid_names)) ->
     raise (Error (loc, env, Wrong_name (kind,ty,tk,tp,name,valid_names)))
 
 module Label = NameChoice (struct
   type t = label_description
-  let type_kind = "record"
+  let type_kind = Record
   let get_name lbl = lbl.lbl_name
   let get_type lbl = lbl.lbl_res
   let get_descrs = snd
@@ -948,7 +951,7 @@ let check_recordpat_labels loc lbl_pat_list closed =
 
 module Constructor = NameChoice (struct
   type t = constructor_description
-  let type_kind = "variant"
+  let type_kind = Variant
   let get_name cstr = cstr.cstr_name
   let get_type cstr = cstr.cstr_res
   let get_descrs = fst
@@ -1152,7 +1155,9 @@ and type_pat_aux ~constrs ~labels ~no_existentials ~mode ~explode ~env
                         Unqualified_gadt_pattern (tpath, constr.cstr_name)))
       in
       let constr =
-        wrap_disambiguate "This variant pattern is expected to have" expected_ty
+        wrap_disambiguate
+          (Some(I18n.s "This variant pattern is expected to have type"))
+          expected_ty
           (Constructor.disambiguate lid !env opath ~check_lk) candidates
       in
       if constr.cstr_generalized && constrs <> None && mode = Inside_or
@@ -1286,7 +1291,8 @@ and type_pat_aux ~constrs ~labels ~no_existentials ~mode ~explode ~env
         pat_env = !env }
       in
       if constrs = None then
-        k (wrap_disambiguate "This record pattern is expected to have"
+        k (wrap_disambiguate
+             (Some(I18n.s "This record pattern is expected to have type"))
              expected_ty
              (type_label_a_list ?labels loc false !env type_label_pat opath
                 lid_sp_list)
@@ -2969,7 +2975,8 @@ and type_expect_ ?in_function ?(recarg=Rejected) env sexp ty_expected =
       in
       let closed = (opt_sexp = None) in
       let lbl_exp_list =
-        wrap_disambiguate "This record expression is expected to have" ty_record
+        wrap_disambiguate
+          (Some(I18n.s"This record expression is expected to have type")) ty_record
           (type_label_a_list loc closed env
              (fun e k -> k (type_label_exp true env loc ty_record e))
              opath lid_sexp_list)
@@ -3772,7 +3779,7 @@ and type_label_access env srecord lid =
   in
   let labels = Typetexp.find_all_labels env lid.loc lid.txt in
   let label =
-    wrap_disambiguate "This expression has" ty_exp
+    wrap_disambiguate (Some(I18n.s"This expression has type")) ty_exp
       (Label.disambiguate lid env opath) labels in
   (record, label, opath)
 
@@ -4384,7 +4391,8 @@ and type_construct env loc lid sarg ty_expected attrs =
   in
   let constrs = Typetexp.find_all_constructors env lid.loc lid.txt in
   let constr =
-    wrap_disambiguate "This variant expression is expected to have" ty_expected
+    wrap_disambiguate
+      (Some(I18n.s"This variant expression is expected to have type")) ty_expected
       (Constructor.disambiguate lid env opath) constrs in
   Env.mark_constructor Env.Positive env (Longident.last lid.txt) constr;
   Builtin_attributes.check_deprecated loc constr.cstr_attributes
@@ -4991,25 +4999,50 @@ let report_error env ppf = function
           name
           path p;
       end else begin
-      I18n.fprintf ppf "@[@[<2>%s type@ %a@]@ "
-        eorp type_expr ty;
-      I18n.fprintf ppf "The %s %s does not belong to type %a@]"
-        (label_of_kind kind)
-        name (*kind*) path p;
-       end;
+        match eorp with
+        | None -> assert false
+        | Some eorp ->
+            I18n.fprintf ppf "@[@[<2>%a@ %a@]@ "
+              I18n.pp eorp type_expr ty;
+      begin match  kind with
+      | Record -> I18n.fprintf ppf "The field %s does not belong to type %a@]"
+      | Variant ->
+          I18n.fprintf ppf "The constructor %s does not belong to type %a@]"
+       end name path p end;
       spellcheck ppf name valid_names;
   | Name_type_mismatch (kind, lid, tp, tpl) ->
-      let name = label_of_kind kind in
       report_ambiguous_type_error ppf env tp tpl
-        (fun ppf -> I18n.fprintf ppf
-            "The %s %a@ belongs to the %s type"
-            name longident lid kind)
-        (fun ppf -> I18n.fprintf ppf
-            "The %s %a@ belongs to one of the following %s types:"
-            name longident lid kind)
-        (fun ppf -> I18n.fprintf ppf
-            "but a %s was expected belonging to the %s type"
-            name kind)
+        (fun ppf ->
+           begin match kind with
+           | Variant ->
+               I18n.fprintf ppf
+                 "The constructor %a@ belongs to the variant type"
+           | Record ->
+               I18n.fprintf ppf
+                 "The field %a@ belongs to the record type"
+          end
+            longident lid)
+        (fun ppf ->
+            begin match kind with
+            | Variant ->
+                I18n.fprintf ppf
+               "The constructor %a@ belongs to \
+                one of the following variant types:"
+               longident lid
+            | Record ->
+                I18n.fprintf ppf
+               "The field %a@ belongs to \
+                one of the following record types:"
+               longident lid
+            end)
+        (fun ppf -> match kind with
+           | Variant ->
+             I18n.fprintf ppf
+               "but a constructor was expected belonging to the variant type"
+           | Record ->
+             I18n.fprintf ppf
+               "but a field was expected belonging to the record type"
+        )
   | Invalid_format msg ->
       Format.fprintf ppf "%s" msg (* I18N: could these msg be translated?*)
   | Undefined_method (ty, me, valid_methods) ->
@@ -5112,7 +5145,9 @@ let report_error env ppf = function
   | Recursive_local_constraint trace ->
       report_unification_error ppf env trace
         (fun ppf -> I18n.fprintf ppf "Recursive local constraint when unifying")
-        (fun ppf -> I18n.fprintf ppf "with")
+        (fun ppf -> I18n.fprintf ppf
+            ("with"[@ocaml.doc "when unifying … with"])
+        )
   | Unexpected_existential ->
       I18n.fprintf ppf "Unexpected existential"
   | Unqualified_gadt_pattern (tpath, name) ->

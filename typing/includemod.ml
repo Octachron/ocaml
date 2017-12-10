@@ -548,8 +548,7 @@ let include_err ppf = function
         I18n.pp (I18n.s "is not included in")
         (type_declaration id) d2
         show_locs (d1.type_loc, d2.type_loc)
-        (Includecore.report_type_mismatch
-           (I18n.s "the first") (I18n.s "the second") (I18n.s "declaration")) errs
+        Includecore.(report_type_mismatch Declaration) errs
   | Extension_constructors(id, x1, x2) ->
       I18n.fprintf ppf
         "@[<hv 2>Extension declarations do not match:@ \
