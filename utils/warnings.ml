@@ -594,8 +594,8 @@ let descriptions () =
     8, I18n.s"Partial match: missing cases in pattern-matching.";
     9, I18n.s"Missing fields in a record pattern.";
    10, I18n.s"Expression on the left-hand side of a sequence that doesn't have \
-      type\n\
-   \   I18n.s \"unit\" (and that is not a function, see warning number 5).";
+   \    type\n\
+   \    \"unit\" (and that is not a function, see warning number 5).";
    11, I18n.s"Redundant case in a pattern matching (unused match case).";
    12, I18n.s"Redundant sub-pattern in a pattern-matching.";
    13, I18n.s"Instance variable overridden.";
@@ -610,7 +610,7 @@ let descriptions () =
    22, I18n.s"Preprocessor warning.";
    23, I18n.s"Useless record \"with\" clause.";
    24, I18n.s"Bad module name: the source file name is not a valid OCaml module \
-          name.";
+   \    name.";
    25, I18n.s"Deprecated: now part of warning 8.";
    26, I18n.s"Suspicious unused variable: unused variable that is bound\n\
    \    with \"let\" or \"as\", and doesn't start with an underscore (\"_\")\n\
