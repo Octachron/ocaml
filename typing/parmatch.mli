@@ -43,21 +43,8 @@ val le_pat : pattern -> pattern -> bool
 (** [le_pat p q]  means: forall V,  V matches q implies V matches p *)
 
 val le_pats : pattern list -> pattern list -> bool
-(** [le_pats (p1 .. pm) (q1 .. qn)] means: forall i <= m, [le_pat pi qi] *)
-
-(** Exported compatibility functor, abstracted over constructor equality *)
-module Compat :
-  functor
-    (Constr: sig
-      val equal :
-          Types.constructor_description ->
-            Types.constructor_description ->
-              bool
-     end) -> sig
-       val compat : pattern -> pattern -> bool
-       val compats : pattern list -> pattern list -> bool
-     end
-
+val compat : pattern -> pattern -> bool
+val compats : pattern list -> pattern list -> bool
 exception Empty
 
 val lub : pattern -> pattern -> pattern
