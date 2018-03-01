@@ -88,6 +88,18 @@ let expect =
   ]
 }
 
+let ocamldoc =
+{
+  test_name = "ocamldoc";
+  test_run_by_default = false;
+  test_actions =
+  [
+    setup_ocamldoc_build_env;
+    run_ocamldoc;
+    check_program_output
+  ]
+}
+
 let _ =
   List.iter register
   [
@@ -95,4 +107,5 @@ let _ =
     native;
     toplevel;
     expect;
+    ocamldoc;
   ]

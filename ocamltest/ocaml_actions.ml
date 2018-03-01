@@ -369,6 +369,7 @@ let setup_ocamlnat_build_env =
     "setup-ocamlnat-build-env"
     Ocaml_toplevels.ocamlnat
 
+
 let compile (compiler : Ocaml_compilers.compiler) log env =
   let ocamlsrcdir = Ocaml_directories.srcdir () in
   match Environments.lookup_nonempty Ocaml_variables.module_ env with
@@ -752,6 +753,58 @@ let no_afl_instrument = Actions.make
     "AFL instrumentation disabled"
     "AFL instrumentation enabled")
 
+
+let ocamldoc_exit_status =
+  Variables.make ( "ocamldoc_exit_status", "expected ocamldoc exit status")
+(*
+let ocamldoc_reference = Variables.make ("ocamldoc_reference",
+  "Reference file for ocamldoc output")
+
+let ocamldoc_output = Variables.make ("ocamldoc_output",
+  "Where to log output of ocamldoc")
+
+let ocamldoc_flags = Variables.make ("OCAMLDOC_FLAGS",
+  "ocamldoc flags")
+*)
+
+let () = List.iter Variables.register_variable [ocamldoc_exit_status]
+    (*[ocamldoc_reference;ocamldoc_output;;ocamldoc_flags]*)
+let ocamldoc =
+  new Ocaml_tools.tool
+    ~name:Ocaml_files.ocamldoc
+    ~family:"doc"
+    ~flags:""
+    ~directory:"ocamldoc"
+    ~exit_status_variable:ocamldoc_exit_status
+    ~reference_variable:Builtin_variables.reference
+    ~output_variable:Builtin_variables.output
+
+
+let setup_ocamldoc_build_env =
+  Actions.make "setup_ocamldoc_build_env" @@ setup_tool_build_env ocamldoc
+
+let run_ocamldoc =
+  Actions.make "ocamldoc" @@ fun log env ->
+  let ocamlsrcdir = Ocaml_directories.srcdir () in
+  let stdlib = Ocaml_directories.stdlib ocamlsrcdir in
+  let input_file = Actions_helpers.testfile env in
+  let commandline =
+  [
+    Ocaml_commands.ocamlrun_ocamldoc ocamlsrcdir;
+    "-I " ^ stdlib;
+    flags env;
+    input_file
+  ] in
+  let exit_status =
+    Actions_helpers.run_cmd ~environment:dumb_term log env commandline in
+  if exit_status=0 then
+      (Result.pass, env)
+  else begin
+    let reason = (Actions_helpers.mkreason
+      "ocamldoc" (String.concat " " commandline) exit_status) in
+    (Result.fail_with_reason reason, env)
+  end
+
 let _ =
   Environments.register_initializer "find_source_modules" find_source_modules;
   Environments.register_initializer "config_variables" config_variables;
@@ -788,4 +841,6 @@ let _ =
     native_compiler;
     afl_instrument;
     no_afl_instrument;
+    setup_ocamldoc_build_env;
+    run_ocamldoc
   ]
