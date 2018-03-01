@@ -1,7 +1,5 @@
 (* TEST
-   * ocamldoc
-     flags="-html -colorize-code"
-     output="Paragraph.html"
+   * ocamldoc with html
 *)
 (** This file tests the generation of paragraph within module comments.
 

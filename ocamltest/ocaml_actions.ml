@@ -493,7 +493,7 @@ let really_compare_programs backend comparison_tool log env =
         (Sys.os_type="Win32" || Sys.os_type="Cygwin")
         then
           let bytes_to_ignore = 512 (* comparison_start_address program *) in
-          Filecompare.make_cmp_tool bytes_to_ignore
+          Filecompare.(make_cmp_tool ~ignore:{bytes=bytes_to_ignore; lines=0})
         else comparison_tool in
     match Filecompare.compare_files ~tool:comparison_tool files with
       | Filecompare.Same -> (Result.pass, env)
@@ -753,32 +753,120 @@ let no_afl_instrument = Actions.make
     "AFL instrumentation disabled"
     "AFL instrumentation enabled")
 
-
-let ocamldoc_exit_status =
-  Variables.make ( "ocamldoc_exit_status", "expected ocamldoc exit status")
-(*
-let ocamldoc_reference = Variables.make ("ocamldoc_reference",
-  "Reference file for ocamldoc output")
-
-let ocamldoc_output = Variables.make ("ocamldoc_output",
-  "Where to log output of ocamldoc")
-
-let ocamldoc_flags = Variables.make ("OCAMLDOC_FLAGS",
-  "ocamldoc flags")
-*)
-
-let () = List.iter Variables.register_variable [ocamldoc_exit_status]
-    (*[ocamldoc_reference;ocamldoc_output;;ocamldoc_flags]*)
+<<<<<<< HEAD
 let ocamldoc =
-  new Ocaml_tools.tool
+  object inherit
+  Ocaml_tools.tool
     ~name:Ocaml_files.ocamldoc
     ~family:"doc"
     ~flags:""
     ~directory:"ocamldoc"
-    ~exit_status_variable:ocamldoc_exit_status
+    ~exit_status_variable:Ocaml_variables.ocamldoc_exit_status
     ~reference_variable:Builtin_variables.reference
     ~output_variable:Builtin_variables.output
 
+    method ! reference_filename_suffix env =
+      let backend =
+        Environments.safe_lookup Ocaml_variables.ocamldoc_backend env in
+      if backend = "" then
+        ".reference"
+      else "." ^ backend ^ ".reference"
+
+    method output_file env prefix =
+      let backend =
+        Environments.safe_lookup Ocaml_variables.ocamldoc_backend env in
+      let suffix = match backend with
+      | "latex" -> ".tex"
+      | "html" -> ".html"
+      | "man" -> ".3o"
+      | _ -> ".result" in
+      prefix ^ suffix
+end
+=======
+
+let ocamldoc = Ocaml_tools.ocamldoc
+
+let ocamldoc_output_file env prefix =
+  let backend =
+    Environments.safe_lookup Ocaml_variables.ocamldoc_backend env in
+  let suffix = match backend with
+    | "latex" -> ".tex"
+    | "html" -> ".html"
+    | "man" -> ".3o"
+    | _ -> ".result" in
+  prefix ^ suffix
+
+let check_ocamldoc_output = make_check_tool_output
+  "check-ocamldoc-output" ocamldoc
+
+let ocamldoc_flags env =
+  Environments.safe_lookup Ocaml_variables.ocamldoc_flags env
+
+let compiled_doc_name input = input ^ ".odoc"
+
+(* The compiler used for compiling both cmi file
+   and plugins *)
+let compiler_for_ocamldoc ocamlsrcdir =
+    let compiler = Ocaml_compilers.ocamlc_byte in
+     compile_modules ocamlsrcdir compiler (compiler#name ocamlsrcdir)
+       compiler#output_variable
+
+(* ocamldoc needs unix and str *)
+let ocamldoc_env env =
+  let env = Environments.apply_modifiers env Ocaml_modifiers.(str @ unix) in
+  let var = Ocaml_variables.caml_ld_library_path in
+  let value = Environments.safe_lookup var env in
+  [| dumb_term.(0); Variables.string_of_binding var value |]
+
+
+(* Within ocamldoc tests,
+   modules="a.ml b.ml" is interpreted as a list of
+   secondaries documentation modules that need to be
+   compiled into cmi files and odoc file (serialized ocamldoc information)
+   before the main documentation is generated *)
+let compile_ocamldoc ocamlsrcdir (basename,filetype as module_) log env =
+  let expected_exit_status =
+    Ocaml_tools.expected_exit_status env (ocamldoc :> Ocaml_tools.tool) in
+  let what = Printf.sprintf "Compiling documentation for module %s" basename in
+  Printf.fprintf log "%s\n%!" what;
+  let filename =
+    Ocaml_filetypes.make_filename (basename, filetype) in
+  let (r,env) = compiler_for_ocamldoc ocamlsrcdir [module_] log env in
+  if not (Result.is_pass r) then (r,env) else
+  let commandline =
+    (* currently, we are ignoring the global ocamldoc_flags, since we
+       don't have per-module flags *)
+    [
+    Ocaml_commands.ocamlrun_ocamldoc ocamlsrcdir;
+    Ocaml_flags.stdlib ocamlsrcdir;
+    "-dump " ^ compiled_doc_name basename;
+     filename;
+  ] in
+  let exit_status =
+    Actions_helpers.run_cmd
+      ~environment:dumb_term
+      ~stdout_variable:ocamldoc#output_variable
+      ~stderr_variable:ocamldoc#output_variable
+      ~append:true
+      log env commandline in
+  if exit_status=expected_exit_status
+  then (Result.pass, env)
+  else begin
+    let reason =
+      (Actions_helpers.mkreason
+        what (String.concat " " commandline) exit_status) in
+    (Result.fail_with_reason reason, env)
+  end
+
+let rec ocamldoc_compile_all ocamlsrcdir log env = function
+  | [] -> (Result.pass, env)
+  | a :: q ->
+      let (r,env) = compile_ocamldoc ocamlsrcdir a log env in
+      if Result.is_pass r then
+        ocamldoc_compile_all ocamlsrcdir log env q
+      else
+        (r,env)
+>>>>>>> 6917baf5d... ocamldoc tests: correct setup for shared libraries
 
 let setup_ocamldoc_build_env =
   Actions.make "setup_ocamldoc_build_env" @@ setup_tool_build_env ocamldoc
@@ -788,22 +876,52 @@ let run_ocamldoc =
   let ocamlsrcdir = Ocaml_directories.srcdir () in
   let stdlib = Ocaml_directories.stdlib ocamlsrcdir in
   let input_file = Actions_helpers.testfile env in
+  let source_directory = Actions_helpers.test_source_directory env in
+  let root_file = Filename.chop_extension input_file in
+  let reference_prefix = Filename.make_path [source_directory; root_file] in
+  let backend = Environments.safe_lookup Ocaml_variables.ocamldoc_backend env in
+  let backend_flag = if backend = "" then "" else "-" ^ backend in
+  let output = ocamldoc#output_file env root_file in
+  let ocamldoc_output = match backend with
+    | "html" | "manual" -> "index"
+    | _ -> output in
   let commandline =
   [
     Ocaml_commands.ocamlrun_ocamldoc ocamlsrcdir;
+    backend_flag;
+    "-nostdlib";
     "-I " ^ stdlib;
-    flags env;
-    input_file
+    Environments.safe_lookup Ocaml_variables.ocamldoc_flags env;
+    input_file;
+    "-o";
+    ocamldoc_output
   ] in
   let exit_status =
-    Actions_helpers.run_cmd ~environment:dumb_term log env commandline in
+    Actions_helpers.run_cmd ~environment:(ocamldoc_env env)
+      log env commandline in
   if exit_status=0 then
+    let env =
+      Environments.add_bindings
+        [ Builtin_variables.reference,
+          ocamldoc#reference_file env reference_prefix;
+          Builtin_variables.output, output] env in
       (Result.pass, env)
   else begin
     let reason = (Actions_helpers.mkreason
       "ocamldoc" (String.concat " " commandline) exit_status) in
     (Result.fail_with_reason reason, env)
   end
+
+let ocamldoc_file_compare = Actions.make "ocamldoc-file-compare" @@
+  fun log env ->
+  let backend = Environments.safe_lookup Ocaml_variables.ocamldoc_backend env in
+  let tool = match backend with
+    | "man" -> Some Filecompare.(make_cmp_tool ~ignore:{lines=1;bytes=0})
+    | _ -> None in
+  Actions_helpers.check_output ?tool "ocamldoc"
+    Builtin_variables.output
+    Builtin_variables.reference
+    log env
 
 let _ =
   Environments.register_initializer "find_source_modules" find_source_modules;
@@ -842,5 +960,6 @@ let _ =
     afl_instrument;
     no_afl_instrument;
     setup_ocamldoc_build_env;
-    run_ocamldoc
+    run_ocamldoc;
+    ocamldoc_file_compare
   ]

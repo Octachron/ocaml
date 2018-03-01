@@ -243,9 +243,11 @@ let run_hook hook_name log input_env =
       then (Result.skip_with_reason reason, hookenv)
       else (Result.fail_with_reason reason, hookenv)
 
-let check_output kind_of_output output_variable reference_variable log env =
+let check_output ?tool kind_of_output output_variable reference_variable log
+    env =
   let reference_filename = Environments.safe_lookup reference_variable env in
   let output_filename = Environments.safe_lookup output_variable env in
+
   Printf.fprintf log "Comparing %s output %s to reference %s\n%!"
     kind_of_output output_filename reference_filename;
   let files =
@@ -254,7 +256,7 @@ let check_output kind_of_output output_variable reference_variable log env =
     Filecompare.reference_filename = reference_filename;
     Filecompare.output_filename = output_filename
   } in
-  match Filecompare.check_file files with
+  match Filecompare.check_file ?tool files with
     | Filecompare.Same -> (Result.pass, env)
     | Filecompare.Different ->
       let diff = Filecompare.diff files in

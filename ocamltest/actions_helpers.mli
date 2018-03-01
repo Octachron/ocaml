@@ -57,4 +57,5 @@ val run_script : Actions.code
 
 val run_hook : string -> Actions.code
 
-val check_output : string -> Variables.t -> Variables.t -> Actions.code
+val check_output : ?tool:Filecompare.tool -> string
+  -> Variables.t -> Variables.t -> Actions.code

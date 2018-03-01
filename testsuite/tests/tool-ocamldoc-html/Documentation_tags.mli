@@ -1,3 +1,6 @@
+(* TEST
+   * ocamldoc with html
+*)
 (** Test the html rendering of ocamldoc documentation tags *)
 
 val heterological: unit

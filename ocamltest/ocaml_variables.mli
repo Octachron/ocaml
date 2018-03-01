@@ -74,3 +74,7 @@ val ocamlrunparam : Variables.t
 val ocamlsrcdir : Variables.t
 
 val os_type : Variables.t
+
+val ocamldoc_flags : Variables.t
+val ocamldoc_backend : Variables.t
+val ocamldoc_exit_status : Variables.t

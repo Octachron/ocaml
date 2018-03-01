@@ -1,3 +1,7 @@
+(* TEST
+   * ocamldoc with latex
+     ocamldoc_flags+="-hide-warnings "
+*)
 (** Testing display of extensible variant types and exceptions.
 
    @test_types_display

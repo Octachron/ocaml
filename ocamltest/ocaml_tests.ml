@@ -94,9 +94,10 @@ let ocamldoc =
   test_run_by_default = false;
   test_actions =
   [
+    shared_libraries;
     setup_ocamldoc_build_env;
     run_ocamldoc;
-    check_program_output
+    ocamldoc_file_compare
   ]
 }
 

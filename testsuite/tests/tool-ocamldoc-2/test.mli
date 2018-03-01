@@ -1,4 +1,6 @@
-
+(* TEST
+   * ocamldoc with latex
+*)
 (** Ten comments for tests *)
 
 (** {6 A first comments for title } *)
