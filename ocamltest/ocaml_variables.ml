@@ -155,7 +155,7 @@ let ocamldoc_reference =
 
 
 let plugins =
-  Variables.make ( "plugins", "plugins" )
+  Variables.make ( "plugins", "plugins for ocamlc,ocamlopt or ocamldoc" )
 
 
 let _ = List.iter register_variable

@@ -781,6 +781,8 @@ let ocamldoc_flags env =
 
 let compiled_doc_name input = input ^ ".odoc"
 
+(* The compiler used for compiling both cmi file
+   and plugins *)
 let compiler_for_ocamldoc ocamlsrcdir =
     let compiler = Ocaml_compilers.ocamlc_byte in
      compile_modules ocamlsrcdir compiler (compiler#name ocamlsrcdir)
@@ -793,6 +795,12 @@ let ocamldoc_env env =
   let value = Environments.safe_lookup var env in
 [| dumb_term.(0); Variables.string_of_binding var value |]
 
+
+(* Within ocamldoc tests,
+   modules="a.ml b.ml" is interpreted as a list of
+   secondaries documentation modules that need to be
+   compiled into cmi files and odoc file (serialized ocamldoc information)
+   before the main documentation is generated *)
 let compile_ocamldoc ocamlsrcdir (basename,filetype as module_) log env =
   let expected_exit_status =
     Ocaml_tools.expected_exit_status env (ocamldoc :> Ocaml_tools.tool) in
@@ -803,6 +811,8 @@ let compile_ocamldoc ocamlsrcdir (basename,filetype as module_) log env =
   let (r,env) = compiler_for_ocamldoc ocamlsrcdir [module_] log env in
   if not (Result.is_pass r) then (r,env) else
   let commandline =
+    (* currently, we are ignoring the global ocamldoc_flags, since we
+       don't have per-module flags *)
     [
     Ocaml_commands.ocamlrun_ocamldoc ocamlsrcdir;
     Ocaml_flags.stdlib ocamlsrcdir;
@@ -841,7 +851,11 @@ let ocamldoc_plugin name = name ^ ".cmo"
 
 let run_ocamldoc =
   Actions.make "ocamldoc" @@ fun log env ->
+  (* modules corresponds to secondaries modules of which the
+     documentation and cmi files need to be build before the main
+     module documentation *)
   let modules =  List.map Ocaml_filetypes.filetype @@ modules env in
+  (* plugins are used for custom documentation generators *)
   let plugins = List.map Ocaml_filetypes.filetype @@ plugins env in
   let ocamlsrcdir = Ocaml_directories.srcdir () in
   let (r,env) = compiler_for_ocamldoc ocamlsrcdir plugins log env in
@@ -850,6 +864,7 @@ let run_ocamldoc =
   if not (Result.is_pass r) then r, env else
   let stdlib = Ocaml_directories.stdlib ocamlsrcdir in
   let input_file = Actions_helpers.testfile env in
+  Printf.fprintf log "Generating documentation for %s\n%!" input_file;
   let source_directory = Actions_helpers.test_source_directory env in
   let root_file = Filename.chop_extension input_file in
   let reference_prefix = Filename.make_path [source_directory; root_file] in
