@@ -315,7 +315,9 @@ let setup_tool_build_env tool log env =
   Sys.force_remove tool_output_file;
   let env =
     Environments.add Builtin_variables.test_build_directory build_dir env in
+  List.iter (Printf.fprintf log "Adding %s to build env\n%!") source_modules; 
   Actions_helpers.setup_build_env false source_modules log env
+
 
 let setup_compiler_build_env (compiler : Ocaml_compilers.compiler) log env =
   let (r, env) = setup_tool_build_env compiler log env in
@@ -758,34 +760,18 @@ let no_afl_instrument = Actions.make
     "AFL instrumentation disabled"
     "AFL instrumentation enabled")
 
-let ocamldoc =
-  object inherit
-  Ocaml_tools.tool
-    ~name:Ocaml_files.ocamldoc
-    ~family:"doc"
-    ~flags:""
-    ~directory:"ocamldoc"
-    ~exit_status_variable:Ocaml_variables.ocamldoc_exit_status
-    ~reference_variable:Ocaml_variables.ocamldoc_reference
-    ~output_variable:Ocaml_variables.ocamldoc_output
 
-    method ! reference_filename_suffix env =
-      let backend =
-        Environments.safe_lookup Ocaml_variables.ocamldoc_backend env in
-      if backend = "" then
-        ".reference"
-      else "." ^ backend ^ ".reference"
+let ocamldoc = Ocaml_tools.ocamldoc
 
-    method output_file env prefix =
-      let backend =
-        Environments.safe_lookup Ocaml_variables.ocamldoc_backend env in
-      let suffix = match backend with
-      | "latex" -> ".tex"
-      | "html" -> ".html"
-      | "man" -> ".3o"
-      | _ -> ".result" in
-      prefix ^ suffix
-  end
+let ocamldoc_output_file env prefix =
+  let backend =
+    Environments.safe_lookup Ocaml_variables.ocamldoc_backend env in
+  let suffix = match backend with
+    | "latex" -> ".tex"
+    | "html" -> ".html"
+    | "man" -> ".3o"
+    | _ -> ".result" in
+  prefix ^ suffix
 
 let check_ocamldoc_output = make_check_tool_output
   "check-ocamlc.byte-output" ocamldoc
@@ -869,7 +855,7 @@ let run_ocamldoc =
   let reference_prefix = Filename.make_path [source_directory; root_file] in
   let backend = Environments.safe_lookup Ocaml_variables.ocamldoc_backend env in
   let backend_flag = if backend = "" then "" else "-" ^ backend in
-  let output = ocamldoc#output_file env root_file in
+  let output = ocamldoc_output_file env root_file in
   let reference=
     reference_prefix
     ^ ocamldoc#reference_filename_suffix env in
