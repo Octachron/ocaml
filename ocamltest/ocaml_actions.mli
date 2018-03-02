@@ -39,6 +39,7 @@ val check_ocamlnat_output : Actions.t
 
 val setup_ocamldoc_build_env : Actions.t
 val run_ocamldoc: Actions.t
+val check_ocamldoc_output: Actions.t
 val ocamldoc_file_compare: Actions.t
 
 val flat_float_array : Actions.t

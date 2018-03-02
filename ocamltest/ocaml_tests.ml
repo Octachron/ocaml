@@ -97,6 +97,7 @@ let ocamldoc =
     shared_libraries;
     setup_ocamldoc_build_env;
     run_ocamldoc;
+    check_ocamldoc_output;
     ocamldoc_file_compare
   ]
 }

@@ -144,6 +144,7 @@ let prepare_module ocamlsrcdir output_variable log env input =
       generate_lexer ocamlsrcdir output_variable input log env
     | Grammar ->
       generate_parser ocamlsrcdir output_variable input log env
+    | Text -> assert false
 
 let get_program_file backend env =
   let testfile = Actions_helpers.testfile env in
@@ -291,6 +292,7 @@ let setup_tool_build_env tool log env =
   in
   let source_modules =
     Actions_helpers.words_of_variable env Ocaml_variables.all_modules in
+  List.iter (Printf.fprintf log "Found source file %s\n%!") source_modules;
   let tool_directory_suffix =
     Environments.safe_lookup Ocaml_variables.compiler_directory_suffix env in
   let tool_directory_name =
@@ -764,8 +766,8 @@ let ocamldoc =
     ~flags:""
     ~directory:"ocamldoc"
     ~exit_status_variable:Ocaml_variables.ocamldoc_exit_status
-    ~reference_variable:Builtin_variables.reference
-    ~output_variable:Builtin_variables.output
+    ~reference_variable:Ocaml_variables.ocamldoc_reference
+    ~output_variable:Ocaml_variables.ocamldoc_output
 
     method ! reference_filename_suffix env =
       let backend =
@@ -783,7 +785,10 @@ let ocamldoc =
       | "man" -> ".3o"
       | _ -> ".result" in
       prefix ^ suffix
-end
+  end
+
+let check_ocamldoc_output = make_check_tool_output
+  "check-ocamlc.byte-output" ocamldoc
 
 let ocamldoc_flags env =
   Environments.safe_lookup Ocaml_variables.ocamldoc_flags env
@@ -865,6 +870,9 @@ let run_ocamldoc =
   let backend = Environments.safe_lookup Ocaml_variables.ocamldoc_backend env in
   let backend_flag = if backend = "" then "" else "-" ^ backend in
   let output = ocamldoc#output_file env root_file in
+  let reference=
+    reference_prefix
+    ^ ocamldoc#reference_filename_suffix env in
   let ocamldoc_output = match backend with
     | "html" | "manual" -> "index"
     | _ -> output in
@@ -895,8 +903,7 @@ let run_ocamldoc =
   if exit_status=0 then
     let env =
       Environments.add_bindings
-        [ Builtin_variables.reference,
-          ocamldoc#reference_file env reference_prefix;
+        [ Builtin_variables.reference, reference;
           Builtin_variables.output, output] env in
       (Result.pass, env)
   else begin
@@ -954,5 +961,6 @@ let _ =
     no_afl_instrument;
     setup_ocamldoc_build_env;
     run_ocamldoc;
-    ocamldoc_file_compare
+    ocamldoc_file_compare;
+    check_ocamldoc_output
   ]

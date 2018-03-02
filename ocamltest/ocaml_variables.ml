@@ -146,6 +146,14 @@ let ocamldoc_backend = Variables.make ("ocamldoc_backend",
 let ocamldoc_exit_status =
   Variables.make ( "ocamldoc_exit_status", "expected ocamldoc exit status")
 
+let ocamldoc_output =
+  Variables.make ( "ocamldoc_output", "Where to log ocamldoc output")
+
+let ocamldoc_reference =
+  Variables.make ( "ocamldoc_reference",
+                   "Where to find expected ocamldoc output")
+
+
 let plugins =
   Variables.make ( "plugins", "plugins" )
 
@@ -182,6 +190,8 @@ let _ = List.iter register_variable
     ocamlyacc_flags;
     ocamldoc_flags;
     ocamldoc_backend;
+    ocamldoc_output;
+    ocamldoc_reference;
     ocamldoc_exit_status;
     plugins
   ]

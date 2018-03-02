@@ -7,7 +7,9 @@
 \usepackage{ocamldoc}
 \begin{document}
 \tableofcontents
-\section{Short\_description : Short global description in text mode}
+\section{Short\_description : (* TEST
+   * ocamldoc with latex
+*) Short global description in text mode}
 \label{Short-underscoredescription}\index{Short-underscoredescription@\verb`Short_description`}
 
 
