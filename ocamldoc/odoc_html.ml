@@ -1232,7 +1232,7 @@ class html =
         self#print_header b (self#inner_title in_title);
         bs b"<body>\n";
         self#html_of_code ~with_pre b code;
-        bs b "</body></html>";
+        bs b "</body></html>\n";
         Buffer.output_buffer chanout b;
         close_out chanout
       with
@@ -2425,7 +2425,7 @@ class html =
         bs b "<table>\n";
         List.iter f_group groups ;
         bs b "</table>\n" ;
-        bs b "</body>\n</html>";
+        bs b "</body>\n</html>\n";
         Buffer.output_buffer chanout b;
         close_out chanout
       with
@@ -2479,7 +2479,7 @@ class html =
         (* the various elements *)
         List.iter (self#html_of_class_element b)
           (Class.class_elements ~trans:false cl);
-        bs b "</body></html>";
+        bs b "</body></html>\n";
         Buffer.output_buffer chanout b;
         close_out chanout;
 
@@ -2525,7 +2525,7 @@ class html =
         (* the various elements *)
         List.iter (self#html_of_class_element b)
           (Class.class_type_elements ~trans: false clt);
-        bs b "</body></html>";
+        bs b "</body></html>\n";
         Buffer.output_buffer chanout b;
         close_out chanout;
 
@@ -2577,7 +2577,7 @@ class html =
           (self#html_of_module_element b mt.mt_name)
           (Module.module_type_elements mt);
 
-        bs b "</body></html>";
+        bs b "</body></html>\n";
         Buffer.output_buffer chanout b;
         close_out chanout;
 
@@ -2663,7 +2663,7 @@ class html =
           (self#html_of_module_element b modu.m_name)
           (Module.module_elements modu);
 
-        bs b "</body></html>";
+        bs b "</body></html>\n";
         Buffer.output_buffer chanout b;
         close_out chanout;
 
@@ -2727,7 +2727,7 @@ class html =
                (List.map (fun m -> m.m_name) module_list);
          | Some _ -> self#html_of_info ~indent: false b info
         );
-        bs b "</body>\n</html>";
+        bs b "</body>\n</html>\n";
         Buffer.output_buffer chanout b;
         close_out chanout
       with
