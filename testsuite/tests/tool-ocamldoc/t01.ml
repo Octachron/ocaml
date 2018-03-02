@@ -1,3 +1,8 @@
+(* TEST
+   plugins="odoc_test.ml"
+   * ocamldoc with unix,str
+    flags="-I ${ocamlsrcdir}/ocamldoc"
+*)
 (** Testing display of types.
 
    @test_types_display
