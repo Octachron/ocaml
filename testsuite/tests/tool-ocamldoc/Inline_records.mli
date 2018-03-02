@@ -1,5 +1,7 @@
 (* TEST
    * ocamldoc with html
+   * ocamldoc with latex
+   * ocamldoc with man
 *)
 (**
   This test focuses on the printing of documentation for inline record
@@ -9,6 +11,9 @@
 
 (** A nice exception *)
 exception Simple
+
+(** A less simple exception *)
+exception Less of int
 
 (** An open sum type *)
 type ext = ..

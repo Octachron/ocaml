@@ -69,4 +69,4 @@ let ocamlyacc ocamlsrcdir =
 
 let ocamldoc ocamlsrcdir =
   Filename.make_path
-    [ocamlsrcdir; "ocamldoc"; Filename.mkexe "ocamldoc"]
+    [ocamlsrcdir; "ocamldoc"; "ocamldoc"]

@@ -292,7 +292,6 @@ let setup_tool_build_env tool log env =
   in
   let source_modules =
     Actions_helpers.words_of_variable env Ocaml_variables.all_modules in
-  List.iter (Printf.fprintf log "Found source file %s\n%!") source_modules;
   let tool_directory_suffix =
     Environments.safe_lookup Ocaml_variables.compiler_directory_suffix env in
   let tool_directory_name =
@@ -774,7 +773,7 @@ let ocamldoc_output_file env prefix =
   prefix ^ suffix
 
 let check_ocamldoc_output = make_check_tool_output
-  "check-ocamlc.byte-output" ocamldoc
+  "check-ocamldoc-output" ocamldoc
 
 let ocamldoc_flags env =
   Environments.safe_lookup Ocaml_variables.ocamldoc_flags env

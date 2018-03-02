@@ -1,14 +1,1 @@
-#
-# module T03:
-#
-# module T03.Foo:
-#
-# module type T03.MT:
-#
-# module T03.Bar:
-#
-# module type T03.MT2:
-#
-# module type T03.Gee:
-#
-# module T03.T:
+Warning: Module type  not found
