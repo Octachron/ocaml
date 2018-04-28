@@ -18,14 +18,21 @@
 open Asttypes
 open Types
 
-exception Unify of (type_expr * type_expr) list
+module Unify: sig
+  type 'a diff = { got: 'a; expected: 'a }
+  type elt =
+    | Diff of type_expr diff
+    | Expanded_diff of (type_expr * type_expr) diff
+  type trace = elt list
+  val flip: trace -> trace
+end
+exception Unify of Unify.trace
 exception Tags of label * label
-exception Subtype of
-        (type_expr * type_expr) list * (type_expr * type_expr) list
+exception Subtype of Unify.trace * Unify.trace
 exception Cannot_expand
 exception Cannot_apply
 exception Recursive_abbrev
-exception Unification_recursive_abbrev of (type_expr * type_expr) list
+exception Unification_recursive_abbrev of Unify.trace
 
 val init_def: int -> unit
         (* Set the initial variable level *)
@@ -206,11 +213,11 @@ val reify_univars : Types.type_expr -> Types.type_expr
 type class_match_failure =
     CM_Virtual_class
   | CM_Parameter_arity_mismatch of int * int
-  | CM_Type_parameter_mismatch of Env.t * (type_expr * type_expr) list
+  | CM_Type_parameter_mismatch of Env.t * Unify.trace
   | CM_Class_type_mismatch of Env.t * class_type * class_type
-  | CM_Parameter_mismatch of Env.t * (type_expr * type_expr) list
-  | CM_Val_type_mismatch of string * Env.t * (type_expr * type_expr) list
-  | CM_Meth_type_mismatch of string * Env.t * (type_expr * type_expr) list
+  | CM_Parameter_mismatch of Env.t * Unify.trace
+  | CM_Val_type_mismatch of string * Env.t * Unify.trace
+  | CM_Meth_type_mismatch of string * Env.t * Unify.trace
   | CM_Non_mutable_value of string
   | CM_Non_concrete_value of string
   | CM_Missing_value of string

@@ -51,12 +51,12 @@ type existential_restriction =
 type error =
     Polymorphic_label of Longident.t
   | Constructor_arity_mismatch of Longident.t * int * int
-  | Label_mismatch of Longident.t * (type_expr * type_expr) list
-  | Pattern_type_clash of (type_expr * type_expr) list
-  | Or_pattern_type_clash of Ident.t * (type_expr * type_expr) list
+  | Label_mismatch of Longident.t * Ctype.Unify.trace
+  | Pattern_type_clash of Ctype.Unify.trace
+  | Or_pattern_type_clash of Ident.t * Ctype.Unify.trace
   | Multiply_bound_variable of string
   | Orpat_vars of Ident.t * Ident.t list
-  | Expr_type_clash of (type_expr * type_expr) list * type_forcing_context option
+  | Expr_type_clash of Ctype.Unify.trace * type_forcing_context option
   | Apply_non_function of type_expr
   | Apply_wrong_label of arg_label * type_expr
   | Label_multiply_defined of string
@@ -73,22 +73,22 @@ type error =
   | Private_label of Longident.t * type_expr
   | Unbound_instance_variable of string * string list
   | Instance_variable_not_mutable of bool * string
-  | Not_subtype of (type_expr * type_expr) list * (type_expr * type_expr) list
+  | Not_subtype of Ctype.Unify.trace * Ctype.Unify.trace
   | Outside_class
   | Value_multiply_overridden of string
   | Coercion_failure of
-      type_expr * type_expr * (type_expr * type_expr) list * bool
+      type_expr * type_expr * Ctype.Unify.trace * bool
   | Too_many_arguments of bool * type_expr * type_forcing_context option
   | Abstract_wrong_label of arg_label * type_expr * type_forcing_context option
   | Scoping_let_module of string * type_expr
   | Masked_instance_variable of Longident.t
   | Not_a_variant_type of Longident.t
   | Incoherent_label_order
-  | Less_general of string * (type_expr * type_expr) list
+  | Less_general of string * Ctype.Unify.trace
   | Modules_not_allowed
   | Cannot_infer_signature
   | Not_a_packed_module of type_expr
-  | Recursive_local_constraint of (type_expr * type_expr) list
+  | Recursive_local_constraint of Ctype.Unify.trace
   | Unexpected_existential of existential_restriction * string * string list
   | Invalid_interval
   | Invalid_for_loop_index
@@ -2562,8 +2562,10 @@ let check_univars env expans kind exp ty_expected vars =
   if List.length vars = List.length vars' then () else
   let ty = newgenty (Tpoly(repr exp.exp_type, vars'))
   and ty_expected = repr ty_expected in
-  raise (Error (exp.exp_loc, env,
-                Less_general(kind, [ty, ty; ty_expected, ty_expected])))
+  let trace =
+    let open Ctype.Unify in
+    [Expanded_diff{got=ty, ty;expected = ty_expected, ty_expected}] in
+  raise (Error (exp.exp_loc, env,Less_general(kind,trace)))
 
 (* Check that a type is not a function *)
 let check_application_result env statement exp =
