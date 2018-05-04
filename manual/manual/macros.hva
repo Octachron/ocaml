@@ -148,3 +148,5 @@
 \newenvironment{links}
 {\setenvclass{itemize}{ftoc2}\setenvclass{li-itemize}{li-links}\itemize}
 {\enditemize}
+
+\newenvironment{maintitle}{\@open{div}{class="maintitle"}}{\@close{div}}
