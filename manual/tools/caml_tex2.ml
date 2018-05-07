@@ -327,6 +327,75 @@ exception Incompatible_options of incompatibility
 
 exception Phrase_parsing of string
 
+
+module Iterator = struct
+  (** An ast iterator tuned to always call the attribute method
+      just after the location method *)
+
+  let super = Ast_iterator.default_iterator
+  open Parsetree
+  let iter_loc sub {Location.loc; txt = _} = sub.Ast_iterator.location sub loc
+  let iter_fst f (x, _) = f x
+  let iter_opt f = function None -> () | Some x -> f x
+
+  open Ast_iterator
+  let type_extension sub
+      {ptyext_path; ptyext_params;
+       ptyext_constructors;
+       ptyext_private = _;
+       ptyext_attributes} =
+    List.iter (sub.extension_constructor sub) ptyext_constructors;
+    List.iter (iter_fst (sub.typ sub)) ptyext_params;
+    iter_loc sub ptyext_path;
+    sub.attributes sub ptyext_attributes
+
+  let structure_item sub i =
+    sub.location sub i.pstr_loc;
+    match i.pstr_desc with
+    | Pstr_eval (x, attrs) -> sub.attributes sub attrs; sub.expr sub x
+    | Pstr_extension (x, attrs) ->
+        sub.attributes sub attrs;  sub.extension sub x;
+    | _ -> super.structure_item sub i
+
+  let signature_item sub i =
+    sub.location sub i.psig_loc;
+    match i.psig_desc with
+    | Psig_extension (x, attrs) ->
+        sub.attributes sub attrs;  sub.extension sub x;
+    | _ -> super.signature_item sub i
+
+  let value_description this
+      {pval_name; pval_type; pval_prim = _; pval_loc; pval_attributes} =
+    iter_loc this pval_name;
+    this.typ this pval_type;
+    this.location this pval_loc;
+    this.attributes this pval_attributes
+
+  let module_declaration this {pmd_name; pmd_type; pmd_attributes; pmd_loc} =
+    iter_loc this pmd_name;
+    this.module_type this pmd_type;
+    this.location this pmd_loc;
+    this.attributes this pmd_attributes
+
+  let module_type_declaration this
+      {pmtd_name; pmtd_type; pmtd_attributes; pmtd_loc} =
+    iter_loc this pmtd_name;
+    iter_opt (this.module_type this) pmtd_type;
+    this.location this pmtd_loc;
+    this.attributes this pmtd_attributes
+
+  let module_binding this {pmb_name; pmb_expr; pmb_attributes; pmb_loc} =
+    iter_loc this pmb_name; this.module_expr this pmb_expr;
+    this.location this pmb_loc ;
+    this.attributes this pmb_attributes
+
+  let precise =
+    { super with type_extension; structure_item; signature_item;
+                 value_description; module_declaration;
+                 module_type_declaration; module_binding
+    }
+end
+
 module Ellipsis = struct
   (** This module implements the extraction of ellipsis locations
       from phrases.
@@ -377,7 +446,7 @@ module Ellipsis = struct
           end
       | _ -> ()
     in
-    f {Ast_iterator.default_iterator with location; attribute} x;
+    f {Iterator.precise with location; attribute} x;
     (match !left_mark with
      | None -> ()
      | Some (start,stop) ->
