@@ -127,10 +127,11 @@ standard library chapter of the manual.
 --------------------------------------------------------------------------
 EOF
   # we need some of the configuration data provided by configure
-  ./configure
-  make check-stdlib -C manual/tests
-  make world
-  make manual-pregen
+  ./configure -no-ocamldoc
+  $MAKE check-stdlib -C manual/tests
+  # pregen-etex needs a working toplevel
+  $MAKE world
+  $MAKE -C manual pregen-etex
 }
 
 CheckTestsuiteModified () {
