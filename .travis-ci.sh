@@ -163,9 +163,7 @@ changes)
         pull_request) CheckChangesModified;;
     esac;;
 manual)
-  case $TRAVIS_EVENT_TYPE in
-        pull_request) CheckManualUpdated;;
-   esac;;
+    CheckManualUpdated;;
 tests)
     case $TRAVIS_EVENT_TYPE in
         pull_request) CheckTestsuiteModified;;
