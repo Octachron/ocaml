@@ -79,7 +79,6 @@ EOF
   $MAKE USE_RUNTIME="d" OCAMLTESTDIR=$(pwd)/_ocamltestd TESTLOG=_logd all
   cd ..
   $MAKE install
-  $MAKE manual-pregen
   # check_all_arches checks tries to compile all backends in place,
   # we would need to redo (small parts of) world.opt afterwards to
   # use the compiler again
@@ -120,7 +119,7 @@ CheckNoChangesMessage () {
   fi
 }
 
-CheckManualUpdated () {
+CheckManual () {
       cat<<EOF
 --------------------------------------------------------------------------
 This test checks that all standard libraries modules are referenced by the
@@ -130,6 +129,8 @@ EOF
   # we need some of the configuration data provided by configure
   ./configure
   make check-stdlib -C manual/tests
+  make world
+  make manual-pregen
 }
 
 CheckTestsuiteModified () {
@@ -163,7 +164,7 @@ changes)
         pull_request) CheckChangesModified;;
     esac;;
 manual)
-    CheckManualUpdated;;
+    CheckManual;;
 tests)
     case $TRAVIS_EVENT_TYPE in
         pull_request) CheckTestsuiteModified;;
