@@ -127,6 +127,8 @@ This test checks that all standard libraries modules are referenced by the
 standard library chapter of the manual.
 --------------------------------------------------------------------------
 EOF
+  # we need some of the configuration data provided by configure
+  ./configure
   make check-stdlib -C manual/tests
 }
 
