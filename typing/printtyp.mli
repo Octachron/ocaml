@@ -75,7 +75,7 @@ val type_expansion: type_expr -> Format.formatter -> type_expr -> unit
 val prepare_expansion: type_expr * type_expr -> type_expr * type_expr
 val trace:
   bool -> bool-> string -> formatter ->
-  (type_expr * type_expr ) Ctype.Unify.diff list -> unit
+  (int * (type_expr * type_expr ) Ctype.Unify.diff) list -> unit
 val report_unification_error:
     formatter -> Env.t -> ?unif:bool ->
     Ctype.Unify.trace ->

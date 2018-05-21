@@ -22,7 +22,7 @@ module Unify: sig
   type 'a diff = { got: 'a; expected: 'a }
   type elt =
     | Diff of type_expr diff
-    | Expanded_diff of (type_expr * type_expr) diff
+    | Expanded_diff of int * (type_expr * type_expr) diff
   type trace = elt list
   val flip: trace -> trace
 end

@@ -289,7 +289,9 @@ let inheritance self_type env ovf concr_meths warn_vals loc parent =
       with Ctype.Unify trace ->
         match trace with
           _ :: Ctype.Unify.(
-              Expanded_diff { expected = _, {desc = Tfield(n, _, _, _); _ }; _}
+              Expanded_diff (_,
+                             { expected = _, {desc = Tfield(n, _, _, _); _ }; _}
+                            )
             ) :: rem ->
             raise(Error(loc, env, Field_type_mismatch ("method", n, rem)))
         | _ ->
@@ -661,7 +663,7 @@ and class_field_aux self_loc cl_num self_type meths vars
       if !Clflags.principal then Ctype.begin_def ();
       let exp =
         try type_exp val_env sexp with
-          Ctype.Unify Ctype.Unify.[ Expanded_diff { got = ty, _ ; _ }] ->
+          Ctype.Unify Ctype.Unify.[ Expanded_diff (0,{ got = ty, _ ; _ })] ->
           raise(Error(loc, val_env, Make_nongen_seltype ty))
       in
       if !Clflags.principal then begin
@@ -1161,10 +1163,7 @@ and class_expr_aux cl_num val_env met_env scl =
          }
   | Pcl_let (rec_flag, sdefs, scl') ->
       let (defs, val_env) =
-        try
           Typecore.type_let In_class_def val_env rec_flag sdefs None
-        with Ctype.Unify.(Ctype.Unify [Expanded_diff {got=ty, _ ; _}]) ->
-          raise(Error(scl.pcl_loc, val_env, Make_nongen_seltype ty))
       in
       let (vals, met_env) =
         List.fold_right

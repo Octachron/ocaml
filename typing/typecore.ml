@@ -2564,7 +2564,7 @@ let check_univars env expans kind exp ty_expected vars =
   and ty_expected = repr ty_expected in
   let trace =
     let open Ctype.Unify in
-    [Expanded_diff{got=ty, ty;expected = ty_expected, ty_expected}] in
+    [Expanded_diff(0,{got=ty, ty;expected = ty_expected, ty_expected})] in
   raise (Error (exp.exp_loc, env,Less_general(kind,trace)))
 
 (* Check that a type is not a function *)
