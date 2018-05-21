@@ -59,11 +59,14 @@ module Unify= struct
   type elt =
     | Diff of type_expr diff
     | Expanded_diff of (type_expr * type_expr) diff
+    | Var of bool * (type_expr * type_expr) diff
   let add got expected trace = Diff {got; expected} :: trace
   type trace = elt list
   let flip = List.map (function
       | Diff x -> Diff { got = x.expected; expected = x.got }
+      | Var (f, x) -> Var (not f, x)
       | Expanded_diff x -> Expanded_diff { got = x.expected; expected = x.got }
+      (*{ got = x.expected; expected = x.got }*)
     )
   exception Tr of trace
   let error x y trace = raise (Tr (add x y trace))
@@ -845,11 +848,7 @@ let rec generalize_expansive env var_level visited ty =
 
 let generalize_expansive env ty =
   simple_abbrevs := Mnil;
-  try
-    generalize_expansive env !nongen_level (Hashtbl.create 7) ty
-  with Unify Unify.([ Diff { expected= _ty'; _ } ] as _tr) ->
-    assert false(*;
-    Unify.error ty ty' tr*)
+  generalize_expansive env !nongen_level (Hashtbl.create 7) ty
 
 let generalize_global ty = generalize_structure !global_level ty
 let generalize_structure ty = generalize_structure !current_level ty
@@ -1911,13 +1910,15 @@ let expand_trace env trace =
             let expected = expand x.expected in
             let got = expand x.got in
            Expanded_diff {got; expected } :: rem
+        | Var _ as x -> x :: rem
         | Expanded_diff x ->
-            let b = x.expected in
-            Expanded_diff
-               { got = expand (fst x.got); expected = expand (snd x.got)}
-            :: Expanded_diff
-              { got = expand (fst b); expected = expand (snd b)}
-            ::rem
+          (* let  e, e' = x.expected in
+             let g, g' = x.got in *)
+            Var (false,x) :: rem (*
+            Expanded_diff { got = g,g'; expected=g',g'} ::
+            Expanded_diff { got = e,e'; expected=e',e'} ::
+            rem*)
+            (*Var {expected; got} :: rem*)
     )
     trace []
 

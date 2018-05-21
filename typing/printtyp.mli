@@ -74,8 +74,7 @@ val cltype_declaration: Ident.t -> formatter -> class_type_declaration -> unit
 val type_expansion: type_expr -> Format.formatter -> type_expr -> unit
 val prepare_expansion: type_expr * type_expr -> type_expr * type_expr
 val trace:
-  bool -> bool-> string -> formatter ->
-  (type_expr * type_expr ) Ctype.Unify.diff list -> unit
+  bool -> bool-> string -> formatter -> Ctype.Unify.trace -> unit
 val report_unification_error:
     formatter -> Env.t -> ?unif:bool ->
     Ctype.Unify.trace ->

@@ -1446,34 +1446,50 @@ let type_path_expansion tp ppf tp' =
   if Path.same tp tp' then path ppf tp else
   fprintf ppf "@[<2>%a@ =@ %a@]" path tp path tp'
 
-let expand_trace_elt {Unify.got;expected} =
-  let open Unify in
-  let expand ty = ty, ty in
-  {got = expand got; expected = expand expected }
+let umap f x = Unify.{got = f x.got; expected = f x.expected }
+let _expand_diff = umap (fun x -> repr x, full_expand !printing_env x)
 
 let rec trace fst txt ppf =
   let open Unify in
   function
-  | {got = t1, t1'; expected = t2, t2' } :: rem ->
+  | Expanded_diff {got = t1, t1'; expected = t2, t2' } :: rem ->
       if not fst then fprintf ppf "@,";
       fprintf ppf "@[Type@;<1 2>%a@ %s@;<1 2>%a@] %a"
        (type_expansion t1) t1' txt (type_expansion t2) t2'
        (trace false txt) rem
-  | _ -> ()
+  | Diff x :: rem ->
+      if not fst then fprintf ppf "@,";
+      fprintf ppf "@[Type@;<1 2>%a@ %s@;<1 2>%a@] %a"
+       type_expr x.got txt type_expr x.expected
+       (trace false txt) rem
+  | Var _ :: _ -> assert false
+  | [] -> ()
 
 let rec filter_trace keep_last =
   let open Unify in
   function
-  | [{ Unify.got = _, t1'; expected = _, t2' }]
-    when is_Tvar t1' || is_Tvar t2' ->
-      []
-  | { got = t1, t1'; expected = t2, t2' } :: rem ->
+  |  Var (false, { got = t1, t1'; expected = t2, t2' }) :: rem ->
+      filter_trace keep_last
+        (
+          Expanded_diff {got=t1,t1'; expected = t1',t1' } ::
+          Expanded_diff {got=t2,t2'; expected = t2',t2' } ::
+          rem)
+  |  Var (true, { got = t1', t1; expected = t2', t2 }) :: rem ->
+      filter_trace keep_last
+        (
+          Expanded_diff {got=t1,t1'; expected = t1',t1' } ::
+          Expanded_diff {got=t2,t2'; expected = t2',t2' } ::
+          rem)
+  | [Expanded_diff { got = _, t1'; expected = _, t2' }]
+    when is_Tvar t1' || is_Tvar t2' -> []
+  | Expanded_diff ({ got = t1, t1'; expected = t2, t2' } as x) :: rem ->
       let rem' = filter_trace keep_last rem in
       if is_constr_row ~allow_ident:true t1'
       || is_constr_row ~allow_ident:true t2'
       || same_path t1 t1' && same_path t2 t2' && not (keep_last && rem' = [])
       then rem'
-      else { Unify.got = t1, t1'; expected= t2, t2' } :: rem'
+      else Expanded_diff x :: rem'
+  | Diff _ :: rem -> filter_trace keep_last rem
   | [] -> []
 
 let rec type_path_list ppf = function
@@ -1493,11 +1509,27 @@ let hide_variant_name t =
                    row_more = newvar2 (row_more row).level})
   | _ -> t
 
-let prepare_expansion (t, t') =
+let prepare_expansion (t,t') =
   let t' = hide_variant_name t' in
   mark_loops t;
   if not (same_path t t') then mark_loops t';
   (t, t')
+
+let prepare_elt_expansion = let open Unify in
+function
+  | Expanded_diff x -> Expanded_diff (umap prepare_expansion x)
+  | Var (false, {got;expected}) ->
+      let expected = prepare_expansion expected in
+      let got = prepare_expansion got in
+      Var (false, { got; expected })
+  | Var (true, {got=g,g';expected=e,e'}) ->
+      let _ = prepare_expansion (e',e') in
+      let expected = prepare_expansion (e',e) in
+      let _ = prepare_expansion (g',g') in
+      let got = prepare_expansion (g,g') in
+      Var (true, { got; expected })
+
+  | x -> x
 
 let may_prepare_expansion compact (t, t') =
   match (repr t').desc with
@@ -1612,14 +1644,40 @@ let explanation env unif t3 t4 : (Format.formatter -> unit) option =
   | _ ->
       None
 
+let explanation_var t t' =
+    match t.desc, t'.desc with
+      | Tvar _, Tunivar _ | Tunivar _, Tvar _ ->
+          Some (fun ppf ->
+              fprintf ppf "@,The universal variable %a would escape its scope"
+                type_expr (if is_Tunivar t then t else t'))
+  | Tvar _, _ | _, Tvar _ ->
+      Some (fun ppf ->
+          let t, t' = if is_Tvar t then (t, t') else (t', t) in
+          if occur_in Env.empty t t' then
+            fprintf ppf "@,@[<hov>The type variable %a occurs inside@ %a@]"
+              type_expr t type_expr t'
+          else
+            fprintf ppf "@,@[<hov>This instance of %a is ambiguous:@ %s@]"
+              type_expr t'
+              "it would escape the scope of its equation")
+  | _ -> None
+
+let explanation_all env unif =
+  let open Unify in
+  function
+  | Expanded_diff {got=_,t;expected=_,t'}
+  | Diff {got=t;expected=t'} -> explanation env unif t t'
+  | Var (false, {got=t,t';expected= _}) -> explanation_var t t'
+  | Var (true, {got=_,t';expected= _}) -> explanation_var t' t'
+
 
 module Unify = Ctype.Unify
 
 let rec mismatch env unif = function
-    { Unify.got = _, t; expected= _, t' } :: rem ->
+    x :: rem ->
       begin match mismatch env unif rem with
         Some _ as m -> m
-      | None -> explanation env unif t t'
+      | None -> explanation_all env unif x
       end
   | [] -> None
 
@@ -1660,34 +1718,59 @@ let type_same_name t1 t2 =
       path_same_name (fst (best_type_path p1)) (fst (best_type_path p2))
   | _ -> ()
 
-let rec trace_same_names = function
-    { Unify.expected = t1, t1'; got = t2, t2' } :: rem ->
-      type_same_name t1 t2; type_same_name t1' t2'; trace_same_names rem
-  | _ -> ()
-
-let umap f x = Unify.{got = f x.got; expected = f x.expected }
-
-let expand_trace = List.map
-    (function
-      | Unify.Diff x -> expand_trace_elt x
-      | Unify.Expanded_diff x -> x
+let trace_same_names = List.iter
+    Unify.(function
+      | Diff x -> type_same_name x.got x.expected
+      | Expanded_diff { got = t1,t1'; expected = t2,t2' } ->
+          type_same_name t1 t2; type_same_name t1' t2'
+      | Var (false, { got = t1,t1'; expected = t2,t2' }) ->
+          type_same_name t1 t1'; type_same_name t1' t1';
+          type_same_name t2 t2'; type_same_name t2' t2';
+      | Var (true, { got = t1,t1'; expected = t2,t2' }) ->
+          type_same_name t1' t1';  type_same_name t1' t1;
+          type_same_name t2' t2'; type_same_name t2' t2;
     )
+
+let hide_variant_names =
+  let hide (t,t') = t, hide_variant_name t' in
+  List.map
+    Unify.(function
+        | Expanded_diff x -> Expanded_diff (umap hide x)
+        | Var (false, x) ->
+            let got = hide x.got in
+            let expected = hide x.expected in
+            Var (false,{got;expected})
+        | Var (true, {got=_,g'; expected=_,e'}) ->
+            let got = hide (g',g') in
+            let expected = hide (e',e') in
+            Var (true,{got;expected})
+
+        | Diff _ as x -> x)
+
+let expand_trace_head = let open Unify in
+  function
+  | Diff x ->
+      { got = repr x.got, hide_variant_name @@ full_expand !printing_env x.got;
+        expected = x.expected,
+                   hide_variant_name @@ full_expand !printing_env x.expected }
+  | Expanded_diff x -> x
+  | Var _ -> assert false
 
 let unification_error env unif tr txt1 ppf txt2 ty_expect_explanation =
   reset ();
-  let tr = expand_trace tr in
   trace_same_names tr;
-  let tr = List.map (umap (fun (t, t') -> (t, hide_variant_name t'))) tr in
+  let tr = hide_variant_names tr in
   let mis = mismatch env unif tr in
   match tr with
   | [] -> assert false
-  | {Unify.expected; got} :: tr ->
+  | head :: tr ->
+    let {Unify.got;expected} = expand_trace_head head in
     try
       let tr = filter_trace (mis = None) tr in
       let t1, t1' = may_prepare_expansion (tr = []) got
       and t2, t2' = may_prepare_expansion (tr = []) expected in
       print_labels := not !Clflags.classic;
-      let tr = List.map (umap prepare_expansion) tr in
+      let tr = List.map prepare_elt_expansion tr in
       fprintf ppf
         "@[<v>\
           @[%t@;<1 2>%a@ \
@@ -1734,10 +1817,8 @@ let trace fst keep_last txt ppf tr =
 let report_subtyping_error ppf env tr1 txt1 tr2 =
   wrap_printing_env ~error:true env (fun () ->
     reset ();
-    let tr1 = expand_trace tr1 in
-    let tr2 = expand_trace tr2 in
-    let tr1 = List.map (umap prepare_expansion) tr1
-    and tr2 = List.map (umap prepare_expansion) tr2 in
+    let tr1 = List.map prepare_elt_expansion tr1
+    and tr2 = List.map prepare_elt_expansion tr2 in
     fprintf ppf "@[<v>%a" (trace true (tr2 = []) txt1) tr1;
     if tr2 = [] then fprintf ppf "@]" else
     let mis = mismatch env true tr2 in
