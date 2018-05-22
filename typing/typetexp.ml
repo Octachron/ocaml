@@ -309,13 +309,6 @@ let new_pre_univar ?name () =
   let v = newvar ?name () in pre_univars := v :: !pre_univars; v
 
 let swap_list = Ctype.Unify.flip
-
- (* List.map Ctype.Unify.(
-    function
-    | Expanded_diff {got=a,b;expected=c,d} ->
-        Expanded_diff {got=b,a; expected=d,c}
-    | x -> x )
- *)
 type policy = Fixed | Extensible | Univars
 
 let rec transl_type env policy styp =

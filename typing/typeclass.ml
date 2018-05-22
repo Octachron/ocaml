@@ -290,10 +290,11 @@ let inheritance self_type env ovf concr_meths warn_vals loc parent =
         match trace with
           _ :: Ctype.Unify.(
               Expanded_diff (_,
-                             { expected = _, {desc = Tfield(n, _, _, _); _ }; _}
+                             { expected = _, {desc = Tfield(_n, _, _, _); _ }; _}
                             )
-            ) :: rem ->
-            raise(Error(loc, env, Field_type_mismatch ("method", n, rem)))
+            ) :: _rem ->
+            assert false (*
+            raise(Error(loc, env, Field_type_mismatch ("method", n, rem)))*)
         | _ ->
             assert false
       end;
@@ -661,11 +662,7 @@ and class_field_aux self_loc cl_num self_type meths vars
                       No_overriding ("instance variable", lab.txt)))
       end;
       if !Clflags.principal then Ctype.begin_def ();
-      let exp =
-        try type_exp val_env sexp with
-          Ctype.Unify Ctype.Unify.[ Expanded_diff (0,{ got = ty, _ ; _ })] ->
-          raise(Error(loc, val_env, Make_nongen_seltype ty))
-      in
+      let exp = type_exp val_env sexp in
       if !Clflags.principal then begin
         Ctype.end_def ();
         Ctype.generalize_structure exp.exp_type
@@ -868,9 +865,9 @@ and class_structure cl_num final val_env met_env loc
   if final then begin
     (* Unify private_self and a copy of self_type. self_type will not
        be modified after this point *)
-    begin try Ctype.close_object self_type
-    with Ctype.Unify [] ->
-      raise(Error(loc, val_env, Closing_self_type self_type))
+    begin match Ctype.close_object self_type with
+    | Error () -> raise (Error(loc, val_env, Closing_self_type self_type))
+    | Ok () -> ()
     end;
     let mets = virtual_methods {sign with csig_self = self_type} in
     let vals =
@@ -1414,9 +1411,9 @@ let class_infos define_class kind
   begin
     let ty = Ctype.self_type obj_type in
     Ctype.hide_private_methods ty;
-    begin try Ctype.close_object ty
-    with Ctype.Unify [] ->
-      raise(Error(cl.pci_loc, env, Closing_self_type ty))
+    begin match Ctype.close_object ty with
+    | Ok () -> ()
+    | Error () -> raise(Error(cl.pci_loc, env, Closing_self_type ty))
     end;
     begin try
       List.iter2 (Ctype.unify env) obj_params obj_params'

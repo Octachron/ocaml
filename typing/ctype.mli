@@ -19,11 +19,32 @@ open Asttypes
 open Types
 
 module Unify: sig
-  type 'a diff = { got: 'a; expected: 'a }
+
+  type 'a diff = { got:'a; expected:'a }
+  
+  type escape =
+    | Constructor of Path.t
+    | Univ of type_expr
+    | Self
+    | Generic of type_expr
+
+  type obj =
+    | Incompatible_fields of {name:string; diff: (field_kind * type_expr) diff }
+    | Close_self (** delete *)
+
+  type position = First | Second
+  type variant =
+    | No_intersection
+    | No_tags_in of position * (Asttypes.label * row_field) list
+    | Incompatible_types_for of string
+
   type elt =
     | Diff of type_expr diff
     | Expanded_diff of int * (type_expr * type_expr) diff
-    | Scope_escape of type_expr
+    | Escape of escape
+    | Object of obj
+    | Variant of variant
+
   type trace = elt list
   val flip: trace -> trace
 end
@@ -81,7 +102,7 @@ val associate_fields:
         (string * field_kind * type_expr) list *
         (string * field_kind * type_expr) list
 val opened_object: type_expr -> bool
-val close_object: type_expr -> unit
+val close_object: type_expr -> (unit,unit) result
 val row_variable: type_expr -> type_expr
         (* Return the row variable of an open object type *)
 val set_object_name:

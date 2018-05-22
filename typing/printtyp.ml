@@ -1461,7 +1461,7 @@ let rec trace fst txt ppf =
       fprintf ppf "@[Type@;<1 2>%a@ %s@;<1 2>%a@] %a"
        (type_expansion t1) t1' txt (type_expansion t2) t2'
        (trace false txt) rem
-  | Scope_escape _ :: rem -> trace false txt ppf rem
+  | (Escape _|Object _) :: rem -> trace false txt ppf rem
   | _ -> ()
 
 let rec filter_trace keep_last =
@@ -1477,7 +1477,7 @@ let rec filter_trace keep_last =
       || same_path t1 t1' && same_path t2 t2' && not (keep_last && rem' = [])
       then rem'
       else Expanded_diff (n, { Unify.got = t1, t1'; expected= t2, t2' }) :: rem'
-  | (Diff _ | Scope_escape _) :: rem -> filter_trace keep_last rem
+  | _ :: rem -> filter_trace keep_last rem
   | [] -> []
 
 let rec type_path_list ppf = function
@@ -1506,8 +1506,7 @@ let prepare_expansion (t, t') =
 let umap f x = Unify.{got = f x.got; expected = f x.expected }
 let prepare_expansion_elt = let open Unify in function
   | Expanded_diff (n,x) -> Expanded_diff (n, umap prepare_expansion x)
-  | Scope_escape _ -> assert false
-  | Diff _ -> assert false
+  | _ -> assert false
 
 let may_prepare_expansion compact (t, t') =
   match (repr t').desc with
@@ -1548,6 +1547,44 @@ let explain_recursive_type t3 t4 =
       else None
   | _ -> None
 
+let ambiguous_scope_escape t ppf =
+  fprintf ppf "@,@[<hov>This instance of %a is ambiguous:@ %s@]"
+    type_expr t
+    "it would escape the scope of its equation"
+
+let type_constructor_escape p ppf =
+  fprintf ppf
+    "@,@[The type constructor@;<1 2>%a@ would escape its scope@]"
+    path p
+
+let univ_escape t ppf  =
+  fprintf ppf "@,The universal variable %a would escape its scope"
+    type_expr t
+
+let self_escape ppf =
+  fprintf ppf "@,Self type cannot escape its class"
+
+let incompatible_method_types l ppf =
+  fprintf ppf "@,Types for method %s are incompatible" l
+
+let close_self ppf =
+  fprintf ppf "@,Self type cannot be unified with a closed object type"
+
+let explanation_variant e ppf =
+  let open Unify in match e with
+  | No_intersection ->
+    fprintf ppf "@,These two variant types have no intersection"
+  | No_tags_in (First, fields) ->
+    fprintf ppf
+      "@,@[The first variant type does not allow tag(s)@ @[<hov>%a@]@]"
+      print_tags fields
+  | No_tags_in (Second, fields) ->
+    fprintf ppf
+      "@,@[The second variant type does not allow tag(s)@ @[<hov>%a@]@]"
+      print_tags fields
+  | Incompatible_types_for l ->
+    fprintf ppf "@,Types for tag `%s are incompatible" l
+
 let explanation env unif t3 t4 : (Format.formatter -> unit) option =
   match t3.desc, t4.desc with
   | Tarrow (_, ty1, ty2, _), _
@@ -1561,24 +1598,15 @@ let explanation env unif t3 t4 : (Format.formatter -> unit) option =
         fprintf ppf
           "@,@[Hint: Did you forget to wrap the expression using `fun () ->'?@]")
   | Ttuple [], Tvar _ | Tvar _, Ttuple [] ->
-      Some (fun ppf ->
-        fprintf ppf "@,Self type cannot escape its class")
+      assert false (* Some self_escape *)
   | Tconstr (p, _, _), Tvar _
     when unif && t4.level < Path.binding_time p ->
-      Some (fun ppf ->
-        fprintf ppf
-          "@,@[The type constructor@;<1 2>%a@ would escape its scope@]"
-          path p)
+      assert false (*Some (type_constructor_escape p)*)
   | Tvar _, Tconstr (p, _, _)
     when unif && t3.level < Path.binding_time p ->
-      Some (fun ppf ->
-        fprintf ppf
-          "@,@[The type constructor@;<1 2>%a@ would escape its scope@]"
-          path p)
+      assert false (*Some (type_constructor_escape p)*)
   | Tvar _, Tunivar _ | Tunivar _, Tvar _ ->
-      Some (fun ppf ->
-        fprintf ppf "@,The universal variable %a would escape its scope"
-          type_expr (if is_Tunivar t3 then t3 else t4))
+      assert false (* Some (univ_escape(if is_Tunivar t3 then t3 else t4))*)
   | Tvar _, _ | _, Tvar _ ->
       let t, t' = if is_Tvar t3 then (t3, t4) else (t4, t3) in
       if occur_in Env.empty t t' then
@@ -1586,21 +1614,13 @@ let explanation env unif t3 t4 : (Format.formatter -> unit) option =
             fprintf ppf "@,@[<hov>The type variable %a occurs inside@ %a@]"
               type_expr t type_expr t'
           )
-      else Some (fun ppf ->
-          fprintf ppf "@,@[<hov>This instance of %a is ambiguous:@ %s@]"
-            type_expr t'
-            "it would escape the scope of its equation")
+      else Some (ambiguous_scope_escape t)
   | Tfield (lab, _, _, _), _ when lab = dummy_method ->
-      Some (fun ppf ->
-        fprintf ppf
-          "@,Self type cannot be unified with a closed object type")
+      assert false (*Some close_self*)
   | _, Tfield (lab, _, _, _) when lab = dummy_method ->
-      Some (fun ppf ->
-        fprintf ppf
-          "@,Self type cannot be unified with a closed object type")
+      assert false (*Some close_self*)
   | Tfield (l,_,_,{desc=Tnil}), Tfield (l',_,_,{desc=Tnil}) when l = l' ->
-      Some (fun ppf ->
-        fprintf ppf "@,Types for method %s are incompatible" l)
+      assert false (*Some (incompatible_method_types l)*)
   | (Tnil|Tconstr _), Tfield (l, _, _, _) ->
       Some (fun ppf ->
         fprintf ppf
@@ -1614,25 +1634,6 @@ let explanation env unif t3 t4 : (Format.formatter -> unit) option =
         fprintf ppf
           "@,@[The %s object type has an abstract row, it cannot be closed@]"
           (if t4.desc = Tnil then "first" else "second"))
-  | Tvariant row1, Tvariant row2 ->
-      Some (fun ppf ->
-        let row1 = row_repr row1 and row2 = row_repr row2 in
-        begin match
-          row1.row_fields, row1.row_closed, row2.row_fields, row2.row_closed with
-        | [], true, [], true ->
-            fprintf ppf "@,These two variant types have no intersection"
-        | [], true, (_::_ as fields), _ ->
-            fprintf ppf
-              "@,@[The first variant type does not allow tag(s)@ @[<hov>%a@]@]"
-              print_tags fields
-        | (_::_ as fields), _, [], true ->
-            fprintf ppf
-              "@,@[The second variant type does not allow tag(s)@ @[<hov>%a@]@]"
-              print_tags fields
-        | [l1,_], true, [l2,_], true when l1 = l2 ->
-            fprintf ppf "@,Types for tag `%s are incompatible" l1
-        | _ -> ()
-        end)
   | _ ->
       None
 
@@ -1646,11 +1647,14 @@ let rec mismatch env unif =
       | Some _ as m -> m
       | None ->
           begin match elt with
-          | Scope_escape t ->
-              Some (fun ppf ->
-                  fprintf ppf "@,@[<hov>This instance of %a is ambiguous:@ %s@]"
-                    type_expr t
-                    "it would escape the scope of its equation")
+          | Escape Generic t -> Some (ambiguous_scope_escape t)
+          | Escape Constructor p -> Some (type_constructor_escape p)
+          | Escape Univ n -> Some (univ_escape n)
+          | Escape Self -> Some self_escape
+          | Object Incompatible_fields fs ->
+              Some (incompatible_method_types fs.name)
+          | Object Close_self -> Some close_self
+          | Variant expl -> Some(explanation_variant expl)
           | Diff _ -> assert false
           | Expanded_diff (n,{got= _, t ; expected= _, t'}) ->
               if n > 1 then
@@ -1705,7 +1709,7 @@ let rec trace_same_names =
   | Diff x :: rem -> type_same_name x.got x.expected; trace_same_names rem
   | Expanded_diff (_, { Unify.expected = t1, t1'; got = t2, t2' }) :: rem ->
       type_same_name t1 t2; type_same_name t1' t2'; trace_same_names rem
-  | Scope_escape _ :: rem -> trace_same_names rem
+  | (Escape _ |Object _ ) :: rem -> trace_same_names rem
   | _ -> ()
 
 
@@ -1719,10 +1723,18 @@ let raw_expanded ppf (n,x) =
 
 let raw_trace_elt ppf =
   let open Unify in function
-    | Scope_escape x -> Format.fprintf ppf "@[Scope escape %a@]" raw_type x
-    | Unify.Diff x ->
+    | Escape Generic x -> Format.fprintf ppf "@[Scope escape %a@]" raw_type x
+    | Escape Univ x -> Format.fprintf ppf "@[Universal escape %a@]" raw_type x
+    | Escape Self -> Format.fprintf ppf "@[self escape@]"
+    | Escape Constructor p ->
+        Format.fprintf ppf "@[Constructor Scope escape %a@]" path p
+    | Diff x ->
       Format.fprintf ppf "@[{@ expected=@,%a;@ got=@,%a@ }@]"
         raw_type x.expected raw_type x.got
+    | Object Close_self -> Format.fprintf ppf "@[close self@]"
+    | Variant _ -> Format.fprintf ppf "@[...@]"
+    | Object Incompatible_fields x ->
+        Format.fprintf ppf "@[Incompatible types for field %s@]" x.name
   | Unify.Expanded_diff (n,x) ->
       Format.fprintf ppf "%a" raw_expanded (n,x)
 let raw_trace x = raw_list raw_trace_elt x
@@ -1730,7 +1742,7 @@ let raw_trace x = raw_list raw_trace_elt x
 let hide_variant_elt =
   let open Unify in
   function
-  | Scope_escape _ | Diff _ as x -> x
+  | Escape _ | Object _ | Diff _ | Variant _ as x -> x
   | Expanded_diff (n,x) ->
       Expanded_diff (n, umap( fun (t,t') -> t, hide_variant_name t')x)
 
@@ -1771,16 +1783,20 @@ let unification_error env unif tr txt1 ppf txt2 ty_expect_explanation =
             warn_on_missing_def env ppf t1;
             warn_on_missing_def env ppf t2
           end;
-      | Scope_escape t ->
+      | Escape esc ->
+          let subprinter ppf = match esc with
+            | Generic t | Univ t -> type_expr ppf t
+            | Constructor p -> path ppf p
+            | Self -> Format.fprintf ppf "self type"  in
           print_labels := not !Clflags.classic;
           let tr = List.map prepare_expansion_elt tr in
           fprintf ppf
             "@[<v>\
-             @[%t@;<1 2>%a@ \
+             @[%t@;<1 2>%t@ \
              %t\
              @]%a%t\
              @]"
-            txt1 type_expr t
+            txt1 subprinter
             ty_expect_explanation
             (trace false "is not compatible with type") tr
             (explain mis);

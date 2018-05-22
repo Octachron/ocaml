@@ -55,22 +55,54 @@ open Btype
 (**** Errors ****)
 
 module Unify= struct
+
   type 'a diff = { got: 'a; expected: 'a }
+  type escape =
+    | Constructor of Path.t
+    | Univ of type_expr
+    | Self
+    | Generic of type_expr
+
+  type obj =
+    | Incompatible_fields of {name:string; diff: (field_kind * type_expr) diff }
+    | Close_self (** delete *)
+
+  type position = First | Second
+  type variant =
+    | No_intersection
+    | No_tags_in of position * (Asttypes.label * row_field) list
+    | Incompatible_types_for of string
+
   type elt =
     | Diff of type_expr diff
     | Expanded_diff of int * (type_expr * type_expr) diff
-    | Scope_escape of type_expr
+    | Escape of escape
+    | Object of obj
+    | Variant of variant
+
   let add got expected trace = Diff {got; expected} :: trace
   type trace = elt list
   let flip = List.map (function
       | Diff x -> Diff { got = x.expected; expected = x.got }
       | Expanded_diff (n,x) ->
           Expanded_diff (n,{ got = x.expected; expected = x.got } )
-      | Scope_escape _ as x -> x
+      | Escape _ | Object _ | Variant _ as x -> x
     )
   exception Tr of trace
-  let error x y trace = raise (Tr (add x y trace))
-  let scope_escape x trace = raise (Tr( Scope_escape x :: trace))
+  let record x trace = raise (Tr(x :: trace))
+  let error x y trace = raise (Tr(add x y trace))
+  let escape t = record (Escape t)
+  let scope_escape t = escape (Generic t)
+  let constructor_escape p = escape (Constructor p)
+  let univ n = escape (Univ n)
+  let self_escape trace = escape Self trace
+
+  let obj t trace = record (Object t) trace
+  let incompatible_fields name (k,t) (k',t') =
+    obj (Incompatible_fields {name; diff = {got=k, t; expected=k',t'} })
+
+  let variant t trace = record (Variant t) trace
+
 end
 
 exception Tags of label * label
@@ -345,8 +377,8 @@ let close_object ty =
     let ty = repr ty in
     match ty.desc with
       Tvar _ ->
-        link_type ty (newty2 ty.level Tnil)
-    | Tfield(lab, _, _, _) when lab = dummy_method -> raise (Unify [])
+        link_type ty (newty2 ty.level Tnil); Ok ()
+    | Tfield(lab, _, _, _) when lab = dummy_method -> Error ()
     | Tfield(_, _, _, ty') -> close ty'
     | _                    -> assert false
   in
@@ -748,14 +780,14 @@ let update_scope scope ty =
       | None -> lvl
       | Some lvl' -> max lvl lvl'
     in
-    if ty.level < scope then Unify.error ty (newvar2 ty.level) [];
+    if ty.level < scope then Unify.scope_escape ty [];
     set_scope ty (Some scope)
 
 let rec update_level env level expand ty =
   let ty = repr ty in
   if ty.level > level then begin
     begin match ty.scope with
-      Some lv -> if level < lv then Unify.error ty (newvar2 level) []
+      Some lv -> if level < lv then Unify.scope_escape ty []
     | None -> ()
     end;
     match ty.desc with
@@ -764,8 +796,7 @@ let rec update_level env level expand ty =
         begin try
           link_type ty (!forward_try_expand_once env ty);
           update_level env level expand ty
-        with Cannot_expand ->
-          Unify.error ty (newvar2 level) []
+        with Cannot_expand -> Unify.constructor_escape p []
         end
     | Tconstr(_, _ :: _, _) when expand ->
         begin try
@@ -777,7 +808,7 @@ let rec update_level env level expand ty =
         end
     | Tpackage (p, nl, tl) when level < Path.binding_time p ->
         let p' = normalize_package_path env p in
-        if Path.same p p' then Unify.error ty (newvar2 level) [];
+        if Path.same p p' then Unify.constructor_escape p [];
         log_type ty; ty.desc <- Tpackage (p', nl, tl);
         update_level env level expand ty
     | Tobject(_, ({contents=Some(p, _tl)} as nm))
@@ -796,7 +827,7 @@ let rec update_level env level expand ty =
         iter_type_expr (update_level env level expand) ty
     | Tfield(lab, _, ty1, _)
       when lab = dummy_method && (repr ty1).level > level ->
-        Unify.error ty1 (newvar2 level) []
+        Unify.self_escape []
     | _ ->
         set_level ty level;
         (* XXX what about abbreviations in Tconstr ? *)
@@ -846,11 +877,7 @@ let rec generalize_expansive env var_level visited ty =
 
 let generalize_expansive env ty =
   simple_abbrevs := Mnil;
-  try
-    generalize_expansive env !nongen_level (Hashtbl.create 7) ty
-  with Unify Unify.([ Diff { expected= _ty'; _ } ] as _tr) ->
-    assert false(*;
-    Unify.error ty ty' tr*)
+  generalize_expansive env !nongen_level (Hashtbl.create 7) ty
 
 let generalize_global ty = generalize_structure !global_level ty
 let generalize_structure ty = generalize_structure !current_level ty
@@ -1774,7 +1801,7 @@ let occur_univar env ty =
     then
       match ty.desc with
         Tunivar _ ->
-          if not (TypeSet.mem ty bound) then Unify.error ty (newgenvar ()) []
+          if not (TypeSet.mem ty bound) then Unify.univ ty []
       | Tpoly (ty, tyl) ->
           let bound = List.fold_right TypeSet.add (List.map repr tyl) bound in
           occur_rec bound  ty
@@ -1915,7 +1942,7 @@ let expand_trace env trace =
   let expand ty = repr ty, full_expand env ty in
   List.fold_right
     Unify.(fun x rem -> match x with
-        | Scope_escape _ as x -> x :: rem
+        | Escape _ | Object _ | Variant _ as x -> x :: rem
         | Diff x ->
             let expected = expand x.expected in
             let got = expand x.got in
@@ -1936,13 +1963,6 @@ let expand_trace env trace =
 *)
     )
     trace []
-
-(* build a dummy variant type *)
-let mkvariant fields closed =
-  newgenty
-    (Tvariant
-       {row_fields = fields; row_closed = closed; row_more = newvar();
-        row_bound = (); row_fixed = false; row_name = None })
 
 (**** Unification ****)
 
@@ -1997,7 +2017,7 @@ let reify env t =
     let new_env = Env.add_local_type path decl !env in
     let t = newty2 lev (Tconstr (path,[],ref Mnil))  in
     env := new_env;
-    t, binding_time
+    path, t, binding_time
   in
   let visited = ref TypeSet.empty in
   let rec iterator ty =
@@ -2006,10 +2026,9 @@ let reify env t =
       visited := TypeSet.add ty !visited;
       match ty.desc with
         Tvar o ->
-          let t, binding_time = create_fresh_constr ty.level o in
+          let p, t, binding_time = create_fresh_constr ty.level o in
           link_type ty t;
-          if ty.level < binding_time then
-            Unify.error t (newvar2 ty.level) []
+          if ty.level < binding_time then Unify.constructor_escape p []
       | Tvariant r ->
           let r = row_repr r in
           if not (static_row r) then begin
@@ -2017,12 +2036,12 @@ let reify env t =
             let m = r.row_more in
             match m.desc with
               Tvar o ->
-                let t, binding_time = create_fresh_constr m.level o in
+                let p, t, binding_time = create_fresh_constr m.level o in
                 let row =
                   {r with row_fields=[]; row_fixed=true; row_more = t} in
                 link_type m (newty2 m.level (Tvariant row));
                 if m.level < binding_time then
-                  Unify.error t (newvar2 m.level) []
+                  Unify.constructor_escape p []
             | _ -> assert false
           end;
           iter_row iterator r
@@ -2701,10 +2720,7 @@ and unify_fields env ty1 ty2 =          (* Optimization *)
           end;
           unify env t1 t2
         with Unify trace ->
-          Unify.error
-            (newty (Tfield(n, k1, t1, newty Tnil)))
-            (newty (Tfield(n, k2, t2, newty Tnil)))
-            trace
+          Unify.incompatible_fields n (k1,t1) (k2,t2) trace
       )
       pairs
   with exn ->
@@ -2758,7 +2774,7 @@ and unify_row env row1 row2 =
       (fun (_,f1,f2) ->
         row_field_repr f1 = Rabsent || row_field_repr f2 = Rabsent)
       pairs
-  then Unify.error (mkvariant [] true) (mkvariant [] true) [];
+  then Unify.(variant No_intersection) [];
   let name =
     if row1.row_name <> None && (row1.row_closed || empty r2) &&
       (not row2.row_closed || keep (fun f1 f2 -> f1, f2) && empty r1)
@@ -2777,11 +2793,8 @@ and unify_row env row1 row2 =
       else rest in
     if rest <> [] && (row.row_closed || row_fixed row)
     || closed && row_fixed row && not row.row_closed then begin
-      let t1 = mkvariant [] true and t2 = mkvariant rest false in
-      if row == row1 then
-        Unify.error t1 t2 []
-      else
-        Unify.error t2 t1 []
+      let pos = if row == row1 then Unify.First else Unify.Second in
+      Unify.(variant (No_tags_in (pos,rest)) [])
     end;
     (* The following test is not principal... should rather use Tnil *)
     let rm = row_more row in
@@ -2805,10 +2818,7 @@ and unify_row env row1 row2 =
       (fun (l,f1,f2) ->
         try unify_row_field env fixed1 fixed2 more l f1 f2
         with Unify trace ->
-          Unify.error
-            (mkvariant [l,f1] true)
-            (mkvariant [l,f2] true)
-            trace
+          Unify.(variant @@ Incompatible_types_for l) trace
       )
       pairs;
     if static_row row1 then begin
