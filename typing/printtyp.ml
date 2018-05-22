@@ -1453,34 +1453,31 @@ let type_path_expansion tp ppf tp' =
   if Path.same tp tp' then path ppf tp else
   fprintf ppf "@[<2>%a@ =@ %a@]" path tp path tp'
 
-let expand_trace_elt {Unify.got;expected} =
-  let open Unify in
-  let expand ty = ty, ty in
-  {got = expand got; expected = expand expected }
-
 let rec trace fst txt ppf =
   let open Unify in
   function
-  | (_, {got = t1, t1'; expected = t2, t2' }) :: rem ->
+  | Expanded_diff (_, {got = t1, t1'; expected = t2, t2' }) :: rem ->
       if not fst then fprintf ppf "@,";
       fprintf ppf "@[Type@;<1 2>%a@ %s@;<1 2>%a@] %a"
        (type_expansion t1) t1' txt (type_expansion t2) t2'
        (trace false txt) rem
+  | Scope_escape _ :: rem -> trace false txt ppf rem
   | _ -> ()
 
 let rec filter_trace keep_last =
   let open Unify in
   function
-  | [_, { Unify.got = _, t1'; expected = _, t2' }]
+  | [Expanded_diff (_,{ Unify.got = _, t1'; expected = _, t2' })]
     when is_Tvar t1' || is_Tvar t2' ->
       []
-  | (n, { got = t1, t1'; expected = t2, t2' }) :: rem ->
+  | Expanded_diff (n, { got = t1, t1'; expected = t2, t2' }) :: rem ->
       let rem' = filter_trace keep_last rem in
       if is_constr_row ~allow_ident:true t1'
       || is_constr_row ~allow_ident:true t2'
       || same_path t1 t1' && same_path t2 t2' && not (keep_last && rem' = [])
       then rem'
-      else (n, { Unify.got = t1, t1'; expected= t2, t2' }) :: rem'
+      else Expanded_diff (n, { Unify.got = t1, t1'; expected= t2, t2' }) :: rem'
+  | (Diff _ | Scope_escape _) :: rem -> filter_trace keep_last rem
   | [] -> []
 
 let rec type_path_list ppf = function
@@ -1505,6 +1502,12 @@ let prepare_expansion (t, t') =
   mark_loops t;
   if not (same_path t t') then mark_loops t';
   (t, t')
+
+let umap f x = Unify.{got = f x.got; expected = f x.expected }
+let prepare_expansion_elt = let open Unify in function
+  | Expanded_diff (n,x) -> Expanded_diff (n, umap prepare_expansion x)
+  | Scope_escape _ -> assert false
+  | Diff _ -> assert false
 
 let may_prepare_expansion compact (t, t') =
   match (repr t').desc with
@@ -1635,21 +1638,28 @@ let explanation env unif t3 t4 : (Format.formatter -> unit) option =
 
 module Unify = Ctype.Unify
 
-let rec mismatch env unif = function
-    (n,{ Unify.got = _t0, t; expected= _t0', t' }) :: rem ->
+let rec mismatch env unif =
+  let open Unify in
+  function
+  | elt :: rem ->
       begin match mismatch env unif rem with
       | Some _ as m -> m
       | None ->
-           (* match explain_recursive_type t t with
-            | Some _ as s -> s
-            | None -> explanation env unif t t'
-                   else*)
-          if n > 1 then
-              match explain_recursive_type t t with
-              | Some _ as s -> s
-              | None -> explain_recursive_type t' t'
-          else explanation env unif t t'
-            end
+          begin match elt with
+          | Scope_escape t ->
+              Some (fun ppf ->
+                  fprintf ppf "@,@[<hov>This instance of %a is ambiguous:@ %s@]"
+                    type_expr t
+                    "it would escape the scope of its equation")
+          | Diff _ -> assert false
+          | Expanded_diff (n,{got= _, t ; expected= _, t'}) ->
+              if n > 1 then
+                match explain_recursive_type t t with
+                | Some _ as s -> s
+                | None -> explain_recursive_type t' t'
+              else explanation env unif t t'
+          end
+      end
   | [] -> None
 
 let explain mis ppf =
@@ -1689,18 +1699,15 @@ let type_same_name t1 t2 =
       path_same_name (fst (best_type_path p1)) (fst (best_type_path p2))
   | _ -> ()
 
-let rec trace_same_names = function
-    (_, { Unify.expected = t1, t1'; got = t2, t2' }) :: rem ->
+let rec trace_same_names =
+  let open Unify in
+  function
+  | Diff x :: rem -> type_same_name x.got x.expected; trace_same_names rem
+  | Expanded_diff (_, { Unify.expected = t1, t1'; got = t2, t2' }) :: rem ->
       type_same_name t1 t2; type_same_name t1' t2'; trace_same_names rem
+  | Scope_escape _ :: rem -> trace_same_names rem
   | _ -> ()
 
-let umap f x = Unify.{got = f x.got; expected = f x.expected }
-
-let expand_trace = List.map
-    (function
-      | Unify.Diff x -> 0, expand_trace_elt x
-      | Unify.Expanded_diff (n,x) -> n, x
-    )
 
 let raw_expanded_elt ppf (x,y) =
   Format.fprintf ppf "(%a@,≡%a)" raw_type x raw_type y
@@ -1710,56 +1717,79 @@ let raw_expanded ppf (n,x) =
         n raw_expanded_elt x.Unify.expected
         raw_expanded_elt x.Unify.got
 
-let raw_trace_elt ppf = let open Unify in function
-  | Unify.Diff x ->
+let raw_trace_elt ppf =
+  let open Unify in function
+    | Scope_escape x -> Format.fprintf ppf "@[Scope escape %a@]" raw_type x
+    | Unify.Diff x ->
       Format.fprintf ppf "@[{@ expected=@,%a;@ got=@,%a@ }@]"
         raw_type x.expected raw_type x.got
   | Unify.Expanded_diff (n,x) ->
       Format.fprintf ppf "%a" raw_expanded (n,x)
 let raw_trace x = raw_list raw_trace_elt x
 
+let hide_variant_elt =
+  let open Unify in
+  function
+  | Scope_escape _ | Diff _ as x -> x
+  | Expanded_diff (n,x) ->
+      Expanded_diff (n, umap( fun (t,t') -> t, hide_variant_name t')x)
+
 let unification_error env unif tr txt1 ppf txt2 ty_expect_explanation =
   reset ();
   debug "%a" raw_trace tr;
-  let tr = expand_trace tr in
   trace_same_names tr;
-  let tr = List.map (
-      fun (n, x) -> n, umap (fun (t, t') -> (t, hide_variant_name t')) x
-    ) tr in
-  debug "hidden trace@ @[%a@]" (raw_list raw_expanded) tr;
+  let tr = List.map hide_variant_elt tr in
+  debug "hidden trace@ @[%a@]" raw_trace tr;
   let mis = mismatch env unif tr in
+  let open Unify in
   match tr with
   | [] -> assert false
-  | ((0|1), {Unify.expected; got}) :: tr ->
+  | elt :: tr ->
       begin try
       let tr = filter_trace (mis = None) tr in
-      debug "filtered trace:@ %a" (raw_list raw_expanded) tr;
-      let t1, t1' = may_prepare_expansion (tr = []) got
-      and t2, t2' = may_prepare_expansion (tr = []) expected in
-      print_labels := not !Clflags.classic;
-      let tr = List.map (fun (n,x) -> n, umap prepare_expansion x) tr in
-      fprintf ppf
-        "@[<v>\
-          @[%t@;<1 2>%a@ \
-            %t@;<1 2>%a\
-            %t\
-          @]%a%t\
-         @]"
-        txt1 (type_expansion t1) t1'
-        txt2 (type_expansion t2) t2'
-        ty_expect_explanation
-        (trace false "is not compatible with type") tr
-        (explain mis);
-      if env <> Env.empty
-      then begin
-        warn_on_missing_def env ppf t1;
-        warn_on_missing_def env ppf t2
+      debug "filtered trace:@ %a" raw_trace tr;
+      begin match elt with
+      | Expanded_diff ((0|1), {Unify.expected; got}) ->
+          let t1, t1' = may_prepare_expansion (tr = []) got
+          and t2, t2' = may_prepare_expansion (tr = []) expected in
+          print_labels := not !Clflags.classic;
+          let tr = List.map prepare_expansion_elt tr in
+          fprintf ppf
+            "@[<v>\
+             @[%t@;<1 2>%a@ \
+             %t@;<1 2>%a\
+             %t\
+             @]%a%t\
+             @]"
+            txt1 (type_expansion t1) t1'
+            txt2 (type_expansion t2) t2'
+            ty_expect_explanation
+            (trace false "is not compatible with type") tr
+            (explain mis);
+          if env <> Env.empty
+          then begin
+            warn_on_missing_def env ppf t1;
+            warn_on_missing_def env ppf t2
+          end;
+      | Scope_escape t ->
+          print_labels := not !Clflags.classic;
+          let tr = List.map prepare_expansion_elt tr in
+          fprintf ppf
+            "@[<v>\
+             @[%t@;<1 2>%a@ \
+             %t\
+             @]%a%t\
+             @]"
+            txt1 type_expr t
+            ty_expect_explanation
+            (trace false "is not compatible with type") tr
+            (explain mis);
+      | _ -> assert false
       end;
       print_labels := true
     with exn ->
       (print_labels := true;
        raise exn ) end
-       | _ -> assert false
 
 let report_unification_error ppf env ?(unif=true) tr
     ?(type_expected_explanation = fun _ -> ())
@@ -1785,10 +1815,8 @@ let trace fst keep_last txt ppf tr =
 let report_subtyping_error ppf env tr1 txt1 tr2 =
   wrap_printing_env ~error:true env (fun () ->
     reset ();
-    let tr1 = expand_trace tr1 in
-    let tr2 = expand_trace tr2 in
-    let tr1 = List.map (fun (n, x) -> n, umap prepare_expansion x) tr1
-    and tr2 = List.map (fun (n,x) -> n, umap prepare_expansion x) tr2 in
+    let tr1 = List.map prepare_expansion_elt tr1
+    and tr2 = List.map prepare_expansion_elt tr2 in
     fprintf ppf "@[<v>%a" (trace true (tr2 = []) txt1) tr1;
     if tr2 = [] then fprintf ppf "@]" else
     let mis = mismatch env true tr2 in

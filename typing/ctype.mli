@@ -23,6 +23,7 @@ module Unify: sig
   type elt =
     | Diff of type_expr diff
     | Expanded_diff of int * (type_expr * type_expr) diff
+    | Scope_escape of type_expr
   type trace = elt list
   val flip: trace -> trace
 end

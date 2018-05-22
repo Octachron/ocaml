@@ -59,15 +59,18 @@ module Unify= struct
   type elt =
     | Diff of type_expr diff
     | Expanded_diff of int * (type_expr * type_expr) diff
+    | Scope_escape of type_expr
   let add got expected trace = Diff {got; expected} :: trace
   type trace = elt list
   let flip = List.map (function
       | Diff x -> Diff { got = x.expected; expected = x.got }
       | Expanded_diff (n,x) ->
-          Expanded_diff (n,{ got = x.expected; expected = x.got })
+          Expanded_diff (n,{ got = x.expected; expected = x.got } )
+      | Scope_escape _ as x -> x
     )
   exception Tr of trace
   let error x y trace = raise (Tr (add x y trace))
+  let scope_escape x trace = raise (Tr( Scope_escape x :: trace))
 end
 
 exception Tags of label * label
@@ -723,10 +726,8 @@ let check_scope_escape level ty =
     if ty.level >= lowest_level then begin
       ty.level <- pivot_level - ty.level;
       begin match ty.scope with
-        Some lv ->
-        let var = newvar2 level in
-        if level < lv then Unify.error ty var []
-      | None -> ()
+        Some lv when level < lv -> Unify.scope_escape ty []
+      | Some _ | None -> ()
       end;
       iter_type_expr aux ty
     end
@@ -735,8 +736,7 @@ let check_scope_escape level ty =
     aux ty;
     unmark_type ty
   with Unify trace ->
-    let var = newvar2 level in
-    Unify.error ty var trace
+    Unify.scope_escape ty trace
 
 let update_scope scope ty =
   match scope with
@@ -1469,7 +1469,7 @@ let expand_abbrev_gen kind find_type_expansion env ty =
               match max lv ty.scope with
                 None -> ()
               | Some lv ->
-                  if level < lv then Unify.error ty (newvar2 level) [];
+                  if level < lv then Unify.scope_escape ty [];
                   set_scope ty (Some lv);
                   set_scope ty' (Some lv)
             end;
@@ -1915,6 +1915,7 @@ let expand_trace env trace =
   let expand ty = repr ty, full_expand env ty in
   List.fold_right
     Unify.(fun x rem -> match x with
+        | Scope_escape _ as x -> x :: rem
         | Diff x ->
             let expected = expand x.expected in
             let got = expand x.got in
