@@ -1585,6 +1585,13 @@ let explanation_variant e ppf =
   | Incompatible_types_for l ->
     fprintf ppf "@,Types for tag `%s are incompatible" l
 
+let explanation_escape =
+  function
+  | Unify.Generic t -> ambiguous_scope_escape t
+  | Unify.Constructor p -> type_constructor_escape p
+  | Unify.Univ n -> univ_escape n
+  | Unify.Self -> self_escape
+
 let explanation env unif t3 t4 : (Format.formatter -> unit) option =
   match t3.desc, t4.desc with
   | Tarrow (_, ty1, ty2, _), _
@@ -1609,12 +1616,10 @@ let explanation env unif t3 t4 : (Format.formatter -> unit) option =
       assert false (* Some (univ_escape(if is_Tunivar t3 then t3 else t4))*)
   | Tvar _, _ | _, Tvar _ ->
       let t, t' = if is_Tvar t3 then (t3, t4) else (t4, t3) in
-      if occur_in Env.empty t t' then
-        Some (fun ppf ->
-            fprintf ppf "@,@[<hov>The type variable %a occurs inside@ %a@]"
-              type_expr t type_expr t'
-          )
-      else Some (ambiguous_scope_escape t)
+      begin match explain_recursive_type t t' with
+      | Some _ as s -> s
+      | None -> Some (ambiguous_scope_escape t)
+      end
   | Tfield (lab, _, _, _), _ when lab = dummy_method ->
       assert false (*Some close_self*)
   | _, Tfield (lab, _, _, _) when lab = dummy_method ->
@@ -1647,15 +1652,17 @@ let rec mismatch env unif =
       | Some _ as m -> m
       | None ->
           begin match elt with
-          | Escape Generic t -> Some (ambiguous_scope_escape t)
-          | Escape Constructor p -> Some (type_constructor_escape p)
-          | Escape Univ n -> Some (univ_escape n)
-          | Escape Self -> Some self_escape
+          | Escape  esc -> Some (explanation_escape esc)
           | Object Incompatible_fields fs ->
               Some (incompatible_method_types fs.name)
           | Object Close_self -> Some close_self
           | Variant expl -> Some(explanation_variant expl)
           | Diff _ -> assert false
+          | Occur (t,t') -> begin
+              match explain_recursive_type t t with
+              | None -> explain_recursive_type t' t'
+              | Some _ as s -> s
+            end
           | Expanded_diff (n,{got= _, t ; expected= _, t'}) ->
               if n > 1 then
                 match explain_recursive_type t t with
@@ -1728,6 +1735,9 @@ let raw_trace_elt ppf =
     | Escape Self -> Format.fprintf ppf "@[self escape@]"
     | Escape Constructor p ->
         Format.fprintf ppf "@[Constructor Scope escape %a@]" path p
+    | Occur (x,y) ->
+      Format.fprintf ppf "@[ %a@ occurs in @ %a@ @]"
+        raw_type x raw_type y
     | Diff x ->
       Format.fprintf ppf "@[{@ expected=@,%a;@ got=@,%a@ }@]"
         raw_type x.expected raw_type x.got
@@ -1742,7 +1752,7 @@ let raw_trace x = raw_list raw_trace_elt x
 let hide_variant_elt =
   let open Unify in
   function
-  | Escape _ | Object _ | Diff _ | Variant _ as x -> x
+  | Escape _ | Object _ | Diff _ | Variant _ | Occur _ as x -> x
   | Expanded_diff (n,x) ->
       Expanded_diff (n, umap( fun (t,t') -> t, hide_variant_name t')x)
 

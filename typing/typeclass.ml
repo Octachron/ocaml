@@ -288,13 +288,8 @@ let inheritance self_type env ovf concr_meths warn_vals loc parent =
         Ctype.unify env self_type cl_sig.csig_self
       with Ctype.Unify trace ->
         match trace with
-          _ :: Ctype.Unify.(
-              Expanded_diff (_,
-                             { expected = _, {desc = Tfield(_n, _, _, _); _ }; _}
-                            )
-            ) :: _rem ->
-            assert false (*
-            raise(Error(loc, env, Field_type_mismatch ("method", n, rem)))*)
+          _ :: Ctype.Unify.(Object Incompatible_fields x) :: rem ->
+            raise(Error(loc, env, Field_type_mismatch ("method", x.name, rem)))
         | _ ->
             assert false
       end;

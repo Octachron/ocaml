@@ -20,7 +20,7 @@ Line _, characters 29-30:
                                ^
 Error: This expression has type b = a but an expression was expected of type
          a
-       This instance of a is ambiguous:
+       This instance of b is ambiguous:
        it would escape the scope of its equation
 |}]
 
@@ -35,7 +35,7 @@ Line _, characters 29-30:
                                ^
 Error: This expression has type b = a but an expression was expected of type
          a
-       This instance of a is ambiguous:
+       This instance of b is ambiguous:
        it would escape the scope of its equation
 |}]
 
@@ -50,7 +50,7 @@ Line _, characters 29-30:
                                ^
 Error: This expression has type int but an expression was expected of type
          a = int
-       This instance of int is ambiguous:
+       This instance of a is ambiguous:
        it would escape the scope of its equation
 |}]
 
@@ -65,7 +65,7 @@ Line _, characters 29-30:
                                ^
 Error: This expression has type int but an expression was expected of type
          a = int
-       This instance of int is ambiguous:
+       This instance of a is ambiguous:
        it would escape the scope of its equation
 |}]
 
@@ -81,7 +81,7 @@ Line _, characters 16-17:
                   ^
 Error: This expression has type b = a but an expression was expected of type
          a
-       This instance of a is ambiguous:
+       This instance of b is ambiguous:
        it would escape the scope of its equation
 |}]
 
@@ -96,7 +96,7 @@ Line _, characters 16-17:
                   ^
 Error: This expression has type b = a but an expression was expected of type
          a
-       This instance of a is ambiguous:
+       This instance of b is ambiguous:
        it would escape the scope of its equation
 |}]
 
@@ -117,7 +117,6 @@ Line _, characters 4-29:
     | Refl, [(_ : a) | (_ : b)] -> []
       ^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: This pattern matches values of type (a, b) eq * b list
-       but a pattern was expected which matches values of type 'a
        This instance of b is ambiguous:
        it would escape the scope of its equation
 |}]
@@ -132,7 +131,6 @@ Line _, characters 4-29:
     | Refl, [(_ : a) | (_ : b)] -> []
       ^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: This pattern matches values of type (a, b) eq * b list
-       but a pattern was expected which matches values of type 'a
        This instance of b is ambiguous:
        it would escape the scope of its equation
 |}]
@@ -147,7 +145,6 @@ Line _, characters 4-29:
     | Refl, [(_ : b) | (_ : a)] -> []
       ^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: This pattern matches values of type (a, b) eq * b list
-       but a pattern was expected which matches values of type 'a
        This instance of b is ambiguous:
        it would escape the scope of its equation
 |}]
@@ -162,7 +159,6 @@ Line _, characters 4-29:
     | Refl, [(_ : a) | (_ : b)] -> []
       ^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: This pattern matches values of type (a, b) eq * b list
-       but a pattern was expected which matches values of type 'a
        This instance of b is ambiguous:
        it would escape the scope of its equation
 |}]
@@ -177,7 +173,6 @@ Line _, characters 4-29:
     | Refl, [(_ : a) | (_ : b)] -> []
       ^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: This pattern matches values of type (a, b) eq * b list
-       but a pattern was expected which matches values of type 'a
        This instance of b is ambiguous:
        it would escape the scope of its equation
 |}]
@@ -192,7 +187,6 @@ Line _, characters 4-29:
     | Refl, [(_ : b) | (_ : a)] -> []
       ^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: This pattern matches values of type (a, b) eq * b list
-       but a pattern was expected which matches values of type 'a
        This instance of b is ambiguous:
        it would escape the scope of its equation
 |}]

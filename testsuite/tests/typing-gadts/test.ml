@@ -437,7 +437,7 @@ Line _, characters 18-30:
                     ^^^^^^^^^^^^
 Error: This expression has type a = int
        but an expression was expected of type 'a
-       This instance of int is ambiguous:
+       This instance of a is ambiguous:
        it would escape the scope of its equation
 |}];;
 
@@ -451,7 +451,7 @@ Line _, characters 30-42:
                                 ^^^^^^^^^^^^
 Error: This expression has type a = int
        but an expression was expected of type 'a
-       This instance of int is ambiguous:
+       This instance of a is ambiguous:
        it would escape the scope of its equation
 |}];;
 
@@ -465,7 +465,7 @@ Line _, characters 30-42:
                                 ^^^^^^^^^^^^
 Error: This expression has type a = int
        but an expression was expected of type 'a
-       This instance of int is ambiguous:
+       This instance of a is ambiguous:
        it would escape the scope of its equation
 |}];;
 
@@ -542,7 +542,7 @@ Line _, characters 46-48:
 Error: This expression has type int option
        but an expression was expected of type a option
        Type int is not compatible with type a = int
-       This instance of int is ambiguous:
+       This instance of a is ambiguous:
        it would escape the scope of its equation
 |}];;
 
@@ -579,7 +579,7 @@ Line _, characters 44-45:
                                               ^
 Error: This expression has type a = int
        but an expression was expected of type 'a
-       This instance of int is ambiguous:
+       This instance of a is ambiguous:
        it would escape the scope of its equation
 |}];;
 
@@ -640,7 +640,7 @@ Line _, characters 46-47:
                                                 ^
 Error: This expression has type a = int
        but an expression was expected of type b = int
-       This instance of int is ambiguous:
+       This instance of a is ambiguous:
        it would escape the scope of its equation
 |}];;
 
@@ -705,7 +705,7 @@ Line _, characters 14-15:
 Error: This expression has type < m : a; .. >
        but an expression was expected of type < m : b; .. >
        Type a is not compatible with type b = a
-       This instance of a is ambiguous:
+       This instance of b is ambiguous:
        it would escape the scope of its equation
 |}];;
 
@@ -718,7 +718,7 @@ Line _, characters 22-23:
 Error: This expression has type < m : a; .. >
        but an expression was expected of type < m : b; .. >
        Type a is not compatible with type b = a
-       This instance of a is ambiguous:
+       This instance of b is ambiguous:
        it would escape the scope of its equation
 |}];;
 
@@ -758,7 +758,7 @@ Line _, characters 44-45:
 Error: This expression has type < m : a >
        but an expression was expected of type < m : b >
        Type a is not compatible with type b = a
-       This instance of a is ambiguous:
+       This instance of b is ambiguous:
        it would escape the scope of its equation
 |}];;
 
@@ -774,7 +774,7 @@ Line _, characters 44-45:
 Error: This expression has type < m : a; .. >
        but an expression was expected of type < m : b >
        Type a is not compatible with type b = a
-       This instance of a is ambiguous:
+       This instance of b is ambiguous:
        it would escape the scope of its equation
 |}];;
 
@@ -787,7 +787,7 @@ Line _, characters 14-15:
 Error: This expression has type [> `A of a ]
        but an expression was expected of type [> `A of b ]
        Type a is not compatible with type b = a
-       This instance of a is ambiguous:
+       This instance of b is ambiguous:
        it would escape the scope of its equation
 |}, Principal{|
 Line _, characters 9-15:
@@ -807,7 +807,7 @@ Line _, characters 22-23:
 Error: This expression has type [> `A of a ]
        but an expression was expected of type [> `A of b ]
        Type a is not compatible with type b = a
-       This instance of a is ambiguous:
+       This instance of b is ambiguous:
        it would escape the scope of its equation
 |}];;
 
@@ -849,7 +849,7 @@ Line _, characters 49-50:
 Error: This expression has type [ `A of a | `B ]
        but an expression was expected of type [ `A of b | `B ]
        Type a is not compatible with type b = a
-       This instance of a is ambiguous:
+       This instance of b is ambiguous:
        it would escape the scope of its equation
 |}];;
 
@@ -865,7 +865,7 @@ Line _, characters 49-50:
 Error: This expression has type [> `A of a | `B ]
        but an expression was expected of type [ `A of b | `B ]
        Type a is not compatible with type b = a
-       This instance of a is ambiguous:
+       This instance of b is ambiguous:
        it would escape the scope of its equation
 |}];;
 
@@ -1179,7 +1179,7 @@ Line _, characters 24-25:
 Error: This expression has type b = int
        but an expression was expected of type a = int
        Type b = int is not compatible with type int
-       This instance of int is ambiguous:
+       This instance of b is ambiguous:
        it would escape the scope of its equation
 |}];;
 
@@ -1197,7 +1197,7 @@ Line _, characters 24-25:
 Error: This expression has type b = int
        but an expression was expected of type a = int
        Type int is not compatible with type a = int
-       This instance of int is ambiguous:
+       This instance of a is ambiguous:
        it would escape the scope of its equation
 |}];;
 
@@ -1213,7 +1213,7 @@ Line _, characters 19-20:
 Error: This expression has type b = int
        but an expression was expected of type a = int
        Type a = int is not compatible with type a = int
-       This instance of int is ambiguous:
+       This instance of a is ambiguous:
        it would escape the scope of its equation
 |}];;
 
@@ -1227,6 +1227,6 @@ Line _, characters 19-20:
                      ^
 Error: This expression has type a = int
        but an expression was expected of type b = int
-       This instance of int is ambiguous:
+       This instance of b is ambiguous:
        it would escape the scope of its equation
 |}];;

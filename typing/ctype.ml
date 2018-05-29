@@ -76,6 +76,7 @@ module Unify= struct
   type elt =
     | Diff of type_expr diff
     | Expanded_diff of int * (type_expr * type_expr) diff
+    | Occur of type_expr * type_expr
     | Escape of escape
     | Object of obj
     | Variant of variant
@@ -86,7 +87,7 @@ module Unify= struct
       | Diff x -> Diff { got = x.expected; expected = x.got }
       | Expanded_diff (n,x) ->
           Expanded_diff (n,{ got = x.expected; expected = x.got } )
-      | Escape _ | Object _ | Variant _ as x -> x
+      | Escape _ | Object _ | Variant _ | Occur _ as x -> x
     )
   exception Tr of trace
   let record x trace = raise (Tr(x :: trace))
@@ -1931,7 +1932,7 @@ let rec has_cached_expansion p abbrev =
 (**** Transform error trace ****)
 (* +++ Move it to some other place ? *)
 
-let debug fmt =
+let _debug fmt =
   let debug = try Sys.getenv "DEBUG" = "true" with Not_found -> false in
   if debug then
     Format.eprintf ("@[" ^^ fmt ^^ "@]@.")
@@ -1942,16 +1943,17 @@ let expand_trace env trace =
   let expand ty = repr ty, full_expand env ty in
   List.fold_right
     Unify.(fun x rem -> match x with
-        | Escape _ | Object _ | Variant _ as x -> x :: rem
+        | Escape _ | Object _ | Variant _ | Occur _ as x -> x :: rem
         | Diff x ->
             let expected = expand x.expected in
             let got = expand x.got in
            Expanded_diff (1,{got; expected }) :: rem
-        | Expanded_diff (n, {got=g,g';expected=e,e'}) ->
+        | Expanded_diff (_, {got=_,g';expected=_,e'}) -> Occur(g',e') :: rem
+            (*rem
             debug "Superexpand {@ expected=%a,@ %a;@ got=%a,@ %a@ }"
               !Btype.print_raw e !Btype.print_raw e'
               !Btype.print_raw g !Btype.print_raw g';
-            Expanded_diff (1 + n, {got=g,g';expected=e,e'}) :: rem
+            Expanded_diff (1 + n, {got=g,g';expected=e,e'}) :: rem*)
 (*            
             Expanded_diff ( n lsl 1,
                { got = expand g; expected = expand g'})

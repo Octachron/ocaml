@@ -21,7 +21,7 @@ open Types
 module Unify: sig
 
   type 'a diff = { got:'a; expected:'a }
-  
+
   type escape =
     | Constructor of Path.t
     | Univ of type_expr
@@ -41,6 +41,7 @@ module Unify: sig
   type elt =
     | Diff of type_expr diff
     | Expanded_diff of int * (type_expr * type_expr) diff
+    | Occur of type_expr * type_expr
     | Escape of escape
     | Object of obj
     | Variant of variant

@@ -1,0 +1,6 @@
+(* TEST
+   * expect
+*)
+
+ class c = let l = ref [] in object val x= l method x = () end;;
+ [%%expect {||}]
