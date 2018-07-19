@@ -1,10 +1,13 @@
 (* TEST
-   reference="${test_source_directory}/redirections.reference"
-   output="redirections.output"
-   script = "${ocamlrun} ${ocamlsrcdir}/tools/caml-tex -repo-root ${ocamlsrcdir} ${test_source_directory}/${test_file} -o ${output}"
-  * script with unix,str
+   include str
+   include unix
+   script="${ocamlrun} ${ocamlsrcdir}/tools/caml-tex -repo-root \
+   ${ocamlsrcdir} ${test_source_directory}/${test_file} \
+   -o redirections.output"
+  * script
   ** check-program-output
-
+  reference ="${test_source_directory}/redirections.reference"
+  output="redirections.output"
 *)
 
 \camlexample{toplevel}

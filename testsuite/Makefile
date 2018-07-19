@@ -84,9 +84,13 @@ default:
 .PHONY: all
 all:
 	@rm -f $(TESTLOG)
-	@$(MAKE) $(NO_PRINT) legacy-without-report
-	@$(MAKE) $(NO_PRINT) new-without-report
-	@$(MAKE) $(NO_PRINT) report
+	$(MAKE) all-tool-caml-tex || echo "Failure"
+	cat tests/tool-caml-tex/_ocamltest/tests/tool-caml-tex/redirections/redirections.output
+	echo "log" && cat tests/tool-caml-tex/_ocamltest/tests/tool-caml-tex/redirections/redirections.log
+	exit 2
+	#@$(MAKE) $(NO_PRINT) legacy-without-report
+	#@$(MAKE) $(NO_PRINT) new-without-report
+	#@$(MAKE) $(NO_PRINT) report
 
 .PHONY: legacy
 legacy:
@@ -277,6 +281,7 @@ clean:
 report:
 	@if [ ! -f $(TESTLOG) ]; then echo "No $(TESTLOG) file."; exit 1; fi
 	@awk -f makefiles/summarize.awk < $(TESTLOG)
+
 
 .PHONY: retry-list
 retry-list:
