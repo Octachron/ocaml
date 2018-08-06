@@ -99,11 +99,20 @@ end
 Line 4, characters 2-11:
     include S
     ^^^^^^^^^
-Error: Illegal shadowing of included type t/1 by t/2
+Error: Illegal shadowing of included type t/2 by t/1
        Line 2, characters 2-11:
-         Type t/1 came from this include
+         Type t/2 came from this include
        Line 3, characters 2-24:
-         The value ignore has no valid type if t/1 is shadowed
+         The value ignore has no valid type if t/2 is shadowed
+
+       Line 2, characters 2-8:
+    type t
+    ^^^^^^
+Definition of type t/1
+Line 2, characters 2-8:
+    type t
+    ^^^^^^
+Definition of type t/2
 |}]
 
 module type Module = sig
@@ -139,11 +148,20 @@ end
 Line 4, characters 2-11:
     include S
     ^^^^^^^^^
-Error: Illegal shadowing of included module M/1 by M/2
+Error: Illegal shadowing of included module M/2 by M/1
        Line 2, characters 2-11:
-         Module M/1 came from this include
+         Module M/2 came from this include
        Line 3, characters 2-26:
-         The value ignore has no valid type if M/1 is shadowed
+         The value ignore has no valid type if M/2 is shadowed
+
+       Line 8, characters 2-27:
+    module M : sig type t end
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+Definition of module M/1
+Line 8, characters 2-27:
+    module M : sig type t end
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+Definition of module M/2
 |}]
 
 
@@ -180,11 +198,20 @@ end
 Line 4, characters 2-11:
     include S
     ^^^^^^^^^
-Error: Illegal shadowing of included module type T/1 by T/2
+Error: Illegal shadowing of included module type T/2 by T/1
        Line 2, characters 2-11:
-         Module type T/1 came from this include
+         Module type T/2 came from this include
        Line 3, characters 2-39:
-         The module F has no valid type if T/1 is shadowed
+         The module F has no valid type if T/2 is shadowed
+
+       Line 10, characters 2-15:
+    module type T
+    ^^^^^^^^^^^^^
+Definition of module type T/1
+Line 10, characters 2-15:
+    module type T
+    ^^^^^^^^^^^^^
+Definition of module type T/2
 |}]
 
 module type Extension = sig
@@ -197,11 +224,20 @@ end
 Line 4, characters 2-11:
     include S
     ^^^^^^^^^
-Error: Illegal shadowing of included type ext/1 by ext/2
+Error: Illegal shadowing of included type ext/2 by ext/1
        Line 2, characters 2-11:
-         Type ext/1 came from this include
+         Type ext/2 came from this include
        Line 3, characters 14-16:
-         The extension constructor C2 has no valid type if ext/1 is shadowed
+         The extension constructor C2 has no valid type if ext/2 is shadowed
+
+       Line 14, characters 2-15:
+    type ext = ..
+    ^^^^^^^^^^^^^
+Definition of type ext/1
+Line 14, characters 2-15:
+    type ext = ..
+    ^^^^^^^^^^^^^
+Definition of type ext/2
 |}]
 
 module type Class = sig

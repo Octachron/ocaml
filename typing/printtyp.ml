@@ -361,9 +361,11 @@ let rewrite_double_underscore_paths env p =
   else
     rewrite_double_underscore_paths env p
 
+let tree_of_ident namespace id =
+  Oide_ident (ident_name namespace id)
+
 let rec tree_of_path namespace = function
-  | Pident id ->
-      Oide_ident (ident_name namespace id)
+  | Pident id -> tree_of_ident namespace id
   | Pdot(_, s, _pos) as path when non_shadowed_pervasive path ->
       Oide_ident (Naming_context.pervasives_name namespace s)
   | Pdot(p, s, _pos) ->

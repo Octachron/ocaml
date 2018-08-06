@@ -2323,20 +2323,32 @@ let report_error ppf = function
       fprintf ppf "@[In %s:@ %a@]" context Typedecl.report_error err
   | Cannot_hide_id { shadowed_item_kind; shadowed_item_id; shadowed_item_loc;
                      shadower_id; user_id; user_kind; user_loc } ->
+      let pnamespace =
+        let open Sig_component_kind in
+        match shadowed_item_kind with
+        | Value | Extension_constructor -> Printtyp.Other
+        | Type -> Printtyp.Type
+        | Module -> Printtyp.Module
+        | Module_type -> Printtyp.Module_type
+        | Class -> Printtyp.Class
+        | Class_type -> Printtyp.Class_type in
       let shadowed_item_kind= Sig_component_kind.to_string shadowed_item_kind in
-      let shadowed = Ident.name shadowed_item_id ^ "/1" in
-      let shadower = Ident.name shadower_id ^ "/2" in
+      let shadower = Printtyp.tree_of_ident pnamespace shadower_id in
+      let shadowed = Printtyp.tree_of_ident pnamespace shadowed_item_id in
       fprintf ppf
-        "@[<v>Illegal shadowing of included %s %s by %s@ \
-         %a:@;<1 2>%s %s came from this include@ \
-         %a:@;<1 2>The %s %s has no valid type if %s is shadowed@]"
-        shadowed_item_kind shadowed shadower
+        "@[<v>Illegal shadowing of included %s %a by %a@ \
+         %a:@;<1 2>%s %a came from this include@ \
+         %a:@;<1 2>The %s %s has no valid type if %a is shadowed@,\
+         %t@]"
+        shadowed_item_kind !Oprint.out_ident shadowed
+        !Oprint.out_ident shadower
         Location.print_loc shadowed_item_loc
         (String.capitalize_ascii shadowed_item_kind)
-        shadowed
+        !Oprint.out_ident shadowed
         Location.print_loc user_loc
         (Sig_component_kind.to_string user_kind) (Ident.name user_id)
-        shadowed
+        !Oprint.out_ident shadowed
+        Printtyp.Conflicts.print
 
 let report_error env ppf err =
   Printtyp.wrap_printing_env ~error:true env (fun () -> report_error ppf err)
