@@ -1576,7 +1576,7 @@ let hide ids env = List.fold_right
     (fun id -> Env.add_type ~check:false (Ident.rename id) dummy)
     ids env
 
-let hide_rec_items = function
+let hide_rec_items env = function
   | Sig_type(id, _decl, rs) ::rem
     when rs = Trec_first && not !Clflags.real_paths ->
       let rec get_ids = function
@@ -1585,9 +1585,8 @@ let hide_rec_items = function
         | _ -> []
       in
       let ids = id :: get_ids rem in
-      set_printing_env
-        (hide ids (Printing_env.get ()))
-  | _ -> ()
+        (hide ids env)
+  | _ -> env
 
 let recursive_sigitem = function
   | Sig_class(id,_,rs) -> Some(id,rs,3)
@@ -1606,13 +1605,12 @@ let protect_rec_items items =
       | _ -> [] in
   List.iter Naming_context.add_protected (get_ids Trec_first items)
 
-let still_in_type_group env' in_type_group item =
+let still_in_type_group in_type_group item =
   match in_type_group, recursive_sigitem item with
-    true, Some (_,Trec_next,_) -> true
+    true, Some (_,Trec_next,_) -> false, true
   | _, Some (_, (Trec_not | Trec_first),_) ->
-      Naming_context.reset_protected ();
-      set_printing_env env'; true
-  | _ -> Naming_context.reset_protected (); set_printing_env env'; false
+      Naming_context.reset_protected (); true, true
+  | _ -> Naming_context.reset_protected (); true, false
 
 let rec tree_of_modtype ?(ellipsis=false) = function
   | Mty_ident p ->
@@ -1639,14 +1637,16 @@ and tree_of_signature sg =
 and tree_of_signature_rec env' in_type_group = function
     [] -> []
   | item :: rem as items ->
-      let in_type_group = still_in_type_group env' in_type_group item in
+      let update_env, in_type_group = still_in_type_group in_type_group item in
+      wrap_env (fun env -> if update_env then env' else env) (fun () ->
       let (sg, rem) = filter_rem_sig item rem in
-      hide_rec_items items;
+      wrap_env (fun env -> hide_rec_items env items) (fun () ->
       protect_rec_items items;
       reset_naming_context ();
       let trees = trees_of_sigitem item in
       let env' = Env.add_signature (item :: sg) env' in
       trees @ tree_of_signature_rec env' in_type_group rem
+        ) ()) ()
 
 and trees_of_sigitem = function
   | Sig_value(id, decl) ->
@@ -1709,14 +1709,18 @@ let print_items showval env x =
   let rec print showval in_type_group env = function
   | [] -> []
   | item :: rem as items ->
-      let in_type_group = still_in_type_group env in_type_group item in
-      let (sg, rem) = filter_rem_sig item rem in
-      hide_rec_items items;
-      protect_rec_items items;
-      reset_naming_context ();
-      let trees = trees_of_sigitem item in
-      List.map (fun d -> (d, showval env item)) trees @
-      print showval in_type_group (Env.add_signature (item :: sg) env) rem in
+      let update_env, in_type_group = still_in_type_group in_type_group item in
+      wrap_env (fun env0 -> if update_env then env else env0) (fun () ->
+          let (sg, rem) = filter_rem_sig item rem in
+          wrap_env (fun env -> hide_rec_items env items) (fun () ->
+              protect_rec_items items;
+              reset_naming_context ();
+              let trees = trees_of_sigitem item in
+              List.map (fun d -> (d, showval env item)) trees @
+              print showval in_type_group (Env.add_signature (item :: sg) env) rem
+            ) ()
+        ) ()
+  in
   print showval false env x
 
 (* Print a signature body (used by -i when compiling a .ml) *)
