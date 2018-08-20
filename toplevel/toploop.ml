@@ -255,7 +255,8 @@ let execute_phrase print_outcome ppf phr =
           match res with
           | Result v ->
               if print_outcome then
-                Printtyp.wrap_printing_env ~error:false oldenv (fun () ->
+                Printtyp.wrap_printing_env ~error:false oldenv
+                  (fun (module Printtyp) ->
                   match str.str_items with
                   | [ { str_desc =
                           (Tstr_eval (exp, _)

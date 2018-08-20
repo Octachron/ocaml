@@ -53,7 +53,8 @@ val type_declarations:
   loc:Location.t -> Env.t -> ?mark:mark ->
   Ident.t -> type_declaration -> type_declaration -> unit
 
-val print_coercion: formatter -> module_coercion -> unit
+val print_coercion:
+  (module Printtyp.S) -> formatter -> module_coercion -> unit
 
 type symptom =
     Missing_field of Ident.t * Location.t * string (* kind *)
