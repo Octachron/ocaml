@@ -7,10 +7,10 @@ SET_LD_PATH = CAML_LD_LIBRARY_PATH=$(LD_LIBRARY_PATH)
 OCAMLDOC = $(if $(wildcard $(SRC)/ocamldoc/ocamldoc.opt),\
   $(SRC)/ocamldoc/ocamldoc.opt,\
   $(SET_LD_PATH) $(SRC)/runtime/ocamlrun $(SRC)/ocamldoc/ocamldoc)\
-  -hide Pervasives -nostdlib -initially-opened-module Pervasives
+  -hide Stdlib -nostdlib 
 
-# Copy and unprefix the standard library when needed
-include $(SRC)/ocamldoc/Makefile.unprefix
+# Import the list of mli files for the library docs
+include $(SRC)/ocamldoc/Makefile.docfiles
 
 TEXQUOTE = $(SRC)/runtime/ocamlrun ../tools/texquote2
 
@@ -47,13 +47,17 @@ html: htmlman/libref/style.css etex-files
 	    manual.hva -e macros.tex ../manual.tex \
 	  && $(HACHA) -tocter manual.html
 
-htmlman/libref/style.css: style.css $(STDLIB_MLIS) | unprefix_stdlib_for_ocamldoc
+htmlman/libref/style.css: style.css $(STDLIB_DEPS)
 	mkdir -p htmlman/libref
-	$(OCAMLDOC) -colorize-code -sort -html \
+	cp $(SRC)/stdlib/doc_for_pervasives $(SRC)/stdlib/pervasives.mli
+	$(OCAMLDOC)-colorize-code -sort -html \
 	  -d htmlman/libref \
-	  -I $(STDLIB_UNPREFIXED) \
+	  -pp "awk -f $(SRC)/stdlib/expand_module_aliases.awk" \
+	  $(DOC_INCLUDES) \
 	  $(STDLIB_MLIS)
 	cp style.css $@
+	rm $(SRC)/stdlib/pervasives.mli
+
 
 
 info: files
