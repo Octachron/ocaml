@@ -7,7 +7,7 @@ SET_LD_PATH = CAML_LD_LIBRARY_PATH=$(LD_LIBRARY_PATH)
 OCAMLDOC = $(if $(wildcard $(SRC)/ocamldoc/ocamldoc.opt),\
   $(SRC)/ocamldoc/ocamldoc.opt,\
   $(SET_LD_PATH) $(SRC)/runtime/ocamlrun $(SRC)/ocamldoc/ocamldoc)\
-  -hide Stdlib -nostdlib 
+  -hide Stdlib -lib Stdlib -nostdlib 
 
 # Import the list of mli files for the library docs
 include $(SRC)/ocamldoc/Makefile.docfiles
