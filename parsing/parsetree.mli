@@ -15,7 +15,7 @@
 
 (** Abstract syntax tree produced by parsing
 
-    Compiler-libs: beware this module makes no compatibility guarantees.
+  {b Warning:} this module is unstable and part of {!Compilerlibs}.
 
 *)
 

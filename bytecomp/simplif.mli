@@ -15,7 +15,7 @@
 
 (** Lambda simplification and lambda plugin hooks
 
-    Plugins: beware this module makes no compatibility guarantees.
+  {b Warning:} this module is unstable and part of {!Compilerlibs}.
 
 *)
 

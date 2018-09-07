@@ -15,7 +15,7 @@
 
 (** Type-checking of the module language and typed ast plugin hooks
 
-    Plugins: beware this module makes no compatibility guarantees.
+  {b Warning:} this module is unstable and part of {!Compilerlibs}.
 
 *)
 
