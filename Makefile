@@ -41,19 +41,31 @@ else
 LN = ln -sf
 endif
 
+PPXFLAGS?=
+
+world.instrumented:
+	make -C ppx
+	make clean
+	export PPXFLAGS="-ppx $(abspath ppx/error_coverage)" \
+	&& make world && make world.opt
+
+
 CAMLRUN ?= boot/ocamlrun
 include stdlib/StdlibModules
 
-CAMLC=$(CAMLRUN) boot/ocamlc -g -nostdlib -I boot -use-prims runtime/primitives
-CAMLOPT=$(CAMLRUN) ./ocamlopt -g -nostdlib -I stdlib -I otherlibs/dynlink
+CAMLC=$(CAMLRUN) boot/ocamlc -g $(PPXFLAGS) -nostdlib -I boot -use-prims runtime/primitives
+CAMLOPT=$(CAMLRUN) ./ocamlopt -g $(PPXFLAGS) -nostdlib -I stdlib -I otherlibs/dynlink
+
 ARCHES=amd64 i386 arm arm64 power s390x
 INCLUDES=-I utils -I parsing -I typing -I bytecomp -I middle_end \
         -I middle_end/base_types -I asmcomp -I asmcomp/debug \
         -I driver -I toplevel
 
-COMPFLAGS=-strict-sequence -principal -absname -w +a-4-9-41-42-44-45-48 \
-	  -warn-error A \
-          -bin-annot -safe-string -strict-formats $(INCLUDES)
+COMPFLAGS= -strict-sequence -principal \
+	-absname -w +a-4-9-41-42-44-45-48 \
+	-warn-error A \
+        -bin-annot -safe-string -strict-formats $(INCLUDES) \
+
 LINKFLAGS=
 
 ifeq "$(strip $(NATDYNLINKOPTS))" ""

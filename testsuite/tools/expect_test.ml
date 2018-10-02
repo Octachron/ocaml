@@ -232,10 +232,15 @@ function
   | (Ptop_dir _  | Ptop_def []) :: l -> min_line_number l
   | Ptop_def (st :: _) :: _ -> Some st.pstr_loc.loc_start.pos_lnum
 
-let eval_expect_file _fname ~file_contents =
+let anticorrect fname =
+  match List.rev @@ String.split_on_char '.' fname with
+  | "corrected" :: q -> String.concat "." (List.rev q)
+  | _ -> fname
+
+let eval_expect_file fname ~file_contents =
   Warnings.reset_fatal ();
   let chunks, trailing_code =
-    parse_contents ~fname:"" file_contents |> split_chunks
+    parse_contents ~fname:(anticorrect fname) file_contents |> split_chunks
   in
   let buf = Buffer.create 1024 in
   let ppf = Format.formatter_of_buffer buf in

@@ -365,6 +365,11 @@ clean::
 	rm -f "objinfo_helper$(EXE)" "objinfo_helper$(EXE).manifest"
 
 
+# check testsuite coverage for compiler errors
+
+ocaml_errors: error_analysis.ml
+	$(CAMLOPT) error_analysis.ml -o $@
+
 # Copy a bytecode executable, stripping debug info
 
 stripdebug=$(ROOTDIR)/compilerlibs/ocamlcommon.cma \
