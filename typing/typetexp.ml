@@ -36,7 +36,7 @@ type error =
   | Unbound_row_variable of Longident.t
   | Type_mismatch of (type_expr * type_expr) list
   | Alias_type_mismatch of (type_expr * type_expr) list
-  | Present_has_conjunction of string
+  | Present_has_conjunction of string * type_expr list
   | Present_has_no_type of string
   | Constructor_mismatch of type_expr * type_expr
   | Not_a_variant of type_expr
@@ -565,9 +565,10 @@ and transl_type_aux env policy styp =
                 let ty_tl = List.map (fun cty -> cty.ctyp_type) tl in
                 Reither(c, ty_tl, false, ref None)
             | _ ->
-                if List.length stl > 1 || c && stl <> [] then
+                (if List.length stl > 1 || c && stl <> [] then
+                  let ty_tl = List.map (fun cty -> cty.ctyp_type) tl in
                   raise(Error(styp.ptyp_loc, env,
-                              Present_has_conjunction l.txt));
+                              Present_has_conjunction (l.txt,ty_tl))));
                 match tl with [] -> Rpresent None
                 | st :: _ ->
                       Rpresent (Some st.ctyp_type)
@@ -933,8 +934,14 @@ let report_error env ppf = function
            fprintf ppf "This alias is bound to type")
         (function ppf ->
            fprintf ppf "but is used as an instance of type")
-  | Present_has_conjunction l ->
-      fprintf ppf "The present constructor %s has a conjunctive type" l
+  | Present_has_conjunction (l,conjunction) ->
+      let trees = List.map (Printtyp.tree_of_typexp false) conjunction in
+      let pp_sep ppf () = Format.fprintf ppf "@ & " in
+      let printer ppf = Format.pp_print_list ~pp_sep !Oprint.out_type ppf in
+      fprintf ppf
+        "The constructor `%s has a conjunctive type,@ %a@ .@ \
+         Conjunctive types are only allowed in upper bounds."
+        l printer trees
   | Present_has_no_type l ->
       fprintf ppf
         "The constructor `%s is missing from the upper bound@ \

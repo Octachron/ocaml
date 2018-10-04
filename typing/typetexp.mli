@@ -48,7 +48,7 @@ type error =
   | Unbound_row_variable of Longident.t
   | Type_mismatch of (type_expr * type_expr) list
   | Alias_type_mismatch of (type_expr * type_expr) list
-  | Present_has_conjunction of string
+  | Present_has_conjunction of string * type_expr list
   | Present_has_no_type of string
   | Constructor_mismatch of type_expr * type_expr
   | Not_a_variant of type_expr

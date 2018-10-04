@@ -20,3 +20,13 @@ Line 1, characters 18-53:
 Error: The constructor `C is missing from the upper bound of this
        polymorphic variant type. Upper and lower bounds are mismatched.
 |}]
+
+
+type conjunctive = private [> `A of int & float]
+[%%expect {|
+Line 1, characters 27-48:
+  type conjunctive = private [> `A of int & float]
+                             ^^^^^^^^^^^^^^^^^^^^^
+Error: The constructor `A has a conjunctive type, int & float .
+       Conjunctive types are only allowed in upper bounds.
+|}]
