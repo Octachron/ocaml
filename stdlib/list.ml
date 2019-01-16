@@ -87,9 +87,11 @@ let rec flatten = function
 
 let concat = flatten
 
+(*
 let rec map f = function
     [] -> []
   | a::l -> let r = f a in r :: map f l
+*)
 
 let rec mapi i f = function
     [] -> []
@@ -104,6 +106,7 @@ let rev_map f l =
   in
   rmap_f [] l
 
+let map f l = rev @@ rev_map f l
 
 let rec iter f = function
     [] -> ()

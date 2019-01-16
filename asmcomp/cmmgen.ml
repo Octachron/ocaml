@@ -29,6 +29,9 @@ module String = Misc.Stdlib.String
 module V = Backend_var
 module VP = Backend_var.With_provenance
 
+let fold_right f l acc =
+  List.fold_left (fun acc x -> f x acc) acc (List.rev l)
+
 (* Environments used for translation to Cmm. *)
 
 type boxed_number =
@@ -842,7 +845,7 @@ let rec expr_size env = function
       expr_size (V.add (VP.var id) (expr_size env exp) env) body
   | Uletrec(bindings, body) ->
       let env =
-        List.fold_right
+        fold_right
           (fun (id, exp) env -> V.add (VP.var id) (expr_size env exp) env)
           bindings env
       in
@@ -2960,7 +2963,7 @@ let rec emit_structured_constant symb cst cont =
       emit_block boxedintnat_header symb
         (emit_boxed_nativeint_constant n cont)
   | Uconst_block (tag, csts) ->
-      let cont = List.fold_right emit_constant csts cont in
+      let cont = fold_right emit_constant csts cont in
       emit_block (block_header tag (List.length csts)) symb cont
   | Uconst_float_array fields ->
       emit_block (floatarray_header (List.length fields)) symb
@@ -3021,11 +3024,11 @@ let emit_constant_closure ((_, global_symb) as symb) fundecls clos_vars cont =
          a [Project_closure], which depends on the function. *)
       assert (clos_vars = []);
       cdefine_symbol symb @
-        List.fold_right emit_constant clos_vars cont
+        fold_right emit_constant clos_vars cont
   | f1 :: remainder ->
       let rec emit_others pos = function
           [] ->
-            List.fold_right emit_constant clos_vars cont
+            fold_right emit_constant clos_vars cont
       | f2 :: rem ->
           if f2.arity = 1 || f2.arity = 0 then
             Cint(infix_header pos) ::
@@ -3502,9 +3505,9 @@ let generic_functions shared units =
   let (apply,send,curry) =
     List.fold_left
       (fun (apply,send,curry) ui ->
-         List.fold_right Int.Set.add ui.ui_apply_fun apply,
-         List.fold_right Int.Set.add ui.ui_send_fun send,
-         List.fold_right Int.Set.add ui.ui_curry_fun curry)
+         fold_right Int.Set.add ui.ui_apply_fun apply,
+         fold_right Int.Set.add ui.ui_send_fun send,
+         fold_right Int.Set.add ui.ui_curry_fun curry)
       (Int.Set.empty,Int.Set.empty,Int.Set.empty)
       units in
   let apply = if shared then apply else Int.Set.union apply default_apply in
@@ -3525,7 +3528,7 @@ let entry_point namelist =
                        [Cconst_symbol "caml_globals_inited"], dbg);
                      Cconst_int 1], dbg)], dbg) in
   let body =
-    List.fold_right
+    fold_right
       (fun name next ->
         let entry_sym = Compilenv.make_symbol ~unitname:name (Some "entry") in
         Csequence(Cop(Capply typ_void,
@@ -3594,7 +3597,7 @@ let segment_table namelist symbol begname endname =
   in
   Cdata(Cglobal_symbol symbol ::
         Cdefine_symbol symbol ::
-        List.fold_right addsyms namelist [cint_zero])
+        fold_right addsyms namelist [cint_zero])
 
 let data_segment_table namelist =
   segment_table namelist "caml_data_segments" "data_begin" "data_end"
