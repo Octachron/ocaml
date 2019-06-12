@@ -138,26 +138,34 @@ let is_float env ty =
     Some {desc = Tconstr(p, _, _); _} -> Path.same p Predef.path_float
   | _ -> false
 
-(* Determine if a type definition defines a fixed type. (PW) *)
-let is_fixed_type sd =
-  let rec has_row_var sty =
-    match sty.ptyp_desc with
-      Ptyp_alias (sty, _) -> has_row_var sty
-    | Ptyp_class _
-    | Ptyp_object (_, Open)
-    | Ptyp_variant (_, Open, _)
-    | Ptyp_variant (_, Closed, Some _) -> true
-    | _ -> false
-  in
-  match sd.ptype_manifest with
-    None -> false
-  | Some sty ->
-      sd.ptype_kind = Ptype_abstract &&
-      sd.ptype_private = Private &&
-      has_row_var sty
+module Fixed_type: sig
+  type witness = private Witness
 
+  (* Determine if a type definition defines a fixed type. (PW) *)
+  val check: Parsetree.type_declaration -> witness option
+end = struct
+  type witness = Witness
+  let check sd =
+    let rec has_row_var sty =
+      match sty.ptyp_desc with
+        Ptyp_alias (sty, _) -> has_row_var sty
+      | Ptyp_class _
+      | Ptyp_object (_, Open)
+      | Ptyp_variant (_, Open, _)
+      | Ptyp_variant (_, Closed, Some _) -> Some Witness
+      | _ -> None
+    in
+    match sd.ptype_manifest with
+      None -> None
+    | Some sty ->
+      if sd.ptype_kind = Ptype_abstract &&
+         sd.ptype_private = Private
+      then has_row_var sty
+      else None
+end
+let is_fixed_type sd = Fixed_type.check sd <> None
 (* Set the row variable in a fixed type *)
-let set_fixed_row env loc p decl =
+let set_fixed_row Fixed_type.Witness env loc p decl =
   let tm =
     match decl.type_manifest with
       None -> assert false
@@ -507,11 +515,13 @@ let transl_declaration env sdecl id =
       cstrs;
     Ctype.end_def ();
   (* Add abstract row *)
-    if is_fixed_type sdecl then begin
+    begin match Fixed_type.check sdecl with
+    | Some w ->
       let p =
         try Env.lookup_type (Longident.Lident(Ident.name id ^ "#row")) env
         with Not_found -> assert false in
-      set_fixed_row env sdecl.ptype_loc p decl
+      set_fixed_row w env sdecl.ptype_loc p decl
+    | None -> ()
     end;
   (* Check for cyclic abbreviations *)
     begin match decl.type_manifest with None -> ()
@@ -1494,7 +1504,7 @@ let transl_with_constraint env id row_path orig_decl sdecl =
     }
   in
   begin match row_path with None -> ()
-  | Some p -> set_fixed_row env sdecl.ptype_loc p decl
+  | Some (w,p) -> set_fixed_row w env sdecl.ptype_loc p decl
   end;
   begin match Ctype.closed_type_decl decl with None -> ()
   | Some ty -> raise(Error(sdecl.ptype_loc, Unbound_type_var(ty,decl)))

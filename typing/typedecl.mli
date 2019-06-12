@@ -38,10 +38,6 @@ val transl_value_decl:
     Env.t -> Location.t ->
     Parsetree.value_description -> Typedtree.value_description * Env.t
 
-val transl_with_constraint:
-    Env.t -> Ident.t -> Path.t option -> Types.type_declaration ->
-    Parsetree.type_declaration -> Typedtree.type_declaration
-
 val abstract_type_decl: int -> type_declaration
 val approx_type_decl:
     Parsetree.type_declaration list ->
@@ -52,7 +48,16 @@ val check_coherence:
     Env.t -> Location.t -> Path.t -> type_declaration -> unit
 
 (* for fixed types *)
+module Fixed_type: sig
+  type witness
+  val check: Parsetree.type_declaration -> witness option
+end
 val is_fixed_type : Parsetree.type_declaration -> bool
+
+val transl_with_constraint:
+  Env.t -> Ident.t -> (Fixed_type.witness * Path.t) option ->
+  Types.type_declaration -> Parsetree.type_declaration ->
+  Typedtree.type_declaration
 
 (* for typeopt.ml *)
 val get_unboxed_type_representation: Env.t -> type_expr -> type_expr option

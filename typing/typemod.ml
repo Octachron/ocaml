@@ -463,57 +463,64 @@ let merge_constraint initial_env remove_aliases loc sg constr =
     match (sg, namelist, constr) with
       ([], _, _) ->
         raise(Error(loc, env, With_no_component lid.txt))
-    | (Sig_type(id, decl, rs, priv) :: rem, [s],
-       Pwith_type (_, ({ptype_kind = Ptype_abstract} as sdecl)))
-      when Ident.name id = s && Typedecl.is_fixed_type sdecl ->
-        let decl_row =
-          { type_params =
-              List.map (fun _ -> Btype.newgenvar()) sdecl.ptype_params;
-            type_arity = List.length sdecl.ptype_params;
-            type_kind = Type_abstract;
-            type_private = Private;
-            type_manifest = None;
-            type_variance =
-              List.map
-                (fun (_, v) ->
-                   let (c, n) =
-                     match v with
-                     | Covariant -> true, false
-                     | Contravariant -> false, true
-                     | Invariant -> false, false
-                   in
-                   make_variance (not n) (not c) false
-                )
-                sdecl.ptype_params;
-            type_loc = sdecl.ptype_loc;
-            type_is_newtype = false;
-            type_expansion_scope = Btype.lowest_level;
-            type_attributes = [];
-            type_immediate = false;
-            type_unboxed = unboxed_false_default_false;
-          }
-        and id_row = Ident.create_local (s^"#row") in
-        let initial_env =
-          Env.add_type ~check:false id_row decl_row initial_env
-        in
-        let tdecl = Typedecl.transl_with_constraint
-                        initial_env id (Some(Pident id_row)) decl sdecl in
-        let newdecl = tdecl.typ_type in
-        check_type_decl env sdecl.ptype_loc id row_id newdecl decl rs rem;
-        let decl_row = {decl_row with type_params = newdecl.type_params} in
-        let rs' = if rs = Trec_first then Trec_not else rs in
-        (Pident id, lid, Twith_type tdecl),
-        Sig_type(id_row, decl_row, rs', priv)
-        :: Sig_type(id, newdecl, rs, priv)
-        :: rem
     | (Sig_type(id, decl, rs, priv) :: rem , [s], Pwith_type (_, sdecl))
       when Ident.name id = s ->
-        let tdecl =
-          Typedecl.transl_with_constraint initial_env id None decl sdecl in
-        let newdecl = tdecl.typ_type in
-        check_type_decl env sdecl.ptype_loc id row_id newdecl decl rs rem;
-        (Pident id, lid, Twith_type tdecl),
-        Sig_type(id, newdecl, rs, priv) :: rem
+        begin
+          let fixed =
+            if sdecl.ptype_kind = Ptype_abstract then
+              Typedecl.Fixed_type.check sdecl
+            else None in
+          match fixed  with
+          | Some witness ->
+              let decl_row =
+                { type_params =
+                    List.map (fun _ -> Btype.newgenvar()) sdecl.ptype_params;
+                  type_arity = List.length sdecl.ptype_params;
+                  type_kind = Type_abstract;
+                  type_private = Private;
+                  type_manifest = None;
+                  type_variance =
+                    List.map
+                      (fun (_, v) ->
+                         let (c, n) =
+                           match v with
+                           | Covariant -> true, false
+                           | Contravariant -> false, true
+                           | Invariant -> false, false
+                         in
+                         make_variance (not n) (not c) false
+                      )
+                      sdecl.ptype_params;
+                  type_loc = sdecl.ptype_loc;
+                  type_is_newtype = false;
+                  type_expansion_scope = Btype.lowest_level;
+                  type_attributes = [];
+                  type_immediate = false;
+                  type_unboxed = unboxed_false_default_false;
+                }
+              and id_row = Ident.create_local (s^"#row") in
+              let initial_env =
+                Env.add_type ~check:false id_row decl_row initial_env
+              in
+              let row = Some(witness,Pident id_row) in
+              let tdecl =
+                Typedecl.transl_with_constraint initial_env id row decl sdecl in
+              let newdecl = tdecl.typ_type in
+              check_type_decl env sdecl.ptype_loc id row_id newdecl decl rs rem;
+              let decl_row = {decl_row with type_params = newdecl.type_params} in
+              let rs' = if rs = Trec_first then Trec_not else rs in
+              (Pident id, lid, Twith_type tdecl),
+              Sig_type(id_row, decl_row, rs', priv)
+              :: Sig_type(id, newdecl, rs, priv)
+              :: rem
+          | None ->
+              let tdecl =
+                Typedecl.transl_with_constraint initial_env id None decl sdecl in
+              let newdecl = tdecl.typ_type in
+              check_type_decl env sdecl.ptype_loc id row_id newdecl decl rs rem;
+              (Pident id, lid, Twith_type tdecl),
+              Sig_type(id, newdecl, rs, priv) :: rem
+        end
     | (Sig_type(id, _, _, _) :: rem, [s], (Pwith_type _ | Pwith_typesubst _))
       when Ident.name id = s ^ "#row" ->
         merge env rem namelist (Some id)
