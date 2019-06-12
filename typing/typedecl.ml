@@ -49,7 +49,6 @@ type error =
   | Rebind_private of Longident.t
   | Variance of Typedecl_variance.error
   | Unavailable_type_constructor of Path.t
-  | Bad_fixed_type of string
   | Unbound_type_var_ext of type_expr * extension_constructor
   | Val_in_structure
   | Multiple_native_repr_attributes
@@ -165,26 +164,24 @@ end = struct
 end
 let is_fixed_type sd = Fixed_type.check sd <> None
 (* Set the row variable in a fixed type *)
-let set_fixed_row Fixed_type.Witness env loc p decl =
+let set_fixed_row Fixed_type.Witness p decl =
+  (* The precondition witness enforces that the two [assert false] below are
+     never reached *)
   let tm =
     match decl.type_manifest with
       None -> assert false
-    | Some t -> Ctype.expand_head env t
+    | Some t -> t
   in
   let rv =
     match tm.desc with
       Tvariant row ->
         let row = Btype.row_repr row in
         tm.desc <- Tvariant {row with row_fixed = true};
-        if Btype.static_row row then Btype.newgenty Tnil
-        else row.row_more
+        row.row_more
     | Tobject (ty, _) ->
         snd (Ctype.flatten_fields ty)
-    | _ ->
-        raise (Error (loc, Bad_fixed_type "is not an object or variant"))
+    | _ -> assert false
   in
-  if not (Btype.is_Tvar rv) then
-    raise (Error (loc, Bad_fixed_type "has no row variable"));
   rv.desc <- Tconstr (p, decl.type_params, ref Mnil)
 
 (* Translate one type declaration *)
@@ -515,14 +512,12 @@ let transl_declaration env sdecl id =
       cstrs;
     Ctype.end_def ();
   (* Add abstract row *)
-    begin match Fixed_type.check sdecl with
-    | Some w ->
-      let p =
-        try Env.lookup_type (Longident.Lident(Ident.name id ^ "#row")) env
-        with Not_found -> assert false in
-      set_fixed_row w env sdecl.ptype_loc p decl
-    | None -> ()
-    end;
+    Option.iter (fun w ->
+        let p =
+          try Env.lookup_type (Longident.Lident(Ident.name id ^ "#row")) env
+          with Not_found -> assert false in
+        set_fixed_row w p decl
+      ) (Fixed_type.check sdecl);
   (* Check for cyclic abbreviations *)
     begin match decl.type_manifest with None -> ()
       | Some ty ->
@@ -1503,9 +1498,7 @@ let transl_with_constraint env id row_path orig_decl sdecl =
       type_unboxed;
     }
   in
-  begin match row_path with None -> ()
-  | Some (w,p) -> set_fixed_row w env sdecl.ptype_loc p decl
-  end;
+  Option.iter (fun (w,p) -> set_fixed_row w p decl) row_path;
   begin match Ctype.closed_type_decl decl with None -> ()
   | Some ty -> raise(Error(sdecl.ptype_loc, Unbound_type_var(ty,decl)))
   end;
@@ -1787,8 +1780,6 @@ let report_error ppf = function
           (variance v2) (variance v1)
   | Unavailable_type_constructor p ->
       fprintf ppf "The definition of type %a@ is unavailable" Printtyp.path p
-  | Bad_fixed_type r ->
-      fprintf ppf "This fixed type %s" r
   | Variance Typedecl_variance.Varying_anonymous ->
       fprintf ppf "@[%s@ %s@ %s@]"
         "In this GADT definition," "the variance of some parameter"
