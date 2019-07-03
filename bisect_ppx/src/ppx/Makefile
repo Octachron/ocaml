@@ -3,7 +3,7 @@ ROOTDIR = ../../..
 include $(ROOTDIR)/Makefile.config
 include $(ROOTDIR)/Makefile.common
 
-directories := $(addprefix $(ROOTDIR)/,stdlib otherlibs/unix)
+directories := $(addprefix $(ROOTDIR)/,stdlib otherlibs/unix otherlibs/str)
 
 include_directories := $(addprefix -I , $(directories))
 
@@ -18,9 +18,9 @@ ocamlc := $(ROOTDIR)/runtime/ocamlrun $(ROOTDIR)/ocamlc $(flags)
 
 .PHONY: all
 
-all: bisect_ppx.runtime.cma
+all: bisect_ppx
 
-bisect_ppx.runtime.cma: version.cmo common.cmo extension.cmo runtime.cmo
+bisect_ppx: comments_lexer.cmo comments.cmo exclude.cmo exclude_parser.cmo exclude_lexer.cmo exclusions.cmo instrument.cmo register.cmo
 	$(ocamlc) -a -o $@ unix.cma $^
 
 # Generic rules
@@ -38,25 +38,58 @@ bisect_ppx.runtime.cma: version.cmo common.cmo extension.cmo runtime.cmo
 # Dependencies as provided by ocamldep
 
 comments.cmo : \
+    comments_lexer.cmo \
     comments.cmi
+comments.cmx : \
+    comments_lexer.cmx \
     comments.cmi
 comments.cmi :
+comments_lexer.cmo :
+comments_lexer.cmx :
 exclude.cmo : \
     exclude.cmi
+exclude.cmx : \
     exclude.cmi
 exclude.cmi :
+exclude_lexer.cmo : \
+    exclude_parser.cmi \
+    exclude.cmi
+exclude_lexer.cmx : \
+    exclude_parser.cmx \
+    exclude.cmx
+exclude_parser.cmo : \
+    exclude.cmi \
+    exclude_parser.cmi
+exclude_parser.cmx : \
+    exclude.cmx \
+    exclude_parser.cmi
+exclude_parser.cmi : \
+    exclude.cmi
 exclusions.cmo : \
+    exclude_parser.cmi \
+    exclude_lexer.cmo \
     exclude.cmi \
     exclusions.cmi
+exclusions.cmx : \
+    exclude_parser.cmx \
+    exclude_lexer.cmx \
+    exclude.cmx \
     exclusions.cmi
 exclusions.cmi :
 instrument.cmo : \
     exclusions.cmi \
     comments.cmi \
     instrument.cmi
+instrument.cmx : \
+    exclusions.cmx \
+    comments.cmx \
     instrument.cmi
 instrument.cmi :
 register.cmo : \
     instrument.cmi \
     exclusions.cmi \
     comments.cmi
+register.cmx : \
+    instrument.cmx \
+    exclusions.cmx \
+    comments.cmx
