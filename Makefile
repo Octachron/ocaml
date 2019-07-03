@@ -20,6 +20,8 @@ ROOTDIR = .
 include Makefile.config
 include Makefile.common
 
+PPX=
+
 # For users who don't read the INSTALL file
 .PHONY: defaultentry
 defaultentry:
@@ -462,12 +464,19 @@ bootstrap: coreboot
 .PHONY: world
 world: coldstart
 	$(MAKE) all
+	$(MAKE) -C ppx build
 
 # Compile also native code compiler and libraries, fast
 .PHONY: world.opt
 world.opt: checknative
 	$(MAKE) coldstart
 	$(MAKE) opt.opt
+
+# Compile ocamlc with bisect_ppx
+.PHONY: world.bisected
+world.bisected:
+	rm -f $(shell find . -wholename "**/*.cmo" ! -path "./compilerlibs/*.cmo" ! -path "./stdlib/*.cmo" ! -path "./boot/std_exit.cmo")
+	$(MAKE) PPX="-ppx ./ppx/bisect_ppx" ocamlc
 
 # FlexDLL sources missing error messages
 # Different git mechanism displayed depending on whether this source tree came
