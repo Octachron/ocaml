@@ -728,91 +728,91 @@ end
 
 
 (* The actual "instrumenter" object, instrumenting expressions. *)
-class instrumenter =
-  let points = Generated_code.init () in
+(*class instrumenter =*)
+let super = Ast_mapper.default
+
+(*let points = Generated_code.init () in
   let instrument_expr = Generated_code.instrument_expr points in
-  let instrument_case = Generated_code.instrument_case points in
+  let instrument_case =     Generated_code.instrument_case points in
   let instrument_class_field_kind =
-    Generated_code.instrument_class_field_kind points in
+  Generated_code.instrument_class_field_kind points in
+    object (self)
+      inherit Ast_mapper_class.mapper as super
+*)
+let class_expr ce =
+  let loc = ce.pcl_loc in
+  let ce = super.class_expr mapper ce in
+  match ce.pcl_desc with
+  | Pcl_apply (ce, args) ->
+      let args =
+        List.map
+          (fun (label, e) ->
+            (label, (instrument_expr e)))
+          args
+      in
+      Ast.Ast_helper.Cl.apply ~loc ~attrs:ce.pcl_attributes ce args
 
-  object (self)
-    inherit Ast_mapper_class.mapper as super
+  | _ ->
+      ce
 
-    method! class_expr ce =
-      let loc = ce.pcl_loc in
-      let ce = super#class_expr ce in
-      match ce.pcl_desc with
-      | Pcl_apply (ce, args) ->
-        let args =
-          List.map
-            (fun (label, e) ->
-              (label, (instrument_expr e)))
-            args
-        in
-        Ast.Ast_helper.Cl.apply ~loc ~attrs:ce.pcl_attributes ce args
+let class_field cf =
+  let loc = cf.pcf_loc in
+  let attrs = cf.pcf_attributes in
+  let cf = super.class_field mapper cf in
+  match cf.pcf_desc with
+  | Pcf_val (name, mutable_, cf) ->
+      Cf.val_ ~loc ~attrs name mutable_ (instrument_class_field_kind cf)
 
-      | _ ->
-        ce
+  | Pcf_method (name, private_, cf) ->
+      Cf.method_ ~loc ~attrs name private_ (instrument_class_field_kind cf)
 
-    method! class_field cf =
-      let loc = cf.pcf_loc in
-      let attrs = cf.pcf_attributes in
-      let cf = super#class_field cf in
-      match cf.pcf_desc with
-      | Pcf_val (name, mutable_, cf) ->
-        Cf.val_ ~loc ~attrs name mutable_ (instrument_class_field_kind cf)
+  | Pcf_initializer e ->
+      Cf.initializer_ ~loc ~attrs (instrument_expr e)
 
-      | Pcf_method (name, private_, cf) ->
-        Cf.method_ ~loc ~attrs name private_ (instrument_class_field_kind cf)
+  | _ ->
+      cf
 
-      | Pcf_initializer e ->
-        Cf.initializer_ ~loc ~attrs (instrument_expr e)
+let expr e =
+  let loc = e.pexp_loc in
+  let attrs = e.pexp_attributes in
+  let e' = super.expr mapper e in
+  match e'.pexp_desc with
+  | Pexp_let (rec_flag, bindings, e) ->
+      let bindings =
+        List.map (fun binding ->
+          Parsetree.{binding with pvb_expr =
+            instrument_expr binding.pvb_expr})
+        bindings
+      in
+      Exp.let_ ~loc ~attrs rec_flag bindings (instrument_expr e)
 
-      | _ ->
-        cf
+  | Pexp_poly (e, type_) ->
+      Exp.poly ~loc ~attrs (instrument_expr e) type_
 
-    method! expr e =
-      let loc = e.pexp_loc in
-      let attrs = e.pexp_attributes in
-      let e' = super#expr e in
+  | Pexp_fun (label, default_value, p, e) ->
+      let default_value =
+      match default_value with
+      | None -> None
+      | Some default_value -> Some (instrument_expr default_value)
+      in
+      Exp.fun_ ~loc ~attrs label default_value p (instrument_expr e)
 
-      match e'.pexp_desc with
-      | Pexp_let (rec_flag, bindings, e) ->
-        let bindings =
-          List.map (fun binding ->
-            Parsetree.{binding with pvb_expr =
-              instrument_expr binding.pvb_expr})
-          bindings
-        in
-        Exp.let_ ~loc ~attrs rec_flag bindings (instrument_expr e)
+  | Pexp_apply (e_function, [label_1, e1; label_2, e2]) ->
+      begin match e_function with
+      | [%expr (&&)]
+      | [%expr (&)]
+      | [%expr (||)]
+      | [%expr (or)] ->
+        Exp.apply ~loc ~attrs e_function
+          [label_1, (instrument_expr e1); label_2, (instrument_expr e2)]
 
-      | Pexp_poly (e, type_) ->
-        Exp.poly ~loc ~attrs (instrument_expr e) type_
-
-      | Pexp_fun (label, default_value, p, e) ->
-        let default_value =
-          match default_value with
-          | None -> None
-          | Some default_value -> Some (instrument_expr default_value)
-        in
-        Exp.fun_ ~loc ~attrs label default_value p (instrument_expr e)
-
-      | Pexp_apply (e_function, [label_1, e1; label_2, e2]) ->
-        begin match e_function with
-        | [%expr (&&)]
-        | [%expr (&)]
-        | [%expr (||)]
-        | [%expr (or)] ->
-          Exp.apply ~loc ~attrs e_function
-            [label_1, (instrument_expr e1); label_2, (instrument_expr e2)]
-
-        | [%expr (|>)] ->
-          Exp.apply ~loc ~attrs e_function
+      | [%expr (|>)] ->
+        Exp.apply ~loc ~attrs e_function
             [label_1, e1; label_2, (instrument_expr e2)]
 
-        | _ ->
+      | _ ->
           e'
-        end
+      end
 
       | Pexp_match (e, cases) ->
         List.map instrument_case cases
@@ -845,11 +845,11 @@ class instrumenter =
       | _ ->
         e'
 
-    method! structure_item si =
-      let loc = si.pstr_loc in
-      match si.pstr_desc with
-      | Pstr_value (rec_flag, bindings) ->
-        let bindings =
+let structure_item si =
+  let loc = si.pstr_loc in
+  match si.pstr_desc with
+  | Pstr_value (rec_flag, bindings) ->
+    let bindings =
           bindings
           |> List.map begin fun binding ->
             (* Only instrument things not excluded. *)
@@ -880,83 +880,85 @@ class instrumenter =
         in
         Str.value ~loc rec_flag bindings
 
-      | Pstr_eval (e, a) ->
-        Str.eval ~loc ~attrs:a (instrument_expr (self#expr e))
+  | Pstr_eval (e, a) ->
+      Str.eval ~loc ~attrs:a (instrument_expr (self#expr e))
 
-      | _ ->
-        super#structure_item si
+  | _ ->
+      super.structure_item mapper si
 
-    (* Don't instrument payloads of extensions and attributes. *)
-    method! extension e =
-      e
+(* Don't instrument payloads of extensions and attributes. *)
+let extension e =
+  e
 
-    method! attribute a =
-      a
+let attribute a =
+  a
 
-    (* This is set to [true] when the [structure] or [signature] method is
-       called the first time. It is used to determine whether Bisect_ppx is
-       looking at the top-level structure (module) in the file, or a nested
-       structure (module).
+(* This is set to [true] when the [structure] or [signature] method is
+called the first time. It is used to determine whether Bisect_ppx is
+looking at the top-level structure (module) in the file, or a nested
+structure (module).
 
-       For [.mli] and [.rei] files, the [signature] method will be called first.
-       That method will set this variable to [true], and do nothing else.
+For [.mli] and [.rei] files, the [signature] method will be called first.
+That method will set this variable to [true], and do nothing else.
 
-       The more interesting case is [.ml] and [.re] files. For those, the
-       [structure] method will be called first. That method will set this
-       variable to [true]. However, if the variable started out [false],
-       [structure] will insert Bisect_ppx initialization code into the
-       structure. *)
-    val mutable saw_top_level_structure_or_signature = false
+The more interesting case is [.ml] and [.re] files. For those, the
+[structure] method will be called first. That method will set this
+variable to [true]. However, if the variable started out [false],
+[structure] will insert Bisect_ppx initialization code into the
+structure. *)
+(*val mutable saw_top_level_structure_or_signature = false*)
 
-    method! signature ast =
-      if not saw_top_level_structure_or_signature then
-        saw_top_level_structure_or_signature <- true;
-      super#signature ast
+let signature ast =
+  if not saw_top_level_structure_or_signature then
+    saw_top_level_structure_or_signature <- true;
+  super.signature mapper ast
 
-    method! structure ast =
-      if saw_top_level_structure_or_signature then
-        super#structure ast
+let structure ast =
+  if saw_top_level_structure_or_signature then
+    super.structure mapper ast
         (* This is *not* the first structure we see, or we are inside an
            interface file, so the structure is nested within the file, either
            inside [struct]..[end] or in an attribute or extension point.
            Traverse the structure recursively as normal. *)
 
-      else begin
+  else begin
         (* This is the first structure we see in te file, and we are not in an
            interface file, so Bisect_ppx is beginning to (potentially)
            instrument the current file. We need to check whether this file is
            excluded from instrumentation before proceeding. *)
-        saw_top_level_structure_or_signature <- true;
+    saw_top_level_structure_or_signature <- true;
 
         (* Bisect_ppx is hardcoded to ignore files with certain names. If we
            have one of these, return the AST uninstrumented. In particular, do
            not recurse into it. *)
-        let always_ignore_paths = ["//toplevel//"; "(stdin)"] in
-        let always_ignore_basenames = [".ocamlinit"; "topfind"] in
-        let always_ignore path =
-          List.mem path always_ignore_paths ||
-          List.mem (Filename.basename path) always_ignore_basenames
-        in
+    let always_ignore_paths = ["//toplevel//"; "(stdin)"] in
+    let always_ignore_basenames = [".ocamlinit"; "topfind"] in
+    let always_ignore path =
+      List.mem path always_ignore_paths ||
+      List.mem (Filename.basename path) always_ignore_basenames
+    in
 
-        if always_ignore !Location.input_name then
-          ast
+    if always_ignore !Location.input_name then
+      ast
 
-        else
+    else
           (* The file might also be excluded by the user. *)
-          if Exclusions.contains_file !Location.input_name then
-            ast
+      if Exclusions.contains_file !Location.input_name then
+        ast
 
-          else begin
+      else begin
             (* This file should be instrumented. Traverse the AST recursively,
                then prepend some generated code for initializing the Bisect_ppx
                runtime and telling it about the instrumentation points in this
                file. *)
-            let instrumented_ast = super#structure ast in
-            let runtime_initialization =
-              Generated_code.runtime_initialization
-                points !Location.input_name
-            in
-            runtime_initialization @ instrumented_ast
-          end
+        let instrumented_ast = super.structure mapper ast in
+        let runtime_initialization =
+          Generated_code.runtime_initialization
+            points !Location.input_name
+        in
+        runtime_initialization @ instrumented_ast
       end
-end
+  end
+(*end*)
+
+let mapper = { super with class_expr; class_field; structure_item; extension; attribute; signature; structure; }

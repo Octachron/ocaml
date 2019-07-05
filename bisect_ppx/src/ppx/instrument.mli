@@ -4,8 +4,7 @@
 
 
 
-open Ppx_tools_405
 
-class instrumenter : Ast_mapper_class.mapper
+(*val instrumenter : Ast_mapper.mapper*)
 (**  This class implements an instrumenter to be used through the {i -ppx}
     command-line switch. *)
