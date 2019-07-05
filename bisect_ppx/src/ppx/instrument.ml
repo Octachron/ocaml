@@ -32,7 +32,10 @@
    point is in [bisect_ppx.ml]. It's basically a PPX driver that registers only
    this instrumenter with itself, using [register.ml], and then runs it. *)
 
-
+open Ast_helper
+open Ast_mapper
+open Asttypes
+open Parsetree
 
 (* From ocaml-migrate-parsetree. *)
 module Ast = Migrate_parsetree.Ast_405
@@ -49,10 +52,12 @@ module Str = Ast.Ast_helper.Str
 module Cf = Ast.Ast_helper.Cf
 
 (* From ppx_tools_versioned. *)
-module Ast_convenience = Ast_convenience_405
-module Ast_mapper_class = Ast_mapper_class_405
+(*module Ast_convenience = Ast_convenience_405*)
+(*module Ast_mapper_class = Ast_mapper_class_405*)
 
-
+let conv_int ?loc ?attrs x = Exp.constant ?loc ?attrs (Pconst_integer (string_of_int x, None))
+let conv_str ?loc ?attrs s = Exp.constant ?loc ?attrs (Pconst_string (s, None))
+let conv_lid ?(loc = !default_loc) s = mkloc (Longident.parse s) loc
 
 module Generated_code :
 sig
@@ -130,7 +135,7 @@ struct
           points := new_point::!points;
           new_point
       in
-      Ast_convenience.int point.identifier
+      conv_int point.identifier
 
     in
 
@@ -616,10 +621,10 @@ struct
       "Bisect_visit___" ^ (Buffer.contents buffer)
     in
 
-    let point_count = Ast_convenience.int ~loc (List.length !points) in
+    let point_count = conv_int ~loc (List.length !points) in
     let points_data =
-      Ast_convenience.str ~loc (Bisect.Common.write_points !points) in
-    let file = Ast_convenience.str ~loc file in
+      conv_str ~loc (Bisect.Common.write_points !points) in
+    let file = conv_str ~loc file in
 
     (* ___bisect_visit___ is a function with a reference to a point count array.
        It is called every time a point is visited.
@@ -719,7 +724,7 @@ struct
          any periods. *)
       Str.open_ ~loc @@
         Opn.mk ~loc
-          (Ast_convenience.lid ~loc mangled_module_name)
+          (conv_lid ~loc mangled_module_name)
     in
 
     [generated_module; module_open]
