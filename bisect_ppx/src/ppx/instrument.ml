@@ -38,18 +38,18 @@ open Asttypes
 open Parsetree
 
 (* From ocaml-migrate-parsetree. *)
-module Ast = Migrate_parsetree.Ast_405
-module Ast_405 = Ast
+(*module Ast = Migrate_parsetree.Ast_405
+module Ast_405 = Ast*)
 (* Workaround for
   https://travis-ci.org/aantron/bisect_ppx/jobs/538321848#L588 *)
 
-module Location = Ast.Location
-module Parsetree = Ast.Parsetree
+module Location = Location
+module Parsetree = Parsetree
 
-module Pat = Ast.Ast_helper.Pat
-module Exp = Ast.Ast_helper.Exp
-module Str = Ast.Ast_helper.Str
-module Cf = Ast.Ast_helper.Cf
+module Pat = Pat
+module Exp = Exp
+module Str = Str
+module Cf = Cf
 
 (* From ppx_tools_versioned. *)
 (*module Ast_convenience = Ast_convenience_405*)
@@ -57,7 +57,7 @@ module Cf = Ast.Ast_helper.Cf
 
 let conv_int ?loc ?attrs x = Exp.constant ?loc ?attrs (Pconst_integer (string_of_int x, None))
 let conv_str ?loc ?attrs s = Exp.constant ?loc ?attrs (Pconst_string (s, None))
-let conv_lid ?(loc = !default_loc) s = mkloc (Longident.parse s) loc
+let conv_lid ?(loc = !default_loc) s = Location.mkloc (Longident.parse s) loc
 
 module Generated_code :
 sig
