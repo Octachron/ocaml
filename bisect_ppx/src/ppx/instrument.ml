@@ -45,6 +45,7 @@ module Ast_405 = Ast*)
 
 module Location = Location
 module Parsetree = Parsetree
+module Common = Common
 
 module Pat = Pat
 module Exp = Exp
@@ -79,7 +80,7 @@ sig
     points -> string -> Parsetree.structure_item list
 end =
 struct
-  type points = Bisect.Common.point_definition list ref
+  type points = Common.point_definition list ref
 
   let init () = ref []
 

@@ -4,7 +4,7 @@ include $(ROOTDIR)/Makefile.config
 include $(ROOTDIR)/Makefile.common
 
 directories := $(addprefix $(ROOTDIR)/,stdlib otherlibs/unix otherlibs/str \
-                                        compilerlibs typing parsing)
+                                        compilerlibs typing parsing bisect_ppx/src/runtime)
 
 include_directories := $(addprefix -I , $(directories))
 
