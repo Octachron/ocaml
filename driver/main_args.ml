@@ -918,6 +918,62 @@ module type Common_options = sig
   val anonymous : string -> unit
 end
 
+module Arg_helper = struct
+  let set r () =  r := true
+  let set_all rs () = List.iter (fun r -> r := true) rs
+  let set_val r x= r := x
+  let set_some r x = r := Some x
+  let append r s = r:= s :: !r
+  let unset r () = r := false
+end
+open Arg_helper
+
+module Default_common_options = struct
+  open Clflags open Compenv
+  let anonymous = anonymous
+  let _absname = set absname
+  let _alert = Warnings.parse_alert_option
+  let _I = append include_dirs
+  let _labels = unset classic
+  let _alias_deps = unset transparent_modules
+  let _no_alias_deps = set transparent_modules
+  let _app_funct = set applicative_functors
+  let _no_app_funct = unset applicative_functors
+  let _noassert = set noassert
+  let _nolabels = set classic
+  let _nostdlib = set no_std_include
+  let _nopervasives = set nopervasives
+  let _open = append open_modules
+  let _ppx = append first_ppx
+  let _principal = set principal
+  let _no_principal = unset principal
+  let _rectypes = set recursive_types
+  let _no_rectypes = unset recursive_types
+  let _safe_string = unset unsafe_string
+  let _short_paths = unset real_paths
+  let _strict_sequence = set strict_sequence
+  let _no_strict_sequence = unset strict_sequence
+  let _strict_formats = set strict_formats
+  let _no_strict_formats = unset strict_formats
+  let _unboxed_types = set unboxed_types
+  let _no_unboxed_types = unset unboxed_types
+  let _unsafe = set unsafe
+  let _unsafe_string = set unsafe_string
+  let _version = Compenv.print_version_string
+  let _vnum = print_version_string
+  let _w = Warnings.parse_options false
+  let _warn_error = Warnings.parse_options true
+  let _warn_help = Warnings.help_warnings
+
+  let _dno_unique_ids = unset unique_ids
+  let _dunique_ids = set unique_ids
+  let _dsource = set dump_source
+  let _dparsetree = set dump_parsetree
+  let _dtypedtree = set dump_typedtree
+  let _drawlambda = set dump_rawlambda
+  let _dlambda = set dump_lambda
+end
+
 module type Compiler_options = sig
   val _a : unit -> unit
   val _annot : unit -> unit
@@ -973,6 +1029,73 @@ module type Compiler_options = sig
 end
 ;;
 
+module Default_compiler_options = struct
+  open Clflags open Compenv
+  let _a = set make_archive
+  let _annot = set annotations
+  let _binannot = set binary_annotations
+  let _c = set compile_only
+  let _cc = set_some c_compiler
+  let _cclib s = defer @@ ProcessObjects (Misc.rev_split_words s)
+  let _ccopt = append first_ccopts
+  let _config = Misc.show_config_and_exit
+  let _config_var = Misc.show_config_variable_and_exit
+  let _for_pack = set_some for_package
+  let _g = set debug
+  let _stop_after pass =
+    let module P = Compiler_pass in
+    begin match P.of_string pass with
+    | None -> () (* this should not occur as we use Arg.Symbol *)
+    | Some pass ->
+        stop_after := Some pass;
+        begin match pass with
+        | P.Parsing | P.Typing ->
+            compile_only := true
+        end
+    end
+  let _i () =
+    print_types := true;
+    compile_only := true;
+    stop_after := Some  Compiler_pass.Typing
+  let _impl = impl
+  let _intf = intf
+  let _intf_suffix s = Config.interface_suffix := s
+  let _keep_docs = set keep_docs
+  let _no_keep_docs = unset keep_docs
+  let _keep_locs = set keep_locs
+  let _no_keep_locs = unset keep_locs
+  let _linkall = set link_everything
+  let _noautolink = set no_auto_link
+  let _o = set_some output_name
+  let _opaque = set opaque
+  let _output_obj =  set_all [output_c_object; custom_runtime]
+  let _output_complete_obj =
+    set_all [output_c_object; output_complete_object; custom_runtime]
+  let _pack = set make_package
+  let _plugin _ = set plugin ()
+  let _pp  = set_some preprocessor
+  let _runtime_variant s = runtime_variant := s
+  let _with_runtime = set with_runtime
+  let _without_runtime = unset with_runtime
+  let _safe_string = unset unsafe_string
+  let _short_paths = unset real_paths
+  let _thread = set use_threads
+  let _v () = print_version_and_library ""
+  let _verbose = set verbose
+  let _where = print_standard_library
+  let _color = Misc.set_or_ignore color_reader.parse color
+  let _error_style = Misc.set_or_ignore error_style_reader.parse error_style
+
+  let _match_context_rows n = match_context_rows := n
+  let _dtimings () = profile_columns := [ `Time ]
+  let _dprofile () =  profile_columns := Profile.all_columns
+  let _dump_into_file = set dump_into_file
+
+  let _args = Arg.read_arg
+  let _args0 = Arg.read_arg0
+end
+
+
 module type Toplevel_options = sig
   include Common_options
   val _init : string -> unit
@@ -987,6 +1110,21 @@ module type Toplevel_options = sig
   val _error_style : string -> unit
 end
 ;;
+
+module Default_toplevel_options = struct
+  open Clflags
+  include Default_common_options
+  let _init = set_some init_file
+  let _noinit = set noinit
+  let _no_version = set noversion
+  let _noprompt = set noprompt
+  let _nopromptcont = set nopromptcont
+  let _stdin = ignore (* placeholder *)
+  let _args = Arg.read_arg
+  let _args0 = Arg.read_arg0
+  let _color = Misc.set_or_ignore color_reader.parse color
+  let _error_style = Misc.set_or_ignore error_style_reader.parse error_style
+end
 
 module type Bytecomp_options = sig
   include Common_options
@@ -1006,11 +1144,48 @@ module type Bytecomp_options = sig
   val _use_prims : string -> unit
 end;;
 
+module Default_instr = struct
+  let _dinstr = set Clflags.dump_instr
+end
+
+module Default_vmthread = struct
+  let _vmthread () =
+    Compenv.fatal "\
+The -vmthread argument of ocamlc is no longer supported\n\
+since OCaml 4.09.0.  Please switch to system threads, which have the\n\
+same API. Lightweight threads with VM-level scheduling are provided by\n\
+third-party libraries such as Lwt, but with a different API."
+end
+
+module Default_bytecomp_options = struct
+  include Default_common_options
+  include Default_compiler_options
+  open Clflags
+  let _compat_32 = set bytecode_compatible_32
+  let _custom = set custom_runtime
+  let _no_check_prims = set no_check_prims
+  let _dllib s = Compenv.(defer @@ ProcessDLLs (Misc.rev_split_words s))
+  let _dllpath s = dllpaths := !dllpaths @ [s]
+  let _make_runtime =  set_all [custom_runtime; make_runtime; link_everything]
+  let _use_runtime = set_val use_runtime
+  include Default_vmthread
+  include Default_instr
+  let _dinstr = set dump_instr
+  let _dcamlprimc = set keep_camlprimc_file
+  let _use_prims = set_val use_prims
+end
+
+
 module type Bytetop_options = sig
   include Toplevel_options
   val _dinstr : unit -> unit
 
 end;;
+
+module Default_bytetop_options = struct
+  include Default_toplevel_options
+  include Default_instr
+end
 
 module type Optcommon_options = sig
   val _compact : unit -> unit
@@ -1066,6 +1241,87 @@ module type Optcommon_options = sig
   val _dstartup :  unit -> unit
 end;;
 
+module Default_optcommon_options = struct
+  open Clflags
+  let _compact = unset optimize_for_speed
+  let _inline spec =
+    Float_arg_helper.parse spec "Syntax: -inline <n> | <round>=<n>[,...]"
+      inline_threshold
+  let _inline_toplevel spec =
+    Int_arg_helper.parse spec "Syntax: -inline-toplevel <n> | <round>=<n>[,...]"
+      inline_toplevel_threshold
+  let _inlining_report = set inlining_report
+  let _dump_pass pass = set_dumped_pass pass true
+  let _inline_max_depth spec =
+    Int_arg_helper.parse spec
+      "Syntax: -inline-max-depth <n> | <round>=<n>[,...]" inline_max_depth
+  let _rounds = set_some simplify_rounds
+  let _inline_max_unroll spec =
+    Int_arg_helper.parse spec
+      "Syntax: -inline-max-unroll <n> | <round>=<n>[,...]"
+      Clflags.inline_max_unroll
+  let _classic_inlining = set classic_inlining
+  let inline_cost arg r spec =
+    let desc =
+      Printf.sprintf "Syntax: -inline-%s-cost <n> | <round>=<n>[,...]" arg in
+    Int_arg_helper.parse spec desc r
+  let _inline_call_cost = inline_cost "call" inline_call_cost
+  let _inline_alloc_cost = inline_cost "alloc" inline_alloc_cost
+  let _inline_prim_cost = inline_cost "prim" inline_prim_cost
+  let _inline_branch_cost = inline_cost "branch" inline_branch_cost
+  let _inline_indirect_cost = inline_cost "indirect" inline_indirect_cost
+  let _inline_lifting_benefit spec =
+    Int_arg_helper.parse spec
+      "Syntax: -inline-lifting-benefit <n> | <round>=<n>[,...]"
+      inline_lifting_benefit
+  let _unbox_closures = set unbox_closures
+  let _unbox_closures_factor n = unbox_closures_factor := n
+  let _inline_branch_factor =
+    Float_arg_helper.parse spec
+      "Syntax: -inline-branch-factor <n> | <round>=<n>[,...]"
+      inline_branch_factor
+  let _remove_unused_arguments = set remove_unused_arguments
+  let _no_unbox_free_vars_of_closures  = unset unbox_free_vars_of_closures
+  let _no_unbox_specialised_args = unset unbox_specialised_args
+  let _o2 () =
+    default_simplify_rounds := 2;
+    use_inlining_arguments_set o2_arguments;
+    use_inlining_arguments_set ~round:0 o1_arguments
+  let _o3 () =
+    default_simplify_rounds := 3;
+    use_inlining_arguments_set o3_arguments;
+    use_inlining_arguments_set ~round:1 o2_arguments;
+    use_inlining_arguments_set ~round:0 o1_arguments
+  let _insn_sched = set insn_sched
+  let _no_insn_sched = unset insn_sched
+
+  let _clambda_checks = set clambda_checks
+  let _dflambda = set dump_flambda
+  let _drawflambda = set dump_rawflambda
+  let _dflambda_invariants = set flambda_invariant_checks
+  let _dflambda_no_invariants = unset flambda_invariant_checks
+  let _dflambda_let = set_some dump_flambda_let
+  let _dflambda_verbose = set_all [dump_flambda; dump_flambda_verbose]
+  let _drawclambda = set dump_rawclambda
+  let _dclambda = set dump_clambda
+  let _dcmm = set dump_cmm
+  let _dsel = set dump_selection
+  let _dcombine = set dump_combine
+  let _dcse = set dump_cse
+  let _dlive = ignore (* placeholder *)
+  let _davail = set dump_avail
+  let _drunavail = set debug_runavail
+  let _dspill = set dump_spill
+  let _dsplit = set dump_split
+  let _dinterf = set dump_interf
+  let _dprefer = set dump_prefer
+  let _dalloc = set dump_regalloc
+  let _dreload = set dump_reload
+  let _dscheduling  = set dump_scheduling
+  let _dlinear = set dump_linear
+  let _dstartup = set keep_startup_file
+end
+
 module type Optcomp_options = sig
   include Common_options
   include Compiler_options
@@ -1083,12 +1339,42 @@ module type Optcomp_options = sig
   val _function_sections : unit -> unit
 end;;
 
+
+module Default_optcomp_options = struct
+  include Default_common_options
+  include Default_compiler_options
+  include Default_optcommon_options
+  open Clflags
+  let _linscan = set use_linscan
+  let _no_float_const_prop = unset float_const_prop
+  let _nodynlink = unset dlcode
+  let _p () =
+    Compenv.fatal "Profiling with \"gprof\" (option `-p') is only supported up \
+           to OCaml 4.08.0"
+  let _S = set keep_asm_file
+  let _shared = set_all [shared;dlcode]
+  let _afl_instrument = set afl_instrument
+  let _afl_inst_ratio n = afl_inst_ratio := n
+  let _dinterval = set dump_interval
+  let _function_sections () = let _function_sections () =
+    assert (Config.function_sections);
+    first_ccopts := "-ffunction-sections" :: !first_ccopts;
+    function_sections := true
+end
+
 module type Opttop_options = sig
   include Toplevel_options
   include Optcommon_options
   val _verbose : unit -> unit
   val _S : unit -> unit
 end;;
+
+module Default_opttop_options = struct
+  include Default_toplevel_options
+  include Default_optcommon_options
+  let _verbose = set Clflags.verbose
+  let _S = set Clflags.keep_asm_file
+end
 
 module type Ocamldoc_options = sig
   include Common_options
@@ -1101,6 +1387,20 @@ module type Ocamldoc_options = sig
   val _verbose : unit -> unit
   val _vmthread : unit -> unit
 end
+
+module Default_ocamldoc_options = struct
+  include Default_common_options
+  let _impl = ignore
+  let _intf = ignore
+  open Clflags
+  let _pp = set_some preprocessor
+  let _thread = set use_threads
+  let _intf_suffix s = Config.interface_suffix := s
+  let _v () = Compenv.print_version_and_library "documentation generator"
+  let _verbose = set verbose
+  include Default_vmthread
+end
+
 
 module type Arg_list = sig
     val list : (string * Arg.spec * string) list
