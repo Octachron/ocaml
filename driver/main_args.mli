@@ -255,6 +255,13 @@ module Make_optcomp_options (F : Optcomp_options) : Arg_list;;
 module Make_opttop_options (F : Opttop_options) : Arg_list;;
 module Make_ocamldoc_options (F : Ocamldoc_options) : Arg_list;;
 
+module Default_bytecomp_options: Bytecomp_options
+module Default_bytetop_options: Bytetop_options
+module Default_opttop_options: Opttop_options
+module Default_optcomp_options: Optcomp_options
+module Default_ocamldoc_options: Ocamldoc_options
+
+
 (** [options_with_command_line_syntax options r] returns [options2] that behaves
     like [options], but additionally pushes command line argument on [r] (quoted
     by [Filename.quote] when necessary).
