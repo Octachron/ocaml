@@ -63,11 +63,4 @@ open Ppx_tools_405
 *)
 let () =
   Compiler_libs.Ast_mapper.register
-    (fun args -> migration.copy_mapper
-      (Versions.migrate Versions.ocaml_405 Versions.ocaml_current)
-        (fun _config _cookies ->
-          match enabled () with
-          | `Enabled ->
-            Ast_mapper_class.to_mapper (new Instrument.instrumenter)
-          | `Disabled ->
-            Ast_405.shallow_identity) args)
+    (fun _ -> migration.copy_mapper mapper)
