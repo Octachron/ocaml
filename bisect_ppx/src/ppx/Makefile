@@ -37,11 +37,9 @@ bisect_ppx: comments_lexer.cmo comments.cmo exclude.cmo exclude_parser.cmo exclu
 	ocamlyacc $<
 %.ml: %.mlp
 	mv $< $@
-	ocamlfind ocamlc -package ppx_tools.metaquot -dsource $@ &> $< | echo "process instrument.mlp"
+	ocamlfind ppx_tools_versioned/metaquot_409/ppx.exe $@ &> $< | echo "process instrument.mlp"
 	rm $@
 	mv $< $@
-	sed -i '1d;708d;709d' $@
-
 
 # Dependencies as provided by ocamldep
 
