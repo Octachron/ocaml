@@ -127,12 +127,12 @@ struct
       let point =
         try
           List.find
-            (fun point -> Bisect.Common.(point.offset) = point_offset)
+            (fun point -> Common.(point.offset) = point_offset)
             !points
         with Not_found ->
           let new_index = List.length !points in
           let new_point =
-            Bisect.Common.{offset = point_offset; identifier = new_index} in
+            Common.{offset = point_offset; identifier = new_index} in
           points := new_point::!points;
           new_point
       in
@@ -624,7 +624,7 @@ struct
 
     let point_count = conv_int ~loc (List.length !points) in
     let points_data =
-      conv_str ~loc (Bisect.Common.write_points !points) in
+      conv_str ~loc (Common.write_points !points) in
     let file = conv_str ~loc file in
 
     (* ___bisect_visit___ is a function with a reference to a point count array.

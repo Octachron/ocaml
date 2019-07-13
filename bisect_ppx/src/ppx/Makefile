@@ -4,7 +4,8 @@ include $(ROOTDIR)/Makefile.config
 include $(ROOTDIR)/Makefile.common
 
 directories := $(addprefix $(ROOTDIR)/,stdlib otherlibs/unix otherlibs/str \
-                                        compilerlibs typing parsing bisect_ppx/src/runtime)
+                                        compilerlibs typing parsing \
+                                        bisect_ppx/src/runtime)
 
 include_directories := $(addprefix -I , $(directories))
 
@@ -38,8 +39,9 @@ bisect_ppx: comments_lexer.cmo comments.cmo exclude.cmo exclude_parser.cmo exclu
 %.ml: %.mlp
 	mv $< $@
 	ocamlfind ppx_tools_versioned/metaquot_409/ppx.exe $@ &> $< | echo "process instrument.mlp"
-	rm $@
-	mv $< $@
+	#sed 's/Ast_409.//g;s/Migrate_parsetree__Asttypes.//g;s/Migrate_parsetree__Longident.//g;s/Migrate_parsetree__Ast_409.//g' $< &> $@
+	sed 's/Ast_409.//g;s/Migrate_parsetree__Ast_409.//g;s/Migrate_parsetree__//g' $< &> $@
+	rm $<
 
 # Dependencies as provided by ocamldep
 
