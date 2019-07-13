@@ -95,7 +95,7 @@ module Generated_code :
                 let open Common in
                   { offset = point_offset; identifier = new_index } in
               (points := (new_point :: (!points)); new_point) in
-        conv_int point.identifier in
+        let open Common in conv_int point.identifier in
       outline ()
     let instrument_case points case =
       let module Helper_types =
@@ -608,7 +608,7 @@ module Generated_code :
           (Str.open_ ~loc) @@
             (Opn.mk ~loc (conv_lid ~loc mangled_module_name)) in
       [generated_module; module_open]
-  end
+  end 
 let super = Ast_mapper.default
 let class_expr ce =
   let loc = ce.pcl_loc in

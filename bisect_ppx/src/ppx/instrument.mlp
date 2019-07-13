@@ -136,6 +136,7 @@ struct
           points := new_point::!points;
           new_point
       in
+      let open Common in
       conv_int point.identifier
 
     in
