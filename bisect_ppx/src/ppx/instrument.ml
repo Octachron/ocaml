@@ -3,7 +3,6 @@ open Ast_mapper
 open Asttypes
 open Parsetree
 module Location = Location
-module Parsetree = Parsetree
 module Common = Common
 module Pat = Pat
 module Exp = Exp
@@ -277,25 +276,27 @@ module Generated_code :
                      |>
                      (fun nested_match ->
                         (Exp.attr nested_match
-                           ((Location.mkloc "ocaml.warning" loc),
-                             (PStr
-                                [{
-                                   Parsetree.pstr_desc =
-                                     (Parsetree.Pstr_eval
-                                        ({
-                                           Parsetree.pexp_desc =
-                                             (Parsetree.Pexp_constant
-                                                (Parsetree.Pconst_string
-                                                   ("-4-8-9-11-26-27-28",
-                                                     None)));
-                                           Parsetree.pexp_loc = loc;
-                                           Parsetree.pexp_loc_stack =
-                                             [];
-                                           Parsetree.pexp_attributes
-                                             = []
-                                         }, []));
-                                   Parsetree.pstr_loc = loc
-                                 }])))
+                           {attr_name = Location.mkloc "ocaml.warning" loc;
+                             attr_payload =
+                                (Parsetree.PStr
+                                   [{
+                                      Parsetree.pstr_desc =
+                                        (Parsetree.Pstr_eval
+                                           ({
+                                              Parsetree.pexp_desc =
+                                                (Parsetree.Pexp_constant
+                                                   (Parsetree.Pconst_string
+                                                      ("-4-8-9-11-26-27-28",
+                                                        None)));
+                                              Parsetree.pexp_loc =
+                                                loc;
+                                              Parsetree.pexp_loc_stack
+                                                = [];
+                                              Parsetree.pexp_attributes
+                                                = []
+                                            }, []));
+                                      Parsetree.pstr_loc = loc
+                                    }]); attr_loc = loc})
                           |>
                           (fun nested_match_with_attribute ->
                              {
@@ -608,7 +609,7 @@ module Generated_code :
           (Str.open_ ~loc) @@
             (Opn.mk ~loc (conv_lid ~loc mangled_module_name)) in
       [generated_module; module_open]
-  end 
+  end
 let super = Ast_mapper.default
 let class_expr ce =
   let loc = ce.pcl_loc in
