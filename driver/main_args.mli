@@ -261,6 +261,16 @@ module Default_opttop_options: Opttop_options
 module Default_optcomp_options: Optcomp_options
 module Default_ocamldoc_options: Ocamldoc_options
 
+val default_bytecomp: (string * Arg.spec * string) list
+val default_bytetop: (string * Arg.spec * string) list
+val default_opttop: (string * Arg.spec * string) list
+val default_optcomp: (string * Arg.spec * string) list
+val default_ocamldoc: (string * Arg.spec * string) list
+
+val update:
+  (string * Arg.spec * string) list -> Arg.spec Misc.Stdlib.String.Map.t
+  -> (string * Arg.spec * string) list
+
 
 (** [options_with_command_line_syntax options r] returns [options2] that behaves
     like [options], but additionally pushes command line argument on [r] (quoted

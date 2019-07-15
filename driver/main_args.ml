@@ -1057,7 +1057,8 @@ module Default_compiler_options = struct
   let _o = set_some output_name
   let _opaque = set opaque
   let _output_obj =  set_all [output_c_object; custom_runtime]
-  let _output_complete_obj =   set_all [output_c_object; output_complete_object; custom_runtime]
+  let _output_complete_obj =
+    set_all [output_c_object; output_complete_object; custom_runtime]
   let _pack = set make_package
   let _plugin _ = set plugin ()
   let _pp  = set_some preprocessor
@@ -1252,7 +1253,8 @@ module Default_optcommon_options = struct
       Clflags.inline_max_unroll
   let _classic_inlining = set classic_inlining
   let inline_cost arg r spec =
-    let desc = Printf.sprintf "Syntax: -inline-%s-cost <n> | <round>=<n>[,...]" arg in
+    let desc =
+      Printf.sprintf "Syntax: -inline-%s-cost <n> | <round>=<n>[,...]" arg in
     Int_arg_helper.parse spec desc r
   let _inline_call_cost = inline_cost "call" inline_call_cost
   let _inline_alloc_cost = inline_cost "alloc" inline_alloc_cost
@@ -1855,6 +1857,32 @@ struct
     mk__ F.anonymous;
   ]
 end;;
+
+
+let default_bytecomp =
+  let module M = Make_bytecomp_options(Default_bytecomp_options) in
+  M.list
+let default_bytetop =
+  let module M = Make_bytetop_options(Default_bytetop_options) in
+  M.list
+let default_optcomp =
+  let module M = Make_optcomp_options(Default_optcomp_options) in
+  M.list
+let default_opttop =
+  let module M = Make_opttop_options(Default_opttop_options) in
+  M.list
+let default_ocamldoc =
+  let module M = Make_ocamldoc_options(Default_ocamldoc_options) in
+  M.list
+
+
+
+let update args update_map =
+  List.map (fun (k, _ , doc as arg) ->
+      match Misc.Stdlib.String.Map.find k update_map with
+       | exception Not_found -> arg
+       | f -> k, f, doc
+    ) args
 
 [@@@ocaml.warning "-40"]
 let options_with_command_line_syntax_inner r after_rest =
