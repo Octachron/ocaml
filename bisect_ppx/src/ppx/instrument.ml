@@ -610,14 +610,14 @@ module Generated_code :
             (Opn.mk ~loc (Mod.ident ~loc (conv_lid mangled_module_name))) in
       [generated_module; module_open]
   end
-let super = Ast_mapper.default
+let super = Ast_mapper.default_mapper
 let class_expr ce =
   let loc = ce.pcl_loc in
-  let ce = super.class_expr mapper ce in
+  let ce = super.class_expr default_mapper ce in
   match ce.pcl_desc with
   | Pcl_apply (ce, args) ->
       let args =
-        List.map (fun (label, e) -> (label, (instrument_expr e))) args in
+        List.map (fun (label, e) -> (label, (Generated_code.instrument_expr e))) args in
       Ast.Ast_helper.Cl.apply ~loc ~attrs:(ce.pcl_attributes) ce args
   | _ -> ce
 let class_field cf =
