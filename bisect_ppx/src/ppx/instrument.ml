@@ -2,7 +2,6 @@ open Ast_helper
 open Ast_mapper
 open Asttypes
 open Parsetree
-(*module Location = Location*)
 module Common = Common
 module Pat = Pat
 module Exp = Exp
@@ -608,7 +607,7 @@ module Generated_code :
       let module_open =
         let open Ast_helper in
           (Str.open_ ~loc) @@
-            (Opn.mk ~loc ({ pmod_desc = conv_lid; pmod_loc = ~loc; pmod_attributes = [] } mangled_module_name)) in
+            (Opn.mk ~loc (Mod.ident ~loc (conv_lid mangled_module_name))) in
       [generated_module; module_open]
   end
 let super = Ast_mapper.default
