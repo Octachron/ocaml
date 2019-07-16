@@ -611,13 +611,16 @@ module Generated_code :
       [generated_module; module_open]
   end
 let super = Ast_mapper.default_mapper
+
+let instrument_expr = Generated_code.instrument_case @@ Generated_code.init ()
+
 let class_expr ce =
   let loc = ce.pcl_loc in
   let ce = super.class_expr default_mapper ce in
   match ce.pcl_desc with
   | Pcl_apply (ce, args) ->
       let args =
-        List.map (fun (label, e) -> (label, (Generated_code.instrument_expr e))) args in
+        List.map (fun (label, e) -> (label, (instrument_expr e))) args in
       Ast.Ast_helper.Cl.apply ~loc ~attrs:(ce.pcl_attributes) ce args
   | _ -> ce
 let class_field cf =
