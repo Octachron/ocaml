@@ -48,8 +48,9 @@ let switches = [
 
 
 
-open Migrate_parsetree
+(*open Migrate_parsetree
 open Ppx_tools_405
+*)
 
 (*let () =
   Driver.register ~name:"bisect_ppx" ~args:switches ~position:100
@@ -62,5 +63,5 @@ open Ppx_tools_405
     end
 *)
 let () =
-  Compiler_libs.Ast_mapper.register
-    (fun _ -> migration.copy_mapper mapper)
+  Ast_mapper.register "bisect_ppx"
+    (fun _ -> Instrument.mapper)
