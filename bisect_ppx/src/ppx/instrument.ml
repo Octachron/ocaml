@@ -612,7 +612,9 @@ module Generated_code :
   end
 let super = Ast_mapper.default_mapper
 
-let instrument_expr = Generated_code.instrument_case @@ Generated_code.init ()
+let instrument_expr = Generated_code.instrument_expr @@ Generated_code.init ()
+let instrument_class_field_kind = Generated_code.instrument_class_field_kind @@ Generated_code.init ()
+let instrument_case = Generated_code.instrument_case @@ Generated_code.init ()
 
 let class_expr ce =
   let loc = ce.pcl_loc in
@@ -621,12 +623,12 @@ let class_expr ce =
   | Pcl_apply (ce, args) ->
       let args =
         List.map (fun (label, e) -> (label, (instrument_expr e))) args in
-      Ast.Ast_helper.Cl.apply ~loc ~attrs:(ce.pcl_attributes) ce args
+      Ast_helper.Cl.apply ~loc ~attrs:(ce.pcl_attributes) ce args
   | _ -> ce
 let class_field cf =
   let loc = cf.pcf_loc in
   let attrs = cf.pcf_attributes in
-  let cf = super.class_field mapper cf in
+  let cf = super.class_field default_mapper cf in
   match cf.pcf_desc with
   | Pcf_val (name, mutable_, cf) ->
       Cf.val_ ~loc ~attrs name mutable_ (instrument_class_field_kind cf)
@@ -637,7 +639,7 @@ let class_field cf =
 let expr e =
   let loc = e.pexp_loc in
   let attrs = e.pexp_attributes in
-  let e' = super.expr mapper e in
+  let e' = super.expr default_mapper e in
   match e'.pexp_desc with
   | Pexp_let (rec_flag, bindings, e) ->
       let bindings =
