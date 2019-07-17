@@ -51,7 +51,6 @@ let switches = [
 (*open Migrate_parsetree
 open Ppx_tools_405
 *)
-
 (*let () =
   Driver.register ~name:"bisect_ppx" ~args:switches ~position:100
     Versions.ocaml_405 begin fun _config _cookies ->
