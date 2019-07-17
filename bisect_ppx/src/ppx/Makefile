@@ -9,8 +9,6 @@ directories := $(addprefix $(ROOTDIR)/,stdlib otherlibs/unix otherlibs/str \
 
 include_directories := $(addprefix -I , $(directories))
 
-#include_cmos := $(shell find $(directories) -name '*.cmo')
-
 #print-%  : ; @echo $* = $($*)
 
 include_cmos := build_path_prefix_map.cmo config.cmo misc.cmo \
@@ -34,7 +32,7 @@ ocamlc := $(ROOTDIR)/runtime/ocamlrun $(ROOTDIR)/ocamlc $(flags)
 all: bisect_ppx
 
 bisect_ppx: comments_lexer.cmo comments.cmo exclude.cmo exclude_parser.cmo exclude_lexer.cmo exclusions.cmo instrument.cmo register.cmo
-	$(ocamlc) -o $@ unix.cma $(include_cmos) $^
+	$(ocamlc) -o $@ strstubs.c unix.cma $(include_cmos) $^
 
 # Generic rules
 
