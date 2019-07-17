@@ -616,19 +616,19 @@ let instrument_expr = Generated_code.instrument_expr @@ Generated_code.init ()
 let instrument_class_field_kind = Generated_code.instrument_class_field_kind @@ Generated_code.init ()
 let instrument_case = Generated_code.instrument_case @@ Generated_code.init ()
 
-let class_expr ce =
+let class_expr mapper ce =
   let loc = ce.pcl_loc in
-  let ce = super.class_expr default_mapper ce in
+  let ce = super.class_expr mapper ce in
   match ce.pcl_desc with
   | Pcl_apply (ce, args) ->
       let args =
         List.map (fun (label, e) -> (label, (instrument_expr e))) args in
       Ast_helper.Cl.apply ~loc ~attrs:(ce.pcl_attributes) ce args
   | _ -> ce
-let class_field cf =
+let class_field mapper cf =
   let loc = cf.pcf_loc in
   let attrs = cf.pcf_attributes in
-  let cf = super.class_field default_mapper cf in
+  let cf = super.class_field mapper cf in
   match cf.pcf_desc with
   | Pcf_val (name, mutable_, cf) ->
       Cf.val_ ~loc ~attrs name mutable_ (instrument_class_field_kind cf)
@@ -636,10 +636,10 @@ let class_field cf =
       Cf.method_ ~loc ~attrs name private_ (instrument_class_field_kind cf)
   | Pcf_initializer e -> Cf.initializer_ ~loc ~attrs (instrument_expr e)
   | _ -> cf
-let expr e =
+let expr mapper e =
   let loc = e.pexp_loc in
   let attrs = e.pexp_attributes in
-  let e' = super.expr default_mapper e in
+  let e' = super.expr mapper e in
   match e'.pexp_desc with
   | Pexp_let (rec_flag, bindings, e) ->
       let bindings =
@@ -727,7 +727,7 @@ let expr e =
       Exp.for_ ~loc ~attrs variable initial bound direction
         (instrument_expr body)
   | _ -> e'
-let structure_item si =
+let structure_item mapper si =
   let loc = si.pstr_loc in
   match si.pstr_desc with
   | Pstr_value (rec_flag, bindings) ->
@@ -754,23 +754,26 @@ let structure_item si =
                 else
                   {
                     binding with
-                    pvb_expr = (instrument_expr (self#expr binding.pvb_expr))
+                    pvb_expr = (instrument_expr (super.expr mapper binding.pvb_expr))
                   })) in
       Str.value ~loc rec_flag bindings
   | Pstr_eval (e, a) ->
-      Str.eval ~loc ~attrs:a (instrument_expr (self#expr e))
+      Str.eval ~loc ~attrs:a (instrument_expr (super.expr mapper e))
   | _ -> super.structure_item mapper si
-let extension e = e
-let attribute a = a
-let signature ast =
-  if not saw_top_level_structure_or_signature
-  then saw_top_level_structure_or_signature <- true;
+let extension _ e = e
+let attribute _ a = a
+
+let saw_top_level_structure_or_signature = ref false
+
+let signature mapper ast =
+  if not !saw_top_level_structure_or_signature
+  then saw_top_level_structure_or_signature := true;
   super.signature mapper ast
-let structure ast =
-  if saw_top_level_structure_or_signature
+let structure mapper ast =
+  if !saw_top_level_structure_or_signature
   then super.structure mapper ast
   else
-    (saw_top_level_structure_or_signature <- true;
+    (saw_top_level_structure_or_signature := true;
      (let always_ignore_paths = ["//toplevel//"; "(stdin)"] in
       let always_ignore_basenames = [".ocamlinit"; "topfind"] in
       let always_ignore path =
@@ -784,7 +787,7 @@ let structure ast =
         else
           (let instrumented_ast = super.structure mapper ast in
            let runtime_initialization =
-             Generated_code.runtime_initialization points
+             Generated_code.runtime_initialization (Generated_code.init ())
                (!Location.input_name) in
            runtime_initialization @ instrumented_ast)))
 let mapper =
@@ -792,6 +795,7 @@ let mapper =
     super with
     class_expr;
     class_field;
+    expr;
     structure_item;
     extension;
     attribute;
