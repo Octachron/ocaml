@@ -476,7 +476,9 @@ world.opt: checknative
 .PHONY: world.bisected
 world.bisected:
 	rm -f $(shell find . -wholename "**/*.cmo" ! -path "./compilerlibs/*.cmo" ! -path "./stdlib/*.cmo" ! -path "./boot/std_exit.cmo")
-	$(MAKE) PPX="-ppx ./ppx/bisect_ppx" ocamlc
+	#$(MAKE) -C bisect_ppx/src/ppx
+	$(MAKE) PPX="-ppx ./bisect_ppx/src/ppx/bisect_ppx" ocamlc
+	$(MAKE) PPX="-ppx ./bisect_ppx/src/ppx/bisect_ppx" ocamlopt
 
 # FlexDLL sources missing error messages
 # Different git mechanism displayed depending on whether this source tree came
