@@ -30,7 +30,7 @@ ocamlc := $(ROOTDIR)/runtime/ocamlrun $(ROOTDIR)/ocamlc $(flags)
 all: bisect_ppx
 
 bisect_ppx: comments_lexer.cmo comments.cmo exclude.cmo exclude_parser.cmo exclude_lexer.cmo exclusions.cmo instrument.cmo register.cmo
-	$(ocamlc) -o $@ unix.cma $(include_cmos) $^
+	$(ocamlc) -o $@ unix.cma $(include_cmos) $^ -custom
 
 # Generic rules
 

@@ -21,6 +21,7 @@ include Makefile.config
 include Makefile.common
 
 PPX=
+CUSTOM=
 
 # For users who don't read the INSTALL file
 .PHONY: defaultentry
@@ -45,7 +46,7 @@ endif
 
 include stdlib/StdlibModules
 
-CAMLC=$(BOOT_OCAMLC) -g -nostdlib -I boot -use-prims runtime/primitives
+CAMLC=$(BOOT_OCAMLC) $(PPX) -g -nostdlib -I boot -use-prims runtime/primitives $(CUSTOM)
 CAMLOPT=$(CAMLRUN) ./ocamlopt -g -nostdlib -I stdlib -I otherlibs/dynlink
 ARCHES=amd64 i386 arm arm64 power s390x
 INCLUDES=-I utils -I parsing -I typing -I bytecomp -I file_formats \
@@ -475,10 +476,11 @@ world.opt: checknative
 # Compile ocamlc with bisect_ppx
 .PHONY: world.bisected
 world.bisected:
-	rm -f $(shell find . -wholename "**/*.cmo" ! -path "./compilerlibs/*.cmo" ! -path "./stdlib/*.cmo" ! -path "./boot/std_exit.cmo")
-	#$(MAKE) -C bisect_ppx/src/ppx
-	$(MAKE) PPX="-ppx ./bisect_ppx/src/ppx/bisect_ppx" ocamlc
-	$(MAKE) PPX="-ppx ./bisect_ppx/src/ppx/bisect_ppx" ocamlopt
+	rm typing/typetexp.cmo
+	$(MAKE) -C bisect_ppx/src/runtime
+	$(MAKE) -C bisect_ppx/src/ppx
+	$(MAKE) PPX="-ppx ./bisect_ppx/src/ppx/bisect_ppx" CUSTOM="-custom" ocamlc
+	$(MAKE) PPX="-ppx ./bisect_ppx/src/ppx/bisect_ppx" CUSTOM="-custom" ocamlopt
 
 # FlexDLL sources missing error messages
 # Different git mechanism displayed depending on whether this source tree came
