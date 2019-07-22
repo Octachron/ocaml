@@ -44,10 +44,8 @@ bisect_ppx: comments_lexer.cmo comments.cmo exclude.cmo exclude_parser.cmo exclu
 %.ml: %.mly
 	ocamlyacc $<
 %.ml: %.mlp
-	mv $< $@
-	ocamlfind ppx_tools_versioned/metaquot_409/ppx.exe $@ &> $< | echo "process instrument.mlp"
-	sed 's/Ast_409.//g;s/Migrate_parsetree__Ast_409.//g;s/Migrate_parsetree__//g' $< &> $@
-	rm $<
+	ocamlfind ppx_tools_versioned/metaquot_409/ppx.exe --impl $< | \
+	sed 's/Ast_409.//g;s/Migrate_parsetree__Ast_409.//g;s/Migrate_parsetree__//g' > $@
 
 # Dependencies as provided by ocamldep
 
