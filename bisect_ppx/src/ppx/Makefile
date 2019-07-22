@@ -14,7 +14,8 @@ include_cmos := build_path_prefix_map.cmo config.cmo misc.cmo \
         arg_helper.cmo clflags.cmo longident.cmo \
         location.cmo load_path.cmo \
         docstrings.cmo common.cmo \
-        ast_helper.cmo ast_mapper.cmo
+        ast_helper.cmo ast_mapper.cmo \
+        version.cmo extension.cmo runtime.cmo bisect.cmo
 
 flags := -g -nostdlib $(include_directories) \
   -strict-sequence -safe-string -strict-formats \
