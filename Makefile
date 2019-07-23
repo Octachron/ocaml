@@ -46,7 +46,7 @@ LN = ln -sf
 endif
 
 include stdlib/StdlibModules
-# add runtime as flag?
+
 CAMLC=$(BOOT_OCAMLC) $(PPX) -g -nostdlib -I boot -I $(RUNTIME) -use-prims runtime/primitives $(CUSTOM)
 CAMLOPT=$(CAMLRUN) ./ocamlopt -g -nostdlib -I stdlib -I otherlibs/dynlink
 ARCHES=amd64 i386 arm arm64 power s390x
@@ -800,7 +800,7 @@ partialclean::
 	rm -f compilerlibs/ocamlbytecomp.cma
 
 ocamlc: compilerlibs/ocamlcommon.cma compilerlibs/ocamlbytecomp.cma $(BYTESTART)
-	$(CAMLC) $(LINKFLAGS) -compat-32 -o $@ common.cmo extension.cmo runtime.cmo $^
+	$(CAMLC) $(LINKFLAGS) -compat-32 -I otherlibs/unix/ -o $@ unix.cmo common.cmo extension.cmo runtime.cmo $^
 # i think those cmos shouldn't be there
 partialclean::
 	rm -rf ocamlc
