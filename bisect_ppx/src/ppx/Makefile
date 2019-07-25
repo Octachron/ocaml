@@ -35,9 +35,9 @@ bisect_ppx: comments_lexer.cmo comments.cmo exclude.cmo exclude_parser.cmo exclu
 
 # Generic rules
 
-%.cmo: %.ml
-	$(ocamlc) -c $<
 %.cmi: %.mli
+	$(ocamlc) -c $<
+%.cmo: %.ml
 	$(ocamlc) -c $<
 
 %.ml: %.mll

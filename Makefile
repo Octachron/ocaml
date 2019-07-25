@@ -23,6 +23,7 @@ include Makefile.common
 PPX=
 CUSTOM=
 RUNTIME=
+ADDCMO=
 
 # For users who don't read the INSTALL file
 .PHONY: defaultentry
@@ -47,7 +48,7 @@ endif
 
 include stdlib/StdlibModules
 
-CAMLC=$(BOOT_OCAMLC) $(PPX) -g -nostdlib -I boot $(RUNTIME) -use-prims runtime/primitives $(CUSTOM)
+CAMLC=$(BOOT_OCAMLC) $(PPX) -g -nostdlib -I boot $(RUNTIME) -use-prims runtime/primitives $(CUSTOM) $(ADDCMO)
 CAMLOPT=$(CAMLRUN) ./ocamlopt -g -nostdlib -I stdlib -I otherlibs/dynlink
 ARCHES=amd64 i386 arm arm64 power s390x
 INCLUDES=-I utils -I parsing -I typing -I bytecomp -I file_formats \
@@ -480,8 +481,8 @@ world.bisected:
 	#rm typing/typetexp.cmo
 	$(MAKE) -C bisect_ppx/src/runtime
 	$(MAKE) -C bisect_ppx/src/ppx
-	$(MAKE) PPX="-ppx ./bisect_ppx/src/ppx/bisect_ppx" CUSTOM="-custom" RUNTIME="bisect_ppx/src/runtime" ocamlc
-	$(MAKE) PPX="-ppx ./bisect_ppx/src/ppx/bisect_ppx" CUSTOM="-custom" ocamlopt
+	$(MAKE) PPX="-ppx ./bisect_ppx/src/ppx/bisect_ppx" CUSTOM="-custom" RUNTIME="-I bisect_ppx/src/runtime" ADDCMO="extension.cmo common.cmo runtime.cmo" ocamlc
+	$(MAKE) PPX="-ppx ./bisect_ppx/src/ppx/bisect_ppx" CUSTOM="-custom" RUNTIME="-I bisect_ppx/src/runtime" ADDCMO="extension.cmo common.cmo runtime.cmo" ocamlopt
 
 # FlexDLL sources missing error messages
 # Different git mechanism displayed depending on whether this source tree came
@@ -800,7 +801,7 @@ partialclean::
 	rm -f compilerlibs/ocamlbytecomp.cma
 
 ocamlc: compilerlibs/ocamlcommon.cma compilerlibs/ocamlbytecomp.cma $(BYTESTART)
-	$(CAMLC) $(LINKFLAGS) -compat-32 -I otherlibs/unix/ -o $@ unix.cmo common.cmo extension.cmo runtime.cmo $^
+	$(CAMLC) $(LINKFLAGS) -compat-32 -I otherlibs/unix/ -o $@ $^
 # i think those cmos shouldn't be there
 partialclean::
 	rm -rf ocamlc

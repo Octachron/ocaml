@@ -55,7 +55,7 @@ let () =
 
 let file_channel () =
   let base_name = full_path (env_to_fname "BISECT_FILE" "bisect") in
-  let rec create_file () =
+  let create_file () =
     let numeric_suffix = abs (Random.int 1000000000) in
     let filename =
       Printf.sprintf "%s%09d.%s" base_name numeric_suffix Extension.value in
