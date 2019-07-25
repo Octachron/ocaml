@@ -47,7 +47,7 @@ endif
 
 include stdlib/StdlibModules
 
-CAMLC=$(BOOT_OCAMLC) $(PPX) -g -nostdlib -I boot -I $(RUNTIME) -use-prims runtime/primitives $(CUSTOM)
+CAMLC=$(BOOT_OCAMLC) $(PPX) -g -nostdlib -I boot $(RUNTIME) -use-prims runtime/primitives $(CUSTOM)
 CAMLOPT=$(CAMLRUN) ./ocamlopt -g -nostdlib -I stdlib -I otherlibs/dynlink
 ARCHES=amd64 i386 arm arm64 power s390x
 INCLUDES=-I utils -I parsing -I typing -I bytecomp -I file_formats \

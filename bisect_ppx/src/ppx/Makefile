@@ -3,7 +3,7 @@ ROOTDIR = ../../..
 include $(ROOTDIR)/Makefile.config
 include $(ROOTDIR)/Makefile.common
 
-directories := $(addprefix $(ROOTDIR)/,stdlib otherlibs/unix otherlibs/str \
+directories := $(addprefix $(ROOTDIR)/,stdlib otherlibs/str \
                                         compilerlibs utils typing parsing \
                                         bisect_ppx/src/runtime)
 
@@ -31,7 +31,7 @@ ocamlc := $(ROOTDIR)/runtime/ocamlrun $(ROOTDIR)/ocamlc $(flags)
 all: bisect_ppx
 
 bisect_ppx: comments_lexer.cmo comments.cmo exclude.cmo exclude_parser.cmo exclude_lexer.cmo exclusions.cmo instrument.cmo register.cmo
-	$(ocamlc) -o $@ unix.cma $(include_cmos) $^ -custom
+	$(ocamlc) -o $@ $(include_cmos) $^ -custom
 
 # Generic rules
 
