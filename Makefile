@@ -479,10 +479,21 @@ world.opt: checknative
 .PHONY: world.bisected
 world.bisected:
 	#rm typing/typetexp.cmo
+	rm `find . -name '*.cmo'`
 	$(MAKE) -C bisect_ppx/src/runtime
 	$(MAKE) -C bisect_ppx/src/ppx
 	$(MAKE) PPX="-ppx ./bisect_ppx/src/ppx/bisect_ppx" CUSTOM="-custom" RUNTIME="-I bisect_ppx/src/runtime" ADDCMO="extension.cmo common.cmo runtime.cmo" ocamlc
 	$(MAKE) PPX="-ppx ./bisect_ppx/src/ppx/bisect_ppx" CUSTOM="-custom" RUNTIME="-I bisect_ppx/src/runtime" ADDCMO="extension.cmo common.cmo runtime.cmo" ocamlopt
+
+.PHONY: clean.bisected
+clean.bisected:
+	rm -f `find ./bisect_ppx -name '*.cmo'`
+	rm -f ./bisect_ppx/src/runtime/bisect_ppx.runtime.cma
+	rm -f ./bisect_ppx/src/ppx/bisect_ppx
+
+.PHONY: tests.bisected
+tests.bisected:
+
 
 # FlexDLL sources missing error messages
 # Different git mechanism displayed depending on whether this source tree came
