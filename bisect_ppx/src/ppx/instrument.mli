@@ -9,4 +9,6 @@
 (**  This class implements an instrumenter to be used through the {i -ppx}
     command-line switch. *)
 
-val mapper : Ast_mapper.mapper
+module Make: functor() -> sig
+  val mapper : Ast_mapper.mapper
+end

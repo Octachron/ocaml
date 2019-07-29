@@ -63,4 +63,7 @@ open Ppx_tools_405
 *)
 let () =
   Ast_mapper.register "bisect_ppx"
-    (fun _ -> Instrument.mapper)
+    (fun _ ->
+       let module M = Instrument.Make() in
+       M.mapper
+    )

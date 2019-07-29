@@ -478,8 +478,8 @@ world.opt: checknative
 # Compile ocamlc with bisect_ppx
 .PHONY: world.bisected
 world.bisected:
-	#rm typing/typetexp.cmo
-	rm `find . -name '*.cmo'`
+	rm typing/typetexp.cmo
+	# rm `find . -name '*.cmo'`
 	$(MAKE) -C bisect_ppx/src/runtime
 	$(MAKE) -C bisect_ppx/src/ppx
 	$(MAKE) PPX="-ppx ./bisect_ppx/src/ppx/bisect_ppx" CUSTOM="-custom" RUNTIME="-I bisect_ppx/src/runtime" ADDCMO="extension.cmo common.cmo runtime.cmo" ocamlc

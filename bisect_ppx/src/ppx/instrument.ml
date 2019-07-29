@@ -612,9 +612,12 @@ module Generated_code :
   end
 let super = Ast_mapper.default_mapper
 
-let instrument_expr = Generated_code.instrument_expr @@ Generated_code.init ()
-let instrument_class_field_kind = Generated_code.instrument_class_field_kind @@ Generated_code.init ()
-let instrument_case = Generated_code.instrument_case @@ Generated_code.init ()
+
+module Make() = struct
+let points = Generated_code.init ()
+let instrument_expr = Generated_code.instrument_expr @@ points
+let instrument_class_field_kind = Generated_code.instrument_class_field_kind @@ points
+let instrument_case = Generated_code.instrument_case @@ points
 
 let class_expr mapper ce =
   let loc = ce.pcl_loc in
@@ -787,7 +790,7 @@ let structure mapper ast =
         else
           (let instrumented_ast = super.structure mapper ast in
            let runtime_initialization =
-             Generated_code.runtime_initialization (Generated_code.init ())
+             Generated_code.runtime_initialization (points)
                (!Location.input_name) in
            runtime_initialization @ instrumented_ast)))
 let mapper =
@@ -802,3 +805,4 @@ let mapper =
     signature;
     structure
   }
+end
