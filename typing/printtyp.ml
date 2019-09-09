@@ -323,6 +323,11 @@ let ident_name namespace id =
 let reset () =
   Array.iteri ( fun i _ -> map.(i) <- M.empty ) map
 
+let with_ctx f =
+  let old = Array.copy map in
+  try_finally f
+    ~always:(fun () -> Array.blit old 0 map 0 (Array.length map))
+
 end
 let ident_name = Naming_context.ident_name
 let reset_naming_context = Naming_context.reset
@@ -1743,8 +1748,7 @@ and tree_of_signature_rec : 'r. (_->_->'r) -> _ -> _ -> 'r list
 
 and trees_of_recursive_sigitem_group env group =
   let display x =
-    reset_naming_context ();
-    x.src, tree_of_sigitem x.src in
+    Naming_context.with_ctx (fun () -> x.src, tree_of_sigitem x.src) in
   match group with
   | Not_rec x -> add_sigitem env x, [display x]
   | Rec_group (ids,items) ->
