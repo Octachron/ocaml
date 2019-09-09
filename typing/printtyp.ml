@@ -248,12 +248,13 @@ let set namespace x = map.(Namespace.id namespace) <- x
 
 (* Names used in recursive definitions are not considered when determining
    if a name is already attributed in the current environment.
-   This is a weaker version of hidden_rec_items used by short-path. *)
+   This is a complementary version of hidden_rec_items used by short-path. *)
 let protected = ref S.empty
-let add_protected id = protected := S.add (Ident.name id) !protected
-let reset_protected () = protected := S.empty
-let with_hidden id f =
-  protect_refs [ R(protected,S.add (Ident.name id) !protected)] f
+
+let with_hidden ids f x =
+  let update m id = S.add (Ident.name id) m in
+  protect_refs [ R(protected, List.fold_left update !protected ids)]
+    (fun () -> f x)
 
 let pervasives_name namespace name =
   if not !enabled then Out_name.create name else
@@ -1644,10 +1645,6 @@ let hide ids env = List.fold_right
     (fun id -> Env.add_type ~check:false (Ident.rename id) dummy)
     ids env
 
-let hide_rec_items ids =
-  if not !Clflags.real_paths then
-    set_printing_env (hide ids !printing_env)
-
 (** Classes and class types generate ghosts signature items, we group them
     together before printing *)
 type syntactic_sig_item =
@@ -1656,6 +1653,10 @@ type rec_item_group =
   | Not_rec of syntactic_sig_item
   | Rec_group of (Ident.t list * syntactic_sig_item list)
 
+let with_hidden_items ~is_type ids f =
+  if is_type && not !Clflags.real_paths then
+    wrap_env (hide ids) (Naming_context.with_hidden ids f)
+  else Naming_context.with_hidden ids f
 
 let group_syntactic_items x =
   let rec group acc = function
@@ -1745,12 +1746,10 @@ and trees_of_recursive_sigitem_group env group =
       let is_type = match items with
         | {src=Sig_type _; _ } :: _ -> true
         | _ -> false  in
-      List.iter Naming_context.add_protected ids;
-      if is_type then hide_rec_items ids;
-      let r = List.flatten (List.map display items) in
-      Naming_context.reset_protected ();
       List.fold_left add_sigitem env items,
-      r
+      with_hidden_items ~is_type ids
+        (fun x -> List.flatten @@ List.map display x)
+        items
 
 and trees_of_sigitem = function
   | Sig_value(id, decl, _) ->
@@ -2257,7 +2256,4 @@ let tree_of_modtype = tree_of_modtype ~ellipsis:false
 let type_expansion ty ppf ty' =
   type_expansion ppf (trees_of_type_expansion (ty,ty'))
 let tree_of_type_declaration id td rs =
-  Naming_context.with_hidden id ( (* for disambiguation *)
-    wrap_env (hide [id]) (* for short-path *)
-      (fun () -> tree_of_type_declaration id td rs)
-  )
+  with_hidden_items ~is_type:true [id] (tree_of_type_declaration id td) rs
