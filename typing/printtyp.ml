@@ -1738,7 +1738,10 @@ and tree_of_signature_rec : 'r. (_->_->'r) -> _ -> _ -> 'r list
   = fun decorate env' sg ->
   let structured = group_recursive_items (group_syntactic_items sg) in
   let collect_trees_of_rec_group (env,trees) group =
-    let env', more_trees = trees_of_recursive_sigitem_group env group in
+    let env', more_trees =
+      Naming_context.with_ctx (fun () ->
+          trees_of_recursive_sigitem_group env group
+        ) in
     let more_trees = List.map (decorate env) more_trees in
     set_printing_env env';
     env', more_trees :: trees in
@@ -1747,16 +1750,15 @@ and tree_of_signature_rec : 'r. (_->_->'r) -> _ -> _ -> 'r list
   List.flatten (List.rev rev_trees)
 
 and trees_of_recursive_sigitem_group env group =
-  let display x =
-    Naming_context.with_ctx (fun () -> x.src, tree_of_sigitem x.src) in
-  match group with
-  | Not_rec x -> add_sigitem env x, [display x]
-  | Rec_group (ids,items) ->
-      let is_type = match items with
-        | {src=Sig_type _; _ } :: _ -> true
-        | _ -> false  in
-      List.fold_left add_sigitem env items,
-      with_hidden_items ~is_type ids (List.map display) items
+  let display x =  x.src, tree_of_sigitem x.src in
+      match group with
+      | Not_rec x -> add_sigitem env x, [display x]
+      | Rec_group (ids,items) ->
+          let is_type = match items with
+            | {src=Sig_type _; _ } :: _ -> true
+            | _ -> false  in
+          List.fold_left add_sigitem env items,
+          with_hidden_items ~is_type ids (List.map display) items
 
 and tree_of_sigitem = function
   | Sig_value(id, decl, _) ->
