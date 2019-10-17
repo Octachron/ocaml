@@ -114,6 +114,18 @@ val name_cases : string -> Typedtree.case list -> Ident.t
 
 val self_coercion : (Path.t * Location.t list ref) list ref
 
+type polymorphic_kind =
+  | Method
+  | Field_value
+  | Definition
+
+type disambiguation_context =
+  | Record_access
+  | Record_expression
+  | Record_pattern
+  | Variant_expression
+  | Variant_pattern
+
 type error =
   | Constructor_arity_mismatch of Longident.t * int * int
   | Label_mismatch of Longident.t * Ctype.Unification_trace.t
@@ -131,7 +143,8 @@ type error =
   | Label_missing of Ident.t list
   | Label_not_mutable of Longident.t
   | Wrong_name of
-      string * type_expected * string * Path.t * string * string list
+      disambiguation_context option * type_expected * string
+      * Path.t * string * string list
   | Name_type_mismatch of
       string * Longident.t * (Path.t * Path.t) * (Path.t * Path.t) list
   | Invalid_format of string
@@ -153,7 +166,7 @@ type error =
   | Scoping_let_module of string * type_expr
   | Not_a_variant_type of Longident.t
   | Incoherent_label_order
-  | Less_general of string * Ctype.Unification_trace.t
+  | Less_general of polymorphic_kind * Ctype.Unification_trace.t
   | Modules_not_allowed
   | Cannot_infer_signature
   | Not_a_packed_module of type_expr

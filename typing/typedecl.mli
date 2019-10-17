@@ -89,7 +89,7 @@ type error =
   | Cannot_unbox_or_untag_type of native_repr_kind
   | Deep_unbox_or_untag_attribute of native_repr_kind
   | Immediacy of Typedecl_immediacy.error
-  | Bad_unboxed_attribute of string
+  | Bad_unboxed_attribute of I18n.s
   | Wrong_unboxed_type_float
   | Boxed_and_unboxed
   | Nonrec_gadt
