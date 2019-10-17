@@ -30,6 +30,9 @@ Working version
 
 ### Internal/compiler-libs changes:
 
+- #1523: localization hook for compiler-libs
+  (Florian Angeletti, review by ??)
+
 - #8844: Printing faulty constructors, inline records fields and their types
   during type mismatches. Also slightly changed other type mismatches error
   output.
