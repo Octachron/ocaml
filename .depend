@@ -58,6 +58,11 @@ utils/domainstate.cmo : \
 utils/domainstate.cmx : \
     utils/domainstate.cmi
 utils/domainstate.cmi :
+utils/i18n.cmo : \
+    utils/i18n.cmi
+utils/i18n.cmx : \
+    utils/i18n.cmi
+utils/i18n.cmi :
 utils/identifiable.cmo : \
     utils/misc.cmi \
     utils/identifiable.cmi
@@ -130,11 +135,14 @@ utils/terminfo.cmx : \
 utils/terminfo.cmi :
 utils/warnings.cmo : \
     utils/misc.cmi \
+    utils/i18n.cmi \
     utils/warnings.cmi
 utils/warnings.cmx : \
     utils/misc.cmx \
+    utils/i18n.cmx \
     utils/warnings.cmi
-utils/warnings.cmi :
+utils/warnings.cmi : \
+    utils/i18n.cmi
 parsing/ast_helper.cmo : \
     parsing/syntaxerr.cmi \
     parsing/parsetree.cmi \
@@ -507,6 +515,7 @@ typing/env.cmo : \
     parsing/location.cmi \
     utils/load_path.cmi \
     typing/ident.cmi \
+    utils/i18n.cmi \
     typing/datarepr.cmi \
     file_formats/cmi_format.cmi \
     utils/clflags.cmi \
@@ -526,6 +535,7 @@ typing/env.cmx : \
     parsing/location.cmx \
     utils/load_path.cmx \
     typing/ident.cmx \
+    utils/i18n.cmx \
     typing/datarepr.cmx \
     file_formats/cmi_format.cmx \
     utils/clflags.cmx \
@@ -581,6 +591,7 @@ typing/includeclass.cmo : \
     typing/types.cmi \
     typing/printtyp.cmi \
     typing/path.cmi \
+    utils/i18n.cmi \
     typing/ctype.cmi \
     parsing/builtin_attributes.cmi \
     typing/includeclass.cmi
@@ -588,6 +599,7 @@ typing/includeclass.cmx : \
     typing/types.cmx \
     typing/printtyp.cmx \
     typing/path.cmx \
+    utils/i18n.cmx \
     typing/ctype.cmx \
     parsing/builtin_attributes.cmx \
     typing/includeclass.cmi
@@ -603,6 +615,7 @@ typing/includecore.cmo : \
     typing/printtyp.cmi \
     typing/path.cmi \
     typing/ident.cmi \
+    utils/i18n.cmi \
     typing/env.cmi \
     typing/ctype.cmi \
     parsing/builtin_attributes.cmi \
@@ -616,6 +629,7 @@ typing/includecore.cmx : \
     typing/printtyp.cmx \
     typing/path.cmx \
     typing/ident.cmx \
+    utils/i18n.cmx \
     typing/env.cmx \
     typing/ctype.cmx \
     parsing/builtin_attributes.cmx \
@@ -629,6 +643,7 @@ typing/includecore.cmi : \
     typing/path.cmi \
     parsing/location.cmi \
     typing/ident.cmi \
+    utils/i18n.cmi \
     typing/env.cmi \
     typing/ctype.cmi
 typing/includemod.cmo : \
@@ -645,6 +660,7 @@ typing/includemod.cmo : \
     typing/includecore.cmi \
     typing/includeclass.cmi \
     typing/ident.cmi \
+    utils/i18n.cmi \
     typing/env.cmi \
     typing/ctype.cmi \
     file_formats/cmt_format.cmi \
@@ -666,6 +682,7 @@ typing/includemod.cmx : \
     typing/includecore.cmx \
     typing/includeclass.cmx \
     typing/ident.cmx \
+    utils/i18n.cmx \
     typing/env.cmx \
     typing/ctype.cmx \
     file_formats/cmt_format.cmx \
@@ -882,6 +899,7 @@ typing/printtyp.cmo : \
     parsing/longident.cmi \
     parsing/location.cmi \
     typing/ident.cmi \
+    utils/i18n.cmi \
     typing/env.cmi \
     typing/ctype.cmi \
     utils/clflags.cmi \
@@ -902,6 +920,7 @@ typing/printtyp.cmx : \
     parsing/longident.cmx \
     parsing/location.cmx \
     typing/ident.cmx \
+    utils/i18n.cmx \
     typing/env.cmx \
     typing/ctype.cmx \
     utils/clflags.cmx \
@@ -915,6 +934,7 @@ typing/printtyp.cmi : \
     parsing/longident.cmi \
     parsing/location.cmi \
     typing/ident.cmi \
+    utils/i18n.cmi \
     typing/env.cmi \
     typing/ctype.cmi \
     parsing/asttypes.cmi
@@ -1067,6 +1087,7 @@ typing/typeclass.cmo : \
     parsing/location.cmi \
     typing/includeclass.cmi \
     typing/ident.cmi \
+    utils/i18n.cmi \
     typing/env.cmi \
     typing/ctype.cmi \
     file_formats/cmt_format.cmi \
@@ -1096,6 +1117,7 @@ typing/typeclass.cmx : \
     parsing/location.cmx \
     typing/includeclass.cmx \
     typing/ident.cmx \
+    utils/i18n.cmx \
     typing/env.cmx \
     typing/ctype.cmx \
     file_formats/cmt_format.cmx \
@@ -1112,6 +1134,7 @@ typing/typeclass.cmi : \
     parsing/longident.cmi \
     parsing/location.cmi \
     typing/ident.cmi \
+    utils/i18n.cmi \
     typing/env.cmi \
     typing/ctype.cmi \
     parsing/asttypes.cmi
@@ -1138,6 +1161,7 @@ typing/typecore.cmo : \
     parsing/longident.cmi \
     parsing/location.cmi \
     typing/ident.cmi \
+    utils/i18n.cmi \
     typing/env.cmi \
     typing/ctype.cmi \
     file_formats/cmt_format.cmi \
@@ -1171,6 +1195,7 @@ typing/typecore.cmx : \
     parsing/longident.cmx \
     parsing/location.cmx \
     typing/ident.cmx \
+    utils/i18n.cmx \
     typing/env.cmx \
     typing/ctype.cmx \
     file_formats/cmt_format.cmx \
@@ -1214,6 +1239,7 @@ typing/typedecl.cmo : \
     parsing/location.cmi \
     typing/includecore.cmi \
     typing/ident.cmi \
+    utils/i18n.cmi \
     typing/env.cmi \
     typing/datarepr.cmi \
     typing/ctype.cmi \
@@ -1247,6 +1273,7 @@ typing/typedecl.cmx : \
     parsing/location.cmx \
     typing/includecore.cmx \
     typing/ident.cmx \
+    utils/i18n.cmx \
     typing/env.cmx \
     typing/datarepr.cmx \
     typing/ctype.cmx \
@@ -1270,6 +1297,7 @@ typing/typedecl.cmi : \
     parsing/location.cmi \
     typing/includecore.cmi \
     typing/ident.cmi \
+    utils/i18n.cmi \
     typing/env.cmi \
     typing/ctype.cmi \
     parsing/asttypes.cmi
@@ -1412,6 +1440,7 @@ typing/typemod.cmo : \
     utils/load_path.cmi \
     typing/includemod.cmi \
     typing/ident.cmi \
+    utils/i18n.cmi \
     typing/env.cmi \
     typing/ctype.cmi \
     utils/config.cmi \
@@ -1444,6 +1473,7 @@ typing/typemod.cmx : \
     utils/load_path.cmx \
     typing/includemod.cmx \
     typing/ident.cmx \
+    utils/i18n.cmx \
     typing/env.cmx \
     typing/ctype.cmx \
     utils/config.cmx \
@@ -1543,6 +1573,7 @@ typing/typetexp.cmo : \
     utils/misc.cmi \
     parsing/longident.cmi \
     parsing/location.cmi \
+    utils/i18n.cmi \
     typing/env.cmi \
     typing/ctype.cmi \
     utils/clflags.cmi \
@@ -1563,6 +1594,7 @@ typing/typetexp.cmx : \
     utils/misc.cmx \
     parsing/longident.cmx \
     parsing/location.cmx \
+    utils/i18n.cmx \
     typing/env.cmx \
     typing/ctype.cmx \
     utils/clflags.cmx \
@@ -5597,30 +5629,6 @@ asmcomp/debug/reg_with_debug_info.cmx : \
 asmcomp/debug/reg_with_debug_info.cmi : \
     asmcomp/reg.cmi \
     middle_end/backend_var.cmi
-driver/compdynlink.cmi :
-driver/compdynlink_common.cmo : \
-    driver/compdynlink_types.cmi \
-    driver/compdynlink_platform_intf.cmi \
-    driver/compdynlink_common.cmi
-driver/compdynlink_common.cmx : \
-    driver/compdynlink_types.cmx \
-    driver/compdynlink_platform_intf.cmx \
-    driver/compdynlink_common.cmi
-driver/compdynlink_common.cmi : \
-    driver/compdynlink_platform_intf.cmi
-driver/compdynlink_platform_intf.cmo : \
-    driver/compdynlink_types.cmi \
-    driver/compdynlink_platform_intf.cmi
-driver/compdynlink_platform_intf.cmx : \
-    driver/compdynlink_types.cmx \
-    driver/compdynlink_platform_intf.cmi
-driver/compdynlink_platform_intf.cmi : \
-    driver/compdynlink_types.cmi
-driver/compdynlink_types.cmo : \
-    driver/compdynlink_types.cmi
-driver/compdynlink_types.cmx : \
-    driver/compdynlink_types.cmi
-driver/compdynlink_types.cmi :
 driver/compenv.cmo : \
     utils/warnings.cmi \
     utils/profile.cmi \
