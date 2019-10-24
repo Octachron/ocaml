@@ -691,7 +691,9 @@ let () =
     )
 
 let check_modtype_inclusion ~loc env mty1 path1 mty2 =
-  ignore(check_modtype_inclusion ~loc env mty1 path1 mty2)
+  match check_modtype_inclusion ~loc env mty1 path1 mty2 with
+  | Ok _ -> None
+  | Error e -> Some (env, E.In_Module_type e)
 
 (* Check that an implementation of a compilation unit meets its
    interface. *)
