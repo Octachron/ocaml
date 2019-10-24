@@ -390,7 +390,7 @@ and try_modtypes ~loc env ~mark dont_match subst mty1 mty2 =
   | (Mty_signature sig1, Mty_signature sig2) ->
       begin match signatures ~loc env ~mark subst sig1 sig2 with
       | Ok _ as ok -> ok
-      | Error e -> Error E.(diff mty1 mty2 (Signature e))
+      | Error e -> dont_match (E.Signature e)
       end
   | (Mty_functor(Unit, res1), Mty_functor(Unit, res2)) ->
     begin
