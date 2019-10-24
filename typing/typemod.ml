@@ -369,10 +369,11 @@ let check_usage_of_path_of_substituted_item paths env signature ~loc ~lid =
                paths
           then
             let env = Lazy.force !env in
-            try retype_applicative_functor_type ~loc env funct arg
-            with Includemod.Error explanation ->
-              raise(Error(loc, env,
-                          With_makes_applicative_functor_ill_typed
+            match retype_applicative_functor_type ~loc env funct arg with
+            | None -> ()
+            | Some explanation ->
+                raise(Error(loc, env,
+                            With_makes_applicative_functor_ill_typed
                             (lid.txt, referenced_path, explanation)))
         )
       );
