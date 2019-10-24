@@ -562,7 +562,7 @@ and signature_components ~loc old_env ~mark env subst paired =
         value_descriptions ~loc env ~mark subst id1 valdecl1 valdecl2
       in
       begin match valdecl2.val_kind with
-        Val_prim _ -> comps_rec rem
+        Val_prim _ -> record_error id1 cc (comps_rec rem)
       | _ -> result_cons pos id1 cc (comps_rec rem)
       end
   | (Sig_type(id1, tydecl1, _, _), Sig_type(_id2, tydecl2, _, _), _pos) :: rem
@@ -922,7 +922,7 @@ module Pp = struct
   let break ppf first =
     if not first then Format.pp_print_break ppf 1 0
 
-  let core ?(first=false) id ppf x =
+  let core id ?(first=false) ppf x =
     break ppf first;
     match x with
     | Value_descriptions diff ->
@@ -976,7 +976,7 @@ module Pp = struct
 
   let missing_field ppf item =
     let id, loc, kind = item_ident_name item in
-    Format.fprintf ppf "@ The %s `%a' is required but not provided@ %a"
+    Format.fprintf ppf "@ The %s `%a' is required but not provided%a"
       (kind_of_field_desc kind) Printtyp.ident id
     (show_loc "Expected declaration") loc
 
@@ -1002,33 +1002,40 @@ module Pp = struct
       diff.got diff.expected
 
   let core_module_type_symptom ?(first=false) ppf x  =
-    break ppf first;
     match x with
-    | Not_a_functor -> Format.fprintf ppf "Not a functor"
-    | Not_a_signature -> Format.fprintf ppf "Not a signature"
-    | Not_an_alias -> Format.fprintf ppf "Not an alias"
-    | Not_an_identifier -> Format.fprintf ppf "Not an identifier"
-    | Incompatible_aliases -> Format.fprintf ppf "Incompatible alias"
-    | Incompatible_identifiers -> Format.fprintf ppf "Incompatible identifiers"
+    | Not_a_functor
+    | Not_a_signature
+    | Not_an_alias
+    | Not_an_identifier
+    | Incompatible_aliases
+    | Incompatible_identifiers -> ()
 
     | Unbound_modtype_path path ->
+        break ppf first;
         Format.fprintf ppf "Unbound module type %a" Printtyp.path path
     | Unbound_module_path path ->
+        break ppf first;
         Format.fprintf ppf "Unbound module %a" Printtyp.path path
     | Invalid_module_alias path ->
+        break ppf first;
         Format.fprintf ppf "Module %a cannot be aliased" Printtyp.path path
 
   (** Take a tree of difference and pick the simplest path to an error *)
   let with_context first ctx printer diff ppf =
+        if ctx <> [] then break ppf first;
+        Format.fprintf ppf "%a%a" context (List.rev ctx)
+          (printer ?first:(Some(first || ctx<>[])))
+          diff
+
+
+  let with_context_and_elision first ctx printer diff ppf =
     if is_big (diff.got,diff.expected) then
-      Format.fprintf ppf "...@ "
+      Format.fprintf ppf "..."
     else
-      Format.fprintf ppf "%a%a" context ctx
-        (printer ?first:(Some(first && ctx=[])))
-        diff
+      with_context first ctx printer diff ppf
 
   let rec module_type ?(first=false) env ctx ppf diff =
-    with_context first ctx module_types diff ppf
+    with_context_and_elision first ctx module_types diff ppf
     ; module_type_symptom env ctx ppf diff.symptom
 
   and module_type_symptom env ctx ppf = function
@@ -1043,23 +1050,27 @@ module Pp = struct
 
   and signature ?(first=false) env ctx ppf sgs =
     match sgs.missings, sgs.incompatibles with
-    | a :: _ , _ ->     break ppf first; missing_field ppf a
+    | a :: _ , _ -> missing_field ppf a
     | [], a :: _ -> sigitem ~first env ctx ppf a
     | [], [] -> assert false
   and sigitem ~first env ctx ppf (name,s) = match s with
     | Core c -> core ~first name ppf c
     | Module_type diff -> module_type ~first env (Module name :: ctx) ppf diff
     | Module_type_declaration diff ->
-        module_type_decl ~first env (Module name::ctx) name ppf diff
+        module_type_decl ~first env ctx name ppf diff
   and module_type_decl ?(first=false) env ctx id ppf diff =
-    with_context first ctx (module_type_declarations id) diff ppf;
+    with_context_and_elision first ctx (module_type_declarations id) diff ppf;
     match diff.symptom with
     | Included_but_not_equivalent mts | Module_type_symptom mts ->
-        module_type_symptom env ctx ppf mts
+        module_type_symptom env (Modtype id :: ctx) ppf mts
     | Illegal_permutation c ->
         begin match diff.got.Types.mtd_type with
         | None -> assert false
-        | Some mty -> Illegal_permutation.pp alt_context env ppf (mty,c)
+        | Some mty ->
+            with_context first (Modtype id::ctx)
+              (fun ?(first=false) ->
+                 break ppf first;
+                 Illegal_permutation.pp alt_context env) (mty,c) ppf
         end
 
 
