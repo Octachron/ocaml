@@ -75,14 +75,14 @@ type hiding_error =
 
 type error =
     Cannot_apply of module_type
-  | Not_included of Includemod.error list
+  | Not_included of Includemod.explanation
   | Cannot_eliminate_dependency of module_type
   | Signature_expected
   | Structure_expected of module_type
   | With_no_component of Longident.t
-  | With_mismatch of Longident.t * Includemod.error list
+  | With_mismatch of Longident.t * Includemod.explanation
   | With_makes_applicative_functor_ill_typed of
-      Longident.t * Path.t * Includemod.error list
+      Longident.t * Path.t * Includemod.explanation
   | With_changes_module_alias of Longident.t * Ident.t * Path.t
   | With_cannot_remove_constrained_type
   | Repeated_name of Sig_component_kind.t * string
@@ -1868,7 +1868,7 @@ and type_module_aux ~alias sttn funct_body anchor env smod =
         else match (Env.find_module path env).md_type with
         | Mty_alias p1 when not alias ->
             let p1 = Env.normalize_module_path (Some smod.pmod_loc) env p1 in
-            let mty = Includemod.expand_module_alias env [] p1 in
+            let mty = Includemod.expand_module_alias env p1 in
             { md with
               mod_desc =
                 Tmod_constraint (md, mty, Tmodtype_implicit,
