@@ -83,7 +83,8 @@ type pos =
   | Body of functor_parameter
 type error = pos list * Env.t * symptom
 
-exception Error of error list
+type explanation
+exception Error of explanation
 
-val report_error: formatter -> error list -> unit
-val expand_module_alias: Env.t -> pos list -> Path.t -> Types.module_type
+val report_error: formatter -> explanation -> unit
+val expand_module_alias: Env.t -> Path.t -> Types.module_type
