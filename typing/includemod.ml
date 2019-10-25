@@ -87,6 +87,7 @@ type module_type_symptom =
 and module_type_diff = (module_type, module_type_symptom) diff
 
 and signature_symptom = {
+  env: Env.t;
   missings: signature_item list;
   incompatibles: (Ident.t * sigitem_symptom) list;
   oks: (int * module_coercion) list;
@@ -509,7 +510,7 @@ and signatures ~loc env ~mark subst sig1 sig2 =
                 else
                   Ok (Tcoerce_structure (cc, id_pos_list))
             | missings, incompatibles, cc ->
-                Error { E.missings; incompatibles; oks=cc }
+                Error { env=new_env; E.missings; incompatibles; oks=cc }
         end
     | item2 :: rem ->
         let (id2, _loc, name2) = item_ident_name item2 in
@@ -1051,10 +1052,12 @@ module Pp = struct
         assert false
 
   and signature ?(first=false) env ctx ppf sgs =
+    Printtyp.wrap_printing_env ~error:true sgs.env (fun () ->
     match sgs.missings, sgs.incompatibles with
     | a :: _ , _ -> missing_field ppf a
     | [], a :: _ -> sigitem ~first env ctx ppf a
     | [], [] -> assert false
+      )
   and sigitem ~first env ctx ppf (name,s) = match s with
     | Core c -> core ~first name ppf c
     | Module_type diff -> module_type ~first env (Module name :: ctx) ppf diff
