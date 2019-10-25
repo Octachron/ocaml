@@ -70,7 +70,6 @@ type core_module_type_symptom =
   | Not_an_alias
   | Not_an_identifier
   | Incompatible_aliases
-  | Incompatible_identifiers
   | Unbound_modtype_path of Path.t
   | Unbound_module_path of Path.t
   | Invalid_module_alias of Path.t
@@ -441,12 +440,10 @@ and try_modtypes ~loc env ~mark dont_match subst mty1 mty2 =
 and try_modtypes2 ~loc env ~mark dont_match mty1 mty2 =
   (* mty2 is an identifier *)
   match mty1, mty2 with
-    | Mty_ident p1, Mty_ident p2 ->
-        if Path.same (Env.normalize_path_prefix None env p1)
-            (Env.normalize_path_prefix None env p2) then
+    | Mty_ident p1, Mty_ident p2
+      when Path.same (Env.normalize_path_prefix None env p1)
+          (Env.normalize_path_prefix None env p2) ->
           Ok Tcoerce_none
-        else
-          dont_match E.(Mt_core Incompatible_identifiers)
   | _, Mty_ident p2 ->
       if may_expand_module_path env p2 then
         match expand_module_path env p2 with
@@ -1018,9 +1015,7 @@ module Pp = struct
     | Not_a_signature
     | Not_an_alias
     | Not_an_identifier
-    | Incompatible_aliases
-    | Incompatible_identifiers -> ()
-
+    | Incompatible_aliases -> ()
     | Unbound_modtype_path path ->
         break ppf first;
         Format.fprintf ppf "Unbound module type %a" Printtyp.path path
