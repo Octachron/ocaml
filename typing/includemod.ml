@@ -65,7 +65,6 @@ type core_sigitem_symptom =
 
 
 type core_module_type_symptom =
-  | Not_a_functor
   | Not_a_signature
   | Not_an_alias
   | Not_an_identifier
@@ -79,11 +78,19 @@ type core_module_type_symptom =
 type module_type_symptom =
   | Mt_core of core_module_type_symptom
   | Signature of signature_symptom
-  | Functor of { arg: (Ident.t option* module_type_diff) option ;
-                 res: (functor_parameter * module_type_diff) option }
-
+  | Functor of functor_syndrom
 
 and module_type_diff = (module_type, module_type_symptom) diff
+
+and functor_syndrom =
+  | Params of functor_params_diff
+  | Result of module_type_diff
+
+and functor_param_syndrom =
+  | Incompatible_params of functor_parameter * functor_parameter
+  | Mismatch of Ident.t option * Ident.t option * module_type_diff
+
+and functor_params_diff = (functor_parameter list) core_diff
 
 and signature_symptom = {
   env: Env.t;
@@ -312,6 +319,10 @@ let simplify_structure_coercion cc id_pos_list =
   then Tcoerce_none
   else Tcoerce_structure (cc, id_pos_list)
 
+let rec retrieve_functor_params = function
+  | Mty_functor (p, res) -> p :: retrieve_functor_params res
+  | _ -> []
+
 (* Inclusion between module types.
    Return the restriction that transforms a value of the smaller type
    into a value of the bigger type. *)
@@ -384,50 +395,60 @@ and try_modtypes ~loc env ~mark dont_match subst mty1 mty2 =
       | Ok _ as ok -> ok
       | Error e -> dont_match (E.Signature e)
       end
-  | (Mty_functor(Unit, res1), Mty_functor(Unit, res2)) ->
-    begin
-      match modtypes ~loc env ~mark subst res1 res2 with
-      | Ok Tcoerce_none as x -> x
-      | Ok cc -> Ok (Tcoerce_functor (Tcoerce_none, cc))
-      | Error res ->
-          Error E.(diff mty1 mty2 @@ Functor {arg=None; res=Some (Unit,res) })
-    end
-  | (Mty_functor(Named (param1, arg1) as arg, res1),
-     Mty_functor(Named (param2, arg2), res2)) ->
-      let arg2' = Subst.modtype Keep subst arg2 in
-      let cc_arg =
-        modtypes ~loc env ~mark:(negate_mark mark) Subst.identity arg2' arg1
-      in
-      let env, subst =
-        match param1, param2 with
-        | Some p1, Some p2 ->
-            Env.add_module p1 Mp_present arg2' env,
-            Subst.add_module p2 (Path.Pident p1) subst
-        | None, Some p2 ->
-            Env.add_module p2 Mp_present arg2' env, subst
-        | Some p1, None ->
-            Env.add_module p1 Mp_present arg2' env, subst
-        | None, None ->
-            env, subst
+  | Mty_functor (param1, res1), Mty_functor (param2, res2) ->
+      let cc_arg, env, subst = match param1, param2 with
+        | Unit, Unit ->
+            Ok Tcoerce_none, env, subst
+        | Named (name1, arg1), Named (name2, arg2) ->
+            let arg2' = Subst.modtype Keep subst arg2 in
+            let cc_arg =
+              match modtypes ~loc env ~mark:(negate_mark mark)
+                      Subst.identity arg2' arg1
+              with
+              | Ok cc -> Ok cc
+              | Error err -> Error (E.Mismatch (name1, name2, err))
+            in
+            let env, subst =
+              match name1, name2 with
+              | Some p1, Some p2 ->
+                  Env.add_module p1 Mp_present arg2' env,
+                  Subst.add_module p2 (Path.Pident p1) subst
+              | None, Some p2 ->
+                  Env.add_module p2 Mp_present arg2' env, subst
+              | Some p1, None ->
+                  Env.add_module p1 Mp_present arg2' env, subst
+              | None, None ->
+                  env, subst
+            in
+            cc_arg, env, subst
+        | _, _ ->
+            Error (E.Incompatible_params (param1, param2)), env, subst
       in
       let cc_res = modtypes ~loc env ~mark subst res1 res2 in
-      begin match (cc_arg, cc_res) with
-          (Ok Tcoerce_none, Ok Tcoerce_none) -> Ok Tcoerce_none
-        | Ok cc_arg, Ok cc_res -> Ok (Tcoerce_functor(cc_arg, cc_res))
-        | Error earg, Error res ->
-            dont_match E.(Functor{ arg=Some (param1,earg); res=Some (arg,res) })
-        | Error earg, Ok _ ->
-            dont_match E.(Functor { arg = Some (param1,earg); res = None })
-        | Ok _, Error res ->
-            dont_match E.(Functor { arg = None; res= Some (arg,res) })
+      begin match cc_arg, cc_res with
+      | Ok Tcoerce_none, Ok Tcoerce_none -> Ok Tcoerce_none
+      | Ok cc_arg, Ok cc_res -> Ok (Tcoerce_functor(cc_arg, cc_res))
+      | _, Error {E.symptom = E.Functor E.Params res; _} ->
+          let d = E.sdiff (param1::res.got) (param2::res.expected) in
+          dont_match E.(Functor (Params d))
+      | Error _, _ ->
+          let params1 = retrieve_functor_params res1 in
+          let params2 = retrieve_functor_params res2 in
+          let d = E.sdiff (param1::params1) (param2::params2) in
+          dont_match E.(Functor (Params d))
+      | Ok _, Error res ->
+          dont_match E.(Functor (Result res))
       end
-  | (_, _) ->
-      let reason = match mty2 with
-        | Mty_functor _ -> E.Not_a_functor
-        | Mty_signature _ -> E.Not_a_signature
-        | Mty_alias _ -> E.Not_an_alias
-        | Mty_ident _ -> assert false in
-      dont_match (E.Mt_core reason)
+  | Mty_functor _, _
+  | _, Mty_functor _ ->
+      let params1 = retrieve_functor_params mty1 in
+      let params2 = retrieve_functor_params mty2 in
+      let d = E.sdiff params1 params2 in
+      dont_match E.(Functor (Params d))
+  | _, Mty_signature _ ->
+      dont_match (E.Mt_core E.Not_a_signature)
+  | _, Mty_alias _ -> 
+      dont_match (E.Mt_core E.Not_an_alias)
 
 and try_modtypes2 ~loc env ~mark dont_match mty1 mty2 =
   (* mty2 is an identifier *)
@@ -1003,11 +1024,11 @@ module Pp = struct
 
   let core_module_type_symptom ?(first=false) ppf x  =
     match x with
-    | Not_a_functor
     | Not_a_signature
     | Not_an_alias
     | Not_an_identifier
     | Incompatible_aliases -> ()
+
     | Unbound_modtype_path path ->
         break ppf first;
         Format.fprintf ppf "Unbound module type %a" Printtyp.path path
@@ -1043,13 +1064,20 @@ module Pp = struct
   and module_type_symptom env ctx ppf = function
     | Mt_core core -> core_module_type_symptom ppf core
     | Signature s -> signature env ctx ppf s
-    | Functor { arg = Some (id,more); _ } ->
-        module_type env (Arg (Named(id,more.got)) ::ctx) ppf more
-    | Functor { arg = None; res = Some (fp,more) } ->
-        module_type env (Body fp::ctx) ppf more
-    | Functor { arg = None; res = None } ->
-        assert false
+    | Functor f -> functor_symptom env ctx ppf f
 
+  and functor_symptom env ctx ppf = function
+    | Result res ->
+        module_type env ctx ppf res
+    | Params E.{got; expected; symptom=()} ->
+        Format.fprintf ppf 
+          "@[<hv 2>Parameters do not match:@ \
+           %a@;<1 -2>does not match@ %a@]"
+          (!Oprint.out_functor_parameters)
+          (Printtyp.tree_of_functor_parameters got)
+          (!Oprint.out_functor_parameters)
+          (Printtyp.tree_of_functor_parameters expected)
+  
   and signature ?(first=false) env ctx ppf sgs =
     Printtyp.wrap_printing_env ~error:true sgs.env (fun () ->
     match sgs.missings, sgs.incompatibles with
