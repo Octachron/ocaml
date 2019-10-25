@@ -99,9 +99,9 @@ and sigitem_symptom =
   | Module_type of module_type_diff
 
 and module_type_declaration_symptom =
-  | Included_but_not_equivalent of module_type_symptom
+  | Included_but_not_equivalent of module_type_diff
   | Illegal_permutation of Typedtree.module_coercion
-  | Module_type_symptom of module_type_symptom
+  | Module_type_symptom of module_type_diff
 
 type all =
   | In_Compilation_unit of (string, signature_symptom) diff
@@ -652,8 +652,8 @@ and check_modtype_equiv ~loc env ~mark mty1 mty2 =
         print_coercion _c1 print_coercion _c2; *)
       Error E.(Illegal_permutation c1)
   | Ok _, Error c2 ->
-      Error E.(Included_but_not_equivalent c2.symptom)
-  | Error e, _ -> Error E.(Module_type_symptom e.symptom)
+      Error E.(Included_but_not_equivalent c2)
+  | Error e, _ -> Error E.(Module_type_symptom e)
 
 (* Simplified inclusion check between module types (for Env) *)
 
@@ -1067,7 +1067,7 @@ module Pp = struct
     with_context_and_elision first ctx (module_type_declarations id) ppf diff;
     match diff.symptom with
     | Included_but_not_equivalent mts | Module_type_symptom mts ->
-        module_type_symptom env (Modtype id :: ctx) ppf mts
+        module_type env (Modtype id :: ctx) ppf mts
     | Illegal_permutation c ->
         begin match diff.got.Types.mtd_type with
         | None -> assert false
