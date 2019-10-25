@@ -1024,21 +1024,21 @@ module Pp = struct
         Format.fprintf ppf "Module %a cannot be aliased" Printtyp.path path
 
   (** Take a tree of difference and pick the simplest path to an error *)
-  let with_context first ctx printer diff ppf =
+  let with_context first ctx printer ppf diff =
         if ctx <> [] then break ppf first;
         Format.fprintf ppf "%a%a" context (List.rev ctx)
           (printer ?first:(Some(first || ctx<>[])))
           diff
 
 
-  let with_context_and_elision first ctx printer diff ppf =
+  let with_context_and_elision first ctx printer ppf diff =
     if is_big (diff.got,diff.expected) then
       Format.fprintf ppf "..."
     else
-      with_context first ctx printer diff ppf
+      with_context first ctx printer ppf diff
 
   let rec module_type ?(first=false) env ctx ppf diff =
-    with_context_and_elision first ctx module_types diff ppf
+    with_context_and_elision first ctx module_types ppf diff
     ; module_type_symptom env ctx ppf diff.symptom
 
   and module_type_symptom env ctx ppf = function
@@ -1054,17 +1054,17 @@ module Pp = struct
   and signature ?(first=false) env ctx ppf sgs =
     Printtyp.wrap_printing_env ~error:true sgs.env (fun () ->
     match sgs.missings, sgs.incompatibles with
-    | a :: _ , _ -> missing_field ppf a
+    | a :: _ , _ -> with_context first ctx (fun ?first:_ -> missing_field) ppf a
     | [], a :: _ -> sigitem ~first env ctx ppf a
     | [], [] -> assert false
       )
   and sigitem ~first env ctx ppf (name,s) = match s with
-    | Core c -> core ~first name ppf c
+    | Core c -> with_context first ctx (core name) ppf c
     | Module_type diff -> module_type ~first env (Module name :: ctx) ppf diff
     | Module_type_declaration diff ->
         module_type_decl ~first env ctx name ppf diff
   and module_type_decl ?(first=false) env ctx id ppf diff =
-    with_context_and_elision first ctx (module_type_declarations id) diff ppf;
+    with_context_and_elision first ctx (module_type_declarations id) ppf diff;
     match diff.symptom with
     | Included_but_not_equivalent mts | Module_type_symptom mts ->
         module_type_symptom env (Modtype id :: ctx) ppf mts
@@ -1075,7 +1075,7 @@ module Pp = struct
             with_context first (Modtype id::ctx)
               (fun ?(first=false) ->
                  break ppf first;
-                 Illegal_permutation.pp alt_context env) (mty,c) ppf
+                 Illegal_permutation.pp alt_context env) ppf (mty,c)
         end
 
 
