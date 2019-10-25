@@ -1033,8 +1033,12 @@ module Pp = struct
       with_context first ctx printer ppf diff
 
   let rec module_type ?(first=false) env ctx ppf diff =
-    with_context_and_elision first ctx module_types ppf diff
-    ; module_type_symptom env ctx ppf diff.symptom
+    match diff.symptom with
+    | Mt_core (Invalid_module_alias _ as s) ->
+        with_context first ctx core_module_type_symptom ppf s
+    | _ ->
+        with_context_and_elision first ctx module_types ppf diff
+      ; module_type_symptom env ctx ppf diff.symptom
 
   and module_type_symptom env ctx ppf = function
     | Mt_core core -> core_module_type_symptom ppf core
