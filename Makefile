@@ -69,7 +69,8 @@ DEPINCLUDES=$(INCLUDES)
 
 OCAMLDOC_OPT=$(WITH_OCAMLDOC:=.opt)
 
-UTILS=utils/config.cmo utils/build_path_prefix_map.cmo utils/misc.cmo \
+UTILS=utils/config.cmo utils/build_path_prefix_map.cmo utils/diff.cmo \
+  utils/misc.cmo \
 	utils/identifiable.cmo utils/numbers.cmo utils/arg_helper.cmo \
 	utils/clflags.cmo utils/profile.cmo utils/load_path.cmo \
 	utils/terminfo.cmo utils/ccomp.cmo utils/warnings.cmo \
