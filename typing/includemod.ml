@@ -734,10 +734,18 @@ module FunctorArgsDiff = struct
 
   let cutoff = max_int
   let weight =
-    let insertion _ = 3
-    and deletion _ = 2
-    and change _ = 5
-    and keep _ = 0
+    let insertion _ = 10
+    and deletion _ = 10
+    and change _ _ _ = 10
+    and keep param1 param2 _ = match param1, param2 with
+      | Unit, Unit
+      | Named (None, _), Named (None, _)
+        -> 0
+      | Named (Some n1, _), Named (Some n2, _)
+        when String.equal (Ident.name n1) (Ident.name n2)
+        -> 0
+      | Named _, Named _ -> 1
+      | Unit, Named _ | Named _, Unit -> assert false
     in
     {Diff. insertion; deletion; change; keep}
 
