@@ -53,6 +53,11 @@ utils/consistbl.cmx : \
     utils/consistbl.cmi
 utils/consistbl.cmi : \
     utils/misc.cmi
+utils/diff.cmo : \
+    utils/diff.cmi
+utils/diff.cmx : \
+    utils/diff.cmi
+utils/diff.cmi :
 utils/domainstate.cmo : \
     utils/domainstate.cmi
 utils/domainstate.cmx : \
@@ -651,6 +656,7 @@ typing/includemod.cmo : \
     typing/includeclass.cmi \
     typing/ident.cmi \
     typing/env.cmi \
+    utils/diff.cmi \
     typing/ctype.cmi \
     file_formats/cmt_format.cmi \
     utils/clflags.cmi \
@@ -673,6 +679,7 @@ typing/includemod.cmx : \
     typing/includeclass.cmx \
     typing/ident.cmx \
     typing/env.cmx \
+    utils/diff.cmx \
     typing/ctype.cmx \
     file_formats/cmt_format.cmx \
     utils/clflags.cmx \
