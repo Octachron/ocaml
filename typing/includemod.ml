@@ -396,33 +396,8 @@ and try_modtypes ~loc env ~mark dont_match subst mty1 mty2 =
       | Error e -> dont_match (E.Signature e)
       end
   | Mty_functor (param1, res1), Mty_functor (param2, res2) ->
-      let cc_arg, env, subst = match param1, param2 with
-        | Unit, Unit ->
-            Ok Tcoerce_none, env, subst
-        | Named (name1, arg1), Named (name2, arg2) ->
-            let arg2' = Subst.modtype Keep subst arg2 in
-            let cc_arg =
-              match modtypes ~loc env ~mark:(negate_mark mark)
-                      Subst.identity arg2' arg1
-              with
-              | Ok cc -> Ok cc
-              | Error err -> Error (E.Mismatch (name1, name2, err))
-            in
-            let env, subst =
-              match name1, name2 with
-              | Some p1, Some p2 ->
-                  Env.add_module p1 Mp_present arg2' env,
-                  Subst.add_module p2 (Path.Pident p1) subst
-              | None, Some p2 ->
-                  Env.add_module p2 Mp_present arg2' env, subst
-              | Some p1, None ->
-                  Env.add_module p1 Mp_present arg2' env, subst
-              | None, None ->
-                  env, subst
-            in
-            cc_arg, env, subst
-        | _, _ ->
-            Error (E.Incompatible_params (param1, param2)), env, subst
+      let cc_arg, env, subst =
+        functor_param ~loc env ~mark:(negate_mark mark) subst param1 param2
       in
       let cc_res = modtypes ~loc env ~mark subst res1 res2 in
       begin match cc_arg, cc_res with
@@ -467,6 +442,34 @@ and try_modtypes2 ~loc env ~mark dont_match mty1 mty2 =
       else
         dont_match E.(Mt_core Not_an_identifier)
   | _ -> assert false
+
+(* Functor parameters *)
+
+and functor_param ~loc env ~mark subst param1 param2 = match param1, param2 with
+  | Unit, Unit ->
+      Ok Tcoerce_none, env, subst
+  | Named (name1, arg1), Named (name2, arg2) ->
+      let arg2' = Subst.modtype Keep subst arg2 in
+      let cc_arg =
+        match modtypes ~loc env ~mark Subst.identity arg2' arg1 with
+        | Ok cc -> Ok cc
+        | Error err -> Error (E.Mismatch (name1, name2, err))
+      in
+      let env, subst =
+        match name1, name2 with
+        | Some p1, Some p2 ->
+            Env.add_module p1 Mp_present arg2' env,
+            Subst.add_module p2 (Path.Pident p1) subst
+        | None, Some p2 ->
+            Env.add_module p2 Mp_present arg2' env, subst
+        | Some p1, None ->
+            Env.add_module p1 Mp_present arg2' env, subst
+        | None, None ->
+            env, subst
+      in
+      cc_arg, env, subst
+  | _, _ ->
+      Error (E.Incompatible_params (param1, param2)), env, subst
 
 (* Inclusion between signatures *)
 
@@ -726,6 +729,39 @@ let compunit env ?(mark=Mark_both) impl_name impl_sig intf_name intf_sig =
     raise(Error(env, cdiff))
   | Ok x -> x
 
+
+module FunctorArgsDiff = struct
+
+  let cutoff = max_int
+  let weight =
+    let insertion _ = 3
+    and deletion _ = 2
+    and change _ = 5
+    and keep _ = 0
+    in
+    {Diff. insertion; deletion; change; keep}
+
+  let pp_patch ppf = function
+    | Diff.Insert -> Format.fprintf ppf "+"
+    | Diff.Delete -> Format.fprintf ppf "-"
+    | Diff.Change -> Format.fprintf ppf "×"
+    | Diff.Keep -> Format.fprintf ppf "="
+  let pp = Format.pp_print_list pp_patch
+  
+  let diff env _ctxt l1 l2 =
+    let test mty1 mty2 =
+      let snap = Btype.snapshot () in
+      let res, _, _ = functor_param
+          ~loc:Location.none env ~mark:Mark_neither Subst.identity mty1 mty2
+      in
+      Btype.backtrack snap;
+      res
+    in
+    Diff.diff weight cutoff test (Array.of_list l1) (Array.of_list l2)
+
+end
+
+
 (* Hide the context and substitution parameters to the outside world *)
 
 let modtypes ~loc env ?(mark=Mark_both) mty1 mty2 =
@@ -937,7 +973,7 @@ let is_big obj =
     try ignore (Marshal.to_buffer !buffer 0 size obj []); false
     with _ -> true
   end
-
+      
 module Pp = struct
   open E
   let break ppf first =
@@ -1076,7 +1112,14 @@ module Pp = struct
           (!Oprint.out_functor_parameters)
           (Printtyp.tree_of_functor_parameters got)
           (!Oprint.out_functor_parameters)
-          (Printtyp.tree_of_functor_parameters expected)
+          (Printtyp.tree_of_functor_parameters expected) ;
+        Option.iter (fun d ->
+            Format.fprintf ppf
+              "@;@[<hv 2>Diff: %a@]"
+              FunctorArgsDiff.pp d
+          )
+          (FunctorArgsDiff.diff env ctx got expected)
+          
   
   and signature ?(first=false) env ctx ppf sgs =
     Printtyp.wrap_printing_env ~error:true sgs.env (fun () ->
