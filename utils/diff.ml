@@ -16,8 +16,8 @@
 type ('a, 'b, 'c, 'd) config = {
   deletion : 'a -> int ;
   insertion : 'b -> int ;
-  change : 'c -> int ;
-  keep : 'd -> int ;
+  keep : 'a -> 'b -> 'c -> int ;
+  change : 'a -> 'b -> 'd -> int ;
 }
     
 
@@ -64,8 +64,8 @@ let compute_matrix weight cutoff test a1 a2 =
     for i = 1 to l1 do
       for j = max 1 (i - cutoff - 1) to min l2 (i + cutoff + 1) do
         let cost, diff = match test a1.(i-1) a2.(j-1) with
-          | Ok ok -> weight.keep ok, Keep
-          | Error err -> weight.change err, Change
+          | Ok ok -> weight.keep a1.(i-1) a2.(j-1) ok, Keep
+          | Error err -> weight.change a1.(i-1) a2.(j-1) err, Change
         in
         let propositions = [
           weight.deletion a1.(i-1) + m.(i-1).(j), Delete ;

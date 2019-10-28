@@ -17,8 +17,8 @@
 type ('a, 'b, 'c, 'd) config = {
   deletion : 'a -> int ;
   insertion : 'b -> int ;
-  change : 'c -> int ;
-  keep : 'd -> int ;
+  keep : 'a -> 'b -> 'c -> int ;
+  change : 'a -> 'b -> 'd -> int ;
 }
 
 type change =
@@ -31,5 +31,5 @@ type patch = change list
 
 val diff :
   ('a, 'b, 'c, 'd) config -> int ->
-  ('a -> 'b -> ('d, 'c) result) ->
+  ('a -> 'b -> ('c, 'd) result) ->
   'a array -> 'b array -> patch option
