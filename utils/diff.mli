@@ -14,22 +14,18 @@
 (*                                                                        *)
 (**************************************************************************)
 
-type ('a, 'b, 'c, 'd) config = {
-  deletion : 'a -> int ;
-  insertion : 'b -> int ;
-  keep : 'a -> 'b -> 'c -> int ;
-  change : 'a -> 'b -> 'd -> int ;
-}
 
-type change =
-  | Insert
-  | Delete
-  | Change
-  | Keep
+type ('a, 'b, 'c, 'd) change =
+  | Delete of 'a
+  | Insert of 'b
+  | Keep of 'a * 'b * 'c
+  | Change of 'a * 'b * 'd
 
-type patch = change list
+type ('a, 'b, 'c, 'd) patch = ('a, 'b, 'c, 'd) change list
 
-val diff :
-  ('a, 'b, 'c, 'd) config -> int ->
-  ('a -> 'b -> ('c, 'd) result) ->
-  'a array -> 'b array -> patch option
+val diff : 
+  weight:(('a, 'b, 'c, 'd) change -> int) ->
+  cutoff:int ->
+  test:('state -> 'a -> 'b -> ('c, 'd) result) ->
+  update:(('a, 'b, 'c, 'd) change -> 'state -> 'state) ->
+  'state -> 'a array -> 'b array -> ('a, 'b, 'c, 'd) patch option
