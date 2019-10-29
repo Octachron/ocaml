@@ -731,41 +731,71 @@ let compunit env ?(mark=Mark_both) impl_name impl_sig intf_name intf_sig =
 
 
 module FunctorArgsDiff = struct
+  open Diff
 
-  let cutoff = max_int
-  let weight =
-    let insertion _ = 10
-    and deletion _ = 10
-    and change _ _ _ = 10
-    and keep param1 param2 _ = match param1, param2 with
-      | Unit, Unit
-      | Named (None, _), Named (None, _)
-        -> 0
-      | Named (Some n1, _), Named (Some n2, _)
-        when String.equal (Ident.name n1) (Ident.name n2)
-        -> 0
-      | Named _, Named _ -> 1
-      | Unit, Named _ | Named _, Unit -> assert false
-    in
-    {Diff. insertion; deletion; change; keep}
+  let cutoff = 100
+  let weight = function
+    | Insert _ -> 10
+    | Delete _ -> 10
+    | Change _ -> 10
+    | Keep (param1, param2, _) -> begin
+        match param1, param2 with
+        | Unit, Unit
+        | Named (None, _), Named (None, _)
+          -> 0
+        | Named (Some n1, _), Named (Some n2, _)
+          when String.equal (Ident.name n1) (Ident.name n2)
+          -> 0
+        | Named _, Named _ -> 1
+        | Unit, Named _ | Named _, Unit -> assert false
+      end
+
+  let update d ((env, subst) as st) = match d with
+    | Insert (Unit | Named (None,_))
+    | Delete (Unit | Named (None,_))
+    | Keep (Unit,_,_)
+    | Keep (_,Unit,_)
+    | Change (_,(Unit | Named (None,_)), _) ->
+        st
+    | Insert (Named (Some p, arg))
+    | Delete (Named (Some p, arg))
+    | Change (Unit, Named (Some p, arg), _) -> 
+        let arg' = Subst.modtype Keep subst arg in
+        Env.add_module p Mp_present arg' env, subst
+    | Keep (Named (name1, _), Named (name2, arg2), _)
+    | Change (Named (name1, _), Named (name2, arg2), _) -> begin
+        let arg2' = Subst.modtype Keep subst arg2 in
+        match name1, name2 with
+        | Some p1, Some p2 ->
+            Env.add_module p1 Mp_present arg2' env,
+            Subst.add_module p2 (Path.Pident p1) subst
+        | None, Some p2 ->
+            Env.add_module p2 Mp_present arg2' env, subst
+        | Some p1, None ->
+            Env.add_module p1 Mp_present arg2' env, subst
+        | None, None ->
+            env, subst
+      end
 
   let pp_patch ppf = function
-    | Diff.Insert -> Format.fprintf ppf "+"
-    | Diff.Delete -> Format.fprintf ppf "-"
-    | Diff.Change -> Format.fprintf ppf "×"
-    | Diff.Keep -> Format.fprintf ppf "="
+    | Diff.Insert _ -> Format.fprintf ppf "+"
+    | Diff.Delete _ -> Format.fprintf ppf "-"
+    | Diff.Change _ -> Format.fprintf ppf "×"
+    | Diff.Keep _ -> Format.fprintf ppf "="
   let pp = Format.pp_print_list pp_patch
-  
-  let diff env _ctxt l1 l2 =
-    let test mty1 mty2 =
+
+  let diff env0 _ctxt l1 l2 =
+    let test (env, subst) mty1 mty2 =
       let snap = Btype.snapshot () in
       let res, _, _ = functor_param
-          ~loc:Location.none env ~mark:Mark_neither Subst.identity mty1 mty2
+          ~loc:Location.none env ~mark:Mark_neither subst mty1 mty2
       in
       Btype.backtrack snap;
       res
     in
-    Diff.diff weight cutoff test (Array.of_list l1) (Array.of_list l2)
+    let state0 = (env0, Subst.identity) in
+    Diff.diff ~weight ~cutoff ~test ~update
+      state0 (Array.of_list l1) (Array.of_list l2)
 
 end
 
