@@ -440,7 +440,14 @@ and try_modtypes2 ~loc env ~mark dont_match mty1 mty2 =
               mty1 mty2
         | Error e -> dont_match (E.Mt_core e)
       else
-        dont_match E.(Mt_core Not_an_identifier)
+        begin match mty1 with
+        | Mty_functor _ ->
+            let params1 = retrieve_functor_params mty1 in
+            let d = E.sdiff params1 [] in
+            dont_match E.(Functor (Params d))
+        | _ -> 
+            dont_match E.(Mt_core Not_an_identifier)
+        end
   | _ -> assert false
 
 (* Functor parameters *)
