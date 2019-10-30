@@ -1156,50 +1156,45 @@ module Pp = struct
             Format.fprintf ppf 
               "@;@[<hv 2>Parameters do not match:@ \
                @[%a ...@]@;<1 -2>does not match@ @[%a...@]@]"
-              (!Oprint.out_functor_parameters)
-              (Printtyp.tree_of_functor_parameters got)
-              (!Oprint.out_functor_parameters)
-              (Printtyp.tree_of_functor_parameters expected)
+              (Format.pp_print_list functor_param) got
+              (Format.pp_print_list functor_param) expected
         | Some d ->
             Format.fprintf ppf 
               "@;@[<hv 2>Parameters do not match:@ \
                @[%a@]@;<0 -2>does not match@ @[%a@]@]"
-              (functor_param `Left) d
-              (functor_param `Right) d
+              (functor_params `Left) d
+              (functor_params `Right) d
         end
 
-  and functor_param side ppf patch =
-    let pp_arg ppf = function
-      | Unit -> Format.fprintf ppf "()"
-      | Named (None, mty) ->
-          Format.fprintf ppf "%a"
-            !Oprint.out_module_type (Printtyp.tree_of_modtype mty)
-      | Named (Some p, mty) ->
-          Format.fprintf ppf "(%s : %a)"
-            (Ident.name p)
-            !Oprint.out_module_type (Printtyp.tree_of_modtype mty)
-    in
-    let rec pp_diff change = match side, change with
-      | _, [] -> ()
-      | `Left, Diff.Insert _ :: t
-      | `Right, Diff.Delete _ :: t ->
-          pp_diff t
-      | `Left, Diff.Delete c :: t ->
-          Format.fprintf ppf "@{<error>%a@}@ " pp_arg c ;
-          pp_diff t
-      | `Right, Diff.Insert c :: t ->
-          Format.fprintf ppf "@{<error>%a@}@ " pp_arg c ;
-          pp_diff t
-      | `Left, Diff.Keep (c,_,_) :: t
-      | `Right, Diff.Keep (_,c,_) :: t ->
-          Format.fprintf ppf "%a@ " pp_arg c;
-          pp_diff t
-      | `Left, Diff.Change (c,_,_) :: t
-      | `Right, Diff.Change (_,c,_) :: t ->
-          Format.fprintf ppf "@{<error>%a@}@ " pp_arg c ;
-          pp_diff t
-    in
-    pp_diff patch
+  and functor_param ppf = function
+    | Unit -> Format.fprintf ppf "()"
+    | Named (None, mty) ->
+      Format.fprintf ppf "%a"
+        !Oprint.out_module_type (Printtyp.tree_of_modtype mty)
+    | Named (Some p, mty) ->
+      Format.fprintf ppf "(%s : %a)"
+        (Ident.name p)
+        !Oprint.out_module_type (Printtyp.tree_of_modtype mty)
+  
+  and functor_params side ppf patch = match side, patch with
+    | _, [] -> ()
+    | `Left, Diff.Insert _ :: t
+    | `Right, Diff.Delete _ :: t ->
+        functor_params side ppf t
+    | `Left, Diff.Delete c :: t ->
+        Format.fprintf ppf "@{<error>%a@}@ " functor_param c ;
+        functor_params side ppf t
+    | `Right, Diff.Insert c :: t ->
+        Format.fprintf ppf "@{<error>%a@}@ " functor_param c ;
+        functor_params side ppf t
+    | `Left, Diff.Keep (c,_,_) :: t
+    | `Right, Diff.Keep (_,c,_) :: t ->
+        Format.fprintf ppf "%a@ " functor_param c;
+        functor_params side ppf t
+    | `Left, Diff.Change (c,_,_) :: t
+    | `Right, Diff.Change (_,c,_) :: t ->
+        Format.fprintf ppf "@{<warning>%a@}@ " functor_param c ;
+        functor_params side ppf t
 
   and signature ?(first=false) env ctx ppf sgs =
     Printtyp.wrap_printing_env ~error:true sgs.env (fun () ->
