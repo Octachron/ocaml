@@ -2391,6 +2391,13 @@ let lookup_all_ident_constructors ~errors ~use ~loc usage s env =
            (cda.cda_description, use_fn))
         cstrs
 
+let decompose_apply p =
+  let rec aux l = function
+    | Lident _ | Ldot _ as p -> (p, l)
+    | Lapply (p1, p2) -> aux (p2::l) p1
+  in
+  aux [] p
+
 let rec lookup_module_components ~errors ~use ~loc lid env =
   match lid with
   | Lident s ->
@@ -2399,12 +2406,10 @@ let rec lookup_module_components ~errors ~use ~loc lid env =
   | Ldot(l, s) ->
       let path, data = lookup_dot_module ~errors ~use ~loc l s env in
       path, data.mda_components
-  | Lapply(l1, l2) ->
-      let p1, f, arg = lookup_functor_components ~errors ~use ~loc l1 env in
-      let p2, md = lookup_module ~errors ~use ~loc l2 env in
-      !check_functor_application ~errors ~loc env md.md_type p2 arg p1;
-      let comps = !components_of_functor_appl' ~loc f env p1 p2 in
-      (Papply(p1, p2), comps)
+  | Lapply _ as lid ->
+      let path_f, comp_f, path_arg = lookup_apply ~errors ~use ~loc lid env in
+      let comps = !components_of_functor_appl' ~loc comp_f env path_arg path_f in
+      Papply (path_f, path_arg), comps
 
 and lookup_structure_components ~errors ~use ~loc lid env =
   let path, comps = lookup_module_components ~errors ~use ~loc lid env in
@@ -2417,14 +2422,13 @@ and lookup_structure_components ~errors ~use ~loc lid env =
   | Error (No_components_alias p) ->
       may_lookup_error errors loc env (Cannot_scrape_alias(lid, p))
 
-and lookup_functor_components ~errors ~use ~loc lid env =
-  let path, comps = lookup_module_components ~errors ~use ~loc lid env in
+and get_functor_components ~errors ~loc lid env comps =
   match get_components_res comps with
   | Ok (Functor_comps fcomps) -> begin
       match fcomps.fcomp_arg with
       | Unit -> (* PR#7611 *)
           may_lookup_error errors loc env (Generative_used_as_applicative lid)
-      | Named (_, arg) -> path, fcomps, arg
+      | Named (_, arg) -> fcomps, arg
     end
   | Ok (Structure_comps _) ->
       may_lookup_error errors loc env (Structure_used_as_functor lid)
@@ -2432,6 +2436,34 @@ and lookup_functor_components ~errors ~use ~loc lid env =
       may_lookup_error errors loc env (Abstract_used_as_functor lid)
   | Error (No_components_alias p) ->
       may_lookup_error errors loc env (Cannot_scrape_alias(lid, p))
+
+and lookup_apply ~errors ~use ~loc lid0 env =
+  let lid_f0, args0 = decompose_apply lid0 in
+  let path_f0, comp_f0 = lookup_module_components ~errors ~use ~loc lid_f0 env in
+  let check_one_apply ~errors ~use ~loc (lid,comp) lid_arg env =
+    let comp_f, mty_arg = get_functor_components ~errors ~loc lid env comp in
+    let p_arg, md_arg = lookup_module ~errors ~use ~loc lid_arg env in
+    !check_functor_application
+      ~errors ~loc env md_arg.md_type p_arg mty_arg path;
+    p_arg, comp_f
+  in
+  let rec check_apply (lid, path, comp) = function
+    | [] -> invalid_arg "Env.lookup_apply: empty argument list"
+    | [lid_arg] ->
+        let path_arg, comp_f =
+          check_one_apply ~errors ~use ~loc (lid, comp) lid_arg env
+        in
+        path, comp_f, path_arg
+    | lid_arg :: args ->
+        let p_arg, comp_f =
+          check_one_apply ~errors ~use ~loc (lid, comp) lid_arg env
+        in
+        let comps = !components_of_functor_appl' ~loc comp_f env p_arg path in
+        let path = Papply (path, p_arg) in
+        let lid = Lapply (lid, lid_arg) in
+        check_apply (lid, path, comps) args
+  in
+  check_apply (lid_f0, path_f0, comp_f0) args0
 
 and lookup_module ~errors ~use ~loc lid env =
   match lid with
@@ -2443,12 +2475,10 @@ and lookup_module ~errors ~use ~loc lid env =
       let path, data = lookup_dot_module ~errors ~use ~loc l s env in
       let md = EnvLazy.force subst_modtype_maker data.mda_declaration in
       path, md
-  | Lapply(l1, l2) ->
-      let p1, fc, arg = lookup_functor_components ~errors ~use ~loc l1 env in
-      let p2, md2 = lookup_module ~errors ~use ~loc l2 env in
-      !check_functor_application ~errors ~loc env md2.md_type p2 arg p1;
-      let md = md (modtype_of_functor_appl fc p1 p2) in
-      Papply(p1, p2), md
+  | Lapply _ as lid ->
+      let path_f, comp_f, path_arg = lookup_apply ~errors ~use ~loc lid env in
+      let md = md (modtype_of_functor_appl comp_f path_f path_arg) in
+      Papply(path_f, path_arg), md
 
 and lookup_dot_module ~errors ~use ~loc l s env =
   let p, comps = lookup_structure_components ~errors ~use ~loc l env in
@@ -2552,11 +2582,9 @@ let lookup_module_path ~errors ~use ~loc ~load lid env : Path.t =
       else
         fst (lookup_ident_module Load ~errors ~use ~loc s env)
   | Ldot(l, s) -> fst (lookup_dot_module ~errors ~use ~loc l s env)
-  | Lapply(l1, l2) ->
-      let (p1, _, arg) = lookup_functor_components ~errors ~use ~loc l1 env in
-      let p2, md2 = lookup_module ~errors ~use ~loc l2 env in
-      !check_functor_application ~errors ~loc env md2.md_type p2 arg p1;
-      Papply(p1, p2)
+  | Lapply _ as lid ->
+      let path_f, _comp_f, path_arg = lookup_apply ~errors ~use ~loc lid env in
+      Papply(path_f, path_arg)
 
 let lookup_value ~errors ~use ~loc lid env =
   match lid with
