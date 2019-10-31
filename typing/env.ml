@@ -639,9 +639,10 @@ let components_of_functor_appl' =
             Path.t -> Path.t -> module_components)
 let check_functor_application =
   (* to be filled by Includemod *)
-  ref ((fun ~errors:_ ~loc:_ _env _mty1 _path1 _mty2 _path2 -> assert false) :
-          errors:bool -> loc:Location.t -> t -> module_type ->
-            Path.t -> module_type -> Path.t -> unit)
+  ref ((fun ~errors:_ ~loc:_ _ _env _mty1 _path1 _mty2 -> assert false) :
+         errors:bool -> loc:Location.t -> 
+         Longident.t * Path.t * Longident.t list -> t -> module_type ->
+         Path.t -> module_type -> unit)
 let strengthen =
   (* to be filled with Mtype.strengthen *)
   ref ((fun ~aliasable:_ _env _mty _path -> assert false) :
@@ -2444,7 +2445,7 @@ and lookup_apply ~errors ~use ~loc lid0 env =
     let comp_f, mty_arg = get_functor_components ~errors ~loc lid env comp in
     let p_arg, md_arg = lookup_module ~errors ~use ~loc lid_arg env in
     !check_functor_application
-      ~errors ~loc env md_arg.md_type p_arg mty_arg path;
+      ~errors ~loc (lid0, path_f0, args0) env md_arg.md_type p_arg mty_arg;
     p_arg, comp_f
   in
   let rec check_apply (lid, path, comp) = function

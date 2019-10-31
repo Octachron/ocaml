@@ -327,9 +327,19 @@ let simplify_structure_coercion cc id_pos_list =
   then Tcoerce_none
   else Tcoerce_structure (cc, id_pos_list)
 
-let rec retrieve_functor_params = function
-  | Mty_functor (p, res) -> p :: retrieve_functor_params res
-  | _ -> []
+let rec retrieve_functor_params env = function
+  | Mty_ident p ->
+      begin match expand_module_path env p with
+      | Ok mty -> retrieve_functor_params env mty
+      | Error _ -> []
+      end
+  | Mty_alias p ->
+      begin match expand_module_alias env p with
+      | Ok mty ->  retrieve_functor_params env mty
+      | Error _ -> []
+      end
+  | Mty_functor (p, res) -> p :: retrieve_functor_params env res
+  | Mty_signature _ -> []
 
 (* Inclusion between module types.
    Return the restriction that transforms a value of the smaller type
@@ -415,8 +425,8 @@ and try_modtypes ~loc env ~mark dont_match subst mty1 mty2 =
           let d = E.sdiff (param1::res.got) (param2::res.expected) in
           dont_match E.(Functor (Params d))
       | Error _, _ ->
-          let params1 = retrieve_functor_params res1 in
-          let params2 = retrieve_functor_params res2 in
+          let params1 = retrieve_functor_params env res1 in
+          let params2 = retrieve_functor_params env res2 in
           let d = E.sdiff (param1::params1) (param2::params2) in
           dont_match E.(Functor (Params d))
       | Ok _, Error res ->
@@ -424,8 +434,8 @@ and try_modtypes ~loc env ~mark dont_match subst mty1 mty2 =
       end
   | Mty_functor _, _
   | _, Mty_functor _ ->
-      let params1 = retrieve_functor_params mty1 in
-      let params2 = retrieve_functor_params mty2 in
+      let params1 = retrieve_functor_params env mty1 in
+      let params2 = retrieve_functor_params env mty2 in
       let d = E.sdiff params1 params2 in
       dont_match E.(Functor (Params d))
   | _, Mty_signature _ ->
@@ -450,7 +460,7 @@ and try_modtypes2 ~loc env ~mark dont_match mty1 mty2 =
       else
         begin match mty1 with
         | Mty_functor _ ->
-            let params1 = retrieve_functor_params mty1 in
+            let params1 = retrieve_functor_params env mty1 in
             let d = E.sdiff params1 [] in
             dont_match E.(Functor (Params d))
         | _ -> 
@@ -706,8 +716,7 @@ let can_alias env path =
 type explanation = Env.t * E.all
 exception Error of explanation
 exception Apply_error of
-    Location.t * Path.t * Path.t * Env.t * E.module_type_diff
-
+    Location.t * Env.t * Longident.t * Path.t * Longident.t list
 
 let check_modtype_inclusion ~loc env mty1 path1 mty2 =
   let aliasable = can_alias env path1 in
@@ -716,12 +725,12 @@ let check_modtype_inclusion ~loc env mty1 path1 mty2 =
 
 let () =
   Env.check_functor_application :=
-    (fun ~errors ~loc env mty1 path1 mty2 path2 ->
+    (fun ~errors ~loc (lid0, path_f, args) env mty1 path1 mty2 ->
        match
          check_modtype_inclusion ~loc env mty1 path1 mty2
-       with Error errs ->
+       with Error _errs ->
          if errors then
-           raise (Apply_error(loc, path1, path2, env, errs))
+           raise (Apply_error(loc, env, lid0, path_f, args))
          else
            raise Not_found
              | Ok _ -> ()
@@ -744,6 +753,30 @@ let compunit env ?(mark=Mark_both) impl_name impl_sig intf_name intf_sig =
     raise(Error(env, cdiff))
   | Ok x -> x
 
+
+let rec pp_list_diff f g side ppf patch = match side, patch with
+  | _, [] -> ()
+  | `Left, Diff.Insert _ :: t
+  | `Right, Diff.Delete _ :: t ->
+      pp_list_diff f g side ppf t
+  | `Left, Diff.Delete c :: t ->
+      Format.fprintf ppf "@{<error>%a@}@ " f c ;
+      pp_list_diff f g side ppf t
+  | `Right, Diff.Insert c :: t ->
+      Format.fprintf ppf "@{<error>%a@}@ " g c ;
+      pp_list_diff f g side ppf t
+  | `Left, Diff.Keep (c,_,_) :: t ->
+      Format.fprintf ppf "%a@ " f c;
+      pp_list_diff f g side ppf t
+  | `Right, Diff.Keep (_,c,_) :: t ->
+      Format.fprintf ppf "%a@ " g c;
+      pp_list_diff f g side ppf t
+  | `Left, Diff.Change (c,_,_) :: t ->
+      Format.fprintf ppf "@{<warning>%a@}@ " f c ;
+      pp_list_diff f g side ppf t
+  | `Right, Diff.Change (_,c,_) :: t ->
+      Format.fprintf ppf "@{<warning>%a@}@ " g c ;
+      pp_list_diff f g side ppf t
 
 module FunctorArgsDiff = struct
   open Diff
@@ -792,13 +825,6 @@ module FunctorArgsDiff = struct
             env, subst
       end
 
-  (* let pp_patch ppf = function
-   *   | Diff.Insert _ -> Format.fprintf ppf "+"
-   *   | Diff.Delete _ -> Format.fprintf ppf "-"
-   *   | Diff.Change _ -> Format.fprintf ppf "×"
-   *   | Diff.Keep _ -> Format.fprintf ppf "="
-   * let pp = Format.pp_print_list pp_patch *)
-
   let diff env0 _ctxt l1 l2 =
     let test (env, subst) mty1 mty2 =
       let snap = Btype.snapshot () in
@@ -811,8 +837,59 @@ module FunctorArgsDiff = struct
     let state0 = (env0, Subst.identity) in
     Diff.diff ~weight ~cutoff ~test ~update
       state0 (Array.of_list l1) (Array.of_list l2)
+end
+
+module FunctorAppDiff = struct
+  open Diff
+
+  let cutoff = 100
+  let weight = function
+    | Insert _ -> 10
+    | Delete _ -> 10
+    | Change _ -> 10
+    | Keep _ -> 0
+
+  let update d ((env, subst) as st) = match d with
+    | Insert (Unit | Named (None,_))
+    | Keep (_,Unit,_)
+    | Change (_,(Unit | Named (None,_)), _)
+        -> st
+    | Delete _
+        -> st
+    | Insert (Named (Some p, arg)) -> 
+        let arg' = Subst.modtype Keep subst arg in
+        Env.add_module p Mp_present arg' env, subst
+    | Keep (lid1, Named (name2, _arg2), _)
+    | Change (lid1, Named (name2, _arg2), _) -> begin
+        let path1, _ = Env.find_module_by_name lid1 env in
+        match name2 with
+        | Some p2 ->
+            env, Subst.add_module p2 path1 subst
+        | None ->
+            env, subst
+      end
+
+  let diff env0 args params =
+    let loc = Location.none in
+    let test (env, subst) lid1 param2 =
+      let snap = Btype.snapshot () in
+      let path1, md1 = Env.find_module_by_name lid1 env in
+      let aliasable = can_alias env path1 in
+      let mty1' = Mtype.strengthen ~aliasable env md1.md_type path1 in
+      let res, _, _ =
+        functor_param
+          ~loc env ~mark:Mark_neither subst
+          (Named (None, mty1')) param2
+      in
+      Btype.backtrack snap;
+      res
+    in
+    let state0 = (env0, Subst.identity) in
+    Diff.diff ~weight ~cutoff ~test ~update
+      state0 (Array.of_list args) (Array.of_list params)
 
 end
+
 
 
 (* Hide the context and substitution parameters to the outside world *)
@@ -1163,15 +1240,15 @@ module Pp = struct
         | None ->
             Format.fprintf ppf 
               "@;@[<hv 2>Parameters do not match:@ \
-               @[%a ...@]@;<1 -2>does not match@ @[%a...@]@]"
+               @[%a@]@;<0 -2>does not match@ @[%a@]@]"
               (Format.pp_print_list functor_param) got
               (Format.pp_print_list functor_param) expected
         | Some d ->
             Format.fprintf ppf 
               "@;@[<hv 2>Parameters do not match:@ \
                @[%a@]@;<0 -2>does not match@ @[%a@]@]"
-              (functor_params `Left) d
-              (functor_params `Right) d
+              (pp_list_diff functor_param functor_param `Left) d
+              (pp_list_diff functor_param functor_param `Right) d
         end
 
   and functor_param ppf = function
@@ -1184,26 +1261,6 @@ module Pp = struct
         (Ident.name p)
         !Oprint.out_module_type (Printtyp.tree_of_modtype mty)
   
-  and functor_params side ppf patch = match side, patch with
-    | _, [] -> ()
-    | `Left, Diff.Insert _ :: t
-    | `Right, Diff.Delete _ :: t ->
-        functor_params side ppf t
-    | `Left, Diff.Delete c :: t ->
-        Format.fprintf ppf "@{<error>%a@}@ " functor_param c ;
-        functor_params side ppf t
-    | `Right, Diff.Insert c :: t ->
-        Format.fprintf ppf "@{<error>%a@}@ " functor_param c ;
-        functor_params side ppf t
-    | `Left, Diff.Keep (c,_,_) :: t
-    | `Right, Diff.Keep (_,c,_) :: t ->
-        Format.fprintf ppf "%a@ " functor_param c;
-        functor_params side ppf t
-    | `Left, Diff.Change (c,_,_) :: t
-    | `Right, Diff.Change (_,c,_) :: t ->
-        Format.fprintf ppf "@{<warning>%a@}@ " functor_param c ;
-        functor_params side ppf t
-
   and signature ?(first=false) env ctx ppf sgs =
     Printtyp.wrap_printing_env ~error:true sgs.env (fun () ->
     match sgs.missings, sgs.incompatibles with
@@ -1252,9 +1309,25 @@ let report_error ppf error_tree =
   fprintf ppf "@[<v>%a%t@]" include_err error_tree
     Printtyp.Conflicts.print_explanations
 
-let report_apply_error env p1 p2 ppf errs =
-  fprintf ppf "@[The type of %a does not match %a's parameter@ %a@]"
-    Printtyp.path p1 Printtyp.path p2 report_error (env, E.In_Module_type errs)
+let report_apply_error env ppf (lid0, path_f, args) =
+  let md_f = Env.find_module path_f env in
+  let params = retrieve_functor_params env md_f.md_type in
+  begin match FunctorAppDiff.diff env args params with
+  | None ->
+      Format.fprintf ppf 
+        "@;@[<hv 2>The functor application %a is ill-typed. These arguments:@ \
+         @[%a@]@;<1 -2>do not match these parameters@ @[%a@]@]"
+        Printtyp.longident lid0
+        (Format.pp_print_list Printtyp.longident) args
+        (Format.pp_print_list Pp.functor_param) params
+  | Some d ->
+      Format.fprintf ppf 
+        "@;@[<hv 2>The functor application %a is ill-typed. These arguments:@ \
+         @[%a@]@;<1 -2>do not match these parameters@ @[%a@]@]"
+        Printtyp.longident lid0
+        (pp_list_diff Printtyp.longident Pp.functor_param `Left) d
+        (pp_list_diff Printtyp.longident Pp.functor_param `Right) d
+  end
 
 (* We could do a better job to split the individual error items
    as sub-messages of the main interface mismatch on the whole unit. *)
@@ -1262,9 +1335,9 @@ let () =
   Location.register_error_of_exn
     (function
       | Error err -> Some (Location.error_of_printer_file report_error err)
-      | Apply_error(loc, p1, p2, env, err) ->
+      | Apply_error(loc, env, lid0, path_f, args) ->
           Some (Location.error_of_printer ~loc
-                  (report_apply_error env p1 p2) err
+                  (report_apply_error env) (lid0, path_f, args)
                )
       | _ -> None
     )
