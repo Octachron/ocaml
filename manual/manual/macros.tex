@@ -1,4 +1,5 @@
 \makeatletter
+
 % Pour hevea
 \newif\ifouthtml\outhtmlfalse
 \newcommand{\cutname}[1]{}
@@ -140,6 +141,19 @@
 \let\indexentry=\index
 \def\index{\indexentry{\jobname}}
 \def\ikwd{\indexentry{\jobname.kwd}}
+% Redefining sections macros to make label mandatory
+\newcommand{\lsection}{\@ifstar{\@lsectionstar}{\@lsection}}
+\newcommand{\lsubsection}{\@ifstar{\@lsubsectionstar}{\@lsubsection}}
+\newcommand{\lsubsubsection}{\@ifstar{\@lsubsubsectionstar}{\@lsubsubsection}}
+
+\newcommand{\@lsection}[2]{\section{#2}\label{s:#1}}
+\newcommand{\@lsubsection}[2]{\subsection{#2}\label{ss:#1}}
+\newcommand{\@lsubsubsection}[2]{\subsubsection{#2}\label{sss:#1}}
+\newcommand{\@lsectionstar}[2]{\section*{#2}\label{s:#1}}
+\newcommand{\@lsubsectionstar}[2]{\subsection*{#2}\label{ss:#1}}
+\newcommand{\@lsubsubsectionstar}[2]{\subsubsection*{#2}\label{sss:#1}}
+
+\newcommand{\lparagraph}[1]{\paragraph{#1}\label{p:#1}}
 
 % Les en-tetes personnalises
 

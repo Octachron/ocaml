@@ -4,7 +4,7 @@
 The "ocamlrun" command executes bytecode files produced by the
 linking phase of the "ocamlc" command.
 
-\section{Overview}
+\lsection{ocamlrun-overview}{Overview}
 
 The "ocamlrun" command comprises three main parts: the bytecode
 interpreter, that actually executes bytecode files; the memory
@@ -44,8 +44,7 @@ to always give ".exe" names to bytecode executables, e.g. compile
 with "ocamlc -o myprog.exe ..." rather than "ocamlc -o myprog ...".
 \end{windows}
 
-\section{Options} \label{ocamlrun-options}
-
+\lsection{ocamlrun-options}{Options}
 The following command-line options are recognized by "ocamlrun".
 
 \begin{options}
@@ -61,7 +60,7 @@ in the "OCAMLRUNPARAM" environment variable (see below).
 \item["-I" \var{dir}]
 Search the directory \var{dir} for dynamically-loaded libraries,
 in addition to the standard search path (see
-section~\ref{s-ocamlrun-dllpath}).
+section~\ref{s:ocamlrun-dllpath}).
 \item["-m"]
 Print the magic number of the bytecode executable given as argument
 and exit.
@@ -86,12 +85,12 @@ The following environment variables are also consulted:
 
 \begin{options}
 \item["CAML_LD_LIBRARY_PATH"]  Additional directories to search for
-  dynamically-loaded libraries (see section~\ref{s-ocamlrun-dllpath}).
+  dynamically-loaded libraries (see section~\ref{s:ocamlrun-dllpath}).
 
 \item["OCAMLLIB"] The directory containing the OCaml standard
   library.  (If "OCAMLLIB" is not set, "CAMLLIB" will be used instead.)
   Used to locate the "ld.conf" configuration file for
-  dynamic loading (see section~\ref{s-ocamlrun-dllpath}).  If not set,
+  dynamic loading (see section~\ref{s:ocamlrun-dllpath}).  If not set,
   default to the library directory specified when compiling OCaml.
 
 \item["OCAMLRUNPARAM"] Set the runtime system options
@@ -204,7 +203,7 @@ The following environment variables are also consulted:
 executable file.
 \end{options}
 
-\section{Dynamic loading of shared libraries} \label{s-ocamlrun-dllpath}
+\lsection{ocamlrun-dllpath}{Dynamic loading of shared libraries}
 
 On platforms that support dynamic loading, "ocamlrun" can link
 dynamically with C shared libraries (DLLs) providing additional C primitives
@@ -241,7 +240,7 @@ system directories, plus the directories listed in the "PATH"
 environment variable.
 \end{enumerate}
 
-\section{Common errors}
+\lsection{ocamlrun-common-errors}{Common errors}
 
 This section describes and explains the most frequently encountered
 error messages.

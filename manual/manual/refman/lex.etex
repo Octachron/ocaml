@@ -1,6 +1,6 @@
-\section{Lexical conventions}
+\lsection{lexical-conventions}{Lexical conventions}
 %HEVEA\cutname{lex.html}
-\subsubsection*{Blanks}
+\lsubsubsection*{lex:blanks}{Blanks}
 
 The following characters are considered as blanks: space,
 horizontal tabulation, carriage return, line feed and form feed. Blanks are
@@ -8,7 +8,7 @@ ignored, but they separate adjacent identifiers, literals and
 keywords that would otherwise be confused as one single identifier,
 literal or keyword.
 
-\subsubsection*{Comments}
+\lsubsubsection*{lex:comments}{Comments}
 
 Comments are introduced by the two characters  @"(*"@, with no
 intervening blanks, and terminated by the characters @"*)"@, with
@@ -16,7 +16,7 @@ no intervening blanks. Comments are treated as blank characters.
 Comments do not occur inside string or character literals. Nested
 comments are handled correctly.
 
-\subsubsection*{Identifiers}
+\lsubsubsection*{lex:identifiers}{Identifiers}
 
 \begin{syntax}
 ident: ( letter || "_" ) { letter || "0" \ldots "9" || "_" || "'" } ;
@@ -45,7 +45,7 @@ identifiers and identifiers that begin with a lowercase letter.  The
 underscore character is considered a lowercase letter for this
 purpose.
 
-\subsubsection*{Integer literals}
+\lsubsubsection*{integer-literals}{Integer literals}
 
 \begin{syntax}
 integer-literal:
@@ -80,7 +80,7 @@ representable integer values is undefined.
 For convenience and readability, underscore characters (@"_"@) are accepted
 (and ignored) within integer literals.
 
-\subsubsection*{Floating-point literals}
+\lsubsubsection*{floating-point-literals}{Floating-point literals}
 
 \begin{syntax}
 float-literal:
@@ -116,7 +116,7 @@ It is written in decimal and interpreted as a power of 2.
 For convenience and readability, underscore characters (@"_"@) are accepted
 (and ignored) within floating-point literals.
 
-\subsubsection*{Character literals}
+\lsubsubsection*{character-literals}{Character literals}
 \label{s:characterliteral}
 
 \begin{syntax}
@@ -149,8 +149,7 @@ The two single quotes enclose either one character different from
 \entree{"\\o"\var{ooo}}{the character with ASCII code \var{ooo} in octal}
 \end{tableau}
 
-\subsubsection*{String literals}
-\label{s:stringliteral}
+\lsubsubsection*{stringliterals}{String literals}
 
 \begin{syntax}
 string-literal:
@@ -199,8 +198,7 @@ such issue (e.g. "{|hello|}", "{ext|hello {|world|}|ext}", ...).
 The current implementation places practically no restrictions on the
 length of string literals.
 
-\subsubsection*{Naming labels}
-\label{s:labelname}
+\lsubsubsection*{labelname}{Naming labels}
 
 To avoid ambiguities, naming labels in expressions cannot just be defined
 syntactically as the sequence of the three tokens "~", @ident@ and

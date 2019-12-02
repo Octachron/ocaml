@@ -11,7 +11,7 @@ OCaml reference manual.
 
 (Introduced in Objective Caml 1.00)
 
-As mentioned in section~\ref{s:localdef}, the @'let' 'rec'@ binding
+As mentioned in section~\ref{sec:expr:localdef}, the @'let' 'rec'@ binding
 construct, in addition to the definition of recursive functions,
 also supports a certain class of recursive definitions of
 non-functional values, such as
@@ -176,7 +176,7 @@ variant and record types (section~\ref{s-private-types-variant}),
 for type abbreviations (section~\ref{s-private-types-abbrev}),
 and for row types (section~\ref{s-private-rows}).
 
-\subsection{Private variant and record types} \label{s-private-types-variant}
+\lsubsection{private-types-variant}{Private variant and record types}
 
 (Introduced in Objective Caml 3.07)
 
@@ -217,7 +217,7 @@ handled like abstract types. That is, if a private type has
 parameters, their variance is the one explicitly given by prefixing
 the parameter by a `"+"' or a `"-"', it is invariant otherwise.
 
-\subsection{Private type abbreviations} \label{s-private-types-abbrev}
+\lsubsection{private-types-abbrev}{Private type abbreviations}
 
 (Introduced in Objective Caml 3.11)
 
@@ -262,7 +262,7 @@ you must use the full form @"(" expr ":" typexpr_1 ":>" typexpr_2 ")"@ where
 @typexpr_1@ is the expected type of @expr@. Concretely, this would be "(x :
 N.t :> int)" and "(l : N.t list :> int list)" for the above examples.
 
-\subsection{Private row types} \label{s-private-rows}
+\lsubsection{private-rows}{Private row types}
 \ikwd{private\@\texttt{private}}
 
 (Introduced in Objective Caml 3.09)
@@ -390,7 +390,7 @@ It is also extremely useful for first-class modules (see
 section~\ref{s-first-class-modules}) and generalized algebraic datatypes
 (GADTs: see section~\ref{s:gadts}).
 
-\paragraph{Polymorphic syntax} (Introduced in OCaml 4.00)
+\lparagraph{polymorpic-locally-abstract}{Polymorphic syntax} (Introduced in OCaml 4.00)
 
 \begin{syntax}
 let-binding:
@@ -506,7 +506,7 @@ It can also be used anywhere in the context of a local module binding
 @'let' 'module' module-name '=' '(' "val" expr_1 ":" package-type ')'
  "in" expr_2@.
 
-\paragraph{Basic example} A typical use of first-class modules is to
+\lparagraph{fst-mod-example}{Basic example} A typical use of first-class modules is to
 select at run-time among several implementations of a signature.
 Each implementation is a structure that we can encapsulate as a
 first-class module, then store in a data structure such as a hash
@@ -547,7 +547,7 @@ let draw_using_device device_name picture =
   Device.draw picture
 \end{caml_example*}
 
-\paragraph{Advanced examples}
+\lparagraph{fst-mod-advexamples}{Advanced examples}
 With first-class modules, it is possible to parametrize some code over the
 implementation of a module without using a functor.
 
@@ -716,8 +716,7 @@ it to represent sets internally in a different way.
 \ikwd{type\@\texttt{type}}
 \label{s:signature-substitution}
 
-\subsection{Destructive substitutions}
-\label{ss:destructive-substitution}
+\lsubsection{destructive-substitution}{Destructive substitutions}
 
 (Introduced in OCaml 3.12, generalized in 4.06)
 
@@ -773,8 +772,7 @@ module type ComparableInt = Comparable with type t = int ;;
 module type CompareInt = ComparableInt with type t := int
 \end{caml_example}
 
-\subsection{Local substitution declarations}
-\label{ss:local-substitution}
+\lsubsection{local-substitution}{Local substitution declarations}
 
 (Introduced in OCaml 4.08)
 
@@ -1011,7 +1009,7 @@ If a constructor has some existential variables, fresh locally
 abstract types are generated, and they must not escape the
 scope of this branch.
 
-\paragraph{Recursive functions}
+\lparagraph{gadts-recfun}{Recursive functions}
 
 Here is a concrete example:
 \begin{caml_example*}{verbatim}
@@ -1053,7 +1051,7 @@ In this branch, the type of "f" is "($App_ 'b-> a)". The prefix "$" in
 flow to the type variable "'a" and escape its scope. This triggers the
 above error.
 
-\paragraph{Type inference}
+\lparagraph{gadts-type-inference}{Type inference}
 
 Type inference for GADTs is notoriously hard.
 This is due to the fact some types may become ambiguous when escaping
@@ -1106,7 +1104,7 @@ let get_int : int term -> int = function
 \end{caml_example*}
 
 
-\paragraph{Refutation cases} (Introduced in OCaml 4.03)
+\lparagraph{gadt-refutation-cases}{Refutation cases} (Introduced in OCaml 4.03)
 
 Usually, the exhaustiveness check only tries to check whether the
 cases omitted from the pattern matching are typable or not.
@@ -1149,7 +1147,7 @@ Another addition is that the redundancy check is now aware of GADTs: a
 case will be detected as redundant if it could be replaced by a
 refutation case using the same pattern.
 
-\paragraph{Advanced examples}
+\lparagraph{gadts-advexamples}{Advanced examples}
 The "term" type we have defined above is an {\em indexed} type, where
 a type parameter reflects a property of the value contents.
 Another use of GADTs is {\em singleton} types, where a GADT value
@@ -1211,8 +1209,7 @@ let get_dyn : type a. a typ -> dyn -> a option =
   | Some Eq -> Some x
 \end{caml_example*}
 
-\paragraph{Existential type names in error messages}%
-\label{p:existential-names}
+\lparagraph{existential-names}{Existential type names in error messages}%
 (Updated in OCaml 4.03.0)
 
 The typing of pattern matching in presence of GADT can generate many
@@ -1251,7 +1248,7 @@ which could not be named using one of the previous schemes.
 As shown by the last item, the current behavior is imperfect
 and may be improved in future versions.
 
-\paragraph{Equations on non-local abstract types} (Introduced in OCaml
+\lparagraph{gadt-equation-nonlocal-abstract}{Equations on non-local abstract types} (Introduced in OCaml
 4.04)
 
 GADT pattern-matching may also add type equations to non-local
@@ -1505,8 +1502,7 @@ and[@bar] y = 3 in x + y           === (let x = 2 [@@foo] and y = 3 [@bar] in x 
 \end{verbatim}
 
 
-\subsection{Built-in attributes}
-\label{ss:builtin-attributes}
+\lsubsection{builtin-attributes}{Built-in attributes}
 
 Some attributes are understood by the type-checker:
 \begin{itemize}
@@ -1818,7 +1814,7 @@ different semantics than they expect. Moreover, giving semantics to a
 specific delimiter limits the freedom to change the delimiter to avoid
 escaping issues.
 
-\subsection{Built-in extension nodes}
+\lsubsection{builtin-extension-nodes}{Built-in extension nodes}
 
 (Introduced in OCaml 4.03)
 
@@ -1935,7 +1931,7 @@ let inspection_works = function
 let construction_is_forbidden = B.Bool 1;;
 \end{caml_example}
 
-\subsection{Private extensible variant types}
+\lsubsection{private-extensible}{Private extensible variant types}
 
 (Introduced in OCaml 4.06)
 
@@ -2011,7 +2007,7 @@ be used directly in vanilla OCaml. However, "-ppx" rewriters and other
 external tools can exploit this parser leniency to extend the language
 with these new syntactic constructions by rewriting them to
 vanilla constructions.
-\subsection{Extension operators} \label{s:ext-ops}
+\lsubsection{extension-operators}{Extension operators} \label{s:ext-ops}
 (Introduced in OCaml 4.02.2)
 \begin{syntax}
 infix-symbol:
@@ -2023,7 +2019,7 @@ infix-symbol:
 Operator names starting with a "#" character and containing more than
 one "#" character are reserved for extensions.
 
-\subsection{Extension literals} \label{s:extension-literals}
+\lsubsection{extension-literals}{Extension literals}
 (Introduced in OCaml 4.03)
 \begin{syntax}
 float-literal:
@@ -2117,7 +2113,7 @@ documentation generator (see \ref{c:ocamldoc}). The three comment forms
 recognised by the compiler are a subset of the forms accepted by
 ocamldoc (see \ref{s:ocamldoc-comments}).
 
-\subsection{Floating comments}
+\lsubsection{floating-comments}{Floating comments}
 
 Comments surrounded by blank lines that appear within structures,
 signatures, classes or class types are converted into
@@ -2141,7 +2137,7 @@ type t = T
 let mkT = T
 \end{caml_example*}
 
-\subsection{Item comments}
+\lsubsection{item-comments}{Item comments}
 
 Comments which appear {\em immediately before} or {\em immediately
 after} a structure item, signature item, class item or class type item
@@ -2190,7 +2186,7 @@ type s = S
 
 and the compiler will emit warning 50.
 
-\subsection{Label comments}
+\lsubsection{label-comments}{Label comments}
 
 Comments which appear {\em immediately after} a labelled argument,
 record field, variant constructor, object method or polymorphic variant
@@ -2326,7 +2322,7 @@ dict.Dict.%{"one"};;
 let open Dict in dict.%{"two"};;
 \end{caml_example}
 
-\subsection{Multi-index notation}
+\lsubsection{multiindexing}{Multi-index notation}
 \begin{syntax}
 expr:
           ...
@@ -2701,7 +2697,7 @@ let sum3 z1 z2 z3 =
     (fun ((x1, x2), x3) -> x1 + x2 + x3)
 \end{caml_example}
 
-\subsection{Rationale}
+\lsubsection{letops-rationale}{Rationale}
 
 This extension is intended to provide a convenient syntax for working
 with monads and applicatives.
