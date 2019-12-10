@@ -63,7 +63,6 @@ type core_sigitem_symptom =
   | Class_declarations of
       (class_declaration, Ctype.class_match_failure list) diff
 
-
 type core_module_type_symptom =
   | Not_a_signature
   | Not_an_alias
@@ -72,8 +71,6 @@ type core_module_type_symptom =
   | Unbound_modtype_path of Path.t
   | Unbound_module_path of Path.t
   | Invalid_module_alias of Path.t
-
-
 
 type module_type_symptom =
   | Mt_core of core_module_type_symptom
@@ -105,9 +102,12 @@ and sigitem_symptom =
   | Module_type of module_type_diff
 
 and module_type_declaration_symptom =
-  | Included_but_not_equivalent of module_type_diff
   | Illegal_permutation of Typedtree.module_coercion
-  | Module_type_symptom of module_type_diff
+  | Not_greater_than of module_type_diff
+  | Not_less_than of module_type_diff
+  | Incomparable of
+      {less_than:module_type_diff; greater_than: module_type_diff}
+
 
 type all =
   | In_Compilation_unit of (string, signature_symptom) diff
@@ -432,7 +432,7 @@ and try_modtypes ~loc env ~mark dont_match subst mty1 mty2 =
       dont_match E.(Functor (Params d))
   | _, Mty_signature _ ->
       dont_match (E.Mt_core E.Not_a_signature)
-  | _, Mty_alias _ -> 
+  | _, Mty_alias _ ->
       dont_match (E.Mt_core E.Not_an_alias)
 
 and try_modtypes2 ~loc env ~mark dont_match mty1 mty2 =
@@ -455,7 +455,7 @@ and try_modtypes2 ~loc env ~mark dont_match mty1 mty2 =
             let params1 = retrieve_functor_params env mty1 in
             let d = E.sdiff params1 [] in
             dont_match E.(Functor (Params d))
-        | _ -> 
+        | _ ->
             dont_match E.(Mt_core Not_an_identifier)
         end
   | _ -> assert false
@@ -689,9 +689,11 @@ and check_modtype_equiv ~loc env ~mark mty1 mty2 =
       (* Format.eprintf "@[c1 = %a@ c2 = %a@]@."
         print_coercion _c1 print_coercion _c2; *)
       Error E.(Illegal_permutation c1)
-  | Ok _, Error c2 ->
-      Error E.(Included_but_not_equivalent c2)
-  | Error e, _ -> Error E.(Module_type_symptom e)
+  | Ok _, Error e -> Error E.(Not_greater_than e)
+  | Error e, Ok _ -> Error E.(Not_less_than e)
+  | Error less_than, Error greater_than ->
+      Error E.(Incomparable {less_than; greater_than})
+
 
 (* Simplified inclusion check between module types (for Env) *)
 
@@ -725,7 +727,7 @@ let () =
            raise (Apply_error(loc, env, lid0, path_f, args))
          else
            raise Not_found
-             | Ok _ -> ()
+          | Ok _ -> ()
     )
 
 let check_modtype_inclusion ~loc env mty1 path1 mty2 =
@@ -799,7 +801,7 @@ module FunctorArgsDiff = struct
         st
     | Insert (Named (Some p, arg))
     | Delete (Named (Some p, arg))
-    | Change (Unit, Named (Some p, arg), _) -> 
+    | Change (Unit, Named (Some p, arg), _) ->
         let arg' = Subst.modtype Keep subst arg in
         Env.add_module p Mp_present arg' env, subst
     | Keep (Named (name1, _), Named (name2, arg2), _)
@@ -848,7 +850,7 @@ module FunctorAppDiff = struct
         -> st
     | Delete _
         -> st
-    | Insert (Named (Some p, arg)) -> 
+    | Insert (Named (Some p, arg)) ->
         let arg' = Subst.modtype Keep subst arg in
         Env.add_module p Mp_present arg' env, subst
     | Keep (lid1, Named (name2, _arg2), _)
@@ -1095,7 +1097,7 @@ let is_big obj =
     try ignore (Marshal.to_buffer !buffer 0 size obj []); false
     with _ -> true
   end
-      
+
 module Pp = struct
   open E
   let break ppf first =
@@ -1153,10 +1155,10 @@ module Pp = struct
           !Oprint.out_sig_item t2
           Includeclass.report_error symptom
 
-  let missing_field ppf item =
+  let missing_field ?(first=false) ppf item =
     let id, loc, kind = item_ident_name item in
-    Format.fprintf ppf "@ The %s `%a' is required but not provided%a"
-      (kind_of_field_desc kind) Printtyp.ident id
+    Format.fprintf ppf "%aThe %s `%a' is required but not provided%a"
+      break first (kind_of_field_desc kind) Printtyp.ident id
     (show_loc "Expected declaration") loc
 
   let module_types ?(first=false) ppf {got=mty1; expected=mty2} =
@@ -1166,6 +1168,15 @@ module Pp = struct
       break first
       !Oprint.out_module_type (Printtyp.tree_of_modtype mty1)
       !Oprint.out_module_type (Printtyp.tree_of_modtype mty2)
+
+  let eq_module_types ?(first=false) ppf {got=mty1; expected=mty2} =
+    Format.fprintf ppf
+      "%a@[<hv 2>Module types do not match:@ \
+       %a@;<1 -2>is not equal to@ %a@]"
+      break first
+      !Oprint.out_module_type (Printtyp.tree_of_modtype mty1)
+      !Oprint.out_module_type (Printtyp.tree_of_modtype mty2)
+
 
   let module_type_declarations id ?(first=false) ppf {got=d1 ; expected=d2} =
     Format.fprintf ppf
@@ -1204,19 +1215,19 @@ module Pp = struct
           (printer ?first:(Some(first || ctx<>[])))
           diff
 
-
   let with_context_and_elision first ctx printer ppf diff =
     if is_big (diff.got,diff.expected) then
       Format.fprintf ppf "..."
     else
       with_context first ctx printer ppf diff
 
-  let rec module_type ?(first=false) env ctx ppf diff =
+  let rec module_type ?(first=false) ~eqmode env ctx ppf diff =
     match diff.symptom with
     | Mt_core (Invalid_module_alias _ as s) ->
         with_context first ctx core_module_type_symptom ppf s
     | _ ->
-        with_context_and_elision first ctx module_types ppf diff
+        let inner = if eqmode then eq_module_types else module_types in
+        with_context_and_elision first ctx inner ppf diff
       ; module_type_symptom env ctx ppf diff.symptom
 
   and module_type_symptom env ctx ppf = function
@@ -1226,17 +1237,17 @@ module Pp = struct
 
   and functor_symptom env ctx ppf = function
     | Result res ->
-        module_type env ctx ppf res
+        module_type ~eqmode:false env ctx ppf res
     | Params E.{got; expected; symptom=()} ->
         begin match FunctorArgsDiff.diff env ctx got expected with
         | None ->
-            Format.fprintf ppf 
+            Format.fprintf ppf
               "@;@[<hv 2>Parameters do not match:@ \
                @[%a@]@;<0 -2>does not match@ @[%a@]@]"
               (Format.pp_print_list functor_param) got
               (Format.pp_print_list functor_param) expected
         | Some d ->
-            Format.fprintf ppf 
+            Format.fprintf ppf
               "@;@[<hv 2>Parameters do not match:@ \
                @[%a@]@;<0 -2>does not match@ @[%a@]@]"
               (pp_list_diff functor_param functor_param `Left) d
@@ -1252,24 +1263,33 @@ module Pp = struct
       Format.fprintf ppf "(%s : %a)"
         (Ident.name p)
         !Oprint.out_module_type (Printtyp.tree_of_modtype mty)
-  
+
   and signature ?(first=false) env ctx ppf sgs =
     Printtyp.wrap_printing_env ~error:true sgs.env (fun () ->
     match sgs.missings, sgs.incompatibles with
-    | a :: _ , _ -> with_context first ctx (fun ?first:_ -> missing_field) ppf a
+    | a :: _ , _ -> with_context first ctx missing_field ppf a
     | [], a :: _ -> sigitem ~first env ctx ppf a
     | [], [] -> assert false
       )
   and sigitem ~first env ctx ppf (name,s) = match s with
     | Core c -> with_context first ctx (core name) ppf c
-    | Module_type diff -> module_type ~first env (Module name :: ctx) ppf diff
+    | Module_type diff ->
+        module_type ~first ~eqmode:false env (Module name :: ctx) ppf diff
     | Module_type_declaration diff ->
         module_type_decl ~first env ctx name ppf diff
   and module_type_decl ?(first=false) env ctx id ppf diff =
     with_context_and_elision first ctx (module_type_declarations id) ppf diff;
     match diff.symptom with
-    | Included_but_not_equivalent mts | Module_type_symptom mts ->
-        module_type env (Modtype id :: ctx) ppf mts
+    | Not_less_than mts ->
+        Format.fprintf ppf
+          "@ The first module type is not included in the second%a"
+          (module_type ~eqmode:true env (Modtype id :: ctx)) mts
+    | Not_greater_than mts ->
+        Format.fprintf ppf
+          "@ The second module type is not included in the first%a"
+          (module_type ~eqmode:true env (Modtype id :: ctx)) mts
+    | Incomparable mts ->
+        (module_type ~eqmode:true env (Modtype id :: ctx)) ppf mts.less_than
     | Illegal_permutation c ->
         begin match diff.got.Types.mtd_type with
         | None -> assert false
@@ -1285,7 +1305,8 @@ module Pp = struct
     | In_Compilation_unit diff ->
       interface_mismatch ppf diff; signature env [] ppf diff.symptom
     | In_Type_declaration (id,reason) -> core ~first:true id ppf reason
-    | In_Module_type diff -> module_type ~first:true env [] ppf diff
+    | In_Module_type diff ->
+        module_type ~eqmode:false ~first:true env [] ppf diff
     | In_Signature diff -> signature ~first:true env [] ppf diff
     | In_Expansion cmts -> core_module_type_symptom ~first:true ppf cmts
 end
@@ -1306,14 +1327,14 @@ let report_apply_error env ppf (lid0, path_f, args) =
   let params = retrieve_functor_params env md_f.md_type in
   begin match FunctorAppDiff.diff env args params with
   | None ->
-      Format.fprintf ppf 
+      Format.fprintf ppf
         "@;@[<hv 2>The functor application %a is ill-typed. These arguments:@ \
          @[%a@]@;<1 -2>do not match these parameters@ @[%a@]@]"
         Printtyp.longident lid0
         (Format.pp_print_list Printtyp.longident) args
         (Format.pp_print_list Pp.functor_param) params
   | Some d ->
-      Format.fprintf ppf 
+      Format.fprintf ppf
         "@;@[<hv 2>The functor application %a is ill-typed. These arguments:@ \
          @[%a@]@;<1 -2>do not match these parameters@ @[%a@]@]"
         Printtyp.longident lid0
