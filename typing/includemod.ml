@@ -1369,3 +1369,55 @@ let expand_module_alias env path =
   | Ok x -> x
   | Result.Error _ ->
       raise (Error(env,In_Expansion(E.Unbound_module_path path)))
+
+
+(* Apply error diff *)
+module FunctorAppDiffForTypeMod = struct
+  open Diff
+
+  let cutoff = 100
+  let weight = function
+    | Insert _ -> 10
+    | Delete _ -> 10
+    | Change _ -> 10
+    | Keep _ -> 0
+
+  let update d ((env, subst) as st) = match d with
+    | Insert (Types.Unit | Types.Named (None,_))
+    | Keep (_,Unit,_)
+    | Change (_,(Unit | Named (None,_)), _)
+        -> st
+    | Delete _
+        -> st
+    | Insert (Types.Named (Some p, arg)) ->
+        let arg' = Subst.modtype Keep subst arg in
+        Env.add_module p Mp_present arg' env, subst
+    | Keep _ | Change _ -> env, subst
+
+  let diff env0 ~f ~args =
+    let params = retrieve_functor_params env0 f.mod_type in
+    let loc = Location.none in
+    let test (env, subst) me param2 =
+      let snap = Btype.snapshot () in
+      let res, _, _ =
+        functor_param
+          ~loc env ~mark:Mark_neither subst
+          (Named (None, me.mod_type )) param2
+      in
+      Btype.backtrack snap;
+      res
+    in
+    let state0 = (env0, Subst.identity) in
+    Diff.diff ~weight ~cutoff ~test ~update
+      state0 (Array.of_list args) (Array.of_list params)
+
+end
+
+type functor_app_patch =
+  (Typedtree.module_expr, Types.functor_parameter,
+   Typedtree.module_coercion, E.functor_param_syndrom)
+    Diff.patch
+let functor_app_diff = FunctorAppDiffForTypeMod.diff
+let pp_functor_app_patch =
+  let pp_me ppf me = Printtyp.modtype ppf me.mod_type in
+  pp_list_diff pp_me Pp.functor_param

@@ -130,6 +130,14 @@ type error =
   | Badly_formed_signature of string * Typedecl.error
   | Cannot_hide_id of hiding_error
   | Invalid_type_subst_rhs
+  | Apply_error of
+      {f:Typedtree.module_expr;
+       args:(Location.t
+             * Parsetree.attribute list
+             * Parsetree.module_expr
+             * Typedtree.module_expr
+             * Path.t option) list
+      }
 
 exception Error of Location.t * Env.t * error
 exception Error_forward of Location.error

@@ -101,6 +101,14 @@ type error =
   | Badly_formed_signature of string * Typedecl.error
   | Cannot_hide_id of hiding_error
   | Invalid_type_subst_rhs
+  | Apply_error of
+      {f:Typedtree.module_expr;
+       args:(Location.t
+             * Parsetree.attribute list
+             * Parsetree.module_expr
+             * Typedtree.module_expr
+             * Path.t option) list
+      }
 
 exception Error of Location.t * Env.t * error
 exception Error_forward of Location.error
@@ -1854,6 +1862,11 @@ let wrap_constraint env mark arg mty explicit =
 
 (* Type a module value expression *)
 
+let rec extract_application sargs smod = match smod.pmod_desc with
+  | Pmod_apply(f, arg) ->
+      extract_application ((f.pmod_loc, f.pmod_attributes, arg)::sargs) f
+  | _ -> smod, sargs
+
 let rec type_module ?(alias=false) sttn funct_body anchor env smod =
   Builtin_attributes.warning_scope smod.pmod_attributes
     (fun () -> type_module_aux ~alias sttn funct_body anchor env smod)
@@ -1937,79 +1950,10 @@ and type_module_aux ~alias sttn funct_body anchor env smod =
            mod_attributes = smod.pmod_attributes;
            mod_loc = smod.pmod_loc }
   | Pmod_apply(sfunct, sarg) ->
-      let arg = type_module true funct_body None env sarg in
-      let path = path_of_module arg in
-      let funct =
-        type_module (sttn && path <> None) funct_body None env sfunct in
-      begin match Env.scrape_alias env funct.mod_type with
-      | Mty_functor (Unit, mty_res) ->
-          if sarg.pmod_desc <> Pmod_structure [] then
-            raise (Error (sfunct.pmod_loc, env, Apply_generative));
-          if funct_body && Mtype.contains_type env funct.mod_type then
-            raise (Error (smod.pmod_loc, env, Not_allowed_in_functor_body));
-          rm { mod_desc = Tmod_apply(funct, arg, Tcoerce_none);
-               mod_type = mty_res;
-               mod_env = env;
-               mod_attributes = smod.pmod_attributes;
-               mod_loc = smod.pmod_loc }
-      | Mty_functor (Named (param, mty_param), mty_res) as mty_functor ->
-          let coercion =
-            try
-              Includemod.modtypes ~loc:sarg.pmod_loc env arg.mod_type mty_param
-            with Includemod.Error msg ->
-              raise(Error(sarg.pmod_loc, env, Not_included msg)) in
-          let mty_appl =
-            match path with
-            | Some path ->
-                let scope = Ctype.create_scope () in
-                let subst =
-                  match param with
-                  | None -> Subst.identity
-                  | Some p -> Subst.add_module p path Subst.identity
-                in
-                Subst.modtype (Rescope scope) subst mty_res
-            | None ->
-                let env, nondep_mty =
-                  match param with
-                  | None -> env, mty_res
-                  | Some param ->
-                      let env =
-                        Env.add_module ~arg:true param Mp_present arg.mod_type
-                          env
-                      in
-                      check_well_formed_module env smod.pmod_loc
-                        "the signature of this functor application" mty_res;
-                      try env, Mtype.nondep_supertype env [param] mty_res
-                      with Ctype.Nondep_cannot_erase _ ->
-                        raise(Error(smod.pmod_loc, env,
-                                    Cannot_eliminate_dependency mty_functor))
-                in
-                begin match
-                  Includemod.modtypes ~loc:smod.pmod_loc env mty_res nondep_mty
-                with
-                | Tcoerce_none -> ()
-                | _ ->
-                  fatal_error
-                    "unexpected coercion from original module type to \
-                     nondep_supertype one"
-                | exception Includemod.Error _ ->
-                  fatal_error
-                    "nondep_supertype not included in original module type"
-                end;
-                nondep_mty
-          in
-          check_well_formed_module env smod.pmod_loc
-            "the signature of this functor application" mty_appl;
-          rm { mod_desc = Tmod_apply(funct, arg, coercion);
-               mod_type = mty_appl;
-               mod_env = env;
-               mod_attributes = smod.pmod_attributes;
-               mod_loc = smod.pmod_loc }
-      | Mty_alias path ->
-          raise(Error(sfunct.pmod_loc, env, Cannot_scrape_alias path))
-      | _ ->
-          raise(Error(sfunct.pmod_loc, env, Cannot_apply funct.mod_type))
-      end
+      let funct, args =
+        let args = [smod.pmod_loc, sfunct.pmod_attributes, sarg] in
+        extract_application args sfunct in
+      type_application sttn funct_body env funct args
   | Pmod_constraint(sarg, smty) ->
       let arg = type_module ~alias true funct_body anchor env sarg in
       let mty = transl_modtype env smty in
@@ -2017,10 +1961,9 @@ and type_module_aux ~alias sttn funct_body anchor env smod =
         wrap_constraint env true arg mty.mty_type (Tmodtype_explicit mty)
       in
       rm { md with
-          mod_loc = smod.pmod_loc;
-          mod_attributes = smod.pmod_attributes;
+           mod_loc = smod.pmod_loc;
+           mod_attributes = smod.pmod_attributes;
          }
-
   | Pmod_unpack sexp ->
       if !Clflags.principal then Ctype.begin_def ();
       let exp = Typecore.type_exp env sexp in
@@ -2055,6 +1998,91 @@ and type_module_aux ~alias sttn funct_body anchor env smod =
            mod_loc = smod.pmod_loc }
   | Pmod_extension ext ->
       raise (Error_forward (Builtin_attributes.error_of_extension ext))
+
+and type_application strengthen funct_body env sfunct sargs =
+  let type_arg (floc, attrs, sarg) =
+    let arg = type_module true funct_body None env sarg in
+    floc, attrs, sarg, arg, path_of_module arg in
+  let args = List.map type_arg sargs in
+  let funct =
+    let strengthen =
+      strengthen
+      && List.for_all (fun (_,_,_, _, path) -> path <> None) args in
+    type_module strengthen funct_body None env sfunct in
+  List.fold_left (type_one_application ~ctx:(funct, args) funct_body env)
+    funct args
+
+and type_one_application ~ctx:(f,args) funct_body env funct
+    (loc, attrs, sarg, arg, parg) =
+  match Env.scrape_alias env funct.mod_type with
+  | Mty_functor (Unit, mty_res) ->
+      if sarg.pmod_desc <> Pmod_structure [] then
+        raise (Error (loc, env, Apply_generative));
+      if funct_body && Mtype.contains_type env funct.mod_type then
+        raise (Error (loc, env, Not_allowed_in_functor_body));
+      rm { mod_desc = Tmod_apply(funct, arg, Tcoerce_none);
+           mod_type = mty_res;
+           mod_env = env;
+           mod_attributes = attrs;
+           mod_loc = funct.mod_loc }
+  | Mty_functor (Named (param, mty_param), mty_res) as mty_functor ->
+      let coercion =
+        try
+          Includemod.modtypes ~loc:sarg.pmod_loc env arg.mod_type mty_param
+        with Includemod.Error _ ->
+          raise(Error(loc, env, Apply_error {f;args} )) in
+      let mty_appl =
+        match parg with
+        | Some path ->
+            let scope = Ctype.create_scope () in
+            let subst =
+              match param with
+              | None -> Subst.identity
+              | Some p -> Subst.add_module p path Subst.identity
+            in
+            Subst.modtype (Rescope scope) subst mty_res
+        | None ->
+            let env, nondep_mty =
+              match param with
+              | None -> env, mty_res
+              | Some param ->
+                  let env =
+                    Env.add_module ~arg:true param Mp_present arg.mod_type
+                      env
+                  in
+                  check_well_formed_module env loc
+                    "the signature of this functor application" mty_res;
+                  try env, Mtype.nondep_supertype env [param] mty_res
+                  with Ctype.Nondep_cannot_erase _ ->
+                    let error = Cannot_eliminate_dependency mty_functor in
+                    raise (Error(loc, env, error))
+            in
+            begin match
+              Includemod.modtypes ~loc env mty_res nondep_mty
+            with
+            | Tcoerce_none -> ()
+            | _ ->
+                fatal_error
+                  "unexpected coercion from original module type to \
+                   nondep_supertype one"
+            | exception Includemod.Error _ ->
+                fatal_error
+                  "nondep_supertype not included in original module type"
+            end;
+            nondep_mty
+      in
+      check_well_formed_module env loc
+        "the signature of this functor application" mty_appl;
+      rm { mod_desc = Tmod_apply(funct, arg, coercion);
+           mod_type = mty_appl;
+           mod_env = env;
+           mod_attributes = attrs;
+           mod_loc = loc }
+  | Mty_alias path ->
+      raise(Error(loc, env, Cannot_scrape_alias path))
+  | _ ->
+      raise(Error(loc, env, Cannot_apply funct.mod_type))
+
 
 and type_open_decl ?used_slot ?toplevel funct_body names env sod =
   Builtin_attributes.warning_scope sod.popen_attributes
@@ -2762,9 +2790,13 @@ let package_units initial_env objfiles cmifile modulename =
 
 (* Error report *)
 
+
+
+
+
 open Printtyp
 
-let report_error ppf = function
+let report_error env ppf = function
     Cannot_apply mty ->
       fprintf ppf
         "@[This module is not a functor; it has type@ %a@]" modtype mty
@@ -2891,9 +2923,28 @@ let report_error ppf = function
         Ident.print opened_item_id
   | Invalid_type_subst_rhs ->
       fprintf ppf "Only type synonyms are allowed on the right of :="
+  | Apply_error {f;args} ->
+      let args = List.map (fun (_,_,_,arg,_) -> arg) args in
+      match Includemod.functor_app_diff env ~f ~args with
+      | None ->
+          Format.fprintf ppf
+            "@;@[<hv 2>The functor application %a is ill-typed."
+            (* These arguments:"@ @[%a@]@;<1 -2>do not match
+               these parameters@ @[%a@]@]"*)
+            Printtyp.modtype f.mod_type
+      (*       (Format.pp_print_list Printtyp.longident) args
+               (Format.pp_print_list Pp.functor_param) params *)
+      | Some patch ->
+          Format.fprintf ppf
+            "@;@[<hv 2>Parameters do not match:@ \
+             @[%a@]@;<0 -2>does not match@ @[%a@]@]"
+            (Includemod.pp_functor_app_patch `Left) patch
+            (Includemod.pp_functor_app_patch `Right) patch
+
 
 let report_error env ppf err =
-  Printtyp.wrap_printing_env ~error:true env (fun () -> report_error ppf err)
+  Printtyp.wrap_printing_env ~error:true env
+    (fun () -> report_error env ppf err)
 
 let () =
   Location.register_error_of_exn
