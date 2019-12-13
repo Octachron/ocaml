@@ -1436,5 +1436,5 @@ type functor_app_patch =
     Diff.patch
 let functor_app_diff = FunctorAppDiffForTypeMod.diff
 let pp_functor_app_patch =
-  let pp_me ppf me = Printtyp.modtype ppf me.mod_type in
+  let pp_me ppf me = Format.fprintf ppf "(%a)" Printtyp.modtype me.mod_type in
   pp_list_diff_without_suffix pp_me Pp.functor_param
