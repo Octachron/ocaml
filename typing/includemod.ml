@@ -883,9 +883,8 @@ module FunctorAppDiff = struct
     | Insert (Named (Some p, arg)) ->
         let arg' = Subst.modtype Keep subst arg in
         Env.add_module p Mp_present arg' env, subst
-    | Keep (lid1, Named (name2, _arg2), _)
-    | Change (lid1, Named (name2, _arg2), _) -> begin
-        let path1, _ = Env.find_module_by_name lid1 env in
+    | Keep (path1, Named (name2, _arg2), _)
+    | Change (path1, Named (name2, _arg2), _) -> begin
         match name2 with
         | Some p2 ->
             env, Subst.add_module p2 path1 subst
@@ -895,9 +894,12 @@ module FunctorAppDiff = struct
 
   let diff env0 args params =
     let loc = Location.none in
-    let test (env, subst) lid1 param2 =
+    let args =
+      List.map (fun lid -> fst (Env.find_module_by_name lid env0)) args
+    in
+    let test (env, subst) path1 param2 =
       let snap = Btype.snapshot () in
-      let path1, md1 = Env.find_module_by_name lid1 env in
+      let md1 = Env.find_module path1 env in
       let aliasable = can_alias env path1 in
       let mty1' = Mtype.strengthen ~aliasable env md1.md_type path1 in
       let res, _, _ =
@@ -1368,8 +1370,8 @@ let report_apply_error env ppf (lid0, path_f, args) =
         "@;@[<hv 2>The functor application %a is ill-typed. These arguments:@ \
          @[%a@]@;<1 -2>do not match these parameters@ @[%a@]@]"
         Printtyp.longident lid0
-        (pp_list_diff Printtyp.longident Pp.functor_param `Left) d
-        (pp_list_diff Printtyp.longident Pp.functor_param `Right) d
+        (pp_list_diff Printtyp.path Pp.functor_param `Left) d
+        (pp_list_diff Printtyp.path Pp.functor_param `Right) d
   end
 
 (* We could do a better job to split the individual error items
