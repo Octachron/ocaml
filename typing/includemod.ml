@@ -748,6 +748,12 @@ let compunit env ?(mark=Mark_both) impl_name impl_sig intf_name intf_sig =
   | Ok x -> x
 
 
+let drop_inserted_suffix patch =
+  let rec drop = function
+    | Diff.Insert _ :: q -> drop q
+    | rest -> List.rev rest in
+  drop (List.rev patch)
+
 let rec pp_list_diff f g side ppf patch = match side, patch with
   | _, [] -> ()
   | `Left, Diff.Insert _ :: t
@@ -771,6 +777,8 @@ let rec pp_list_diff f g side ppf patch = match side, patch with
   | `Right, Diff.Change (_,c,_) :: t ->
       Format.fprintf ppf "@{<warning>%a@}@ " g c ;
       pp_list_diff f g side ppf t
+let pp_list_diff_without_suffix f g side ppf patch =
+  pp_list_diff f g side ppf (drop_inserted_suffix patch)
 
 module FunctorArgsDiff = struct
   open Diff
@@ -1415,4 +1423,4 @@ type functor_app_patch =
 let functor_app_diff = FunctorAppDiffForTypeMod.diff
 let pp_functor_app_patch =
   let pp_me ppf me = Printtyp.modtype ppf me.mod_type in
-  pp_list_diff pp_me Pp.functor_param
+  pp_list_diff_without_suffix pp_me Pp.functor_param
