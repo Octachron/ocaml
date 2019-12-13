@@ -1946,7 +1946,7 @@ and type_module_aux ~alias sttn funct_body anchor env smod =
       let funct, args =
         let args = [smod.pmod_loc, sfunct.pmod_attributes, sarg] in
         extract_application args sfunct in
-      type_application sttn funct_body env funct args
+      type_application smod.pmod_loc sttn funct_body env funct args
   | Pmod_constraint(sarg, smty) ->
       let arg = type_module ~alias true funct_body anchor env sarg in
       let mty = transl_modtype env smty in
@@ -1992,7 +1992,7 @@ and type_module_aux ~alias sttn funct_body anchor env smod =
   | Pmod_extension ext ->
       raise (Error_forward (Builtin_attributes.error_of_extension ext))
 
-and type_application strengthen funct_body env sfunct sargs =
+and type_application loc strengthen funct_body env sfunct sargs =
   let type_arg (floc, attrs, sarg) =
     let arg = type_module true funct_body None env sarg in
     floc, attrs, sarg, arg, path_of_module arg in
@@ -2002,17 +2002,17 @@ and type_application strengthen funct_body env sfunct sargs =
       strengthen
       && List.for_all (fun (_,_,_, _, path) -> path <> None) args in
     type_module strengthen funct_body None env sfunct in
-  List.fold_left (type_one_application ~ctx:(funct, args) funct_body env)
+  List.fold_left (type_one_application ~ctx:(loc, funct, args) funct_body env)
     funct args
 
-and type_one_application ~ctx:(f,args) funct_body env funct
-    (loc, attrs, sarg, arg, parg) =
+and type_one_application ~ctx:(apply_loc,f,args) funct_body env funct
+    (arg_loc, attrs, sarg, arg, parg) =
   match Env.scrape_alias env funct.mod_type with
   | Mty_functor (Unit, mty_res) ->
       if sarg.pmod_desc <> Pmod_structure [] then
-        raise (Error (loc, env, Apply_generative));
+        raise (Error (arg_loc, env, Apply_generative));
       if funct_body && Mtype.contains_type env funct.mod_type then
-        raise (Error (loc, env, Not_allowed_in_functor_body));
+        raise (Error (apply_loc, env, Not_allowed_in_functor_body));
       rm { mod_desc = Tmod_apply(funct, arg, Tcoerce_none);
            mod_type = mty_res;
            mod_env = env;
@@ -2023,7 +2023,7 @@ and type_one_application ~ctx:(f,args) funct_body env funct
         try
           Includemod.modtypes ~loc:sarg.pmod_loc env arg.mod_type mty_param
         with Includemod.Error _ ->
-          raise(Error(loc, env, Apply_error {f;args} )) in
+          raise(Error(apply_loc, env, Apply_error {f;args} )) in
       let mty_appl =
         match parg with
         | Some path ->
@@ -2043,15 +2043,15 @@ and type_one_application ~ctx:(f,args) funct_body env funct
                     Env.add_module ~arg:true param Mp_present arg.mod_type
                       env
                   in
-                  check_well_formed_module env loc
+                  check_well_formed_module env arg_loc
                     "the signature of this functor application" mty_res;
                   try env, Mtype.nondep_supertype env [param] mty_res
                   with Ctype.Nondep_cannot_erase _ ->
                     let error = Cannot_eliminate_dependency mty_functor in
-                    raise (Error(loc, env, error))
+                    raise (Error(arg_loc, env, error))
             in
             begin match
-              Includemod.modtypes ~loc env mty_res nondep_mty
+              Includemod.modtypes ~loc:arg_loc env mty_res nondep_mty
             with
             | Tcoerce_none -> ()
             | _ ->
@@ -2064,17 +2064,17 @@ and type_one_application ~ctx:(f,args) funct_body env funct
             end;
             nondep_mty
       in
-      check_well_formed_module env loc
+      check_well_formed_module env apply_loc
         "the signature of this functor application" mty_appl;
       rm { mod_desc = Tmod_apply(funct, arg, coercion);
            mod_type = mty_appl;
            mod_env = env;
            mod_attributes = attrs;
-           mod_loc = loc }
+           mod_loc = apply_loc }
   | Mty_alias path ->
-      raise(Error(loc, env, Cannot_scrape_alias path))
+      raise(Error(arg_loc, env, Cannot_scrape_alias path))
   | _ ->
-      raise(Error(loc, env, Cannot_apply funct.mod_type))
+      raise(Error(apply_loc, env, Cannot_apply funct.mod_type))
 
 
 and type_open_decl ?used_slot ?toplevel funct_body names env sod =
