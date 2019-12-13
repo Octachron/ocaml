@@ -351,6 +351,7 @@ val cut_at : string -> char -> string * string
 *)
 
 (* Color handling *)
+
 module Color : sig
   type color =
     | Black
@@ -368,6 +369,8 @@ module Color : sig
     | BG of color (* background *)
     | Bold
     | Reset
+
+  type Format.stag += Style of style list
 
   val ansi_of_style_l : style list -> string
   (* ANSI escape sequence for the given style *)

@@ -754,28 +754,42 @@ let drop_inserted_suffix patch =
     | rest -> List.rev rest in
   drop (List.rev patch)
 
+module Style = struct
+  let decorate prefix sty printer ppf x=
+    Format.pp_open_stag ppf (Misc.Color.Style sty);
+    Format.fprintf ppf prefix;
+    printer ppf x;
+    Format.pp_close_stag ppf ()
+
+  let deletion x = decorate "-" Misc.Color.[ FG Red; Bold ] x
+  let insertion x = decorate "+" Misc.Color.[ FG Red; Bold ] x
+  let change x = decorate "~" Misc.Color.[ FG Magenta; Bold ] x
+  let ok x = decorate "=" Misc.Color.[ FG Green ] x
+
+end
+
 let rec pp_list_diff f g side ppf patch = match side, patch with
   | _, [] -> ()
   | `Left, Diff.Insert _ :: t
   | `Right, Diff.Delete _ :: t ->
       pp_list_diff f g side ppf t
   | `Left, Diff.Delete c :: t ->
-      Format.fprintf ppf "@{<error>%a@}@ " f c ;
+      Format.fprintf ppf "%a@ " (Style.deletion f) c ;
       pp_list_diff f g side ppf t
   | `Right, Diff.Insert c :: t ->
-      Format.fprintf ppf "@{<error>%a@}@ " g c ;
+      Format.fprintf ppf "%a@ " (Style.insertion g) c ;
       pp_list_diff f g side ppf t
   | `Left, Diff.Keep (c,_,_) :: t ->
-      Format.fprintf ppf "%a@ " f c;
+      Format.fprintf ppf "%a@ " (Style.ok f) c;
       pp_list_diff f g side ppf t
   | `Right, Diff.Keep (_,c,_) :: t ->
-      Format.fprintf ppf "%a@ " g c;
+      Format.fprintf ppf "%a@ " (Style.ok g) c;
       pp_list_diff f g side ppf t
   | `Left, Diff.Change (c,_,_) :: t ->
-      Format.fprintf ppf "@{<warning>%a@}@ " f c ;
+      Format.fprintf ppf "%a@ " (Style.change f) c ;
       pp_list_diff f g side ppf t
   | `Right, Diff.Change (_,c,_) :: t ->
-      Format.fprintf ppf "@{<warning>%a@}@ " g c ;
+      Format.fprintf ppf "%a@ " (Style.change g) c ;
       pp_list_diff f g side ppf t
 let pp_list_diff_without_suffix f g side ppf patch =
   pp_list_diff f g side ppf (drop_inserted_suffix patch)
