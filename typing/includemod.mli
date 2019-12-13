@@ -94,6 +94,6 @@ val expand_module_alias: Env.t -> Path.t -> Types.module_type
 type functor_app_patch
 val functor_app_diff:
   Env.t -> f:Typedtree.module_expr -> args:Typedtree.module_expr list ->
-  functor_app_patch option
+  (functor_app_patch, Types.functor_parameter list) result
 val pp_functor_app_patch:
   [< `Left | `Right] -> Format.formatter -> functor_app_patch -> unit

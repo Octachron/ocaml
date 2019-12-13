@@ -1400,8 +1400,11 @@ module FunctorAppDiffForTypeMod = struct
       res
     in
     let state0 = (env0, Subst.identity) in
-    Diff.diff ~weight ~cutoff ~test ~update
-      state0 (Array.of_list args) (Array.of_list params)
+    let patch =
+      Diff.diff ~weight ~cutoff ~test ~update
+        state0 (Array.of_list args) (Array.of_list params)
+    in
+    Option.to_result ~none:params patch
 
 end
 
