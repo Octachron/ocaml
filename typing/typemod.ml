@@ -2926,15 +2926,25 @@ let report_error env ppf = function
   | Apply_error {f;args} ->
       let args = List.map (fun (_,_,_,arg,_) -> arg) args in
       match Includemod.functor_app_diff env ~f ~args with
-      | None ->
+      | Error params ->
+          let functor_param ppf = function
+            | Types.Unit -> Format.fprintf ppf "()"
+            | Types.Named (None, mty) ->
+                Format.fprintf ppf "%a"
+                  !Oprint.out_module_type (Printtyp.tree_of_modtype mty)
+            | Types.Named (Some p, mty) ->
+                Format.fprintf ppf "(%s : %a)"
+                  (Ident.name p)
+                  !Oprint.out_module_type (Printtyp.tree_of_modtype mty) in
           Format.fprintf ppf
-            "@;@[<hv 2>The functor application %a is ill-typed."
-            (* These arguments:"@ @[%a@]@;<1 -2>do not match
-               these parameters@ @[%a@]@]"*)
+            "@;@[<hv 2>The functor application %a is ill-typed.@ \
+             These arguments:@ @[%a@]@;<1 -2>do not match@ \
+             these parameters@ @[%a@]@]"
             Printtyp.modtype f.mod_type
-      (*       (Format.pp_print_list Printtyp.longident) args
-               (Format.pp_print_list Pp.functor_param) params *)
-      | Some patch ->
+            (Format.pp_print_list Printtyp.modtype)
+            (List.map (fun x -> x.mod_type) args)
+            (Format.pp_print_list functor_param) params
+      | Ok patch ->
           Format.fprintf ppf
             "@;@[<hv 2>Parameters do not match:@ \
              @[%a@]@;<0 -2>does not match@ @[%a@]@]"
