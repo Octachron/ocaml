@@ -855,6 +855,8 @@ module FunctorArgsDiff = struct
       state0 (Array.of_list l1) (Array.of_list l2)
 end
 
+
+(* Apply error diff *)
 module FunctorAppDiff = struct
   open Diff
 
@@ -866,46 +868,38 @@ module FunctorAppDiff = struct
     | Keep _ -> 0
 
   let update d ((env, subst) as st) = match d with
-    | Insert (Unit | Named (None,_))
+    | Insert (Types.Unit | Types.Named (None,_))
     | Keep (_,Unit,_)
     | Change (_,(Unit | Named (None,_)), _)
         -> st
     | Delete _
         -> st
-    | Insert (Named (Some p, arg)) ->
+    | Insert (Types.Named (Some p, arg)) ->
         let arg' = Subst.modtype Keep subst arg in
         Env.add_module p Mp_present arg' env, subst
-    | Keep (lid1, Named (name2, _arg2), _)
-    | Change (lid1, Named (name2, _arg2), _) -> begin
-        let path1, _ = Env.find_module_by_name lid1 env in
-        match name2 with
-        | Some p2 ->
-            env, Subst.add_module p2 path1 subst
-        | None ->
-            env, subst
-      end
+    | Keep _ | Change _ -> env, subst
 
-  let diff env0 args params =
+  let diff env0 ~f ~args =
+    let params = retrieve_functor_params env0 f in
     let loc = Location.none in
-    let test (env, subst) lid1 param2 =
+    let test (env, subst) mt param2 =
       let snap = Btype.snapshot () in
-      let path1, md1 = Env.find_module_by_name lid1 env in
-      let aliasable = can_alias env path1 in
-      let mty1' = Mtype.strengthen ~aliasable env md1.md_type path1 in
       let res, _, _ =
         functor_param
           ~loc env ~mark:Mark_neither subst
-          (Named (None, mty1')) param2
+          (Named (None, mt )) param2
       in
       Btype.backtrack snap;
       res
     in
     let state0 = (env0, Subst.identity) in
-    Diff.diff ~weight ~cutoff ~test ~update
-      state0 (Array.of_list args) (Array.of_list params)
+    let patch =
+      Diff.diff ~weight ~cutoff ~test ~update
+        state0 (Array.of_list args) (Array.of_list params)
+    in
+    Option.to_result ~none:params patch
 
 end
-
 
 
 (* Hide the context and substitution parameters to the outside world *)
@@ -1346,22 +1340,21 @@ let report_error ppf error_tree =
 
 let report_apply_error env ppf (lid0, path_f, args) =
   let md_f = Env.find_module path_f env in
-  let params = retrieve_functor_params env md_f.md_type in
-  begin match FunctorAppDiff.diff env args params with
-  | None ->
+  begin match FunctorAppDiff.diff env ~f:md_f.md_type ~args with
+  | Error params ->
       Format.fprintf ppf
         "@;@[<hv 2>The functor application %a is ill-typed. These arguments:@ \
          @[%a@]@;<1 -2>do not match these parameters@ @[%a@]@]"
         Printtyp.longident lid0
-        (Format.pp_print_list Printtyp.longident) args
+        (Format.pp_print_list Printtyp.modtype) args
         (Format.pp_print_list Pp.functor_param) params
-  | Some d ->
+  | Ok d ->
       Format.fprintf ppf
         "@;@[<hv 2>The functor application %a is ill-typed. These arguments:@ \
          @[%a@]@;<1 -2>do not match these parameters@ @[%a@]@]"
         Printtyp.longident lid0
-        (pp_list_diff Printtyp.longident Pp.functor_param `Left) d
-        (pp_list_diff Printtyp.longident Pp.functor_param `Right) d
+        (pp_list_diff Printtyp.modtype Pp.functor_param `Left) d
+        (pp_list_diff Printtyp.modtype Pp.functor_param `Right) d
   end
 
 (* We could do a better job to split the individual error items
@@ -1371,6 +1364,11 @@ let () =
     (function
       | Error err -> Some (Location.error_of_printer_file report_error err)
       | Apply_error(loc, env, lid0, path_f, args) ->
+          let mty lid1 =
+            let path1, md1 = Env.find_module_by_name lid1 env in
+            let aliasable = can_alias env path1 in
+            Mtype.strengthen ~aliasable env md1.md_type path1 in
+          let args = List.map mty args in
           Some (Location.error_of_printer ~loc
                   (report_apply_error env) (lid0, path_f, args)
                )
@@ -1385,56 +1383,11 @@ let expand_module_alias env path =
       raise (Error(env,In_Expansion(E.Unbound_module_path path)))
 
 
-(* Apply error diff *)
-module FunctorAppDiffForTypeMod = struct
-  open Diff
-
-  let cutoff = 100
-  let weight = function
-    | Insert _ -> 10
-    | Delete _ -> 10
-    | Change _ -> 10
-    | Keep _ -> 0
-
-  let update d ((env, subst) as st) = match d with
-    | Insert (Types.Unit | Types.Named (None,_))
-    | Keep (_,Unit,_)
-    | Change (_,(Unit | Named (None,_)), _)
-        -> st
-    | Delete _
-        -> st
-    | Insert (Types.Named (Some p, arg)) ->
-        let arg' = Subst.modtype Keep subst arg in
-        Env.add_module p Mp_present arg' env, subst
-    | Keep _ | Change _ -> env, subst
-
-  let diff env0 ~f ~args =
-    let params = retrieve_functor_params env0 f.mod_type in
-    let loc = Location.none in
-    let test (env, subst) me param2 =
-      let snap = Btype.snapshot () in
-      let res, _, _ =
-        functor_param
-          ~loc env ~mark:Mark_neither subst
-          (Named (None, me.mod_type )) param2
-      in
-      Btype.backtrack snap;
-      res
-    in
-    let state0 = (env0, Subst.identity) in
-    let patch =
-      Diff.diff ~weight ~cutoff ~test ~update
-        state0 (Array.of_list args) (Array.of_list params)
-    in
-    Option.to_result ~none:params patch
-
-end
-
 type functor_app_patch =
-  (Typedtree.module_expr, Types.functor_parameter,
+  (Types.module_type, Types.functor_parameter,
    Typedtree.module_coercion, E.functor_param_syndrom)
     Diff.patch
-let functor_app_diff = FunctorAppDiffForTypeMod.diff
+let functor_app_diff = FunctorAppDiff.diff
 let pp_functor_app_patch =
-  let pp_me ppf me = Format.fprintf ppf "(%a)" Printtyp.modtype me.mod_type in
-  pp_list_diff_without_suffix pp_me Pp.functor_param
+  let pp_mt ppf mt = Format.fprintf ppf "(%a)" Printtyp.modtype mt in
+  pp_list_diff_without_suffix pp_mt Pp.functor_param

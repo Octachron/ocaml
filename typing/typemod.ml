@@ -2917,8 +2917,8 @@ let report_error env ppf = function
   | Invalid_type_subst_rhs ->
       fprintf ppf "Only type synonyms are allowed on the right of :="
   | Apply_error {f;args} ->
-      let args = List.map (fun (_,_,_,arg,_) -> arg) args in
-      match Includemod.functor_app_diff env ~f ~args with
+      let args = List.map (fun (_,_,_,arg,_) -> arg.mod_type) args in
+      match Includemod.functor_app_diff env ~f:f.mod_type ~args with
       | Error params ->
           let functor_param ppf = function
             | Types.Unit -> Format.fprintf ppf "()"
@@ -2935,7 +2935,7 @@ let report_error env ppf = function
              these parameters@ @[%a@]@]"
             Printtyp.modtype f.mod_type
             (Format.pp_print_list Printtyp.modtype)
-            (List.map (fun x -> x.mod_type) args)
+            args
             (Format.pp_print_list functor_param) params
       | Ok patch ->
           Format.fprintf ppf
