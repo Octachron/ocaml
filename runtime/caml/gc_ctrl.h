@@ -20,6 +20,18 @@
 
 #include "misc.h"
 
+/* global variables moved to Caml_state in 4.10.0 */
+#define caml_stat_minor_words (Caml_state_field(stat_minor_words))
+#define caml_stat_promoted_words (Caml_state_field(stat_promoted_words))
+#define caml_stat_major_words (Caml_state_field(stat_major_words))
+#define caml_stat_minor_collections (Caml_state_field(stat_minor_collections))
+#define caml_stat_major_collections (Caml_state_field(stat_major_collections))
+#define caml_stat_heap_wsz (Caml_state_field(stat_heap_wsz))
+#define caml_stat_top_heap_wsz (Caml_state_field(stat_top_heap_wsz))
+#define caml_stat_compactions (Caml_state_field(stat_compactions))
+#define caml_stat_heap_chunks (Caml_state_field(stat_heap_chunks))
+
+
 uintnat caml_normalize_heap_increment (uintnat);
 
 /*
