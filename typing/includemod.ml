@@ -1249,8 +1249,8 @@ module Pp = struct
     | `Insert -> Some "+", Misc.Color.[ FG Red; Bold]
     | `Change _ -> Some "~", Misc.Color.[ FG Magenta; Bold]
 
-  let decorate printer ppf x =
-    let prefix, sty = style x.mode in
+  let decorate mode printer ppf x =
+    let prefix, sty = style mode in
     Format.pp_open_stag ppf (Misc.Color.Style sty);
     Option.iter (Format.fprintf ppf "%s") prefix;
     printer ppf x;
@@ -1275,17 +1275,16 @@ module Pp = struct
 
   let list_diff f g patch =
     let space ppf () = Format.fprintf ppf "@ " in
-    let list f l ppf = Format.pp_print_list ~pp_sep:space (decorate f) ppf l in
+    let elt f ppf x = decorate x.mode f ppf x in
+    let list f l ppf = Format.pp_print_list ~pp_sep:space (elt f) ppf l in
     let got, expected = split_patch patch in
     list f got, list g expected
 
-  let list_diff_without_suffix f g patch =
-    let drop_inserted_suffix patch =
-      let rec drop = function
-        | Diff.Insert _ :: q -> drop q
-        | rest -> List.rev rest in
-      drop (List.rev patch) in
-    list_diff f g (drop_inserted_suffix patch)
+  let drop_inserted_suffix patch =
+    let rec drop = function
+      | Diff.Insert _ :: q -> drop q
+      | rest -> List.rev rest in
+    drop (List.rev patch)
 
   let rec module_type ?(first=false) ~eqmode env ctx ppf diff =
     match diff.symptom with
@@ -1379,11 +1378,39 @@ let report_error ppf error_tree =
   fprintf ppf "@[<v>%a%t@]" include_err error_tree
     Printtyp.Conflicts.print_explanations
 
-let report_apply_error env ppf (lid0, path_f, args) =
+let insert_suberror mty =
+  Location.msg
+    "The parameter@ @[%a@]@ appears only among the expected parameters.@ \
+     Did you forget this argument?"
+    (Pp.decorate `Insert Pp.simple_functor_param) mty
+
+let delete_suberror mty =
+  Location.msg
+    "The module type@ @[%a@]@ does not seem to fit@ \
+     any of the expected parameters.@ Have you tried to remove it?"
+    (Pp.decorate `Delete Printtyp.modtype) mty
+
+let diff_suberror got expected =
+  Location.msg
+    "The two module types does not match@ @[%a@]@ \
+     is not compatible with@ @[%a@]"
+    (Pp.decorate (`Change `Got) Printtyp.modtype) got
+    Pp.(decorate (`Change `Expected) simple_functor_param) expected
+
+
+let param_suberror = function
+  | Diff.Insert mty -> Some(insert_suberror mty)
+  | Diff.Delete mty -> Some(delete_suberror mty)
+  | Diff.Change (g,e,_) -> Some(diff_suberror g e)
+  | Diff.Keep _ -> None
+
+let param_suberrors = List.filter_map param_suberror
+
+let report_apply_error ~loc env (lid0, path_f, args) =
   let md_f = Env.find_module path_f env in
   begin match FunctorAppDiff.diff env ~f:md_f.md_type ~args with
   | Error params ->
-      Format.fprintf ppf
+      Location.errorf ~loc
         "@;@[<hv 2>The functor application %a is ill-typed. These arguments:@ \
          @[%a@]@;<1 -2>do not match these parameters@ @[%a@]@]"
         Printtyp.longident lid0
@@ -1392,7 +1419,7 @@ let report_apply_error env ppf (lid0, path_f, args) =
   | Ok d ->
       let got, expected =
         Pp.(list_diff (short_modtype ~ellipsis:false) functor_param d) in
-      Format.fprintf ppf
+      Location.errorf ~sub:(param_suberrors d) ~loc
         "@;@[<hv 2>The functor application %a is ill-typed. These arguments:@ \
          @[%t@]@;<1 -2>do not match these parameters@ @[%t@]@]"
         Printtyp.longident lid0
@@ -1411,9 +1438,7 @@ let () =
             let aliasable = can_alias env path1 in
             Mtype.strengthen ~aliasable env md1.md_type path1 in
           let args = List.map mty args in
-          Some (Location.error_of_printer ~loc
-                  (report_apply_error env) (lid0, path_f, args)
-               )
+          Some (report_apply_error ~loc env (lid0, path_f, args))
       | _ -> None
     )
 
@@ -1430,6 +1455,8 @@ type functor_app_patch =
    Typedtree.module_coercion, E.functor_param_syndrom)
     Diff.patch
 let functor_app_diff = FunctorAppDiff.diff
-let pp_functor_app_patch =
+let pp_functor_app_patch patch =
   let pp_mt ppf mt =  Pp.short_modtype ~ellipsis:false ppf mt in
-  Pp.(list_diff_without_suffix pp_mt functor_param)
+  let patch = Pp.drop_inserted_suffix patch in
+  let g, e = Pp.(list_diff pp_mt functor_param patch) in
+  g, e, param_suberrors patch

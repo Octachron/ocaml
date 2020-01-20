@@ -2796,28 +2796,29 @@ let package_units initial_env objfiles cmifile modulename =
 
 open Printtyp
 
-let report_error env ppf = function
+let report_error ~loc env = function
     Cannot_apply mty ->
-      fprintf ppf
+      Location.errorf ~loc
         "@[This module is not a functor; it has type@ %a@]" modtype mty
   | Not_included errs ->
-      fprintf ppf
+      Location.errorf ~loc
         "@[<v>Signature mismatch:@ %a@]" Includemod.report_error errs
   | Cannot_eliminate_dependency mty ->
-      fprintf ppf
+      Location.errorf ~loc
         "@[This functor has type@ %a@ \
            The parameter cannot be eliminated in the result type.@ \
            Please bind the argument to a module identifier.@]" modtype mty
-  | Signature_expected -> fprintf ppf "This module type is not a signature"
+  | Signature_expected ->
+      Location.errorf ~loc "This module type is not a signature"
   | Structure_expected mty ->
-      fprintf ppf
+      Location.errorf ~loc
         "@[This module is not a structure; it has type@ %a" modtype mty
   | With_no_component lid ->
-      fprintf ppf
+      Location.errorf ~loc
         "@[The signature constrained by `with' has no component named %a@]"
         longident lid
   | With_mismatch(lid, explanation) ->
-      fprintf ppf
+      Location.errorf ~loc
         "@[<v>\
            @[In this `with' constraint, the new definition of %a@ \
              does not match its original definition@ \
@@ -2825,82 +2826,82 @@ let report_error env ppf = function
            %a@]"
         longident lid Includemod.report_error explanation
   | With_makes_applicative_functor_ill_typed(lid, path, explanation) ->
-      fprintf ppf
+      Location.errorf ~loc
         "@[<v>\
            @[This `with' constraint on %a makes the applicative functor @ \
              type %s ill-typed in the constrained signature:@]@ \
            %a@]"
         longident lid (Path.name path) Includemod.report_error explanation
   | With_changes_module_alias(lid, id, path) ->
-      fprintf ppf
+      Location.errorf ~loc
         "@[<v>\
            @[This `with' constraint on %a changes %s, which is aliased @ \
              in the constrained signature (as %s)@].@]"
         longident lid (Path.name path) (Ident.name id)
   | With_cannot_remove_constrained_type ->
-      fprintf ppf
+      Location.errorf ~loc
         "@[<v>Destructive substitutions are not supported for constrained @ \
               types (other than when replacing a type constructor with @ \
               a type constructor with the same arguments).@]"
   | Repeated_name(kind, name) ->
-      fprintf ppf
+      Location.errorf ~loc
         "@[Multiple definition of the %s name %s.@ \
          Names must be unique in a given structure or signature.@]"
         (Sig_component_kind.to_string kind) name
   | Non_generalizable typ ->
-      fprintf ppf
+      Location.errorf ~loc
         "@[The type of this expression,@ %a,@ \
            contains type variables that cannot be generalized@]" type_scheme typ
   | Non_generalizable_class (id, desc) ->
-      fprintf ppf
+      Location.errorf ~loc
         "@[The type of this class,@ %a,@ \
            contains type variables that cannot be generalized@]"
         (class_declaration id) desc
   | Non_generalizable_module mty ->
-      fprintf ppf
+      Location.errorf ~loc
         "@[The type of this module,@ %a,@ \
            contains type variables that cannot be generalized@]" modtype mty
   | Implementation_is_required intf_name ->
-      fprintf ppf
+      Location.errorf ~loc
         "@[The interface %a@ declares values, not just types.@ \
            An implementation must be provided.@]"
         Location.print_filename intf_name
   | Interface_not_compiled intf_name ->
-      fprintf ppf
+      Location.errorf ~loc
         "@[Could not find the .cmi file for interface@ %a.@]"
         Location.print_filename intf_name
   | Not_allowed_in_functor_body ->
-      fprintf ppf
+      Location.errorf ~loc
         "@[This expression creates fresh types.@ %s@]"
         "It is not allowed inside applicative functors."
   | Not_a_packed_module ty ->
-      fprintf ppf
+      Location.errorf ~loc
         "This expression is not a packed module. It has type@ %a"
         type_expr ty
   | Incomplete_packed_module ty ->
-      fprintf ppf
+      Location.errorf ~loc
         "The type of this packed module contains variables:@ %a"
         type_expr ty
   | Scoping_pack (lid, ty) ->
-      fprintf ppf
-        "The type %a in this module cannot be exported.@ " longident lid;
-      fprintf ppf
-        "Its type contains local dependencies:@ %a" type_expr ty
+      Location.errorf ~loc
+        "The type %a in this module cannot be exported.@ \
+        Its type contains local dependencies:@ %a" longident lid type_expr ty
   | Recursive_module_require_explicit_type ->
-      fprintf ppf "Recursive modules require an explicit module type."
+      Location.errorf ~loc "Recursive modules require an explicit module type."
   | Apply_generative ->
-      fprintf ppf "This is a generative functor. It can only be applied to ()"
+      Location.errorf ~loc
+        "This is a generative functor. It can only be applied to ()"
   | Cannot_scrape_alias p ->
-      fprintf ppf
+      Location.errorf ~loc
         "This is an alias for module %a, which is missing"
         path p
   | Badly_formed_signature (context, err) ->
-      fprintf ppf "@[In %s:@ %a@]" context Typedecl.report_error err
+      Location.errorf ~loc "@[In %s:@ %a@]" context Typedecl.report_error err
   | Cannot_hide_id Illegal_shadowing
       { shadowed_item_kind; shadowed_item_id; shadowed_item_loc;
         shadower_id; user_id; user_kind; user_loc } ->
       let shadowed_item_kind= Sig_component_kind.to_string shadowed_item_kind in
-      fprintf ppf
+      Location.errorf ~loc
         "@[<v>Illegal shadowing of included %s %a by %a@ \
          %a:@;<1 2>%s %a came from this include@ \
          %a:@;<1 2>The %s %s has no valid type if %a is shadowed@]"
@@ -2914,7 +2915,7 @@ let report_error env ppf = function
   | Cannot_hide_id Appears_in_signature
       { opened_item_kind; opened_item_id; user_id; user_kind; user_loc } ->
       let opened_item_kind= Sig_component_kind.to_string opened_item_kind in
-      fprintf ppf
+      Location.errorf ~loc
         "@[<v>The %s %a introduced by this open appears in the signature@ \
          %a:@;<1 2>The %s %s has no valid type if %a is hidden@]"
         opened_item_kind Ident.print opened_item_id
@@ -2922,7 +2923,7 @@ let report_error env ppf = function
         (Sig_component_kind.to_string user_kind) (Ident.name user_id)
         Ident.print opened_item_id
   | Invalid_type_subst_rhs ->
-      fprintf ppf "Only type synonyms are allowed on the right of :="
+      Location.errorf ~loc "Only type synonyms are allowed on the right of :="
   | Apply_error {f;args} ->
       let args = List.map (fun (_,_,_,arg,_) -> arg.mod_type) args in
       match Includemod.functor_app_diff env ~f:f.mod_type ~args with
@@ -2936,7 +2937,7 @@ let report_error env ppf = function
                 Format.fprintf ppf "(%s : %a)"
                   (Ident.name p)
                   !Oprint.out_module_type (Printtyp.tree_of_modtype mty) in
-          Format.fprintf ppf
+          Location.errorf ~loc
             "@;@[<hv 2>The functor application %a is ill-typed.@ \
              These arguments:@ @[%a@]@;<1 -2>do not match@ \
              these parameters@ @[%a@]@]"
@@ -2945,21 +2946,21 @@ let report_error env ppf = function
             args
             (Format.pp_print_list functor_param) params
       | Ok patch ->
-          let got, expected = Includemod.pp_functor_app_patch patch in
-          Format.fprintf ppf
+          let got, expected, sub = Includemod.pp_functor_app_patch patch in
+          Location.errorf ~loc ~sub
             "@;@[<hv 2>Parameters do not match:@ \
              @[%t@]@;<0 -2>does not match@ @[%t@]@]"
             got expected
 
-let report_error env ppf err =
+let report_error env ~loc err =
   Printtyp.wrap_printing_env ~error:true env
-    (fun () -> report_error env ppf err)
+    (fun () -> report_error env ~loc err)
 
 let () =
   Location.register_error_of_exn
     (function
       | Error (loc, env, err) ->
-        Some (Location.error_of_printer ~loc (report_error env) err)
+        Some (report_error ~loc env err)
       | Error_forward err ->
         Some err
       | _ ->
