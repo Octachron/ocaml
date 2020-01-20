@@ -748,52 +748,6 @@ let compunit env ?(mark=Mark_both) impl_name impl_sig intf_name intf_sig =
   | Ok x -> x
 
 
-let drop_inserted_suffix patch =
-  let rec drop = function
-    | Diff.Insert _ :: q -> drop q
-    | rest -> List.rev rest in
-  drop (List.rev patch)
-
-module Style = struct
-  let decorate prefix sty printer ppf x=
-    Format.pp_open_stag ppf (Misc.Color.Style sty);
-    Format.fprintf ppf prefix;
-    printer ppf x;
-    Format.pp_close_stag ppf ()
-
-  let deletion x = decorate "-" Misc.Color.[ FG Red; Bold ] x
-  let insertion x = decorate "+" Misc.Color.[ FG Red; Bold ] x
-  let change x = decorate "~" Misc.Color.[ FG Magenta; Bold ] x
-  let ok x = decorate "=" Misc.Color.[ FG Green ] x
-
-end
-
-let rec pp_list_diff f g side ppf patch = match side, patch with
-  | _, [] -> ()
-  | `Left, Diff.Insert _ :: t
-  | `Right, Diff.Delete _ :: t ->
-      pp_list_diff f g side ppf t
-  | `Left, Diff.Delete c :: t ->
-      Format.fprintf ppf "%a@ " (Style.deletion f) c ;
-      pp_list_diff f g side ppf t
-  | `Right, Diff.Insert c :: t ->
-      Format.fprintf ppf "%a@ " (Style.insertion g) c ;
-      pp_list_diff f g side ppf t
-  | `Left, Diff.Keep (c,_,_) :: t ->
-      Format.fprintf ppf "%a@ " (Style.ok f) c;
-      pp_list_diff f g side ppf t
-  | `Right, Diff.Keep (_,c,_) :: t ->
-      Format.fprintf ppf "%a@ " (Style.ok g) c;
-      pp_list_diff f g side ppf t
-  | `Left, Diff.Change (c,_,_) :: t ->
-      Format.fprintf ppf "%a@ " (Style.change f) c ;
-      pp_list_diff f g side ppf t
-  | `Right, Diff.Change (_,c,_) :: t ->
-      Format.fprintf ppf "%a@ " (Style.change g) c ;
-      pp_list_diff f g side ppf t
-let pp_list_diff_without_suffix f g side ppf patch =
-  pp_list_diff f g side ppf (drop_inserted_suffix patch)
-
 module FunctorArgsDiff = struct
   open Diff
 
@@ -1237,6 +1191,87 @@ module Pp = struct
     else
       with_context first ctx printer ppf diff
 
+
+  let simple_functor_param ppf = function
+    | Unit -> Format.fprintf ppf "()"
+    | Named (None, mty) -> Printtyp.modtype ppf mty
+    | Named (Some p, mty) ->
+      Format.fprintf ppf "(%s : %a)"
+        (Ident.name p)
+        Printtyp.modtype mty
+
+
+  type ('a,'b) unified_param =
+    { mode: 'a;
+      mty: 'b;
+      pos:int
+    }
+
+
+   let short_modtype ~ellipsis ppf {mode;mty;pos} =
+     let ellipsis ppf = if ellipsis then Format.fprintf ppf "..." in
+     match mty with
+     | Mty_ident p | Mty_alias p -> Printtyp.path ppf p
+     | Mty_signature _ | Mty_functor _ ->
+         match mode with
+         | `Change `Got -> Format.fprintf ppf "%t(%d)" ellipsis pos
+         | `Change `Expected -> Format.fprintf ppf "%t[%d]" ellipsis pos
+         | `Insert -> Format.fprintf ppf "%t<%d>" ellipsis pos
+         | `Delete -> Format.fprintf ppf "%t{%d}" ellipsis pos
+         | `Ok -> Format.fprintf ppf "..."
+
+  let functor_param ppf ua = match ua.mty with
+    | Unit -> Format.fprintf ppf "()"
+    | Named (None, mty) -> short_modtype ~ellipsis:false ppf { ua with mty }
+    | Named (Some p, mty) ->
+      Format.fprintf ppf "(%s : %a)"
+        (Ident.name p)
+       (short_modtype ~ellipsis:true) { ua with mty}
+
+  let style = function
+    | `Ok -> None, Misc.Color.[ FG Green ]
+    | `Delete -> Some "-", Misc.Color.[ FG Red; Bold]
+    | `Insert -> Some "+", Misc.Color.[ FG Red; Bold]
+    | `Change _ -> Some "~", Misc.Color.[ FG Magenta; Bold]
+
+  let decorate printer ppf x =
+    let prefix, sty = style x.mode in
+    Format.pp_open_stag ppf (Misc.Color.Style sty);
+    Option.iter (Format.fprintf ppf "%s") prefix;
+    printer ppf x;
+    Format.pp_close_stag ppf ()
+
+  let split_patch l =
+    let split (ng,ne,got,expected) x = match x with
+      | Diff.Insert mty ->
+          ng, 1+ne, got, {mode=`Insert; pos=ne; mty} :: expected
+      | Diff.Delete mty ->
+          1+ng, ne, {mode=`Delete; pos=ng; mty }::got, expected
+      | Diff.Change (g,e,_) ->
+          1+ng, 1+ne,
+          {mode=`Change `Got; mty=g; pos=ng}::got,
+          { mode=`Change `Expected; pos=ne; mty=e}::expected
+      | Diff.Keep (g,e,_) ->
+          1+ng, 1+ne,
+          {mode=`Ok; mty=g; pos=ng}::got,
+          { mode=`Ok; pos=ne; mty=e}::expected in
+    let _,_, gs, exs = List.fold_left split (0,0,[],[]) l in
+    List.rev gs, List.rev exs
+
+  let list_diff f g patch =
+    let space ppf () = Format.fprintf ppf "@ " in
+    let list f l ppf = Format.pp_print_list ~pp_sep:space (decorate f) ppf l in
+    let got, expected = split_patch patch in
+    list f got, list g expected
+
+  let list_diff_without_suffix f g patch =
+    let drop_inserted_suffix patch =
+      let rec drop = function
+        | Diff.Insert _ :: q -> drop q
+        | rest -> List.rev rest in
+      drop (List.rev patch) in
+    list_diff f g (drop_inserted_suffix patch)
+
   let rec module_type ?(first=false) ~eqmode env ctx ppf diff =
     match diff.symptom with
     | Mt_core (Invalid_module_alias _ as s) ->
@@ -1260,25 +1295,16 @@ module Pp = struct
             Format.fprintf ppf
               "@;@[<hv 2>Parameters do not match:@ \
                @[%a@]@;<0 -2>does not match@ @[%a@]@]"
-              (Format.pp_print_list functor_param) got
-              (Format.pp_print_list functor_param) expected
+              (Format.pp_print_list simple_functor_param) got
+              (Format.pp_print_list simple_functor_param) expected
         | Some d ->
+            let got, expected = list_diff functor_param functor_param d in
             Format.fprintf ppf
               "@;@[<hv 2>Parameters do not match:@ \
-               @[%a@]@;<0 -2>does not match@ @[%a@]@]"
-              (pp_list_diff functor_param functor_param `Left) d
-              (pp_list_diff functor_param functor_param `Right) d
+               @[%t@]@;<0 -2>does not match@ @[%t@]@]"
+              got
+              expected
         end
-
-  and functor_param ppf = function
-    | Unit -> Format.fprintf ppf "()"
-    | Named (None, mty) ->
-      Format.fprintf ppf "%a"
-        !Oprint.out_module_type (Printtyp.tree_of_modtype mty)
-    | Named (Some p, mty) ->
-      Format.fprintf ppf "(%s : %a)"
-        (Ident.name p)
-        !Oprint.out_module_type (Printtyp.tree_of_modtype mty)
 
   and signature ?(first=false) env ctx ppf sgs =
     Printtyp.wrap_printing_env ~error:true sgs.env (fun () ->
@@ -1347,14 +1373,15 @@ let report_apply_error env ppf (lid0, path_f, args) =
          @[%a@]@;<1 -2>do not match these parameters@ @[%a@]@]"
         Printtyp.longident lid0
         (Format.pp_print_list Printtyp.modtype) args
-        (Format.pp_print_list Pp.functor_param) params
+        (Format.pp_print_list Pp.simple_functor_param) params
   | Ok d ->
+      let got, expected =
+        Pp.(list_diff (short_modtype ~ellipsis:false) functor_param d) in
       Format.fprintf ppf
         "@;@[<hv 2>The functor application %a is ill-typed. These arguments:@ \
-         @[%a@]@;<1 -2>do not match these parameters@ @[%a@]@]"
+         @[%t@]@;<1 -2>do not match these parameters@ @[%t@]@]"
         Printtyp.longident lid0
-        (pp_list_diff Printtyp.modtype Pp.functor_param `Left) d
-        (pp_list_diff Printtyp.modtype Pp.functor_param `Right) d
+        got expected
   end
 
 (* We could do a better job to split the individual error items
@@ -1389,5 +1416,5 @@ type functor_app_patch =
     Diff.patch
 let functor_app_diff = FunctorAppDiff.diff
 let pp_functor_app_patch =
-  let pp_mt ppf mt = Format.fprintf ppf "(%a)" Printtyp.modtype mt in
-  pp_list_diff_without_suffix pp_mt Pp.functor_param
+  let pp_mt ppf mt =  Pp.short_modtype ~ellipsis:false ppf mt in
+  Pp.(list_diff_without_suffix pp_mt functor_param)
