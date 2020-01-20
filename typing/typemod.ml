@@ -2945,12 +2945,11 @@ let report_error env ppf = function
             args
             (Format.pp_print_list functor_param) params
       | Ok patch ->
+          let got, expected = Includemod.pp_functor_app_patch patch in
           Format.fprintf ppf
             "@;@[<hv 2>Parameters do not match:@ \
-             @[%a@]@;<0 -2>does not match@ @[%a@]@]"
-            (Includemod.pp_functor_app_patch `Left) patch
-            (Includemod.pp_functor_app_patch `Right) patch
-
+             @[%t@]@;<0 -2>does not match@ @[%t@]@]"
+            got expected
 
 let report_error env ppf err =
   Printtyp.wrap_printing_env ~error:true env
