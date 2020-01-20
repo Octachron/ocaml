@@ -96,4 +96,4 @@ val functor_app_diff:
   Env.t -> f:Types.module_type -> args:Types.module_type list ->
   (functor_app_patch, Types.functor_parameter list) result
 val pp_functor_app_patch:
-  functor_app_patch -> (Format.formatter -> unit as 'p) * 'p
+  functor_app_patch -> (Format.formatter -> unit as 'p) * 'p * Location.msg list
