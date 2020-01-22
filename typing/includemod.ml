@@ -1405,23 +1405,29 @@ let delete_suberror subcase mty =
     subcase_prefix subcase
     Pp.(decorate `Delete Printtyp.modtype) mty
 
-let diff_suberror subcase got expected =
-  Location.msg
-    "@[<2>%a:@ the two module types does not match@ @[%a@]@ \
-     is not compatible with@ @[%a@]@]"
+let diff_suberror env subcase diff =
+  let suberr ppf err =
+    match err with
+    | E.Incompatible_params (Unit,_) ->
+        Format.fprintf ppf
+          "The functor was expected to be applicative at this position"
+    | E.Incompatible_params (_,_ (* only Unit is possible *) ) ->
+        Format.fprintf ppf
+          "The functor was expected to be generative at this position"
+    | E.Mismatch(_,_,mty_diff) ->
+        Pp.module_type env [] ppf ~eqmode:false mty_diff
+  in Location.msg "@[<2>%a:@ %a@]"
     subcase_prefix subcase
-    Pp.(decorate (`Change `Got) Printtyp.modtype) got
-    Pp.(decorate (`Change `Expected) simple_functor_param) expected
+    suberr diff
 
-
-let param_suberror (subcase, diff) = match diff with
+let param_suberror env (subcase, diff) = match diff with
   | Diff.Insert mty -> Some(insert_suberror subcase mty)
   | Diff.Delete mty -> Some(delete_suberror subcase mty)
-  | Diff.Change (g,e,_) -> Some(diff_suberror subcase g e)
+  | Diff.Change (_,_,d) -> Some(diff_suberror env subcase d)
   | Diff.Keep _ -> None
 
-let param_suberrors patch =
-  List.filter_map param_suberror (Pp.number_subcases patch)
+let param_suberrors env patch =
+  List.filter_map (param_suberror env) (Pp.number_subcases patch)
 
 let report_apply_error ~loc env (lid0, path_f, args) =
   let md_f = Env.find_module path_f env in
@@ -1436,7 +1442,7 @@ let report_apply_error ~loc env (lid0, path_f, args) =
   | Ok d ->
       let got, expected =
         Pp.(list_diff short_modtype functor_param d) in
-      Location.errorf ~sub:(param_suberrors d) ~loc
+      Location.errorf ~sub:(param_suberrors env d) ~loc
         "@;@[<hv 2>The functor application %a is ill-typed. These arguments:@ \
          @[%t@]@;<1 -2>do not match these parameters@ @[%t@]@]"
         Printtyp.longident lid0
@@ -1472,8 +1478,8 @@ type functor_app_patch =
    Typedtree.module_coercion, E.functor_param_syndrom)
     Diff.patch
 let functor_app_diff = FunctorAppDiff.diff
-let pp_functor_app_patch patch =
+let pp_functor_app_patch env patch =
   let pp_mt ppf mt =  Pp.short_modtype ppf mt in
   let patch = Pp.drop_inserted_suffix patch in
   let g, e = Pp.(list_diff pp_mt functor_param patch) in
-  g, e, param_suberrors patch
+  g, e, param_suberrors env patch
