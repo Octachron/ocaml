@@ -1070,11 +1070,8 @@ let is_big obj =
 
 module Pp = struct
   open E
-  let break ppf first =
-    if not first then Format.pp_print_break ppf 1 0
 
-  let core id ?(first=false) ppf x =
-    break ppf first;
+  let core id ppf x =
     match x with
     | Value_descriptions diff ->
         let t1 = Printtyp.tree_of_value_description id diff.got in
@@ -1125,34 +1122,31 @@ module Pp = struct
           !Oprint.out_sig_item t2
           Includeclass.report_error symptom
 
-  let missing_field ?(first=false) ppf item =
+  let missing_field ppf item =
     let id, loc, kind = item_ident_name item in
-    Format.fprintf ppf "%aThe %s `%a' is required but not provided%a"
-      break first (kind_of_field_desc kind) Printtyp.ident id
+    Format.fprintf ppf "The %s `%a' is required but not provided%a"
+      (kind_of_field_desc kind) Printtyp.ident id
     (show_loc "Expected declaration") loc
 
-  let module_types ?(first=false) ppf {got=mty1; expected=mty2} =
+  let module_types ppf {got=mty1; expected=mty2} =
     Format.fprintf ppf
-      "%a@[<hv 2>Modules do not match:@ \
+      "@[<hv 2>Modules do not match:@ \
        %a@;<1 -2>is not included in@ %a@]"
-      break first
       !Oprint.out_module_type (Printtyp.tree_of_modtype mty1)
       !Oprint.out_module_type (Printtyp.tree_of_modtype mty2)
 
-  let eq_module_types ?(first=false) ppf {got=mty1; expected=mty2} =
+  let eq_module_types ppf {got=mty1; expected=mty2} =
     Format.fprintf ppf
-      "%a@[<hv 2>Module types do not match:@ \
+      "@[<hv 2>Module types do not match:@ \
        %a@;<1 -2>is not equal to@ %a@]"
-      break first
       !Oprint.out_module_type (Printtyp.tree_of_modtype mty1)
       !Oprint.out_module_type (Printtyp.tree_of_modtype mty2)
 
 
-  let module_type_declarations id ?(first=false) ppf {got=d1 ; expected=d2} =
+  let module_type_declarations id ppf {got=d1 ; expected=d2} =
     Format.fprintf ppf
       "%a@[<hv 2>Module type declarations do not match:@ \
        %a@;<1 -2>does not match@ %a@]"
-      break first
       !Oprint.out_sig_item (Printtyp.tree_of_modtype_declaration id d1)
       !Oprint.out_sig_item (Printtyp.tree_of_modtype_declaration id d2)
 
@@ -1161,7 +1155,7 @@ module Pp = struct
       "The implementation %s@ does not match the interface %s:@ "
       diff.got diff.expected
 
-  let core_module_type_symptom ?(first=false) ppf x  =
+  let core_module_type_symptom ppf x  =
     match x with
     | Not_a_signature
     | Not_an_alias
@@ -1169,28 +1163,11 @@ module Pp = struct
     | Incompatible_aliases -> ()
 
     | Unbound_modtype_path path ->
-        break ppf first;
         Format.fprintf ppf "Unbound module type %a" Printtyp.path path
     | Unbound_module_path path ->
-        break ppf first;
         Format.fprintf ppf "Unbound module %a" Printtyp.path path
     | Invalid_module_alias path ->
-        break ppf first;
         Format.fprintf ppf "Module %a cannot be aliased" Printtyp.path path
-
-  (** Take a tree of difference and pick the simplest path to an error *)
-  let with_context first ctx printer ppf diff =
-        if ctx <> [] then break ppf first;
-        Format.fprintf ppf "%a%a" context (List.rev ctx)
-          (printer ?first:(Some(first || ctx<>[])))
-          diff
-
-  let with_context_and_elision first ctx printer ppf diff =
-    if is_big (diff.got,diff.expected) then
-      Format.fprintf ppf "..."
-    else
-      with_context first ctx printer ppf diff
-
 
   let simple_functor_param ppf = function
     | Unit -> Format.fprintf ppf "()"
@@ -1207,6 +1184,7 @@ module Pp = struct
       subcase:int
     }
 
+  (** Printers for param diffs *)
   let short_modtype ppf {mode;mty;subcase} =
     match mty with
     | Mty_ident p | Mty_alias p -> Printtyp.path ppf p
@@ -1281,138 +1259,220 @@ module Pp = struct
       | rest -> List.rev rest in
     drop (List.rev patch)
 
-  let rec module_type ?(first=false) ~eqmode env ctx ppf diff =
+end
+
+
+
+module Linearize = struct
+
+  open E
+  let with_context ?loc ctx printer diff =
+    Location.msg ?loc "%a%a" context (List.rev ctx)
+      printer diff
+
+  let with_context_and_elision ?loc ctx printer diff =
+    if is_big (diff.E.got,diff.E.expected) then
+      Location.msg ?loc "..."
+    else
+      with_context ?loc ctx printer diff
+
+  type t = { before: Location.msg list; main: Location.msg;
+             post:
+               (Types.functor_parameter, Types.functor_parameter,
+                Typedtree.module_coercion, E.functor_param_syndrom)
+                 Diff.patch  option
+           }
+
+  let rec module_type ~eqmode ~env ~before ~ctx diff =
     match diff.symptom with
     | Mt_core (Invalid_module_alias _ as s) ->
-        with_context first ctx core_module_type_symptom ppf s
+        { before; post = None;
+          main = with_context ctx Pp.core_module_type_symptom s
+        }
     | _ ->
-        let inner = if eqmode then eq_module_types else module_types in
-        with_context_and_elision first ctx inner ppf diff
-      ; module_type_symptom env ctx ppf diff.symptom
+        let inner = if eqmode then Pp.eq_module_types else Pp.module_types in
+        let next = with_context_and_elision ctx inner diff in
+        module_type_symptom ~env ~before:(next::before) ~ctx diff.symptom
 
-  and module_type_symptom env ctx ppf = function
-    | Mt_core core -> core_module_type_symptom ppf core
-    | Signature s -> signature env ctx ppf s
-    | Functor f -> functor_symptom env ctx ppf f
+  and module_type_symptom ~env ~before ~ctx = function
+    | Mt_core core ->
+        let main = Location.msg "%a" Pp.core_module_type_symptom core in
+        { before; main; post = None }
+    | Signature s -> signature ~env ~before ~ctx s
+    | Functor f -> functor_symptom ~env ~before ~ctx f
 
-  and functor_symptom env ctx ppf = function
+  and functor_symptom ~env ~before ~ctx = function
     | Result res ->
-        module_type ~eqmode:false env ctx ppf res
+        module_type ~eqmode:false ~env ~before ~ctx res
     | Params E.{got; expected; symptom=()} ->
         begin match FunctorArgsDiff.diff env ctx got expected with
         | None ->
-            Format.fprintf ppf
-              "@;@[<hv 2>Parameters do not match:@ \
-               @[%a@]@;<0 -2>does not match@ @[%a@]@]"
-              (Format.pp_print_list simple_functor_param) got
-              (Format.pp_print_list simple_functor_param) expected
+            let main =
+              Location.msg
+                "@;@[<hv 2>Parameters do not match:@ \
+                 @[%a@]@;<0 -2>does not match@ @[%a@]@]"
+                (Format.pp_print_list Pp.simple_functor_param) got
+                (Format.pp_print_list Pp.simple_functor_param) expected
+                in
+                { before; main; post = None }
         | Some d ->
-            let got, expected = list_diff functor_param functor_param d in
-            Format.fprintf ppf
-              "@;@[<hv 2>Parameters do not match:@ \
-               @[%t@]@;<0 -2>does not match@ @[%t@]@]"
-              got
-              expected
+            let main =
+              let got, expected =
+                Pp.(list_diff functor_param functor_param) d in
+              Location.msg
+                "@;@[<hv 2>Parameters do not match:@ \
+                 @[%t@]@;<0 -2>does not match@ @[%t@]@]"
+                got
+                expected in
+            { before; main; post = Some d }
         end
 
-  and signature ?(first=false) env ctx ppf sgs =
+  and signature ~env ~before ~ctx sgs =
     Printtyp.wrap_printing_env ~error:true sgs.env (fun () ->
     match sgs.missings, sgs.incompatibles with
-    | a :: _ , _ -> with_context first ctx missing_field ppf a
-    | [], a :: _ -> sigitem ~first env ctx ppf a
+    | a :: _ , _ ->
+        { before; post = None;
+          main = with_context ctx Pp.missing_field a
+        }
+    | [], a :: _ -> sigitem ~env ~before ~ctx a
     | [], [] -> assert false
       )
-  and sigitem ~first env ctx ppf (name,s) = match s with
-    | Core c -> with_context first ctx (core name) ppf c
+  and sigitem ~env ~before ~ctx (name,s) = match s with
+    | Core c -> { before; post = None;
+                  main = with_context ctx (Pp.core name) c
+                }
     | Module_type diff ->
-        module_type ~first ~eqmode:false env (Module name :: ctx) ppf diff
+        module_type ~eqmode:false ~env ~before ~ctx:(Module name :: ctx) diff
     | Module_type_declaration diff ->
-        module_type_decl ~first env ctx name ppf diff
-  and module_type_decl ?(first=false) env ctx id ppf diff =
-    with_context_and_elision first ctx (module_type_declarations id) ppf diff;
+        module_type_decl ~env ~before ~ctx name diff
+  and module_type_decl ~env ~before ~ctx id diff =
+    let next =
+      with_context_and_elision ctx (Pp.module_type_declarations id) diff in
+    let before = next :: before in
     match diff.symptom with
     | Not_less_than mts ->
-        Format.fprintf ppf
-          "@ The first module type is not included in the second%a"
-          (module_type ~eqmode:true env (Modtype id :: ctx)) mts
+        let before =
+          Location.msg "@ The first module type is not included in the second"
+          :: before in
+        module_type ~eqmode:true ~before ~env ~ctx:(Modtype id :: ctx) mts
     | Not_greater_than mts ->
-        Format.fprintf ppf
-          "@ The second module type is not included in the first%a"
-          (module_type ~eqmode:true env (Modtype id :: ctx)) mts
+        let before =
+          Location.msg "@ The second module type is not included in the first"
+          :: before in
+        module_type ~eqmode:true ~before ~env ~ctx:(Modtype id :: ctx) mts
     | Incomparable mts ->
-        (module_type ~eqmode:true env (Modtype id :: ctx)) ppf mts.less_than
+        module_type ~eqmode:true ~env ~before ~ctx:(Modtype id :: ctx)
+          mts.less_than
     | Illegal_permutation c ->
         begin match diff.got.Types.mtd_type with
         | None -> assert false
         | Some mty ->
-            with_context first (Modtype id::ctx)
-              (fun ?(first=false) ->
-                 break ppf first;
-                 Illegal_permutation.pp alt_context env) ppf (mty,c)
+            let main =
+            with_context (Modtype id::ctx)
+              (Illegal_permutation.pp alt_context env) (mty,c) in
+            { before; main; post = None }
         end
 
+  let subcase_prefix ppf d =
+    Format.fprintf ppf "@{<error>Subcase (%d)@}" d
 
-  let linear env ppf = function
+  let insert_suberror subcase mty =
+    Location.msg
+      "@[<2>%a:@ the parameter@ @[%a@]@ appears only among the \
+       expected arguments.@ Did you forget this argument?@]"
+      subcase_prefix subcase
+      Pp.(decorate `Insert simple_functor_param) mty
+
+  let delete_suberror left_printer subcase mty =
+    Location.msg
+      "@[<2>%a:@ the module type@ @[%a@]@ does not seem to fit@ \
+       any of the expected parameters.@ Have you tried to remove it?@]"
+      subcase_prefix subcase
+      Pp.(decorate `Delete left_printer) mty
+
+  type 'a pp = Format.formatter -> 'a -> unit
+  let rec diff_suberror =
+    fun env subcase diff ->
+    let suberr ppf err =
+      match err with
+      | E.Incompatible_params (Unit,_) ->
+          Format.fprintf ppf
+            "The functor was expected to be applicative at this position"
+      | E.Incompatible_params (_,_ (* only Unit is possible *) ) ->
+          Format.fprintf ppf
+            "The functor was expected to be generative at this position"
+      | E.Mismatch(_,_,mty_diff) ->
+          let r = module_type ~env ~before:[] ~ctx:[] ~eqmode:false mty_diff in
+          let list ppf l = List.iter (fun f -> f.Location.txt ppf) l in
+          let post = match r.post with
+            | None -> []
+            | Some patch ->
+                param_suberrors Pp.simple_functor_param env patch in
+          Format.fprintf ppf "%a%t@,%a"
+            list r.before
+            r.main.Location.txt
+            list post
+    in Location.msg "@[<2>%a:@ %a@]"
+      subcase_prefix subcase
+      suberr diff
+
+  and param_suberror:
+    'a.  'a pp -> Env.t -> (int * ('a, _, _,_) Diff.change) -> _  =
+    fun left_printer env (subcase,diff) ->
+    match diff with
+    | Diff.Insert mty -> Some(insert_suberror subcase mty)
+    | Diff.Delete mty -> Some(delete_suberror left_printer subcase mty)
+    | Diff.Change (_,_,d) -> Some(diff_suberror env subcase d)
+    | Diff.Keep _ -> None
+
+  and param_suberrors:
+    'a. 'a pp ->  Env.t -> ('a, _, _,_) Diff.patch -> _ =
+    fun left_printer env patch ->
+    List.filter_map (param_suberror left_printer env) (Pp.number_subcases patch)
+
+
+
+  let all env = function
     | In_Compilation_unit diff ->
-      interface_mismatch ppf diff; signature env [] ppf diff.symptom
-    | In_Type_declaration (id,reason) -> core ~first:true id ppf reason
+      let first = Location.msg "%a" Pp.interface_mismatch diff in
+      signature ~env ~before:[first] ~ctx:[] diff.symptom
+    | In_Type_declaration (id,reason) ->
+        let main = Location.msg "%a" (Pp.core id) reason in
+        { main; before = []; post = None }
     | In_Module_type diff ->
-        module_type ~eqmode:false ~first:true env [] ppf diff
-    | In_Signature diff -> signature ~first:true env [] ppf diff
-    | In_Expansion cmts -> core_module_type_symptom ~first:true ppf cmts
+        module_type ~eqmode:false ~before:[] ~env ~ctx:[] diff
+    | In_Signature diff -> signature ~before:[] ~env ~ctx:[] diff
+    | In_Expansion cmts ->
+        let main = Location.msg "%a" Pp.core_module_type_symptom cmts in
+        { main; before = []; post = None }
+
+  let coalesce { before; main; _ } =
+    match List.rev before with
+    | [] -> Format.dprintf "@,%t" main.Location.txt
+    | before ->
+        let ctx ppf = List.iter (fun x -> x.Location.txt ppf) before in
+        Format.dprintf "@,%t%t" ctx main.Location.txt
+
 end
 
-let include_err ppf (env, err) =
+let err_msgs (env, err) =
+  Printtyp.Conflicts.reset();
   Printtyp.wrap_printing_env ~error:true env (fun () ->
-    fprintf ppf "@[<v>%a@]" (Pp.linear env) err
+      let l = Linearize.all env err in
+      let main = Linearize.coalesce l in
+      let sub =
+        let params =
+          match l.Linearize.post with
+          | None -> []
+          | Some post ->
+              Linearize.param_suberrors Pp.simple_functor_param env post in
+        params @ [Location.msg "%t" Printtyp.Conflicts.print_explanations] in
+      sub, main
     )
 
-
-let report_error ppf error_tree =
-  Printtyp.Conflicts.reset();
-  fprintf ppf "@[<v>%a%t@]" include_err error_tree
-    Printtyp.Conflicts.print_explanations
-
-let subcase_prefix ppf d =
-  Format.fprintf ppf "@{<error>Subcase (%d)@}" d
-
-let insert_suberror subcase mty =
-  Location.msg
-    "@[<2>%a:@ the parameter@ @[%a@]@ appears only among the \
-     expected arguments.@ Did you forget this argument?@]"
-    subcase_prefix subcase
-    Pp.(decorate `Insert simple_functor_param) mty
-
-let delete_suberror subcase mty =
-  Location.msg
-    "@[<2>%a:@ the module type@ @[%a@]@ does not seem to fit@ \
-     any of the expected parameters.@ Have you tried to remove it?@]"
-    subcase_prefix subcase
-    Pp.(decorate `Delete Printtyp.modtype) mty
-
-let diff_suberror env subcase diff =
-  let suberr ppf err =
-    match err with
-    | E.Incompatible_params (Unit,_) ->
-        Format.fprintf ppf
-          "The functor was expected to be applicative at this position"
-    | E.Incompatible_params (_,_ (* only Unit is possible *) ) ->
-        Format.fprintf ppf
-          "The functor was expected to be generative at this position"
-    | E.Mismatch(_,_,mty_diff) ->
-        Pp.module_type env [] ppf ~eqmode:false mty_diff
-  in Location.msg "@[<2>%a:@ %a@]"
-    subcase_prefix subcase
-    suberr diff
-
-let param_suberror env (subcase, diff) = match diff with
-  | Diff.Insert mty -> Some(insert_suberror subcase mty)
-  | Diff.Delete mty -> Some(delete_suberror subcase mty)
-  | Diff.Change (_,_,d) -> Some(diff_suberror env subcase d)
-  | Diff.Keep _ -> None
-
-let param_suberrors env patch =
-  List.filter_map (param_suberror env) (Pp.number_subcases patch)
+let report_error err =
+  let sub, main = err_msgs err in
+  Location.errorf ~sub "%t" main
 
 let report_apply_error ~loc env (lid0, path_f, args) =
   let md_f = Env.find_module path_f env in
@@ -1427,7 +1487,8 @@ let report_apply_error ~loc env (lid0, path_f, args) =
   | Ok d ->
       let got, expected =
         Pp.(list_diff short_modtype functor_param d) in
-      Location.errorf ~sub:(param_suberrors env d) ~loc
+      Location.errorf ~loc
+        ~sub:(Linearize.param_suberrors Printtyp.modtype env d)
         "@;@[<hv 2>The functor application %a is ill-typed. These arguments:@ \
          @[%t@]@;<1 -2>do not match these parameters@ @[%t@]@]"
         Printtyp.longident lid0
@@ -1439,7 +1500,7 @@ let report_apply_error ~loc env (lid0, path_f, args) =
 let () =
   Location.register_error_of_exn
     (function
-      | Error err -> Some (Location.error_of_printer_file report_error err)
+      | Error err -> Some (report_error err)
       | Apply_error(loc, env, lid0, path_f, args) ->
           let mty lid1 =
             let path1, md1 = Env.find_module_by_name lid1 env in
@@ -1467,4 +1528,4 @@ let pp_functor_app_patch env patch =
   let pp_mt ppf mt =  Pp.short_modtype ppf mt in
   let patch = Pp.drop_inserted_suffix patch in
   let g, e = Pp.(list_diff pp_mt functor_param patch) in
-  g, e, param_suberrors env patch
+  g, e, Linearize.param_suberrors Printtyp.modtype env patch
