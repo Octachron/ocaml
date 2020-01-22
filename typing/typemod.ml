@@ -2939,7 +2939,7 @@ let report_error ~loc env = function
             args
             (Format.pp_print_list functor_param) params
       | Ok patch ->
-          let got, expected, sub = Includemod.pp_functor_app_patch patch in
+          let got, expected, sub = Includemod.pp_functor_app_patch env patch in
           Location.errorf ~loc ~sub
             "@;@[<hv 2>Parameters do not match:@ \
              @[%t@]@;<0 -2>does not match@ @[%t@]@]"
