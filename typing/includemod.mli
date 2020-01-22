@@ -88,7 +88,8 @@ type error = pos list * Env.t * symptom
 
 exception Error of explanation
 
-val report_error: formatter -> explanation -> unit
+val err_msgs: explanation ->
+  Location.msg list * (Format.formatter -> unit)
 val expand_module_alias: Env.t -> Path.t -> Types.module_type
 
 type functor_app_patch
