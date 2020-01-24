@@ -104,7 +104,8 @@ case "$1" in
     FULL_BUILD_PREFIX="$APPVEYOR_BUILD_FOLDER/../$BUILD_PREFIX"
     run 'ocamlc.opt -version' "$FULL_BUILD_PREFIX-$PORT/ocamlc.opt" -version
     if [[ $PORT = 'mingw32' ]] ; then
-      run "Check runtime symbols" "$OCAMLROOT/tools/tools/check-symbol-names" \
+      run "Check runtime symbols" \
+          "$FULL_BUILD_PREFIX-$PORT/tools/check-symbol-names" \
           "$FULL_BUILD_PREFIX-$PORT/runtime/*.a"
     fi
     run "test $PORT" make -C "$FULL_BUILD_PREFIX-$PORT" tests
