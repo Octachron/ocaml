@@ -106,7 +106,7 @@ case "$1" in
     if [[ $PORT = 'mingw32' ]] ; then
       run "Check runtime symbols" \
           "$FULL_BUILD_PREFIX-$PORT/tools/check-symbol-names" \
-          "$FULL_BUILD_PREFIX-$PORT/runtime/*.a"
+          $FULL_BUILD_PREFIX-$PORT/runtime/*.a
     fi
     run "test $PORT" make -C "$FULL_BUILD_PREFIX-$PORT" tests
     run "install $PORT" make -C "$FULL_BUILD_PREFIX-$PORT" install
