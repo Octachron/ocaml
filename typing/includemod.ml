@@ -1192,13 +1192,50 @@ module Pp = struct
         (Ident.name p)
         Printtyp.modtype mty
 
-
   type ('a,'b) unified_param =
-    { mode: 'a;
+    {
+      mode: 'a;
       mty: 'b;
-      subcase:int
+      pos:int;
+      prefered_name: string option;
     }
 
+  let side = function
+    | `Change `Got | `Ok `Got | `Delete -> `Got
+    | `Change `Expected | `Ok `Expected | `Insert -> `Expected
+
+  type short_name =
+    | Path of string
+    | Synthetic of { side: [` Expected | `Got ]; pos:int}
+    | Module_type_of of {side: [` Expected | `Got ];  name:string}
+
+  let short_modtype_name r = match r.mty with
+    | Mty_ident p | Mty_alias p -> Path (Printtyp.string_of_path p)
+    | Mty_signature _ | Mty_functor _ ->
+        match r.prefered_name with
+        | Some name -> Module_type_of { side = side r.mode; name}
+        | None -> Synthetic {side=side r.mode; pos = r.pos }
+
+  let short_functor_name ua = match ua.mty with
+    | Unit -> Path "()"
+    | Named (None, mty) -> short_modtype_name { ua with mty }
+    | Named (Some p, mty) ->
+        short_modtype_name
+          {ua with mty; prefered_name=Some (Ident.name p)}
+
+  let short ppf = function
+    | Path s -> Format.pp_print_string ppf s
+    | Module_type_of { side = `Got; name} -> Format.fprintf ppf "S%%%s" name
+    | Module_type_of { side = `Expected; name} ->
+        Format.fprintf ppf "T%%%s" name
+    | Synthetic { side = `Got; pos } -> Format.fprintf ppf "S%%%d" pos
+    | Synthetic { side = `Expected; pos } -> Format.fprintf ppf "T%%%d" pos
+
+  let short_modtype ppf x = short ppf (short_modtype_name x)
+  let short_functor_param ppf x = short ppf (short_functor_name x)
+
+
+(*
   (** Printers for param diffs *)
   let short_modtype ppf {mode;mty;subcase} =
     match mty with
@@ -1217,17 +1254,16 @@ module Pp = struct
             Format.fprintf ppf "functor ... (%d)" subcase
         | `Ok -> Format.fprintf ppf "functor ..."
         end
-
+*)
   let functor_param ppf ua = match ua.mty with
     | Unit -> Format.fprintf ppf "()"
-    | Named (None, mty) -> short_modtype ppf { ua with mty }
-    | Named (Some p, mty) ->
+    | Named (None, mty) -> short_modtype ppf{ ua with mty }
+    | Named (Some p, _) ->
         Format.fprintf ppf "(%s : %a)"
-          (Ident.name p) short_modtype
-          {ua with mty}
+          (Ident.name p) short_functor_param ua
 
   let style = function
-    | `Ok -> None, Misc.Color.[ FG Green ]
+    | `Ok _ -> None, Misc.Color.[ FG Green ]
     | `Delete -> Some "-", Misc.Color.[ FG Red; Bold]
     | `Insert -> Some "+", Misc.Color.[ FG Red; Bold]
     | `Change _ -> Some "~", Misc.Color.[ FG Magenta; Bold]
@@ -1247,26 +1283,27 @@ module Pp = struct
 
   let split_patch patch =
     let patch = number_subcases patch in
-    let split (got,expected) (subcase,x) = match x with
+    let split (got,expected) (pos,x) = match x with
       | Diff.Insert mty ->
-          got, {mode=`Insert; subcase; mty} :: expected
+          got, { mode=`Insert; pos; mty; prefered_name=None } :: expected
       | Diff.Delete mty ->
-          {mode=`Delete; subcase; mty }::got, expected
+          {mode=`Delete; pos; mty; prefered_name=None }::got, expected
       | Diff.Change (g,e,_) ->
-          {mode=`Change `Got; mty=g; subcase}::got,
-          { mode=`Change `Expected; subcase; mty=e}::expected
+          {mode=`Change `Got; mty=g; pos; prefered_name=None}::got,
+          { mode=`Change `Expected; pos; mty=e;  prefered_name=None}::expected
       | Diff.Keep (g,e,_) ->
-          { mode=`Ok; mty=g; subcase}::got,
-          { mode=`Ok; mty=e; subcase}::expected in
+          { mode=`Ok `Got; mty=g; pos; prefered_name=None}::got,
+          { mode=`Ok `Expected; mty=e; pos; prefered_name=None}::expected in
     let gs, exs = List.fold_left split ([],[]) patch in
     List.rev gs, List.rev exs
 
-  let list_diff f g patch =
-    let space ppf () = Format.fprintf ppf "@ " in
+  let arrow ppf () = Format.fprintf ppf "@ ->@ "
+  let space ppf () = Format.fprintf ppf "@ "
+  let list_diff sep f g patch =
     let elt f ppf x = decorate x.mode f ppf x in
-    let list f l ppf = Format.pp_print_list ~pp_sep:space (elt f) ppf l in
+    let list sep f l ppf = Format.pp_print_list ~pp_sep:sep (elt f) ppf l in
     let got, expected = split_patch patch in
-    list f got, list g expected
+    list sep f got, list arrow g expected
 
   let drop_inserted_suffix patch =
     let rec drop = function
@@ -1325,7 +1362,7 @@ module Linearize = struct
             let main =
               Location.msg
                 "@;@[<hv 2>Parameters do not match:@ \
-                 @[%a@]@;<0 -2>does not match@ @[%a@]@]"
+                 @[%a@]@;<1 -2>does not match@ @[%a@]@]"
                 (Format.pp_print_list Pp.simple_functor_param) got
                 (Format.pp_print_list Pp.simple_functor_param) expected
                 in
@@ -1333,10 +1370,10 @@ module Linearize = struct
         | Some d ->
             let main =
               let got, expected =
-                Pp.(list_diff functor_param functor_param) d in
+                Pp.(list_diff arrow functor_param functor_param) d in
               Location.msg
                 "@;@[<hv 2>Parameters do not match:@ \
-                 @[%t@]@;<0 -2>does not match@ @[%t@]@]"
+                 @[%t@]@;<1 -2>does not match@ @[%t@]@]"
                 got
                 expected in
             { before; main; post = Some d }
@@ -1389,26 +1426,45 @@ module Linearize = struct
             { before; main; post = None }
         end
 
-  let subcase_prefix ppf d =
-    Format.fprintf ppf "@{<error>Subcase (%d)@}" d
-
-  let insert_suberror subcase mty =
+  let insert_suberror pos mty =
     Location.msg
-      "@[<2>%a:@ the parameter@ @[%a@]@ appears only among the \
-       expected arguments.@ Did you forget this argument?@]"
-      subcase_prefix subcase
+      "An argument of type@ %a=%a@ appears to be missing"
+      Pp.short_functor_param {Pp.mty; mode=`Insert; pos; prefered_name=None}
       Pp.(decorate `Insert simple_functor_param) mty
 
-  let delete_suberror left_printer subcase mty =
+  let arg_delete_suberror pos mty =
     Location.msg
-      "@[<2>%a:@ the module type@ @[%a@]@ does not seem to fit@ \
-       any of the expected parameters.@ Have you tried to remove it?@]"
-      subcase_prefix subcase
-      Pp.(decorate `Delete left_printer) mty
+      "The type of this argument@ %a=@[%a@]@ does not seem to fit@ \
+       any of the expected parameters."
+      Pp.short_functor_param
+      { Pp.mty; pos; mode = `Delete; prefered_name = None }
+      Pp.(decorate `Delete simple_functor_param) mty
 
-  type 'a pp = Format.formatter -> 'a -> unit
+  let app_delete_suberror pos mty =
+    Location.msg
+      "The type of this argument@ %a=@[%a@]@ does not seem to fit@ \
+       any of the expected parameters."
+      Pp.short_modtype { Pp.mty; pos; mode = `Delete; prefered_name = None }
+      Pp.(decorate `Delete Printtyp.modtype) mty
+
+  let arg_ok_suberror pos x y =
+    Location.msg
+      "The module types %a and %a match"
+      Pp.short_functor_param
+      { Pp.mty=x; pos; mode = `Ok `Got; prefered_name = None }
+      Pp.short_functor_param
+      { Pp.mty=y; pos; mode = `Ok `Expected; prefered_name = None }
+
+  let app_ok_suberror pos x y =
+    Location.msg
+      "The module types %a and %a match"
+      Pp.short_modtype { Pp.mty=x; pos; mode = `Ok `Got; prefered_name = None }
+      Pp.short_functor_param
+      { Pp.mty=y; pos; mode = `Ok `Expected; prefered_name = None }
+
+
   let rec diff_suberror =
-    fun env subcase diff ->
+    fun env pos diff ->
     let suberr ppf err =
       match err with
       | E.Incompatible_params (Unit,_) ->
@@ -1422,30 +1478,38 @@ module Linearize = struct
           let list ppf l = List.iter (fun f -> f.Location.txt ppf) l in
           let post = match r.post with
             | None -> []
-            | Some patch ->
-                param_suberrors Pp.simple_functor_param env patch in
-          Format.fprintf ppf "%a%t@,%a"
+            | Some patch -> arg_param_suberrors env patch in
+          let arg mode mty =
+            { Pp.mode = `Change mode; pos; mty; prefered_name = None } in
+          Format.fprintf ppf
+            "@[<hv>The module type %a is not included in %a.@ %a%t@ %a@]"
+            Pp.short_modtype (arg `Got  mty_diff.got)
+            Pp.short_modtype (arg `Expected mty_diff.expected)
             list (List.rev r.before)
             r.main.Location.txt
             list post
-    in Location.msg "@[<2>%a:@ %a@]"
-      subcase_prefix subcase
+    in Location.msg "@[<2>%a@]"
       suberr diff
 
-  and param_suberror:
-    'a.  'a pp -> Env.t -> (int * ('a, _, _,_) Diff.change) -> _  =
-    fun left_printer env (subcase,diff) ->
+  and arg_param_suberror  env (pos,diff) =
     match diff with
-    | Diff.Insert mty -> Some(insert_suberror subcase mty)
-    | Diff.Delete mty -> Some(delete_suberror left_printer subcase mty)
-    | Diff.Change (_,_,d) -> Some(diff_suberror env subcase d)
-    | Diff.Keep _ -> None
+    | Diff.Insert mty -> insert_suberror pos mty
+    | Diff.Delete mty -> arg_delete_suberror pos mty
+    | Diff.Change (_,_,d) -> diff_suberror env pos d
+    | Diff.Keep (x, y, _) -> arg_ok_suberror pos x y
 
-  and param_suberrors:
-    'a. 'a pp ->  Env.t -> ('a, _, _,_) Diff.patch -> _ =
-    fun left_printer env patch ->
-    List.filter_map (param_suberror left_printer env) (Pp.number_subcases patch)
+  and arg_param_suberrors env patch =
+    List.map (arg_param_suberror env) (Pp.number_subcases patch)
 
+  let app_param_suberror  env (pos,diff) =
+    match diff with
+    | Diff.Insert mty -> insert_suberror pos mty
+    | Diff.Delete mty -> app_delete_suberror pos mty
+    | Diff.Change (_,_,d) -> diff_suberror env pos d
+    | Diff.Keep (x, y, _) -> app_ok_suberror pos x y
+
+  let app_param_suberrors env patch =
+    List.map (app_param_suberror env) (Pp.number_subcases patch)
 
 
   let all env = function
@@ -1481,7 +1545,7 @@ let err_msgs (env, err) =
           match l.Linearize.post with
           | None -> []
           | Some post ->
-              Linearize.param_suberrors Pp.simple_functor_param env post in
+              Linearize.arg_param_suberrors env post in
         params @ [Location.msg "%t" Printtyp.Conflicts.print_explanations] in
       sub, main
     )
@@ -1502,9 +1566,9 @@ let report_apply_error ~loc env (lid0, path_f, args) =
         (Format.pp_print_list Pp.simple_functor_param) params
   | Ok d ->
       let got, expected =
-        Pp.(list_diff short_modtype functor_param d) in
+        Pp.(list_diff space short_modtype functor_param d) in
       Location.errorf ~loc
-        ~sub:(Linearize.param_suberrors Printtyp.modtype env d)
+        ~sub:(Linearize.app_param_suberrors env d)
         "@;@[<hv 2>The functor application %a is ill-typed. These arguments:@ \
          @[%t@]@;<1 -2>do not match these parameters@ @[%t@]@]"
         Printtyp.longident lid0
@@ -1543,5 +1607,5 @@ let functor_app_diff = FunctorAppDiff.diff
 let pp_functor_app_patch env patch =
   let pp_mt ppf mt =  Pp.short_modtype ppf mt in
   let patch = Pp.drop_inserted_suffix patch in
-  let g, e = Pp.(list_diff pp_mt functor_param patch) in
-  g, e, Linearize.param_suberrors Printtyp.modtype env patch
+  let g, e = Pp.(list_diff space pp_mt functor_param patch) in
+  g, e, Linearize.app_param_suberrors env patch

@@ -2941,18 +2941,18 @@ let report_error ~loc env = function
                   (Ident.name p)
                   !Oprint.out_module_type (Printtyp.tree_of_modtype mty) in
           Location.errorf ~loc
-            "@;@[<hv 2>The functor application %a is ill-typed.@ \
-             These arguments:@ @[%a@]@;<1 -2>do not match@ \
+            "@;@[<hv 2>The functor application is ill-typed.@ \
+             These arguments:@ @[%a@]@;<1 -2>do not match \
              these parameters@ @[%a@]@]"
-            Printtyp.modtype f.mod_type
             (Format.pp_print_list Printtyp.modtype)
             args
             (Format.pp_print_list functor_param) params
       | Ok patch ->
           let got, expected, sub = Includemod.pp_functor_app_patch env patch in
           Location.errorf ~loc ~sub
-            "@;@[<hv 2>Parameters do not match:@ \
-             @[%t@]@;<0 -2>does not match@ @[%t@]@]"
+            "@[<hv -3>This functor application is ill-typed.@;<1 -2>\
+             These arguments:@ @[%t@]@;<1 -2>does not match \
+             these parameter:@ @[%t@]@]"
             got expected
 
 let report_error env ~loc err =
