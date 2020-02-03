@@ -1336,7 +1336,10 @@ module Linearize = struct
     | _ ->
         let inner = if eqmode then Pp.eq_module_types else Pp.module_types in
         let next = with_context_and_elision ctx inner diff in
-        module_type_symptom ~env ~before:(next::before) ~ctx diff.symptom
+        let before = match diff.symptom with
+          | Functor Params _ -> before
+          | _ -> next :: before in
+        module_type_symptom ~env ~before ~ctx diff.symptom
 
   and module_type_symptom ~env ~before ~ctx = function
     | Mt_core core ->
