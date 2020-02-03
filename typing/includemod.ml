@@ -1235,29 +1235,13 @@ module Pp = struct
   let short_functor_param ppf x = short ppf (short_functor_name x)
 
 
-(*
-  (** Printers for param diffs *)
-  let short_modtype ppf {mode;mty;subcase} =
-    match mty with
-    | Mty_ident p | Mty_alias p -> Printtyp.path ppf p
-    | Mty_signature [] ->
-        Format.fprintf ppf "sig end"
-    | Mty_signature _ ->
-        begin match mode with
-        | `Change _ | `Insert | `Delete ->
-            Format.fprintf ppf "sig ... end(%d)" subcase
-        | `Ok -> Format.fprintf ppf "sig ... end"
-        end
-    | Mty_functor _ ->
-        begin match mode with
-        | `Change _ | `Insert | `Delete ->
-            Format.fprintf ppf "functor ... (%d)" subcase
-        | `Ok -> Format.fprintf ppf "functor ..."
-        end
-*)
+  let type_of_functor_param ppf = function
+    | Unit -> Format.fprintf ppf "()"
+    | Named(_,mty) -> Printtyp.modtype ppf mty
+
   let functor_param ppf ua = match ua.mty with
     | Unit -> Format.fprintf ppf "()"
-    | Named (None, mty) -> short_modtype ppf{ ua with mty }
+    | Named (None, mty) -> short_modtype ppf { ua with mty }
     | Named (Some p, _) ->
         Format.fprintf ppf "(%s : %a)"
           (Ident.name p) short_functor_param ua
@@ -1274,6 +1258,15 @@ module Pp = struct
     Option.iter (Format.fprintf ppf "%s") prefix;
     printer ppf x;
     Format.pp_close_stag ppf ()
+
+  let prefix ppf mode =
+    let prefix, sty = match mode with
+        | `Ok _ -> let _, s = style mode  in Some "=", s
+        | x -> style x in
+    Format.pp_open_stag ppf (Misc.Color.Style sty);
+    Option.iter (Format.fprintf ppf "%s") prefix;
+    Format.pp_close_stag ppf ()
+
 
   let number_subcases patch =
     let _, l = List.fold_left (fun (num, l) x -> match x with
@@ -1297,13 +1290,12 @@ module Pp = struct
     let gs, exs = List.fold_left split ([],[]) patch in
     List.rev gs, List.rev exs
 
-  let arrow ppf () = Format.fprintf ppf "@ ->@ "
   let space ppf () = Format.fprintf ppf "@ "
   let list_diff sep f g patch =
     let elt f ppf x = decorate x.mode f ppf x in
     let list sep f l ppf = Format.pp_print_list ~pp_sep:sep (elt f) ppf l in
     let got, expected = split_patch patch in
-    list sep f got, list arrow g expected
+    list sep f got, list sep g expected
 
   let drop_inserted_suffix patch =
     let rec drop = function
@@ -1370,10 +1362,11 @@ module Linearize = struct
         | Some d ->
             let main =
               let got, expected =
-                Pp.(list_diff arrow functor_param functor_param) d in
+                Pp.(list_diff space functor_param functor_param) d in
               Location.msg
                 "@;@[<hv 2>Parameters do not match:@ \
-                 @[%t@]@;<1 -2>does not match@ @[%t@]@]"
+                 @[functor@ %t@ -> ...@]@;<1 -2>does not match@ \
+                 @[functor@ %t@ -> ...@]@]"
                 got
                 expected in
             { before; main; post = Some d }
@@ -1428,28 +1421,30 @@ module Linearize = struct
 
   let insert_suberror pos mty =
     Location.msg
-      "An argument of type@ %a=%a@ appears to be missing"
+      "%a @[<hv>an argument of type@;<1 2>@[%a=%a@]@ appears to be missing@]"
+      Pp.prefix `Insert
       Pp.short_functor_param {Pp.mty; mode=`Insert; pos; prefered_name=None}
-      Pp.(decorate `Insert simple_functor_param) mty
+      Pp.(decorate `Insert type_of_functor_param) mty
 
   let arg_delete_suberror pos mty =
     Location.msg
-      "The type of this argument@ %a=@[%a@]@ does not seem to fit@ \
-       any of the expected parameters."
+      "%a @[<hv>this argument of type@;<1 2>@[%a=%a@]@ does not seem to fit.@]"
+      Pp.prefix `Delete
       Pp.short_functor_param
       { Pp.mty; pos; mode = `Delete; prefered_name = None }
-      Pp.(decorate `Delete simple_functor_param) mty
+      Pp.type_of_functor_param mty
 
   let app_delete_suberror pos mty =
     Location.msg
-      "The type of this argument@ %a=@[%a@]@ does not seem to fit@ \
-       any of the expected parameters."
+      "%a @[<hv>this argument of type@;<1 2>@[%a=%a@]@ does not seem to fit.@]"
+      Pp.prefix `Delete
       Pp.short_modtype { Pp.mty; pos; mode = `Delete; prefered_name = None }
-      Pp.(decorate `Delete Printtyp.modtype) mty
+      Printtyp.modtype mty
 
   let arg_ok_suberror pos x y =
     Location.msg
-      "The module types %a and %a match"
+      "%a the module types %a and %a match"
+      Pp.prefix (`Ok ())
       Pp.short_functor_param
       { Pp.mty=x; pos; mode = `Ok `Got; prefered_name = None }
       Pp.short_functor_param
@@ -1457,7 +1452,8 @@ module Linearize = struct
 
   let app_ok_suberror pos x y =
     Location.msg
-      "The module types %a and %a match"
+      "%a The module types %a and %a match"
+      Pp.prefix (`Ok ())
       Pp.short_modtype { Pp.mty=x; pos; mode = `Ok `Got; prefered_name = None }
       Pp.short_functor_param
       { Pp.mty=y; pos; mode = `Ok `Expected; prefered_name = None }
@@ -1466,13 +1462,14 @@ module Linearize = struct
   let rec diff_suberror =
     fun env pos diff ->
     let suberr ppf err =
+      let pre ppf =  Pp.prefix ppf (`Change ())  in
       match err with
       | E.Incompatible_params (Unit,_) ->
           Format.fprintf ppf
-            "The functor was expected to be applicative at this position"
+            "%t the functor was expected to be applicative at this position" pre
       | E.Incompatible_params (_,_ (* only Unit is possible *) ) ->
           Format.fprintf ppf
-            "The functor was expected to be generative at this position"
+            "%t the functor was expected to be generative at this position" pre
       | E.Mismatch(_,_,mty_diff) ->
           let r = module_type ~env ~before:[] ~ctx:[] ~eqmode:false mty_diff in
           let list ppf l = List.iter (fun f -> f.Location.txt ppf) l in
@@ -1482,7 +1479,8 @@ module Linearize = struct
           let arg mode mty =
             { Pp.mode = `Change mode; pos; mty; prefered_name = None } in
           Format.fprintf ppf
-            "@[<hv>The module type %a is not included in %a.@ %a%t@ %a@]"
+            "%t @[<hv>the module type %a is not included in %a.@ %a%t@ %a@]"
+            pre
             Pp.short_modtype (arg `Got  mty_diff.got)
             Pp.short_modtype (arg `Expected mty_diff.expected)
             list (List.rev r.before)
@@ -1570,7 +1568,7 @@ let report_apply_error ~loc env (lid0, path_f, args) =
       Location.errorf ~loc
         ~sub:(Linearize.app_param_suberrors env d)
         "@;@[<hv 2>The functor application %a is ill-typed. These arguments:@ \
-         @[%t@]@;<1 -2>do not match these parameters@ @[%t@]@]"
+         @[%t@]@;<1 -2>do not match these parameters@ @[functor@ %t@ ->...@]@]"
         Printtyp.longident lid0
         got expected
   end

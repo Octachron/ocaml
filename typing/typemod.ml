@@ -2952,7 +2952,7 @@ let report_error ~loc env = function
           Location.errorf ~loc ~sub
             "@[<hv -3>This functor application is ill-typed.@;<1 -2>\
              These arguments:@ @[%t@]@;<1 -2>does not match \
-             these parameter:@ @[%t@]@]"
+             these parameter:@ @[functor@ %t@ -> ...@]@]"
             got expected
 
 let report_error env ~loc err =
