@@ -1326,8 +1326,8 @@ module Linearize = struct
         | None ->
             let main =
               Location.msg
-                "@;@[<hv 2>Parameters do not match:@ \
-                 @[%a@]@;<1 -2>does not match@ @[%a@]@]"
+                "@[<hv 2>Modules do not match:@ \
+                 @[%a@]@;<1 -2>is not included@ @[%a@]@]"
                 (Format.pp_print_list Pp.simple_functor_param) got
                 (Format.pp_print_list Pp.simple_functor_param) expected
                 in
@@ -1337,8 +1337,8 @@ module Linearize = struct
               let got, expected =
                 Pp.(list_diff space functor_param functor_param) d in
               Location.msg
-                "@;@[<hv 2>Parameters do not match:@ \
-                 @[functor@ %t@ -> ...@]@;<1 -2>does not match@ \
+                "@[<hv 2>Modules do not match:@ \
+                 @[functor@ %t@ -> ...@]@;<1 -2>is not included in@ \
                  @[functor@ %t@ -> ...@]@]"
                 got
                 expected in
@@ -1532,8 +1532,9 @@ let report_apply_error ~loc env (lid0, path_f, args) =
   begin match FunctorDiff.app_diff env ~f:md_f.md_type ~args with
   | Error params ->
       Location.errorf ~loc
-        "@;@[<hv 2>The functor application %a is ill-typed. These arguments:@ \
-         @[%a@]@;<1 -2>do not match these parameters@ @[%a@]@]"
+        "@[<hv 2>The functor application %a is ill-typed.@ These arguments:@ \
+         @[%a@]@;<1 -2>do not match these parameters:@;<1 2>@[functor@ %a@ \
+         -> ... @]@]"
         Printtyp.longident lid0
         (Format.pp_print_list Pp.type_of_functor_param) args
         (Format.pp_print_list Pp.simple_functor_param) params
@@ -1542,8 +1543,9 @@ let report_apply_error ~loc env (lid0, path_f, args) =
         Pp.(list_diff space short_functor_param functor_param d) in
       Location.errorf ~loc
         ~sub:(Linearize.app_param_suberrors env d)
-        "@;@[<hv 2>The functor application %a is ill-typed. These arguments:@ \
-         @[%t@]@;<1 -2>do not match these parameters@ @[functor@ %t@ ->...@]@]"
+        "@[<hv>The functor application %a is ill-typed.@ \
+         These arguments:@;<1 2>\
+         @[%t@]@ do not match these parameters:@;<1 2>@[functor@ %t@ -> ...@]@]"
         Printtyp.longident lid0
         got expected
   end
