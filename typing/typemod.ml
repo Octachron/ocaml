@@ -2928,7 +2928,11 @@ let report_error ~loc env = function
   | Invalid_type_subst_rhs ->
       Location.errorf ~loc "Only type synonyms are allowed on the right of :="
   | Apply_error {f;args} ->
-      let args = List.map (fun (_,_,_,arg,_) -> arg.mod_type) args in
+      let mk_arg_info (_,_,sarg,arg,path) = match sarg.pmod_desc, path with
+        | Pmod_structure [], _ -> Types.Unit
+        | _, Some(Pident p) -> Types.Named(Some p,arg.mod_type)
+        | _, _ -> Types.Named(None,arg.mod_type) in
+    let args = List.map mk_arg_info args in
       match Includemod.functor_app_diff env ~f:f.mod_type ~args with
       | Error params ->
           let functor_param ppf = function
@@ -2944,7 +2948,7 @@ let report_error ~loc env = function
             "@;@[<hv 2>The functor application is ill-typed.@ \
              These arguments:@ @[%a@]@;<1 -2>do not match \
              these parameters@ @[%a@]@]"
-            (Format.pp_print_list Printtyp.modtype)
+            (Format.pp_print_list functor_param)
             args
             (Format.pp_print_list functor_param) params
       | Ok patch ->

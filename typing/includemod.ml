@@ -756,7 +756,7 @@ let compunit env ?(mark=Mark_both) impl_name impl_sig intf_name intf_sig =
   | Ok x -> x
 
 
-module FunctorArgsDiff = struct
+module FunctorDiff = struct
   open Diff
 
   let cutoff = 100
@@ -803,7 +803,7 @@ module FunctorArgsDiff = struct
             env, subst
       end
 
-  let diff env0 _ctxt l1 l2 =
+  let arg_diff env0 _ctxt l1 l2 =
     let test (env, subst) mty1 mty2 =
       let snap = Btype.snapshot () in
       let res, _, _ = functor_param
@@ -815,48 +815,16 @@ module FunctorArgsDiff = struct
     let state0 = (env0, Subst.identity) in
     Diff.diff ~weight ~cutoff ~test ~update
       state0 (Array.of_list l1) (Array.of_list l2)
-end
 
-
-(* Apply error diff *)
-module FunctorAppDiff = struct
-  open Diff
-
-  let cutoff = 100
-  let weight = function
-    | Insert _ -> 10
-    | Delete _ -> 10
-    | Change _ -> 10
-    | Keep _ -> 0
-
-  let update d ((env, subst) as st) = match d with
-    | Insert (Types.Unit | Types.Named (None,_))
-    | Keep (_,Unit,_)
-    | Change (_,(Unit | Named (None,_)), _)
-        -> st
-    | Delete _
-        -> st
-    | Insert (Types.Named (Some p, arg)) ->
-        let arg' = Subst.modtype Keep subst arg in
-        Env.add_module p Mp_present arg' env, subst
-    | Keep (mt1, Named (name2, _arg2), _)
-    | Change (mt1, Named (name2, _arg2), _) ->
-        begin match name2, mt1 with
-        | Some p2, Mty_ident path1 ->
-            env, Subst.add_module p2 path1 subst
-        | _, _ ->
-            env, subst
-      end
-
-  let diff env0 ~f ~args =
+  let app_diff env0 ~f ~args =
     let params = retrieve_functor_params env0 f in
     let loc = Location.none in
-    let test (env, subst) mt param2 =
+    let test (env, subst) arg param =
       let snap = Btype.snapshot () in
       let res, _, _ =
         functor_param
           ~loc env ~mark:Mark_neither subst
-          (Named (None, mt)) param2
+          param arg
       in
       Btype.backtrack snap;
       res
@@ -868,7 +836,9 @@ module FunctorAppDiff = struct
     in
     Option.to_result ~none:params patch
 
+
 end
+
 
 
 (* Hide the context and substitution parameters to the outside world *)
@@ -1352,7 +1322,7 @@ module Linearize = struct
     | Result res ->
         module_type ~eqmode:false ~env ~before ~ctx res
     | Params E.{got; expected; symptom=()} ->
-        begin match FunctorArgsDiff.diff env ctx got expected with
+        begin match FunctorDiff.arg_diff env ctx got expected with
         | None ->
             let main =
               Location.msg
@@ -1441,8 +1411,9 @@ module Linearize = struct
     Location.msg
       "%a @[<hv>this argument of type@;<1 2>@[%a=%a@]@ does not seem to fit.@]"
       Pp.prefix `Delete
-      Pp.short_modtype { Pp.mty; pos; mode = `Delete; prefered_name = None }
-      Printtyp.modtype mty
+      Pp.short_functor_param
+      { Pp.mty; pos; mode = `Delete; prefered_name = None }
+      Pp.type_of_functor_param mty
 
   let arg_ok_suberror pos x y =
     Location.msg
@@ -1457,7 +1428,8 @@ module Linearize = struct
     Location.msg
       "%a The module types %a and %a match"
       Pp.prefix (`Ok ())
-      Pp.short_modtype { Pp.mty=x; pos; mode = `Ok `Got; prefered_name = None }
+      Pp.short_functor_param
+      { Pp.mty=x; pos; mode = `Ok `Got; prefered_name = None }
       Pp.short_functor_param
       { Pp.mty=y; pos; mode = `Ok `Expected; prefered_name = None }
 
@@ -1557,17 +1529,17 @@ let report_error err =
 
 let report_apply_error ~loc env (lid0, path_f, args) =
   let md_f = Env.find_module path_f env in
-  begin match FunctorAppDiff.diff env ~f:md_f.md_type ~args with
+  begin match FunctorDiff.app_diff env ~f:md_f.md_type ~args with
   | Error params ->
       Location.errorf ~loc
         "@;@[<hv 2>The functor application %a is ill-typed. These arguments:@ \
          @[%a@]@;<1 -2>do not match these parameters@ @[%a@]@]"
         Printtyp.longident lid0
-        (Format.pp_print_list Printtyp.modtype) args
+        (Format.pp_print_list Pp.type_of_functor_param) args
         (Format.pp_print_list Pp.simple_functor_param) params
   | Ok d ->
       let got, expected =
-        Pp.(list_diff space short_modtype functor_param d) in
+        Pp.(list_diff space short_functor_param functor_param d) in
       Location.errorf ~loc
         ~sub:(Linearize.app_param_suberrors env d)
         "@;@[<hv 2>The functor application %a is ill-typed. These arguments:@ \
@@ -1586,7 +1558,11 @@ let () =
           let mty lid1 =
             let path1, md1 = Env.find_module_by_name lid1 env in
             let aliasable = can_alias env path1 in
-            Mtype.strengthen ~aliasable env md1.md_type path1 in
+            let smd1 = Mtype.strengthen ~aliasable env md1.md_type path1 in
+            match path1 with
+            | Pident p -> Types.Named(Some p, smd1)
+            | Papply _ | Pdot _ -> Types.Named(None, smd1)
+          in
           let args = List.map mty args in
           Some (report_apply_error ~loc env (lid0, path_f, args))
       | _ -> None
@@ -1601,12 +1577,12 @@ let expand_module_alias env path =
 
 
 type functor_app_patch =
-  (Types.module_type, Types.functor_parameter,
+  (Types.functor_parameter, Types.functor_parameter,
    Typedtree.module_coercion, E.functor_param_syndrom)
     Diff.patch
-let functor_app_diff = FunctorAppDiff.diff
+let functor_app_diff = FunctorDiff.app_diff
 let pp_functor_app_patch env patch =
-  let pp_mt ppf mt =  Pp.short_modtype ppf mt in
+  let pp_mt ppf mt =  Pp.short_functor_param ppf mt in
   let patch = Pp.drop_inserted_suffix patch in
   let g, e = Pp.(list_diff space pp_mt functor_param patch) in
   g, e, Linearize.app_param_suberrors env patch
