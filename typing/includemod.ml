@@ -1399,7 +1399,7 @@ module Linearize = struct
       Pp.short_functor_param {Pp.mty; mode=`Insert; pos; prefered_name=None}
       Pp.(decorate `Insert type_of_functor_param) mty
 
-  let arg_delete_suberror pos mty =
+  let delete_suberror pos mty =
     Location.msg
       "%a @[<hv>this argument of type@;<1 2>@[%a=%a@]@ does not seem to fit.@]"
       Pp.prefix `Delete
@@ -1407,15 +1407,7 @@ module Linearize = struct
       { Pp.mty; pos; mode = `Delete; prefered_name = None }
       Pp.type_of_functor_param mty
 
-  let app_delete_suberror pos mty =
-    Location.msg
-      "%a @[<hv>this argument of type@;<1 2>@[%a=%a@]@ does not seem to fit.@]"
-      Pp.prefix `Delete
-      Pp.short_functor_param
-      { Pp.mty; pos; mode = `Delete; prefered_name = None }
-      Pp.type_of_functor_param mty
-
-  let arg_ok_suberror pos x y =
+  let ok_suberror pos x y =
     Location.msg
       "%a the module types %a and %a match"
       Pp.prefix (`Ok ())
@@ -1423,16 +1415,6 @@ module Linearize = struct
       { Pp.mty=x; pos; mode = `Ok `Got; prefered_name = None }
       Pp.short_functor_param
       { Pp.mty=y; pos; mode = `Ok `Expected; prefered_name = None }
-
-  let app_ok_suberror pos x y =
-    Location.msg
-      "%a The module types %a and %a match"
-      Pp.prefix (`Ok ())
-      Pp.short_functor_param
-      { Pp.mty=x; pos; mode = `Ok `Got; prefered_name = None }
-      Pp.short_functor_param
-      { Pp.mty=y; pos; mode = `Ok `Expected; prefered_name = None }
-
 
   let rec diff_suberror =
     fun env pos diff ->
@@ -1450,7 +1432,7 @@ module Linearize = struct
           let list ppf l = List.iter (fun f -> f.Location.txt ppf) l in
           let post = match r.post with
             | None -> []
-            | Some patch -> arg_param_suberrors env patch in
+            | Some patch -> param_suberrors env patch in
           let arg mode mty =
             { Pp.mode = `Change mode; pos; mty; prefered_name = None } in
           Format.fprintf ppf
@@ -1464,26 +1446,15 @@ module Linearize = struct
     in Location.msg "@[<2>%a@]"
       suberr diff
 
-  and arg_param_suberror  env (pos,diff) =
+  and param_suberror  env (pos,diff) =
     match diff with
     | Diff.Insert mty -> insert_suberror pos mty
-    | Diff.Delete mty -> arg_delete_suberror pos mty
+    | Diff.Delete mty -> delete_suberror pos mty
     | Diff.Change (_,_,d) -> diff_suberror env pos d
-    | Diff.Keep (x, y, _) -> arg_ok_suberror pos x y
+    | Diff.Keep (x, y, _) -> ok_suberror pos x y
 
-  and arg_param_suberrors env patch =
-    List.map (arg_param_suberror env) (Pp.number_subcases patch)
-
-  let app_param_suberror  env (pos,diff) =
-    match diff with
-    | Diff.Insert mty -> insert_suberror pos mty
-    | Diff.Delete mty -> app_delete_suberror pos mty
-    | Diff.Change (_,_,d) -> diff_suberror env pos d
-    | Diff.Keep (x, y, _) -> app_ok_suberror pos x y
-
-  let app_param_suberrors env patch =
-    List.map (app_param_suberror env) (Pp.number_subcases patch)
-
+  and param_suberrors env patch =
+    List.map (param_suberror env) (Pp.number_subcases patch)
 
   let all env = function
     | In_Compilation_unit diff ->
@@ -1518,7 +1489,7 @@ let err_msgs (env, err) =
           match l.Linearize.post with
           | None -> []
           | Some post ->
-              Linearize.arg_param_suberrors env post in
+              Linearize.param_suberrors env post in
         params @ [Location.msg "%t" Printtyp.Conflicts.print_explanations] in
       sub, main
     )
@@ -1542,7 +1513,7 @@ let report_apply_error ~loc env (lid0, path_f, args) =
       let got, expected =
         Pp.(list_diff space short_functor_param functor_param d) in
       Location.errorf ~loc
-        ~sub:(Linearize.app_param_suberrors env d)
+        ~sub:(Linearize.param_suberrors env d)
         "@[<hv>The functor application %a is ill-typed.@ \
          These arguments:@;<1 2>\
          @[%t@]@ do not match these parameters:@;<1 2>@[functor@ %t@ -> ...@]@]"
@@ -1587,4 +1558,4 @@ let pp_functor_app_patch env patch =
   let pp_mt ppf mt =  Pp.short_functor_param ppf mt in
   let patch = Pp.drop_inserted_suffix patch in
   let g, e = Pp.(list_diff space pp_mt functor_param patch) in
-  g, e, Linearize.app_param_suberrors env patch
+  g, e, Linearize.param_suberrors env patch
