@@ -2803,7 +2803,7 @@ let report_error ~loc env = function
   | Not_included errs ->
       let sub, main = Includemod.err_msgs errs in
       Location.errorf ~loc ~sub
-        "@[<v>Signature mismatch:%t@]" main
+        "@[<v>Signature mismatch:@ %t@]" main
   | Cannot_eliminate_dependency mty ->
       Location.errorf ~loc
         "@[This functor has type@ %a@ \

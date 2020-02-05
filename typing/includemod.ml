@@ -1109,7 +1109,7 @@ module Pp = struct
 
   let missing_field ppf item =
     let id, loc, kind = item_ident_name item in
-    Format.fprintf ppf "@ The %s `%a' is required but not provided%a"
+    Format.fprintf ppf "The %s `%a' is required but not provided%a"
       (kind_of_field_desc kind) Printtyp.ident id
     (show_loc "Expected declaration") loc
 
@@ -1140,19 +1140,19 @@ module Pp = struct
       "The implementation %s@ does not match the interface %s:@ "
       diff.got diff.expected
 
-  let core_module_type_symptom ppf x  =
+  let core_module_type_symptom x  =
     match x with
     | Not_a_signature
     | Not_an_alias
     | Not_an_identifier
-    | Incompatible_aliases -> ()
+    | Incompatible_aliases -> None
 
     | Unbound_modtype_path path ->
-        Format.fprintf ppf "Unbound module type %a" Printtyp.path path
+        Some(Format.dprintf "Unbound module type %a" Printtyp.path path)
     | Unbound_module_path path ->
-        Format.fprintf ppf "Unbound module %a" Printtyp.path path
+        Some(Format.dprintf "Unbound module %a" Printtyp.path path)
     | Invalid_module_alias path ->
-        Format.fprintf ppf "Module %a cannot be aliased" Printtyp.path path
+        Some(Format.dprintf "Module %a cannot be aliased" Printtyp.path path)
 
   let simple_functor_param ppf = function
     | Unit -> Format.fprintf ppf "()"
@@ -1290,7 +1290,7 @@ module Linearize = struct
     else
       with_context ?loc ctx printer diff
 
-  type t = { before: Location.msg list; main: Location.msg;
+  type t = { msgs: Location.msg list;
              post:
                (Types.functor_parameter, Types.functor_parameter,
                 Typedtree.module_coercion, E.functor_param_syndrom)
@@ -1300,9 +1300,12 @@ module Linearize = struct
   let rec module_type ~eqmode ~env ~before ~ctx diff =
     match diff.symptom with
     | Mt_core (Invalid_module_alias _ as s) ->
-        { before; post = None;
-          main = with_context ctx Pp.core_module_type_symptom s
-        }
+        begin match Pp.core_module_type_symptom s with
+        | None -> { msgs = before; post = None }
+        | Some main ->
+            let more = with_context ctx (fun ppf () -> main ppf) () in
+            { msgs = more :: before; post = None }
+        end
     | _ ->
         let inner = if eqmode then Pp.eq_module_types else Pp.module_types in
         let next = with_context_and_elision ctx inner diff in
@@ -1313,8 +1316,11 @@ module Linearize = struct
 
   and module_type_symptom ~env ~before ~ctx = function
     | Mt_core core ->
-        let main = Location.msg "%a" Pp.core_module_type_symptom core in
-        { before; main; post = None }
+        begin match Pp.core_module_type_symptom core with
+        | None -> { msgs = before; post = None }
+        | Some msg ->
+            { msgs = Location.msg "%t" msg :: before; post = None }
+        end
     | Signature s -> signature ~env ~before ~ctx s
     | Functor f -> functor_symptom ~env ~before ~ctx f
 
@@ -1331,7 +1337,7 @@ module Linearize = struct
                 (Format.pp_print_list Pp.simple_functor_param) got
                 (Format.pp_print_list Pp.simple_functor_param) expected
                 in
-                { before; main; post = None }
+                { msgs = main :: before; post = None }
         | Some d ->
             let main =
               let got, expected =
@@ -1342,7 +1348,7 @@ module Linearize = struct
                  @[functor@ %t@ -> ...@]@]"
                 got
                 expected in
-            { before; main; post = Some d }
+            { msgs = main :: before; post = Some d }
         end
 
   and signature ~env ~before ~ctx sgs =
@@ -1350,16 +1356,14 @@ module Linearize = struct
     match sgs.missings, sgs.incompatibles with
     | a :: l , _ ->
         let more = List.map (Location.msg "%a" Pp.missing_field) l in
-        { before = more @ before; post = None;
-          main = with_context ctx Pp.missing_field a
-        }
+        let msgs = with_context ctx Pp.missing_field a :: more @ before in
+        { msgs; post = None }
     | [], a :: _ -> sigitem ~env ~before ~ctx a
     | [], [] -> assert false
       )
   and sigitem ~env ~before ~ctx (name,s) = match s with
-    | Core c -> { before; post = None;
-                  main = with_context ctx (Pp.core name) c
-                }
+    | Core c ->
+        { msgs = with_context ctx (Pp.core name) c:: before; post = None }
     | Module_type diff ->
         module_type ~eqmode:false ~env ~before ~ctx:(Module name :: ctx) diff
     | Module_type_declaration diff ->
@@ -1371,12 +1375,12 @@ module Linearize = struct
     match diff.symptom with
     | Not_less_than mts ->
         let before =
-          Location.msg "@ The first module type is not included in the second"
+          Location.msg "The first module type is not included in the second"
           :: before in
         module_type ~eqmode:true ~before ~env ~ctx:(Modtype id :: ctx) mts
     | Not_greater_than mts ->
         let before =
-          Location.msg "@ The second module type is not included in the first"
+          Location.msg "The second module type is not included in the first"
           :: before in
         module_type ~eqmode:true ~before ~env ~ctx:(Modtype id :: ctx) mts
     | Incomparable mts ->
@@ -1389,7 +1393,7 @@ module Linearize = struct
             let main =
             with_context (Modtype id::ctx)
               (Illegal_permutation.pp alt_context env) (mty,c) in
-            { before; main; post = None }
+            { msgs = main :: before; post = None }
         end
 
   let insert_suberror pos mty =
@@ -1429,20 +1433,21 @@ module Linearize = struct
             "%t the functor was expected to be generative at this position" pre
       | E.Mismatch(_,_,mty_diff) ->
           let r = module_type ~env ~before:[] ~ctx:[] ~eqmode:false mty_diff in
-          let list ppf l = List.iter (fun f -> f.Location.txt ppf) l in
+          let list ppf l =
+            Format.pp_print_list ~pp_sep:Pp.space
+              (fun ppf f -> f.Location.txt ppf)
+              ppf l in
           let post = match r.post with
             | None -> []
             | Some patch -> param_suberrors env patch in
           let arg mode mty =
             { Pp.mode = `Change mode; pos; mty; prefered_name = None } in
           Format.fprintf ppf
-            "%t @[<hv>the module type %a is not included in %a.@ %a%t@ %a@]"
+            "%t @[<hv>the module type %a is not included in %a.@ %a@]"
             pre
             Pp.short_modtype (arg `Got  mty_diff.got)
             Pp.short_modtype (arg `Expected mty_diff.expected)
-            list (List.rev r.before)
-            r.main.Location.txt
-            list post
+            list (List.rev_append r.msgs post)
     in Location.msg "@[<2>%a@]"
       suberr diff
 
@@ -1462,21 +1467,25 @@ module Linearize = struct
       signature ~env ~before:[first] ~ctx:[] diff.symptom
     | In_Type_declaration (id,reason) ->
         let main = Location.msg "%a" (Pp.core id) reason in
-        { main; before = []; post = None }
+        { msgs = [main]; post = None }
     | In_Module_type diff ->
         module_type ~eqmode:false ~before:[] ~env ~ctx:[] diff
     | In_Signature diff -> signature ~before:[] ~env ~ctx:[] diff
     | In_Expansion cmts ->
-        let main = Location.msg "%a" Pp.core_module_type_symptom cmts in
-        { main; before = []; post = None }
+        match Pp.core_module_type_symptom cmts with
+        | None -> assert false
+        | Some main ->
+            { msgs = [Location.msg "%t" main]; post = None }
 
-  let coalesce { before; main; _ } =
-    match List.rev before with
-    | [] -> Format.dprintf "@,%t" main.Location.txt
+  let coalesce { msgs; _ } =
+    match List.rev msgs with
+    | [] -> ignore
     | before ->
-        let ctx ppf = List.iter (fun x -> x.Location.txt ppf) before in
-        Format.dprintf "@,%t%t" ctx main.Location.txt
-
+        let ctx ppf =
+          Format.pp_print_list ~pp_sep:Pp.space
+            (fun ppf x -> x.Location.txt ppf)
+            ppf before in
+        ctx
 end
 
 let err_msgs (env, err) =
@@ -1490,7 +1499,10 @@ let err_msgs (env, err) =
           | None -> []
           | Some post ->
               Linearize.param_suberrors env post in
-        params @ [Location.msg "%t" Printtyp.Conflicts.print_explanations] in
+        if Printtyp.Conflicts.exists () then
+          params @ [Location.msg "%t" Printtyp.Conflicts.print_explanations]
+        else
+          params in
       sub, main
     )
 
