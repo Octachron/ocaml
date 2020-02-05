@@ -1056,18 +1056,19 @@ let is_big obj =
 module Pp = struct
   open E
 
-  let core id ppf x =
+  let core id x =
     match x with
     | Value_descriptions diff ->
         let t1 = Printtyp.tree_of_value_description id diff.got in
         let t2 = Printtyp.tree_of_value_description id diff.expected in
-        Format.fprintf ppf
-          "@[<hv 2>Values do not match:@ %a@;<1 -2>is not included in@ %a@]%a"
+        Format.dprintf
+          "@[<hv 2>Values do not match:@ %a@;<1 -2>is not included in@ %a@]%a%t"
           !Oprint.out_sig_item t1
           !Oprint.out_sig_item t2
         show_locs (diff.got.val_loc, diff.expected.val_loc)
+        Printtyp.Conflicts.print_explanations
     | Type_declarations diff ->
-        Format.fprintf ppf "@[<v>@[<hv>%s:@;<1 2>%a@ %s@;<1 2>%a@]%a%a@]"
+        Format.dprintf "@[<v>@[<hv>%s:@;<1 2>%a@ %s@;<1 2>%a@]%a%a%t@]"
           "Type declarations do not match"
           !Oprint.out_sig_item
           (Printtyp.tree_of_type_declaration id diff.got Trec_first)
@@ -1077,8 +1078,9 @@ module Pp = struct
           (Includecore.report_type_mismatch
              "the first" "the second" "declaration") diff.symptom
           show_locs (diff.got.type_loc, diff.expected.type_loc)
+          Printtyp.Conflicts.print_explanations
     | Extension_constructors diff ->
-        Format.fprintf ppf "@[<v>@[<hv>%s:@;<1 2>%a@ %s@;<1 2>%a@]@ %a%a@]"
+        Format.dprintf "@[<v>@[<hv>%s:@;<1 2>%a@ %s@;<1 2>%a@]@ %a%a%t@]"
           "Extension declarations do not match"
           !Oprint.out_sig_item
           (Printtyp.tree_of_extension_constructor id diff.got Text_first)
@@ -1088,24 +1090,27 @@ module Pp = struct
           (Includecore.report_extension_constructor_mismatch
              "the first" "the second" "declaration") diff.symptom
           show_locs (diff.got.ext_loc, diff.expected.ext_loc)
+          Printtyp.Conflicts.print_explanations
     | Class_type_declarations diff ->
-        Format.fprintf ppf
+        Format.dprintf
           "@[<hv 2>Class type declarations do not match:@ \
-           %a@;<1 -2>does not match@ %a@]@ %a"
+           %a@;<1 -2>does not match@ %a@]@ %a%t"
           !Oprint.out_sig_item
           (Printtyp.tree_of_cltype_declaration id diff.got Trec_first)
           !Oprint.out_sig_item
           (Printtyp.tree_of_cltype_declaration id diff.expected Trec_first)
           Includeclass.report_error diff.symptom
+          Printtyp.Conflicts.print_explanations
     | Class_declarations {got;expected;symptom} ->
         let t1 = Printtyp.tree_of_class_declaration id got Trec_first in
         let t2 = Printtyp.tree_of_class_declaration id expected Trec_first in
-        Format.fprintf ppf
+        Format.dprintf
           "@[<hv 2>Class declarations do not match:@ \
-           %a@;<1 -2>does not match@ %a@]@ %a"
+           %a@;<1 -2>does not match@ %a@]@ %a%t"
           !Oprint.out_sig_item t1
           !Oprint.out_sig_item t2
           Includeclass.report_error symptom
+          Printtyp.Conflicts.print_explanations
 
   let missing_field ppf item =
     let id, loc, kind = item_ident_name item in
@@ -1145,8 +1150,10 @@ module Pp = struct
     | Not_a_signature
     | Not_an_alias
     | Not_an_identifier
-    | Incompatible_aliases -> None
-
+    | Incompatible_aliases ->
+        if Printtyp.Conflicts.exists () then
+          Some (Printtyp.Conflicts.print_explanations)
+        else None
     | Unbound_modtype_path path ->
         Some(Format.dprintf "Unbound module type %a" Printtyp.path path)
     | Unbound_module_path path ->
@@ -1284,6 +1291,9 @@ module Linearize = struct
     Location.msg ?loc "%a%a" context (List.rev ctx)
       printer diff
 
+  let dwith_context ?loc ctx printer =
+    Location.msg ?loc "%a%t" context (List.rev ctx) printer
+
   let with_context_and_elision ?loc ctx printer diff =
     if is_big (diff.E.got,diff.E.expected) then
       Location.msg ?loc "..."
@@ -1363,7 +1373,7 @@ module Linearize = struct
       )
   and sigitem ~env ~before ~ctx (name,s) = match s with
     | Core c ->
-        { msgs = with_context ctx (Pp.core name) c:: before; post = None }
+        { msgs = dwith_context ctx (Pp.core name c):: before; post = None }
     | Module_type diff ->
         module_type ~eqmode:false ~env ~before ~ctx:(Module name :: ctx) diff
     | Module_type_declaration diff ->
@@ -1466,7 +1476,7 @@ module Linearize = struct
       let first = Location.msg "%a" Pp.interface_mismatch diff in
       signature ~env ~before:[first] ~ctx:[] diff.symptom
     | In_Type_declaration (id,reason) ->
-        let main = Location.msg "%a" (Pp.core id) reason in
+        let main = Location.msg "%t" (Pp.core id reason) in
         { msgs = [main]; post = None }
     | In_Module_type diff ->
         module_type ~eqmode:false ~before:[] ~env ~ctx:[] diff
@@ -1493,16 +1503,10 @@ let err_msgs (env, err) =
   Printtyp.wrap_printing_env ~error:true env (fun () ->
       let l = Linearize.all env err in
       let main = Linearize.coalesce l in
-      let sub =
-        let params =
-          match l.Linearize.post with
-          | None -> []
-          | Some post ->
-              Linearize.param_suberrors env post in
-        if Printtyp.Conflicts.exists () then
-          params @ [Location.msg "%t" Printtyp.Conflicts.print_explanations]
-        else
-          params in
+      let sub = match l.Linearize.post with
+        | None -> []
+        | Some post ->
+            Linearize.param_suberrors env post in
       sub, main
     )
 
