@@ -2031,7 +2031,8 @@ and type_one_application ~ctx:(apply_loc,f,args) funct_body env funct
         try
           Includemod.modtypes ~loc:sarg.pmod_loc env arg.mod_type mty_param
         with Includemod.Error _ ->
-          raise(Error(apply_loc, env, Apply_error {f;args} )) in
+          raise(Error(apply_loc, env, Apply_error {f;args} ))
+      in
       let mty_appl =
         match parg with
         | Some path ->
