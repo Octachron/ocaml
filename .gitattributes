@@ -13,6 +13,9 @@
 #*                                                                        *
 #**************************************************************************
 
+# delenda est
+wip_tests/*.ml typo.missing-header
+
 # Default behaviour, for if core.autocrlf isn't set
 * text=auto
 
