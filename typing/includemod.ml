@@ -717,8 +717,13 @@ let can_alias env path =
 
 type explanation = Env.t * E.all
 exception Error of explanation
-exception Apply_error of
-    Location.t * Env.t * Longident.t * Path.t * Longident.t list
+exception Apply_error of {
+    loc : Location.t ;
+    env : Env.t ;
+    lid_app : Longident.t option ;
+    mty_f : module_type ;
+    args : Types.functor_parameter list ;
+  }
 
 let check_modtype_inclusion ~loc env mty1 path1 mty2 =
   let aliasable = can_alias env path1 in
@@ -727,12 +732,23 @@ let check_modtype_inclusion ~loc env mty1 path1 mty2 =
 
 let () =
   Env.check_functor_application :=
-    (fun ~errors ~loc (lid0, path_f, args) env mty1 path1 mty2 ->
+    (fun ~errors ~loc (lid_app, path_f, args) env mty1 path1 mty2 ->
        match
          check_modtype_inclusion ~loc env mty1 path1 mty2
        with Error _errs ->
          if errors then
-           raise (Apply_error(loc, env, lid0, path_f, args))
+           let mty_arg arg =
+             let path, md = Env.find_module_by_name arg env in
+             let aliasable = can_alias env path in
+             let smd = Mtype.strengthen ~aliasable env md.md_type path in
+             match path with
+             | Path.Pident p -> Types.Named(Some p, smd)
+             | Path.Papply _ | Path.Pdot _ -> Types.Named(None, smd)
+           in
+           let args = List.map mty_arg args in
+           let mty_f = (Env.find_module path_f env).md_type in
+           let lid_app = Some lid_app in
+           raise (Apply_error {loc; env; lid_app; mty_f; args})
          else
            raise Not_found
           | Ok _ -> ()
@@ -789,14 +805,37 @@ let modtypes env m1 m2 =
 
 module Short_name = struct
 
-  type ('a,'b) item =
-    {
-      mode: 'a;
-      mty: 'b;
-      pos:int;
-      prefered_name: string option;
-    }
+  type 'a item = {
+    item: 'a;
+    name : (Ident.t option -> string);
+    from: Ident.t option;
+  }
 
+  type 'a t =
+    | Original of 'a
+    | Synthetic of string * 'a
+
+  type functor_param =
+    | Unit
+    | Named of (Ident.t option * module_type t)
+
+  let modtype (r : _ item) = match r.item with
+    | Mty_ident _
+    | Mty_alias _
+    | Mty_signature []
+      -> Original r.item
+    | Mty_signature _ | Mty_functor _
+      -> Synthetic (r.name r.from, r.item)
+
+  let functor_param_type (ua : _ item) = match ua.item with
+    | Types.Unit -> Unit
+    | Types.Named (from, mty) ->
+        Named (from, modtype { ua with item = mty ; from })
+
+  let pp ppx ppf = function
+    | Original x -> ppx ppf x
+    | Synthetic (s,_) -> Format.pp_print_string ppf s
+  
 end
 
 module FunctorDiff = struct
@@ -881,38 +920,47 @@ module FunctorDiff = struct
   (* Simplication for printing *)
   
   let number_subcases patch =
-    let _, l = List.fold_left (fun (num, l) x -> match x with
-        | Diff.(Insert _ |Delete _ |Change _ ) -> num+1, (num,x) :: l
-        | Diff.Keep _ -> num, (num,x) :: l) (0,[]) patch
+    let _, l = List.fold_left
+        (fun (num, l) x -> num+1, (num,x) :: l) (1,[]) patch
     in List.rev l
 
-  let split_patch patch =
-    let patch = number_subcases patch in
-    let to_shortname mode pos mty =
-      Short_name.{ mode; pos; mty; prefered_name=None }
+  let shortname side pos name =
+    let s = match side with
+      | `Got -> "S"
+      | `Expected -> "T"
     in
-    let split (got,expected) (pos,x) = match x with
-      | Diff.Insert mty ->
-          got,
-          to_shortname `Insert pos mty :: expected
-      | Diff.Delete mty ->
-          to_shortname `Delete pos mty :: got,
-          expected
-      | Diff.Change (g,e,_) ->
-          to_shortname (`Change `Got) pos g :: got,
-          to_shortname (`Change `Expected) pos e :: expected
-      | Diff.Keep (g,e,_) ->
-          to_shortname (`Ok `Got) pos g :: got,
-          to_shortname (`Ok `Expected) pos e :: expected
-    in
-    let gs, exs = List.fold_left split ([],[]) patch in
-    List.rev gs, List.rev exs
+    match name with
+    | Some name -> Format.sprintf "%s%%%s" s (Ident.name name)
+    | None -> Format.sprintf "%s%%%d" s pos
 
+  let to_shortnames patch =
+    let to_shortname side pos mty =
+      Short_name.(
+        functor_param_type { name = (shortname side pos); item = mty; from=None })
+    in
+    let aux (pos, d) =
+      let d = match d with
+        | Diff.Insert mty ->
+            Diff.Insert (to_shortname `Expected pos mty)
+        | Diff.Delete mty ->
+            Diff.Delete (to_shortname `Got pos mty)
+        | Diff.Change (g, e, p) ->
+            Diff.Change (to_shortname `Got pos g, to_shortname `Expected pos e, p)
+        | Diff.Keep (g, e, p) ->
+            Diff.Keep (to_shortname `Got pos g, to_shortname `Expected pos e, p)
+      in
+      pos, d
+    in
+    List.map aux patch
+  
   let drop_inserted_suffix patch =
     let rec drop = function
       | Diff.Insert _ :: q -> drop q
       | rest -> List.rev rest in
     drop (List.rev patch)
+
+  let prepare_patch patch =
+    patch |> drop_inserted_suffix |> number_subcases |> to_shortnames
   
 end
 
@@ -1214,76 +1262,57 @@ module Pp = struct
         (Ident.name p)
         Printtyp.modtype mty
 
-  let side = function
-    | `Change `Got | `Ok `Got | `Delete -> `Got
-    | `Change `Expected | `Ok `Expected | `Insert -> `Expected
+  let definition_of_functor_param ppf = function
+    | Short_name.Unit -> Format.fprintf ppf "()"
+    | Short_name.Named(_,short_mty) ->
+        match short_mty with
+        | Original mty -> Printtyp.modtype ppf mty
+        | Synthetic (name, mty) ->
+            Format.fprintf ppf
+              "%s@ =@ %a" name Printtyp.modtype mty
 
-  type short_name =
-    | Path of string
-    | Synthetic of { side: [` Expected | `Got ]; pos:int}
-    | Module_type_of of {side: [` Expected | `Got ];  name:string}
-
-  let short_modtype_name (r : _ Short_name.item) = match r.mty with
-    | Mty_ident p | Mty_alias p -> Path (Printtyp.string_of_path p)
-    | Mty_signature _ | Mty_functor _ ->
-        match r.prefered_name with
-        | Some name -> Module_type_of { side = side r.mode; name}
-        | None -> Synthetic {side=side r.mode; pos = r.pos }
-
-  let short_functor_name (ua : _ Short_name.item) = match ua.mty with
-    | Unit -> Path "()"
-    | Named (None, mty) -> short_modtype_name { ua with mty }
-    | Named (Some p, mty) ->
-        short_modtype_name
-          {ua with mty; prefered_name=Some (Ident.name p)}
-
-  let short ppf = function
-    | Path s -> Format.pp_print_string ppf s
-    | Module_type_of { side = `Got; name} -> Format.fprintf ppf "S%%%s" name
-    | Module_type_of { side = `Expected; name} ->
-        Format.fprintf ppf "T%%%s" name
-    | Synthetic { side = `Got; pos } -> Format.fprintf ppf "S%%%d" pos
-    | Synthetic { side = `Expected; pos } -> Format.fprintf ppf "T%%%d" pos
-
-  let short_modtype ppf x = short ppf (short_modtype_name x)
-  let short_functor_param ppf x = short ppf (short_functor_name x)
-
-
-  let type_of_functor_param ppf = function
-    | Unit -> Format.fprintf ppf "()"
-    | Named(_,mty) -> Printtyp.modtype ppf mty
-
-  let functor_param ppf (ua : _ Short_name.item) = match ua.mty with
-    | Unit -> Format.fprintf ppf "()"
-    | Named (None, mty) -> short_modtype ppf { ua with mty }
-    | Named (Some p, _) ->
+  let short_functor_param ppf = function
+    | Short_name.Unit -> Format.fprintf ppf "()"
+    | Short_name.Named (_, short_mty) ->
+        Short_name.pp Printtyp.modtype ppf short_mty
+  
+  let functor_param ppf = function
+    | Short_name.Unit -> Format.fprintf ppf "()"
+    | Short_name.Named (None, short_mty) ->
+        Short_name.pp Printtyp.modtype ppf short_mty
+    | Short_name.Named (Some p, short_mty) ->
         Format.fprintf ppf "(%s : %a)"
-          (Ident.name p) short_functor_param ua
+          (Ident.name p) (Short_name.pp Printtyp.modtype) short_mty
 
   let style = function
-    | `Ok _ -> Misc.Color.[ FG Green ]
-    | `Delete -> Misc.Color.[ FG Red; Bold]
-    | `Insert -> Misc.Color.[ FG Red; Bold]
-    | `Change _ -> Misc.Color.[ FG Magenta; Bold]
+    | Diff.Keep _ -> Misc.Color.[ FG Green ]
+    | Diff.Delete _ -> Misc.Color.[ FG Red; Bold]
+    | Diff.Insert _ -> Misc.Color.[ FG Red; Bold]
+    | Diff.Change _ -> Misc.Color.[ FG Magenta; Bold]
 
-  let decorate mode printer ppf x =
-    let sty = style mode in
+  let decorate printer ppf x =
+    let sty = style x in
     Format.pp_open_stag ppf (Misc.Color.Style sty);
     printer ppf x;
     Format.pp_close_stag ppf ()
 
-  let prefix ppf (mode, pos) =
-    let sty = style mode in
+  let prefix ppf (pos, p) =
+    let sty = style p in
     Format.pp_open_stag ppf (Misc.Color.Style sty);
     Format.fprintf ppf "%i." pos;
     Format.pp_close_stag ppf ()
 
+  let got f ppf = function
+    | Diff.Delete mty | Diff.Keep (mty,_,_) | Diff.Change (mty,_,_) -> f ppf mty
+    | Diff.Insert _ -> ()
+  let expected f ppf = function
+    | Diff.Insert mty | Diff.Keep (_,mty,_) | Diff.Change (_,mty,_) -> f ppf mty
+    | Diff.Delete _ -> ()
+  
   let space ppf () = Format.fprintf ppf "@ "
-  let list_diff sep f g patch =
-    let elt f ppf x = decorate x.Short_name.mode f ppf x in
-    let list sep f l ppf = Format.pp_print_list ~pp_sep:sep (elt f) ppf l in
-    let got, expected = FunctorDiff.split_patch patch in
-    list sep f got, list sep g expected
+  let params_diff sep f ppf patch =
+    let elt ppf (_,x) = decorate f ppf x in 
+    Format.pp_print_list ~pp_sep:sep elt ppf patch
 
 end
 
@@ -1307,9 +1336,9 @@ module Linearize = struct
 
   type t = { msgs: Location.msg list;
              post:
-               (Types.functor_parameter, Types.functor_parameter,
+               (int * (Short_name.functor_param, Short_name.functor_param,
                 Typedtree.module_coercion, E.functor_param_syndrom)
-                 Diff.patch  option
+                 Diff.change) list option
            }
 
   let rec module_type ~eqmode ~env ~before ~ctx diff =
@@ -1354,15 +1383,15 @@ module Linearize = struct
                 in
                 { msgs = main :: before; post = None }
         | Some d ->
+            let d = FunctorDiff.prepare_patch d in
             let main =
-              let got, expected =
-                Pp.(list_diff space functor_param functor_param) d in
               Location.msg
                 "@[<hv 2>Modules do not match:@ \
-                 @[functor@ %t@ -> ...@]@;<1 -2>is not included in@ \
-                 @[functor@ %t@ -> ...@]@]"
-                got
-                expected in
+                 @[functor@ %a@ -> ...@]@;<1 -2>is not included in@ \
+                 @[functor@ %a@ -> ...@]@]"
+                Pp.(params_diff space (got functor_param)) d
+                Pp.(params_diff space (expected functor_param)) d
+            in
             { msgs = main :: before; post = Some d }
         end
 
@@ -1411,70 +1440,55 @@ module Linearize = struct
             { msgs = main :: before; post = None }
         end
 
-  let insert_suberror pos mty =
-    Location.msg
-      "%a @[<hv>an argument of type@;<1 2>@[%a=%a@]@ appears to be missing@]"
-      Pp.prefix (`Insert, pos)
-      Pp.short_functor_param
-      { Short_name.mty; mode=`Insert; pos; prefered_name=None}
-      Pp.(decorate `Insert type_of_functor_param) mty
+  let insert_suberror mty =
+    Format.dprintf
+      "an argument appears to be missing with type@;<1 2>@[%a@]"
+      Pp.definition_of_functor_param mty
 
-  let delete_suberror pos mty =
-    Location.msg
-      "%a @[<hv>this argument of type@;<1 2>@[%a=%a@]@ does not seem to fit.@]"
-      Pp.prefix (`Delete,pos)
-      Pp.short_functor_param
-      { Short_name.mty; pos; mode = `Delete; prefered_name = None }
-      Pp.type_of_functor_param mty
+  let delete_suberror mty =
+    Format.dprintf
+      "an extra argument is provided of type@;<1 2>@[%a@]"
+      Pp.definition_of_functor_param mty
 
-  let ok_suberror pos x y =
-    Location.msg
-      "%a the module types %a and %a match"
-      Pp.prefix (`Ok (), pos)
-      Pp.short_functor_param
-      { Short_name.mty=x; pos; mode = `Ok `Got; prefered_name = None }
-      Pp.short_functor_param
-      { Short_name.mty=y; pos; mode = `Ok `Expected; prefered_name = None }
+  let ok_suberror x y =
+    Format.dprintf
+      "the module types %a and %a match"
+      Pp.short_functor_param x
+      Pp.short_functor_param y
 
-  let rec diff_suberror env pos diff =
-    let suberr ppf err =
-      let pre ppf =  Pp.prefix ppf (`Change (),pos)  in
-      match err with
-      | E.Incompatible_params (Unit,_) ->
-          Format.fprintf ppf
-            "%t the functor was expected to be applicative at this position" pre
-      | E.Incompatible_params (_,_ (* only Unit is possible *) ) ->
-          Format.fprintf ppf
-            "%t the functor was expected to be generative at this position" pre
-      | E.Mismatch(_,_,mty_diff) ->
-          let r = module_type ~env ~before:[] ~ctx:[] ~eqmode:false mty_diff in
-          let list ppf l =
-            Format.pp_print_list ~pp_sep:Pp.space
-              (fun ppf f -> f.Location.txt ppf)
-              ppf l in
-          let post = match r.post with
-            | None -> []
-            | Some patch -> param_suberrors env patch in
-          let arg mode mty =
-            { Short_name.mode = `Change mode; pos; mty; prefered_name = None } in
-          Format.fprintf ppf
-            "%t @[<hv>the module type %a is not included in %a.@ %a@]"
-            pre
-            Pp.short_modtype (arg `Got  mty_diff.got)
-            Pp.short_modtype (arg `Expected mty_diff.expected)
-            list (List.rev_append r.msgs post)
-    in Location.msg "@[<2>%a@]"
-      suberr diff
+  let rec diff_suberror env g e diff = match diff with
+    | E.Incompatible_params (Unit,_) ->
+        Format.dprintf
+          "the functor was expected to be applicative at this position"
+    | E.Incompatible_params (_,_ (* only Unit is possible *) ) ->
+        Format.dprintf
+          "the functor was expected to be generative at this position"
+    | E.Mismatch(_,_,mty_diff) ->
+        let r = module_type ~env ~before:[] ~ctx:[] ~eqmode:false mty_diff in
+        let list ppf l =
+          Format.pp_print_list ~pp_sep:Pp.space
+            (fun ppf f -> f.Location.txt ppf)
+            ppf l in
+        let post = match r.post with
+          | None -> []
+          | Some patch -> param_suberrors env patch in
+        Format.dprintf
+          "the module type@ @[%a@]@;<1 -2>is not included in@ @[%a@]@;<1 -2>@[%a@]"
+          Pp.definition_of_functor_param g
+          Pp.definition_of_functor_param e
+          list (List.rev_append r.msgs post)
 
   and param_suberror env (pos,diff) =
-    match diff with
-    | Diff.Insert mty -> insert_suberror pos mty
-    | Diff.Delete mty -> delete_suberror pos mty
-    | Diff.Change (_,_,d) -> diff_suberror env pos d
-    | Diff.Keep (x, y, _) -> ok_suberror pos x y
+    let pp = match diff with
+      | Diff.Insert mty -> insert_suberror mty
+      | Diff.Delete mty -> delete_suberror mty
+      | Diff.Change (g, e, d) -> diff_suberror env g e d
+      | Diff.Keep (x, y, _) -> ok_suberror x y
+    in
+    Location.msg "%a @[<hv 2>%t@]" Pp.prefix (pos, diff) pp
 
   and param_suberrors env patch =
-    List.map (param_suberror env) (FunctorDiff.number_subcases patch)
+    List.map (param_suberror env) patch
 
   let all env = function
     | In_Compilation_unit diff ->
@@ -1519,28 +1533,31 @@ let report_error err =
   let sub, main = err_msgs err in
   Location.errorf ~sub "%t" main
 
-let report_apply_error ~loc env (lid0, path_f, args) =
-  let md_f = Env.find_module path_f env in
-  begin match FunctorDiff.app_diff env ~f:md_f.md_type ~args with
+let report_apply_error ~loc env (lid_app, mty_f, args) =
+  let may_print_app ppf = match lid_app with
+    | None -> ()
+    | Some lid -> Format.fprintf ppf "%a " Printtyp.longident lid
+  in
+  match FunctorDiff.app_diff env ~f:mty_f ~args with
   | Error params ->
       Location.errorf ~loc
-        "@[<hv 2>The functor application %a is ill-typed.@ These arguments:@ \
+        "@[<hv 2>The functor application %tis ill-typed.@ These arguments:@ \
          @[%a@]@;<1 -2>do not match these parameters:@;<1 2>@[functor@ %a@ \
          -> ... @]@]"
-        Printtyp.longident lid0
-        (Format.pp_print_list Pp.type_of_functor_param) args
+        may_print_app
+        (Format.pp_print_list Pp.simple_functor_param) args
         (Format.pp_print_list Pp.simple_functor_param) params
   | Ok d ->
-      let got, expected =
-        Pp.(list_diff space short_functor_param functor_param d) in
+      let d = FunctorDiff.prepare_patch d in
       Location.errorf ~loc
         ~sub:(Linearize.param_suberrors env d)
-        "@[<hv>The functor application %a is ill-typed.@ \
+        "@[<hv>The functor application %tis ill-typed.@ \
          These arguments:@;<1 2>\
-         @[%t@]@ do not match these parameters:@;<1 2>@[functor@ %t@ -> ...@]@]"
-        Printtyp.longident lid0
-        got expected
-  end
+         @[%a@]@ do not match these parameters:@;<1 2>@[functor@ %a@ -> ...@]@]"
+        may_print_app
+        Pp.(params_diff space (got short_functor_param)) d
+        Pp.(params_diff space (expected functor_param)) d
+
 
 (* We could do a better job to split the individual error items
    as sub-messages of the main interface mismatch on the whole unit. *)
@@ -1548,17 +1565,8 @@ let () =
   Location.register_error_of_exn
     (function
       | Error err -> Some (report_error err)
-      | Apply_error(loc, env, lid0, path_f, args) ->
-          let mty lid1 =
-            let path1, md1 = Env.find_module_by_name lid1 env in
-            let aliasable = can_alias env path1 in
-            let smd1 = Mtype.strengthen ~aliasable env md1.md_type path1 in
-            match path1 with
-            | Pident p -> Types.Named(Some p, smd1)
-            | Papply _ | Pdot _ -> Types.Named(None, smd1)
-          in
-          let args = List.map mty args in
-          Some (report_apply_error ~loc env (lid0, path_f, args))
+      | Apply_error {loc; env; lid_app; mty_f; args} ->
+          Some (report_apply_error ~loc env (lid_app, mty_f, args))
       | _ -> None
     )
 
@@ -1569,14 +1577,3 @@ let expand_module_alias env path =
   | Result.Error _ ->
       raise (Error(env,In_Expansion(E.Unbound_module_path path)))
 
-
-type functor_app_patch =
-  (Types.functor_parameter, Types.functor_parameter,
-   Typedtree.module_coercion, E.functor_param_syndrom)
-    Diff.patch
-let functor_app_diff = FunctorDiff.app_diff
-let pp_functor_app_patch env patch =
-  let pp_mt ppf mt =  Pp.short_functor_param ppf mt in
-  let patch = FunctorDiff.drop_inserted_suffix patch in
-  let g, e = Pp.(list_diff space pp_mt functor_param patch) in
-  g, e, Linearize.param_suberrors env patch

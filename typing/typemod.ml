@@ -101,15 +101,6 @@ type error =
   | Badly_formed_signature of string * Typedecl.error
   | Cannot_hide_id of hiding_error
   | Invalid_type_subst_rhs
-  | Apply_error of
-      {f:Typedtree.module_expr;
-       args:(
-               Parsetree.module_expr
-             * Parsetree.module_expr
-             * Parsetree.module_expr
-             * Typedtree.module_expr
-             * Path.t option) list
-      }
 
 exception Error of Location.t * Env.t * error
 exception Error_forward of Location.error
@@ -2013,7 +2004,7 @@ and type_application loc strengthen funct_body env sfunct sargs =
   List.fold_left (type_one_application ~ctx:(loc, funct, args) funct_body env)
     funct args
 
-and type_one_application ~ctx:(apply_loc,f,args) funct_body env funct
+and type_one_application ~ctx:(apply_loc,md_f,args) funct_body env funct
     (app, sf, sarg, arg, parg) =
   match Env.scrape_alias env funct.mod_type with
   | Mty_functor (Unit, mty_res) ->
@@ -2031,7 +2022,15 @@ and type_one_application ~ctx:(apply_loc,f,args) funct_body env funct
         try
           Includemod.modtypes ~loc:sarg.pmod_loc env arg.mod_type mty_param
         with Includemod.Error _ ->
-          raise(Error(apply_loc, env, Apply_error {f;args} ))
+          let mk_arg_info (_,_,sarg,arg,path) = match sarg.pmod_desc, path with
+            | Pmod_structure [], _ -> Types.Unit
+            | _, Some(Pident p) -> Types.Named(Some p,arg.mod_type)
+            | _, _ -> Types.Named(None,arg.mod_type)
+          in
+          let args = List.map mk_arg_info args in
+          let mty_f = md_f.mod_type in
+          let lid_app = None in
+          raise(Includemod.Apply_error {loc=apply_loc;env;lid_app;mty_f;args})
       in
       let mty_appl =
         match parg with
@@ -2798,7 +2797,7 @@ let package_units initial_env objfiles cmifile modulename =
 
 open Printtyp
 
-let report_error ~loc env = function
+let report_error ~loc _env = function
     Cannot_apply mty ->
       Location.errorf ~loc
         "@[This module is not a functor; it has type@ %a@]" modtype mty
@@ -2929,37 +2928,6 @@ let report_error ~loc env = function
         Ident.print opened_item_id
   | Invalid_type_subst_rhs ->
       Location.errorf ~loc "Only type synonyms are allowed on the right of :="
-  | Apply_error {f;args} ->
-      let mk_arg_info (_,_,sarg,arg,path) = match sarg.pmod_desc, path with
-        | Pmod_structure [], _ -> Types.Unit
-        | _, Some(Pident p) -> Types.Named(Some p,arg.mod_type)
-        | _, _ -> Types.Named(None,arg.mod_type) in
-    let args = List.map mk_arg_info args in
-      match Includemod.functor_app_diff env ~f:f.mod_type ~args with
-      | Error params ->
-          let functor_param ppf = function
-            | Types.Unit -> Format.fprintf ppf "()"
-            | Types.Named (None, mty) ->
-                Format.fprintf ppf "%a"
-                  !Oprint.out_module_type (Printtyp.tree_of_modtype mty)
-            | Types.Named (Some p, mty) ->
-                Format.fprintf ppf "(%s : %a)"
-                  (Ident.name p)
-                  !Oprint.out_module_type (Printtyp.tree_of_modtype mty) in
-          Location.errorf ~loc
-            "@;@[<hv 2>The functor application is ill-typed.@ \
-             These arguments:@ @[%a@]@;<1 -2>do not match \
-             these parameters@ @[%a@]@]"
-            (Format.pp_print_list functor_param)
-            args
-            (Format.pp_print_list functor_param) params
-      | Ok patch ->
-          let got, expected, sub = Includemod.pp_functor_app_patch env patch in
-          Location.errorf ~loc ~sub
-            "@[<hv -3>This functor application is ill-typed.@;<1 -2>\
-             These arguments:@ @[%t@]@;<1 -2>does not match \
-             these parameter:@ @[functor@ %t@ -> ...@]@]"
-            got expected
 
 let report_error env ~loc err =
   Printtyp.wrap_printing_env ~error:true env
