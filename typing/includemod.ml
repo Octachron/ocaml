@@ -835,7 +835,7 @@ module Short_name = struct
   let pp ppx ppf = function
     | Original x -> ppx ppf x
     | Synthetic (s,_) -> Format.pp_print_string ppf s
-  
+
 end
 
 module FunctorDiff = struct
@@ -918,7 +918,7 @@ module FunctorDiff = struct
     Option.to_result ~none:params patch
 
   (* Simplication for printing *)
-  
+
   let number_subcases patch =
     let _, l = List.fold_left
         (fun (num, l) x -> num+1, (num,x) :: l) (1,[]) patch
@@ -935,9 +935,9 @@ module FunctorDiff = struct
 
   let to_shortnames patch =
     let to_shortname side pos mty =
-      Short_name.(
-        functor_param_type { name = (shortname side pos); item = mty; from=None })
-    in
+      let open Short_name in
+      functor_param_type
+        { name = (shortname side pos); item = mty; from=None } in
     let aux (pos, d) =
       let d = match d with
         | Diff.Insert mty ->
@@ -945,14 +945,15 @@ module FunctorDiff = struct
         | Diff.Delete mty ->
             Diff.Delete (to_shortname `Got pos mty)
         | Diff.Change (g, e, p) ->
-            Diff.Change (to_shortname `Got pos g, to_shortname `Expected pos e, p)
+            Diff.Change
+              (to_shortname `Got pos g, to_shortname `Expected pos e, p)
         | Diff.Keep (g, e, p) ->
             Diff.Keep (to_shortname `Got pos g, to_shortname `Expected pos e, p)
       in
       pos, d
     in
     List.map aux patch
-  
+
   let drop_inserted_suffix patch =
     let rec drop = function
       | Diff.Insert _ :: q -> drop q
@@ -961,7 +962,7 @@ module FunctorDiff = struct
 
   let prepare_patch patch =
     patch |> drop_inserted_suffix |> number_subcases |> to_shortnames
-  
+
 end
 
 module Illegal_permutation = struct
@@ -1211,23 +1212,23 @@ module Pp = struct
       (kind_of_field_desc kind) Printtyp.ident id
     (show_loc "Expected declaration") loc
 
-  let module_types ppf {got=mty1; expected=mty2} =
-    Format.fprintf ppf
+  let module_types {got=mty1; expected=mty2} =
+    Format.dprintf
       "@[<hv 2>Modules do not match:@ \
        %a@;<1 -2>is not included in@ %a@]"
       !Oprint.out_module_type (Printtyp.tree_of_modtype mty1)
       !Oprint.out_module_type (Printtyp.tree_of_modtype mty2)
 
-  let eq_module_types ppf {got=mty1; expected=mty2} =
-    Format.fprintf ppf
+  let eq_module_types {got=mty1; expected=mty2} =
+    Format.dprintf
       "@[<hv 2>Module types do not match:@ \
        %a@;<1 -2>is not equal to@ %a@]"
       !Oprint.out_module_type (Printtyp.tree_of_modtype mty1)
       !Oprint.out_module_type (Printtyp.tree_of_modtype mty2)
 
 
-  let module_type_declarations id ppf {got=d1 ; expected=d2} =
-    Format.fprintf ppf
+  let module_type_declarations id {got=d1 ; expected=d2} =
+    Format.dprintf
       "@[<hv 2>Module type declarations do not match:@ \
        %a@;<1 -2>does not match@ %a@]"
       !Oprint.out_sig_item (Printtyp.tree_of_modtype_declaration id d1)
@@ -1275,7 +1276,7 @@ module Pp = struct
     | Short_name.Unit -> Format.fprintf ppf "()"
     | Short_name.Named (_, short_mty) ->
         Short_name.pp Printtyp.modtype ppf short_mty
-  
+
   let functor_param ppf = function
     | Short_name.Unit -> Format.fprintf ppf "()"
     | Short_name.Named (None, short_mty) ->
@@ -1308,10 +1309,10 @@ module Pp = struct
   let expected f ppf = function
     | Diff.Insert mty | Diff.Keep (_,mty,_) | Diff.Change (_,mty,_) -> f ppf mty
     | Diff.Delete _ -> ()
-  
+
   let space ppf () = Format.fprintf ppf "@ "
   let params_diff sep f ppf patch =
-    let elt ppf (_,x) = decorate f ppf x in 
+    let elt ppf (_,x) = decorate f ppf x in
     Format.pp_print_list ~pp_sep:sep elt ppf patch
 
 end
@@ -1328,11 +1329,12 @@ module Linearize = struct
   let dwith_context ?loc ctx printer =
     Location.msg ?loc "%a%t" context (List.rev ctx) printer
 
-  let with_context_and_elision ?loc ctx printer diff =
+  let dwith_context_and_elision ?loc ctx printer diff =
     if is_big (diff.E.got,diff.E.expected) then
       Location.msg ?loc "..."
     else
-      with_context ?loc ctx printer diff
+      dwith_context ?loc ctx (printer diff)
+
 
   type t = { msgs: Location.msg list;
              post:
@@ -1352,7 +1354,7 @@ module Linearize = struct
         end
     | _ ->
         let inner = if eqmode then Pp.eq_module_types else Pp.module_types in
-        let next = with_context_and_elision ctx inner diff in
+        let next = dwith_context_and_elision ctx inner diff in
         let before = match diff.symptom with
           | Functor Params _ -> before
           | _ -> next :: before in
@@ -1414,7 +1416,7 @@ module Linearize = struct
         module_type_decl ~env ~before ~ctx name diff
   and module_type_decl ~env ~before ~ctx id diff =
     let next =
-      with_context_and_elision ctx (Pp.module_type_declarations id) diff in
+      dwith_context_and_elision ctx (Pp.module_type_declarations id) diff in
     let before = next :: before in
     match diff.symptom with
     | Not_less_than mts ->
@@ -1473,7 +1475,8 @@ module Linearize = struct
           | None -> []
           | Some patch -> param_suberrors env patch in
         Format.dprintf
-          "the module type@ @[%a@]@;<1 -2>is not included in@ @[%a@]@;<1 -2>@[%a@]"
+          "the module type@ @[%a@]@;<1 -2>is not included in@ \
+           @[%a@]@;<1 -2>@[%a@]"
           Pp.definition_of_functor_param g
           Pp.definition_of_functor_param e
           list (List.rev_append r.msgs post)
@@ -1576,4 +1579,3 @@ let expand_module_alias env path =
   | Ok x -> x
   | Result.Error _ ->
       raise (Error(env,In_Expansion(E.Unbound_module_path path)))
-
