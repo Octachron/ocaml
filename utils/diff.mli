@@ -26,7 +26,7 @@ val map :
 
 type ('a, 'b, 'c, 'd) patch = ('a, 'b, 'c, 'd) change list
 
-val diff : 
+val diff :
   weight:(('a, 'b, 'c, 'd) change -> int) ->
   cutoff:int ->
   test:('state -> 'a -> 'b -> ('c, 'd) result) ->

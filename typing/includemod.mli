@@ -98,4 +98,3 @@ exception Apply_error of {
 val err_msgs: explanation ->
   Location.msg list * (Format.formatter -> unit)
 val expand_module_alias: Env.t -> Path.t -> Types.module_type
-

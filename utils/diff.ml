@@ -74,7 +74,7 @@ let compute_matrix ~weight ~cutoff ~test ~update state0 a1 a2 =
            let diff = match newres with
              | Ok ok -> Keep (a1.(i-1), a2.(j-1), ok)
              | Error err -> Change (a1.(i-1), a2.(j-1), err)
-           in 
+           in
            weight diff + m.(i-1).(j-1), (diff, update diff state.(i-1).(j-1))
           );
         ]
@@ -113,4 +113,4 @@ let construct_patch a1 a2 results =
 let diff ~weight ~cutoff ~test ~update state a1 a2 =
   Option.map
     (construct_patch a1 a2)
-    (compute_matrix ~weight ~cutoff ~test ~update state a1 a2) 
+    (compute_matrix ~weight ~cutoff ~test ~update state a1 a2)
