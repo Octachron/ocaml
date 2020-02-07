@@ -21,6 +21,9 @@ type ('a, 'b, 'c, 'd) change =
   | Keep of 'a * 'b * 'c
   | Change of 'a * 'b * 'd
 
+val map :
+  ('a -> 'b) -> ('c -> 'd) -> ('a, 'c, 'e, 'f) change -> ('b, 'd, 'e, 'f) change
+
 type ('a, 'b, 'c, 'd) patch = ('a, 'b, 'c, 'd) change list
 
 val diff : 

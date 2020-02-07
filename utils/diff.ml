@@ -21,6 +21,12 @@ type ('a, 'b, 'c, 'd) change =
 
 type ('a, 'b, 'c, 'd) patch = ('a, 'b, 'c, 'd) change list
 
+let map f g = function
+  | Delete x -> Delete (f x)
+  | Insert x -> Insert (g x)
+  | Keep (x,y,k) -> Keep (f x, g y, k)
+  | Change (x,y,k) -> Change (f x, g y, k)
+
 let min_assoc_list l =
   let rec aux m0 res0 = function
     | [] -> m0, res0

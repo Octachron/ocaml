@@ -2022,11 +2022,7 @@ and type_one_application ~ctx:(apply_loc,md_f,args) funct_body env funct
         try
           Includemod.modtypes ~loc:sarg.pmod_loc env arg.mod_type mty_param
         with Includemod.Error _ ->
-          let mk_arg_info (_,_,sarg,arg,path) = match sarg.pmod_desc, path with
-            | Pmod_structure [], _ -> Types.Unit
-            | _, Some(Pident p) -> Types.Named(Some p,arg.mod_type)
-            | _, _ -> Types.Named(None,arg.mod_type)
-          in
+          let mk_arg_info (_,_,s,arg,path) = (path, Some s, arg.mod_type) in
           let args = List.map mk_arg_info args in
           let mty_f = md_f.mod_type in
           let lid_app = None in

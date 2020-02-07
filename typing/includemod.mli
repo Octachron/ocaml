@@ -92,7 +92,7 @@ exception Apply_error of {
     env : Env.t ;
     lid_app : Longident.t option ;
     mty_f : module_type ;
-    args : Types.functor_parameter list ;
+    args : (Path.t option * Parsetree.module_expr option * module_type) list ;
   }
 
 val err_msgs: explanation ->
