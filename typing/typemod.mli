@@ -131,8 +131,8 @@ type error =
   | Invalid_type_subst_rhs
   | Apply_error of
       {f:Typedtree.module_expr;
-       args:(Location.t
-             * Parsetree.attribute list
+       args:(  Parsetree.module_expr
+             * Parsetree.module_expr
              * Parsetree.module_expr
              * Typedtree.module_expr
              * Path.t option) list
