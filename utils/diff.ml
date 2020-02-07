@@ -84,10 +84,6 @@ let compute_matrix ~weight ~cutoff ~test ~update state0 a1 a2 =
         add i j ~x:best ~s:newstate
       done;
     done;
-    (* m |> Array.iter (fun a ->
-     *     Array.iter (fun x -> Format.eprintf "%i" x) a;
-     *     Format.eprintf "@.");
-     * Format.eprintf "@." ; *)
     Some results
   end
 

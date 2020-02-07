@@ -1488,10 +1488,6 @@ module Linearize = struct
     Format.dprintf
       "an argument appears to be missing with type@;<1 2>@[%a@]"
       Pp.definition_of_functor_param mty
-  let insert_suberror_app mty =
-    Format.dprintf
-      "an argument appears to be missing with type@;<1 2>@[%a@]"
-      Pp.definition_of_functor_param mty
 
   let delete_suberror mty =
     Format.dprintf
@@ -1574,7 +1570,7 @@ module Linearize = struct
 
   and app_suberror env (pos,diff) =
     let pp = match diff with
-      | Diff.Insert mty -> insert_suberror_app mty
+      | Diff.Insert mty -> insert_suberror mty
       | Diff.Delete mty -> delete_suberror_app mty
       | Diff.Change (g, e, d) -> diff_suberror_app env g e d
       | Diff.Keep (x, y, _) -> ok_suberror_app x y
