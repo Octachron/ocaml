@@ -966,7 +966,7 @@ module FunctorDiff = struct
       in
       pos, d
     in
-    List.map aux patch
+    List.mapi aux patch
 
   let drop_inserted_suffix patch =
     let rec drop = function
