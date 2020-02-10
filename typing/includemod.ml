@@ -1360,6 +1360,7 @@ end
 
 
 module Linearize = struct
+  (** Construct a linear presentation of the error tree *)
 
   open E
   let with_context ?loc ctx printer diff =
@@ -1385,7 +1386,7 @@ module Linearize = struct
          Diff.change) list option
   }
 
-  let rec module_type ~eqmode ~env ~before ~ctx diff =
+  let rec module_type ~expansion_token ~eqmode ~env ~before ~ctx diff =
     match diff.symptom with
     | Mt_core (Invalid_module_alias _ as s) ->
         begin match Pp.core_module_type_symptom s with
@@ -1400,23 +1401,23 @@ module Linearize = struct
         let before = match diff.symptom with
           | Functor Params _ -> before
           | _ -> next :: before in
-        module_type_symptom ~env ~before ~ctx diff.symptom
+        module_type_symptom ~expansion_token ~env ~before ~ctx diff.symptom
 
-  and module_type_symptom ~env ~before ~ctx = function
+  and module_type_symptom ~expansion_token ~env ~before ~ctx = function
     | Mt_core core ->
         begin match Pp.core_module_type_symptom core with
         | None -> { msgs = before; post = None }
         | Some msg ->
             { msgs = Location.msg "%t" msg :: before; post = None }
         end
-    | Signature s -> signature ~env ~before ~ctx s
-    | Functor f -> functor_symptom ~env ~before ~ctx f
+    | Signature s -> signature ~expansion_token ~env ~before ~ctx s
+    | Functor f -> functor_symptom ~expansion_token ~env ~before ~ctx f
 
-  and functor_symptom ~env ~before ~ctx = function
+  and functor_symptom ~expansion_token ~env ~before ~ctx = function
     | Result res ->
-        module_type ~eqmode:false ~env ~before ~ctx res
+        module_type ~expansion_token ~eqmode:false ~env ~before ~ctx res
     | Params E.{got; expected; symptom=()} ->
-        begin match FunctorDiff.arg_diff env ctx got expected with
+        match FunctorDiff.arg_diff env ctx got expected with
         | None ->
             let main =
               Location.msg
@@ -1436,27 +1437,28 @@ module Linearize = struct
                 Pp.(params_diff space (got functor_param)) d
                 Pp.(params_diff space (expected functor_param)) d
             in
-            { msgs = main :: before; post = Some d }
-        end
+            let post = if expansion_token then Some d else None in
+            { msgs = main :: before; post }
 
-  and signature ~env ~before ~ctx sgs =
+  and signature ~expansion_token ~env ~before ~ctx sgs =
     Printtyp.wrap_printing_env ~error:true sgs.env (fun () ->
     match sgs.missings, sgs.incompatibles with
     | a :: l , _ ->
         let more = List.map (Location.msg "%a" Pp.missing_field) l in
         let msgs = with_context ctx Pp.missing_field a :: more @ before in
         { msgs; post = None }
-    | [], a :: _ -> sigitem ~env ~before ~ctx a
+    | [], a :: _ -> sigitem ~expansion_token ~env ~before ~ctx a
     | [], [] -> assert false
       )
-  and sigitem ~env ~before ~ctx (name,s) = match s with
+  and sigitem ~expansion_token ~env ~before ~ctx (name,s) = match s with
     | Core c ->
         { msgs = dwith_context ctx (Pp.core name c):: before; post = None }
     | Module_type diff ->
-        module_type ~eqmode:false ~env ~before ~ctx:(Module name :: ctx) diff
+        module_type ~expansion_token ~eqmode:false ~env ~before
+          ~ctx:(Module name :: ctx) diff
     | Module_type_declaration diff ->
-        module_type_decl ~env ~before ~ctx name diff
-  and module_type_decl ~env ~before ~ctx id diff =
+        module_type_decl ~expansion_token ~env ~before ~ctx name diff
+  and module_type_decl ~expansion_token ~env ~before ~ctx id diff =
     let next =
       dwith_context_and_elision ctx (Pp.module_type_declarations id) diff in
     let before = next :: before in
@@ -1465,15 +1467,17 @@ module Linearize = struct
         let before =
           Location.msg "The first module type is not included in the second"
           :: before in
-        module_type ~eqmode:true ~before ~env ~ctx:(Modtype id :: ctx) mts
+        module_type ~expansion_token ~eqmode:true ~before ~env
+          ~ctx:(Modtype id :: ctx) mts
     | Not_greater_than mts ->
         let before =
           Location.msg "The second module type is not included in the first"
           :: before in
-        module_type ~eqmode:true ~before ~env ~ctx:(Modtype id :: ctx) mts
+        module_type ~expansion_token ~eqmode:true ~before ~env
+          ~ctx:(Modtype id :: ctx) mts
     | Incomparable mts ->
-        module_type ~eqmode:true ~env ~before ~ctx:(Modtype id :: ctx)
-          mts.less_than
+        module_type ~expansion_token ~eqmode:true ~env ~before
+          ~ctx:(Modtype id :: ctx) mts.less_than
     | Illegal_permutation c ->
         begin match diff.got.Types.mtd_type with
         | None -> assert false
@@ -1511,7 +1515,7 @@ module Linearize = struct
       Pp.short_argument x
       Pp.short_functor_param y
 
-  let rec diff_suberror env g e diff = match diff with
+  let rec diff_suberror ~expansion_token env g e diff = match diff with
     | E.Incompatible_params (Unit,_) ->
         Format.dprintf
           "the functor was expected to be applicative at this position"
@@ -1519,14 +1523,16 @@ module Linearize = struct
         Format.dprintf
           "the functor was expected to be generative at this position"
     | E.Mismatch(_,_,mty_diff) ->
-        let r = module_type ~env ~before:[] ~ctx:[] ~eqmode:false mty_diff in
+        let r =
+          module_type ~expansion_token ~env ~before:[] ~ctx:[] ~eqmode:false
+            mty_diff in
         let list ppf l =
           Format.pp_print_list ~pp_sep:Pp.space
             (fun ppf f -> f.Location.txt ppf)
             ppf l in
         let post = match r.post with
           | None -> []
-          | Some patch -> param_suberrors env patch in
+          | Some patch -> param_suberrors ~expansion_token env patch in
         Format.dprintf
           "the module type@ @[%a@]@;<1 -2>is not included in@ \
            @[%a@]@;<1 -2>@[%a@]"
@@ -1534,19 +1540,25 @@ module Linearize = struct
           Pp.definition_of_functor_param e
           list (List.rev_append r.msgs post)
 
-  and param_suberror env (pos,diff) =
+  and param_suberror ~expansion_token env (pos,diff) =
     let pp = match diff with
       | Diff.Insert mty -> insert_suberror mty
       | Diff.Delete mty -> delete_suberror mty
-      | Diff.Change (g, e, d) -> diff_suberror env g e d
+      | Diff.Change (g, e, d) -> diff_suberror ~expansion_token env g e d
       | Diff.Keep (x, y, _) -> ok_suberror x y
     in
     Location.msg "%a @[<hv 2>%t@]" Pp.prefix (pos, diff) pp
 
-  and param_suberrors env patch =
-    List.map (param_suberror env) patch
+  and param_suberrors ~expansion_token env = function
+    | [] -> []
+    | (_, Diff.Keep _) as a :: q ->
+        param_suberror ~expansion_token env a
+        :: param_suberrors ~expansion_token env q
+    | a :: q ->
+        param_suberror ~expansion_token env a
+        :: List.map (param_suberror ~expansion_token:false env) q
 
-  let rec diff_suberror_app env g e diff = match diff with
+  let rec diff_suberror_app ~expansion_token env g e diff = match diff with
     | E.Incompatible_params (Unit,_) ->
         Format.dprintf
           "the functor was expected to be applicative at this position"
@@ -1554,42 +1566,52 @@ module Linearize = struct
         Format.dprintf
           "the functor was expected to be generative at this position"
     | E.Mismatch(_,_,mty_diff) ->
-        let r = module_type ~env ~before:[] ~ctx:[] ~eqmode:false mty_diff in
+        let r =
+          module_type ~expansion_token ~env ~before:[] ~ctx:[] ~eqmode:false
+            mty_diff in
         let list ppf l =
           Format.pp_print_list ~pp_sep:Pp.space
             (fun ppf f -> f.Location.txt ppf)
             ppf l in
         let post = match r.post with
           | None -> []
-          | Some patch -> param_suberrors env patch in
+          | Some patch -> param_suberrors ~expansion_token env patch in
         Format.dprintf
           "the module@ @[%a@]@;<1 -2>is not included in@ @[%a@]@;<1 -2>@[%a@]"
           Pp.definition_of_argument g
           Pp.definition_of_functor_param e
           list (List.rev_append r.msgs post)
 
-  and app_suberror env (pos,diff) =
+  and app_suberror ~expansion_token env (pos,diff) =
     let pp = match diff with
       | Diff.Insert mty -> insert_suberror mty
       | Diff.Delete mty -> delete_suberror_app mty
-      | Diff.Change (g, e, d) -> diff_suberror_app env g e d
+      | Diff.Change (g, e, d) -> diff_suberror_app ~expansion_token env g e d
       | Diff.Keep (x, y, _) -> ok_suberror_app x y
     in
     Location.msg "%a @[<hv 2>%t@]" Pp.prefix (pos, diff) pp
 
-  and app_suberrors env patch =
-    List.map (app_suberror env) patch
+  and app_suberrors ~expansion_token env = function
+    | [] -> []
+    | (_, Diff.Keep _) as a :: q ->
+        app_suberror ~expansion_token env a
+        :: app_suberrors ~expansion_token env q
+    | a :: q ->
+        app_suberror ~expansion_token env a
+        :: List.map (app_suberror ~expansion_token:false env) q
 
   let all env = function
     | In_Compilation_unit diff ->
       let first = Location.msg "%a" Pp.interface_mismatch diff in
-      signature ~env ~before:[first] ~ctx:[] diff.symptom
+      signature ~expansion_token:true ~env ~before:[first] ~ctx:[] diff.symptom
     | In_Type_declaration (id,reason) ->
         let main = Location.msg "%t" (Pp.core id reason) in
         { msgs = [main]; post = None }
     | In_Module_type diff ->
-        module_type ~eqmode:false ~before:[] ~env ~ctx:[] diff
-    | In_Signature diff -> signature ~before:[] ~env ~ctx:[] diff
+        module_type ~expansion_token:true ~eqmode:false ~before:[] ~env ~ctx:[]
+          diff
+    | In_Signature diff ->
+        signature ~expansion_token:true ~before:[] ~env ~ctx:[] diff
     | In_Expansion cmts ->
         match Pp.core_module_type_symptom cmts with
         | None -> assert false
@@ -1615,7 +1637,7 @@ let err_msgs (env, err) =
       let sub = match l.Linearize.post with
         | None -> []
         | Some post ->
-            Linearize.param_suberrors env post in
+            Linearize.param_suberrors ~expansion_token:true env post in
       sub, main
     )
 
@@ -1640,7 +1662,7 @@ let report_apply_error ~loc env (lid_app, mty_f, args) =
   | Ok d ->
       let d = FunctorDiff.prepare_patch d in
       Location.errorf ~loc
-        ~sub:(Linearize.app_suberrors env d)
+        ~sub:(Linearize.app_suberrors env ~expansion_token:true d)
         "@[<hv>The functor application %tis ill-typed.@ \
          These arguments:@;<1 2>\
          @[%a@]@ do not match these parameters:@;<1 2>@[functor@ %a@ -> ...@]@]"
