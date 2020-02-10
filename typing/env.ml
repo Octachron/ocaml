@@ -634,9 +634,9 @@ let components_of_module_maker' =
             (module_components_repr, module_components_failure) result)
 
 let components_of_functor_appl' =
-  ref ((fun ~loc:_ _f _env _p1 _p2 -> assert false) :
-          loc:Location.t -> functor_components -> t ->
-            Path.t -> Path.t -> module_components)
+  ref ((fun ~loc:_ _f _env _p2 -> assert false) :
+          loc:Location.t -> Path.t * functor_components ->
+            Path.t -> t -> module_components)
 let check_functor_application =
   (* to be filled by Includemod *)
   ref ((fun ~errors:_ ~loc:_ _ _env _mty1 _path1 _mty2 -> assert false) :
@@ -850,7 +850,7 @@ let rec find_module_components path env =
   | Papply(p1, p2) ->
       let fc = find_functor_components p1 env in
       let loc = Location.(in_file !input_name) in
-      !components_of_functor_appl' ~loc fc env p1 p2
+      !components_of_functor_appl' ~loc (p1, fc) p2 env
 
 and find_structure_components path env =
   match get_components (find_module_components path env) with
@@ -1758,9 +1758,10 @@ let scrape_alias env mty = scrape_alias env None mty
 
 (* Compute the components of a functor application in a path. *)
 
-let components_of_functor_appl ~loc f env p1 p2 =
+let components_of_functor_appl ~loc (p1, f) p2 env =
   try
-    Hashtbl.find f.fcomp_cache p2
+    let c = Hashtbl.find f.fcomp_cache p2 in
+    c
   with Not_found ->
     let p = Papply(p1, p2) in
     let sub =
@@ -2410,7 +2411,7 @@ let rec lookup_module_components ~errors ~use ~loc lid env =
   | Lapply _ as lid ->
       let path_f, comp_f, path_arg = lookup_apply ~errors ~use ~loc lid env in
       let comps =
-        !components_of_functor_appl' ~loc comp_f env path_f path_arg in
+        !components_of_functor_appl' ~loc (path_f,comp_f) path_arg env in
       Papply (path_f, path_arg), comps
 
 and lookup_structure_components ~errors ~use ~loc lid env =
@@ -2444,11 +2445,11 @@ and lookup_apply ~errors ~use ~loc lid0 env =
   let path_f0, comp_f0 =
     lookup_module_components ~errors ~use ~loc lid_f0 env in
   let check_one_apply ~errors ~use ~loc (lid,comp) lid_arg env =
-    let comp_f, mty_arg = get_functor_components ~errors ~loc lid env comp in
-    let p_arg, md_arg = lookup_module ~errors ~use ~loc lid_arg env in
+    let comp_f, mty_param = get_functor_components ~errors ~loc lid env comp in
+    let path_arg, md_arg = lookup_module ~errors ~use ~loc lid_arg env in
     !check_functor_application
-      ~errors ~loc (lid0, path_f0, args0) env md_arg.md_type p_arg mty_arg;
-    p_arg, comp_f
+      ~errors ~loc (lid0, path_f0, args0) env md_arg.md_type path_arg mty_param;
+    path_arg, comp_f
   in
   let rec check_apply (lid, path, comp) = function
     | [] -> invalid_arg "Env.lookup_apply: empty argument list"
@@ -2458,11 +2459,12 @@ and lookup_apply ~errors ~use ~loc lid0 env =
         in
         path, comp_f, path_arg
     | lid_arg :: args ->
-        let p_arg, comp_f =
+        let path_arg, comp_f =
           check_one_apply ~errors ~use ~loc (lid, comp) lid_arg env
         in
-        let comps = !components_of_functor_appl' ~loc comp_f env p_arg path in
-        let path = Papply (path, p_arg) in
+        let comps =
+          !components_of_functor_appl' ~loc (path, comp_f) path_arg env in
+        let path = Papply (path, path_arg) in
         let lid = Lapply (lid, lid_arg) in
         check_apply (lid, path, comps) args
   in
