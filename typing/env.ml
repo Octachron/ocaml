@@ -640,7 +640,7 @@ let components_of_functor_appl' =
 let check_functor_application =
   (* to be filled by Includemod *)
   ref ((fun ~errors:_ ~loc:_ _ _env _mty1 _path1 _mty2 -> assert false) :
-         errors:bool -> loc:Location.t -> 
+         errors:bool -> loc:Location.t ->
          Longident.t * Path.t * Longident.t list -> t -> module_type ->
          Path.t -> module_type -> unit)
 let strengthen =
@@ -2409,7 +2409,8 @@ let rec lookup_module_components ~errors ~use ~loc lid env =
       path, data.mda_components
   | Lapply _ as lid ->
       let path_f, comp_f, path_arg = lookup_apply ~errors ~use ~loc lid env in
-      let comps = !components_of_functor_appl' ~loc comp_f env path_arg path_f in
+      let comps =
+        !components_of_functor_appl' ~loc comp_f env path_f path_arg in
       Papply (path_f, path_arg), comps
 
 and lookup_structure_components ~errors ~use ~loc lid env =
@@ -2440,7 +2441,8 @@ and get_functor_components ~errors ~loc lid env comps =
 
 and lookup_apply ~errors ~use ~loc lid0 env =
   let lid_f0, args0 = decompose_apply lid0 in
-  let path_f0, comp_f0 = lookup_module_components ~errors ~use ~loc lid_f0 env in
+  let path_f0, comp_f0 =
+    lookup_module_components ~errors ~use ~loc lid_f0 env in
   let check_one_apply ~errors ~use ~loc (lid,comp) lid_arg env =
     let comp_f, mty_arg = get_functor_components ~errors ~loc lid env comp in
     let p_arg, md_arg = lookup_module ~errors ~use ~loc lid_arg env in
