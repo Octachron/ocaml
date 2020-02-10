@@ -1621,7 +1621,7 @@ let err_msgs (env, err) =
 
 let report_error err =
   let sub, main = err_msgs err in
-  Location.errorf ~sub "%t" main
+  Location.errorf ~loc:Location.(in_file !input_name) ~sub "%t" main
 
 let report_apply_error ~loc env (lid_app, mty_f, args) =
   let may_print_app ppf = match lid_app with
