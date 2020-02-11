@@ -974,8 +974,9 @@ module FunctorDiff = struct
       | rest -> List.rev rest in
     drop (List.rev patch)
 
-  let prepare_patch patch =
-    patch |> drop_inserted_suffix |> to_shortnames
+  let prepare_patch ~drop patch =
+    let drop_suffix x = if drop then drop_inserted_suffix x else x in
+    patch |> drop_suffix |> to_shortnames
 
 end
 
@@ -1428,7 +1429,7 @@ module Linearize = struct
                 in
                 { msgs = main :: before; post = None }
         | Some d ->
-            let d = FunctorDiff.prepare_patch d in
+            let d = FunctorDiff.prepare_patch ~drop:false d in
             let main =
               Location.msg
                 "@[<hv 2>Modules do not match:@ \
@@ -1660,7 +1661,7 @@ let report_apply_error ~loc env (lid_app, mty_f, args) =
         (Format.pp_print_list Pp.simple_argument) args
         (Format.pp_print_list Pp.simple_functor_param) params
   | Ok d ->
-      let d = FunctorDiff.prepare_patch d in
+      let d = FunctorDiff.prepare_patch ~drop:true d in
       Location.errorf ~loc
         ~sub:(Linearize.app_suberrors env ~expansion_token:true d)
         "@[<hv>The functor application %tis ill-typed.@ \
