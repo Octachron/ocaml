@@ -1555,16 +1555,19 @@ module Linearize = struct
     Location.msg "   @[<hv 2>%t@]"
       (param_suberror ~expansion_token env diff)
 
-  and param_suberrors ~expansion_token env = function
-    | [] -> []
-    | [a] ->
-        [param_onlycase ~expansion_token env a]
-    | (_, Diff.Keep _) as a :: q ->
-        param_subcase ~expansion_token env a
-        :: param_suberrors ~expansion_token env q
-    | a :: q ->
-        param_subcase ~expansion_token env a
-        :: List.map (param_subcase ~expansion_token:false env) q
+  and param_suberrors ~expansion_token env l =
+    let rec aux = function
+      | [] -> []
+      | (_, Diff.Keep _) as a :: q ->
+          param_subcase ~expansion_token env a
+          :: aux q
+      | a :: q ->
+          param_subcase ~expansion_token env a
+          :: List.map (param_subcase ~expansion_token:false env) q
+    in 
+    match l with
+    | [a] -> [param_onlycase ~expansion_token env a]
+    | l -> aux l
 
   let rec diff_suberror_app ~expansion_token env g e diff = match diff with
     | E.Incompatible_params (Unit,_) ->
@@ -1603,16 +1606,19 @@ module Linearize = struct
     Location.msg "   @[<hv 2>%t@]"
       (app_suberror ~expansion_token env diff)
 
-  and app_suberrors ~expansion_token env = function
-    | [] -> []
-    | [a] ->
-        [app_onlycase ~expansion_token env a]
-    | (_, Diff.Keep _) as a :: q ->
-        app_subcase ~expansion_token env a
-        :: app_suberrors ~expansion_token env q
-    | a :: q ->
-        app_subcase ~expansion_token env a
-        :: List.map (app_subcase ~expansion_token:false env) q
+  and app_suberrors ~expansion_token env l =
+    let rec aux = function
+      | [] -> []
+      | (_, Diff.Keep _) as a :: q ->
+          app_subcase ~expansion_token env a
+          :: aux q
+      | a :: q ->
+          app_subcase ~expansion_token env a
+          :: List.map (app_subcase ~expansion_token:false env) q
+    in
+    match l with
+    | [a] -> [app_onlycase ~expansion_token env a]
+    | l -> aux l
 
   let all env = function
     | In_Compilation_unit diff ->
