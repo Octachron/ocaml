@@ -940,17 +940,19 @@ module FunctorDiff = struct
   (* Simplication for printing *)
 
   let shortname side pos name =
-    let s = match side with
-      | `Got -> "S"
-      | `Expected -> "T"
-    in
-    match name with
-    | Some name -> Format.sprintf "%s%%%s" s (Ident.name name)
-    | None -> Format.sprintf "%s%%%d" s pos
+    match side, name with
+    | `Got, None -> Format.sprintf "...(S%d)" pos
+    | `Expected, None -> Format.sprintf "...(T%d)" pos
+    | `Unneeded, _ -> "..."
+    | _, Some name -> Format.sprintf "...(%s)" (Ident.name name)
 
-  let to_shortnames patch =
+  let to_shortnames ctx patch =
     let to_shortname side pos mty =
       {Short_name. name = (shortname side pos); item = mty; from=None }
+    in
+    let elide_if_app s = match ctx with
+      | `App -> `Unneeded
+      | `Sig -> s
     in
     let aux i d =
       let pos = i + 1 in
@@ -958,12 +960,14 @@ module FunctorDiff = struct
         | Diff.Insert mty ->
             Diff.Insert (to_shortname `Expected pos mty)
         | Diff.Delete mty ->
-            Diff.Delete (to_shortname `Got pos mty)
+            Diff.Delete (to_shortname (elide_if_app `Got) pos mty)
         | Diff.Change (g, e, p) ->
             Diff.Change
-              (to_shortname `Got pos g, to_shortname `Expected pos e, p)
+              (to_shortname `Got pos g,
+               to_shortname `Expected pos e, p)
         | Diff.Keep (g, e, p) ->
-            Diff.Keep (to_shortname `Got pos g, to_shortname `Expected pos e, p)
+            Diff.Keep (to_shortname `Got pos g,
+                       to_shortname (elide_if_app `Expected) pos e, p)
       in
       pos, d
     in
@@ -975,9 +979,9 @@ module FunctorDiff = struct
       | rest -> List.rev rest in
     drop (List.rev patch)
 
-  let prepare_patch ~drop patch =
+  let prepare_patch ~drop ~ctx patch =
     let drop_suffix x = if drop then drop_inserted_suffix x else x in
-    patch |> drop_suffix |> to_shortnames
+    patch |> drop_suffix |> to_shortnames ctx
 
 end
 
@@ -1430,7 +1434,7 @@ module Linearize = struct
                 in
                 { msgs = main :: before; post = None }
         | Some d ->
-            let d = FunctorDiff.prepare_patch ~drop:false d in
+            let d = FunctorDiff.prepare_patch ~drop:false ~ctx:`Sig d in
             let main =
               Location.msg
                 "@[<hv 2>Modules do not match:@ \
@@ -1512,10 +1516,15 @@ module Linearize = struct
       Pp.short_functor_param y
 
   let ok_suberror_app x y =
+    let pp_orig_name ppf = match Short_name.functor_param y with
+      | Short_name.Named (_, Original mty) ->
+          Format.fprintf ppf " %a" Printtyp.modtype mty
+      | _ -> ()
+    in
     Format.dprintf
-      "the module %a matches the type %a"
+      "the module %a matches the expected type%t"
       Pp.short_argument x
-      Pp.short_functor_param y
+      pp_orig_name
 
   let rec diff_suberror ~expansion_token env g e diff = match diff with
     | E.Incompatible_params (Unit,_) ->
@@ -1680,7 +1689,7 @@ let report_apply_error ~loc env (lid_app, mty_f, args) =
         (Format.pp_print_list Pp.simple_argument) args
         (Format.pp_print_list Pp.simple_functor_param) params
   | Ok d ->
-      let d = FunctorDiff.prepare_patch ~drop:true d in
+      let d = FunctorDiff.prepare_patch ~drop:true ~ctx:`App d in
       Location.errorf ~loc
         ~sub:(Linearize.app_suberrors env ~expansion_token:true d)
         "@[<hv>The functor application %tis ill-typed.@ \
