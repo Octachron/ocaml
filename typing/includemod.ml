@@ -1526,108 +1526,76 @@ module Linearize = struct
       Pp.short_argument x
       pp_orig_name
 
-  let rec diff_suberror ~expansion_token env g e diff = match diff with
-    | E.Incompatible_params (Unit,_) ->
-        Format.dprintf
-          "the functor was expected to be applicative at this position"
-    | E.Incompatible_params (_,_ (* only Unit is possible *) ) ->
-        Format.dprintf
-          "the functor was expected to be generative at this position"
-    | E.Mismatch(_,_,mty_diff) ->
-        let r =
-          module_type ~expansion_token ~env ~before:[] ~ctx:[] ~eqmode:false
-            mty_diff in
-        let list ppf l =
-          Format.pp_print_list ~pp_sep:Pp.space
-            (fun ppf f -> f.Location.txt ppf)
-            ppf l in
-        let post = match r.post with
-          | None -> []
-          | Some patch -> param_suberrors ~expansion_token env patch in
-        Format.dprintf
-          "the module type@ @[%a@]@;<1 -2>is not included in@ \
-           @[%a@]@;<1 -2>@[%a@]"
-          Pp.definition_of_functor_param g
-          Pp.definition_of_functor_param e
-          list (List.rev_append r.msgs post)
+  let diff_arg g e more =
+    Format.dprintf
+      "the module type@ @[%a@]@;<1 -2>is not included in@ \
+       @[%a@]@;<1 -2>@[%t@]"
+      Pp.definition_of_functor_param g
+      Pp.definition_of_functor_param e
+      more
 
-  and param_suberror ~expansion_token env = function
-    | Diff.Insert mty -> insert_suberror mty
-    | Diff.Delete mty -> delete_suberror mty
-    | Diff.Change (g, e, d) -> diff_suberror ~expansion_token env g e d
-    | Diff.Keep (x, y, _) -> ok_suberror x y
+  let diff_app g e more =
+    Format.dprintf
+      "the module@ @[%a@]@;<1 -2>is not included in@ @[%a@]@;<1 -2>@[%t@]"
+      Pp.definition_of_argument g
+      Pp.definition_of_functor_param e
+      more
 
-  and param_subcase ~expansion_token env (pos, diff) =
+  let param_subcase sub ~expansion_token env (pos, diff) =
     Location.msg "%a @[<hv 2>%t@]" Pp.prefix (pos, diff)
-      (param_suberror ~expansion_token env diff)
-  and param_onlycase ~expansion_token env (_, diff) =
+      (sub ~expansion_token env diff)
+  let param_onlycase sub ~expansion_token env (_, diff) =
     Location.msg "   @[<hv 2>%t@]"
-      (param_suberror ~expansion_token env diff)
+      (sub ~expansion_token env diff)
 
-  and param_suberrors ~expansion_token env l =
+  let param_suberrors sub ~expansion_token env l =
     let rec aux = function
       | [] -> []
       | (_, Diff.Keep _) as a :: q ->
-          param_subcase ~expansion_token env a
+          param_subcase sub ~expansion_token env a
           :: aux q
       | a :: q ->
-          param_subcase ~expansion_token env a
-          :: List.map (param_subcase ~expansion_token:false env) q
-    in 
-    match l with
-    | [a] -> [param_onlycase ~expansion_token env a]
-    | l -> aux l
-
-  let rec diff_suberror_app ~expansion_token env g e diff = match diff with
-    | E.Incompatible_params (Unit,_) ->
-        Format.dprintf
-          "the functor was expected to be applicative at this position"
-    | E.Incompatible_params (_,_ (* only Unit is possible *) ) ->
-        Format.dprintf
-          "the functor was expected to be generative at this position"
-    | E.Mismatch(_,_,mty_diff) ->
-        let r =
-          module_type ~expansion_token ~env ~before:[] ~ctx:[] ~eqmode:false
-            mty_diff in
-        let list ppf l =
-          Format.pp_print_list ~pp_sep:Pp.space
-            (fun ppf f -> f.Location.txt ppf)
-            ppf l in
-        let post = match r.post with
-          | None -> []
-          | Some patch -> param_suberrors ~expansion_token env patch in
-        Format.dprintf
-          "the module@ @[%a@]@;<1 -2>is not included in@ @[%a@]@;<1 -2>@[%a@]"
-          Pp.definition_of_argument g
-          Pp.definition_of_functor_param e
-          list (List.rev_append r.msgs post)
-
-  and app_suberror ~expansion_token env = function
-      | Diff.Insert mty -> insert_suberror mty
-      | Diff.Delete mty -> delete_suberror_app mty
-      | Diff.Change (g, e, d) -> diff_suberror_app ~expansion_token env g e d
-      | Diff.Keep (x, y, _) -> ok_suberror_app x y
-
-  and app_subcase ~expansion_token env (pos, diff) =
-    Location.msg "%a @[<hv 2>%t@]" Pp.prefix (pos, diff)
-      (app_suberror ~expansion_token env diff)
-  and app_onlycase ~expansion_token env (_, diff) =
-    Location.msg "   @[<hv 2>%t@]"
-      (app_suberror ~expansion_token env diff)
-
-  and app_suberrors ~expansion_token env l =
-    let rec aux = function
-      | [] -> []
-      | (_, Diff.Keep _) as a :: q ->
-          app_subcase ~expansion_token env a
-          :: aux q
-      | a :: q ->
-          app_subcase ~expansion_token env a
-          :: List.map (app_subcase ~expansion_token:false env) q
+          param_subcase sub ~expansion_token env a
+          :: List.map (param_subcase sub ~expansion_token:false env) q
     in
     match l with
-    | [a] -> [app_onlycase ~expansion_token env a]
+    | [a] -> [param_onlycase sub ~expansion_token env a]
     | l -> aux l
+
+  let rec diff_suberror: 'a 'b.
+    ('a -> 'b -> _) -> expansion_token:_ -> _ -> 'a -> 'b -> _ =
+    fun msg ~expansion_token env g e diff -> match diff with
+    | E.Incompatible_params (Unit,_) ->
+        Format.dprintf
+          "the functor was expected to be applicative at this position"
+    | E.Incompatible_params (_,_ (* only Unit is possible *) ) ->
+        Format.dprintf
+          "the functor was expected to be generative at this position"
+    | E.Mismatch(_,_,mty_diff) ->
+        let r =
+          module_type ~expansion_token ~env ~before:[] ~ctx:[] ~eqmode:false
+            mty_diff in
+        let list l ppf =
+          Format.pp_print_list ~pp_sep:Pp.space
+            (fun ppf f -> f.Location.txt ppf)
+            ppf l in
+        let post = match r.post with
+          | None -> []
+          | Some patch -> param_suberrors arg ~expansion_token env patch in
+        msg g e (list (List.rev_append r.msgs post))
+
+  and arg ~expansion_token env = function
+    | Diff.Insert mty -> insert_suberror mty
+    | Diff.Delete mty -> delete_suberror mty
+    | Diff.Change (g, e, d) -> diff_suberror diff_arg ~expansion_token env g e d
+    | Diff.Keep (x, y, _) -> ok_suberror x y
+
+  let app ~expansion_token env = function
+      | Diff.Insert mty -> insert_suberror mty
+      | Diff.Delete mty -> delete_suberror_app mty
+      | Diff.Change (g, e, d) ->
+          diff_suberror diff_app ~expansion_token env g e d
+      | Diff.Keep (x, y, _) -> ok_suberror_app x y
 
   let all env = function
     | In_Compilation_unit diff ->
@@ -1666,7 +1634,7 @@ let err_msgs (env, err) =
       let sub = match l.Linearize.post with
         | None -> []
         | Some post ->
-            Linearize.param_suberrors ~expansion_token:true env post in
+            Linearize.(param_suberrors arg) ~expansion_token:true env post in
       sub, main
     )
 
@@ -1691,7 +1659,7 @@ let report_apply_error ~loc env (lid_app, mty_f, args) =
   | Ok d ->
       let d = FunctorDiff.prepare_patch ~drop:true ~ctx:`App d in
       Location.errorf ~loc
-        ~sub:(Linearize.app_suberrors env ~expansion_token:true d)
+        ~sub:(Linearize.(param_suberrors app) env ~expansion_token:true d)
         "@[<hv>The functor application %tis ill-typed.@ \
          These arguments:@;<1 2>\
          @[%a@]@ do not match these parameters:@;<1 2>@[functor@ %a@ -> ...@]@]"
