@@ -1496,22 +1496,22 @@ module Linearize = struct
 
   let insert_suberror mty =
     Format.dprintf
-      "an argument appears to be missing with type@;<1 2>@[%a@]"
+      "An argument appears to be missing with type@;<1 2>@[%a@]"
       Pp.definition_of_functor_param mty
 
   let delete_suberror mty =
     Format.dprintf
-      "an extra argument is provided of type@;<1 2>@[%a@]"
+      "An extra argument is provided of type@;<1 2>@[%a@]"
       Pp.definition_of_functor_param mty
 
   let delete_suberror_app mty =
     Format.dprintf
-      "the following extra argument is provided@;<1 2>@[%a@]"
+      "The following extra argument is provided@;<1 2>@[%a@]"
       Pp.definition_of_argument mty
 
   let ok_suberror x y =
     Format.dprintf
-      "the module types %a and %a match"
+      "Module types %a and %a match"
       Pp.short_functor_param x
       Pp.short_functor_param y
 
@@ -1522,13 +1522,13 @@ module Linearize = struct
       | _ -> ()
     in
     Format.dprintf
-      "the module %a matches the expected type%t"
+      "Module %a matches the expected type%t"
       Pp.short_argument x
       pp_orig_name
 
   let diff_arg g e more =
     Format.dprintf
-      "the module type@ @[%a@]@;<1 -2>is not included in@ \
+      "Module types do not match:@ @[%a@]@;<1 -2>does not include@ \
        @[%a@]@;<1 -2>@[%t@]"
       Pp.definition_of_functor_param g
       Pp.definition_of_functor_param e
@@ -1536,7 +1536,8 @@ module Linearize = struct
 
   let diff_app g e more =
     Format.dprintf
-      "the module@ @[%a@]@;<1 -2>is not included in@ @[%a@]@;<1 -2>@[%t@]"
+      "Modules do not match:@ @[%a@]@;<1 -2>\
+       is not included in@ @[%a@]@;<1 -2>@[%t@]"
       Pp.definition_of_argument g
       Pp.definition_of_functor_param e
       more
