@@ -1573,8 +1573,8 @@ module Linearize = struct
           "the functor was expected to be generative at this position"
     | E.Mismatch(_,_,mty_diff) ->
         let r =
-          module_type ~expansion_token ~env ~before:[] ~ctx:[] ~eqmode:false
-            mty_diff in
+          module_type_symptom ~expansion_token ~env ~before:[] ~ctx:[]
+            mty_diff.symptom in
         let list l ppf =
           Format.pp_print_list ~pp_sep:Pp.space
             (fun ppf f -> f.Location.txt ppf)
