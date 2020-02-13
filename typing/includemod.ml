@@ -1080,7 +1080,7 @@ module Illegal_permutation = struct
       let ctx, mt = find env p mty in
       Format.fprintf ppf
         "@[<hv 2>Illegal permutation of runtime components in a module type.@ \
-         @[For example,@ %a@[the %a@ and the %a are not in the same order@ \
+         @[For example,@ %a@]@ @[the %a@ and the %a are not in the same order@ \
          in the expected and actual module types.@]@]"
         ctx_printer ctx pp_item (item mt k) pp_item (item mt l)
     with Not_found -> (* this should not happen *)
@@ -1145,9 +1145,9 @@ and argname = function
 let alt_context ppf cxt =
   if cxt = [] then () else
   if List.for_all (function Module _ -> true | _ -> false) cxt then
-    fprintf ppf "in module %a,@ " Printtyp.path (path_of_context cxt)
+    fprintf ppf "in module %a," Printtyp.path (path_of_context cxt)
   else
-    fprintf ppf "@[<hv 2>at position@ %a,@]@ " context cxt
+    fprintf ppf "@[<hv 2>at position@ %a,@]" context cxt
 
 let context ppf cxt =
   if cxt = [] then () else
