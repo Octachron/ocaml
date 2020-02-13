@@ -18,6 +18,7 @@
 open Misc
 open Typedtree
 open Types
+module Diff = Compilerlibs_edit_distance
 
 type symptom =
     Missing_field of Ident.t * Location.t * string (* kind *)
