@@ -1427,17 +1427,17 @@ module Linearize = struct
         match FunctorDiff.arg_diff env ctx got expected with
         | None ->
             let main =
-              Location.msg
+              Format.dprintf
                 "@[<hv 2>Modules do not match:@ \
                  @[%a@]@;<1 -2>is not included@ @[%a@]@]"
                 (Format.pp_print_list Pp.simple_functor_param) got
                 (Format.pp_print_list Pp.simple_functor_param) expected
                 in
-                { msgs = main :: before; post = None }
+                { msgs = dwith_context ctx main :: before; post = None }
         | Some d ->
             let d = FunctorDiff.prepare_patch ~drop:false ~ctx:`Sig d in
             let main =
-              Location.msg
+              Format.dprintf
                 "@[<hv 2>Modules do not match:@ \
                  @[functor@ %a@ -> ...@]@;<1 -2>is not included in@ \
                  @[functor@ %a@ -> ...@]@]"
@@ -1445,7 +1445,7 @@ module Linearize = struct
                 Pp.(params_diff space (expected functor_param)) d
             in
             let post = if expansion_token then Some d else None in
-            { msgs = main :: before; post }
+            { msgs = dwith_context ctx main :: before; post }
 
   and signature ~expansion_token ~env ~before ~ctx sgs =
     Printtyp.wrap_printing_env ~error:true sgs.env (fun () ->

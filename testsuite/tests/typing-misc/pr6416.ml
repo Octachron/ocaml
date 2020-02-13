@@ -81,6 +81,7 @@ Error: Signature mismatch:
          sig module type s module A : functor (X : s) -> sig end end
        is not included in
          sig module A : functor (X : s) -> sig end end
+       In module A:
        Modules do not match:
          functor (X : s/1) -> ...
        is not included in
