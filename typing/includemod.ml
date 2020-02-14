@@ -1394,10 +1394,10 @@ module Linearize = struct
   type ('a,'b) t = {
     msgs: Location.msg list;
     post:
-      (int * ('a Short_name.item,
+      (Env.t * (int * ('a Short_name.item,
               'b Short_name.item,
               Typedtree.module_coercion, E.functor_param_syndrom)
-         Diff.change) list option
+         Diff.change) list) option
   }
 
   let rec module_type ~expansion_token ~eqmode ~env ~before ~ctx diff =
@@ -1411,10 +1411,11 @@ module Linearize = struct
         end
     | _ ->
         let inner = if eqmode then Pp.eq_module_types else Pp.module_types in
-        let next = dwith_context_and_elision ctx inner diff in
         let before = match diff.symptom with
           | Functor Params _ -> before
-          | _ -> next :: before in
+          | _ ->
+              let next = dwith_context_and_elision ctx inner diff in
+              next :: before in
         module_type_symptom ~expansion_token ~env ~before ~ctx diff.symptom
 
   and module_type_symptom ~expansion_token ~env ~before ~ctx = function
@@ -1433,35 +1434,37 @@ module Linearize = struct
     | Params E.{got; expected; symptom=()} ->
         match FunctorDiff.arg_diff env ctx got expected with
         | None ->
+            let got = Pp.dlist Pp.simple_functor_param got in
+            let expected = Pp.dlist Pp.simple_functor_param expected in
             let main =
               Format.dprintf
                 "@[<hv 2>Modules do not match:@ \
                  @[%t@]@;<1 -2>is not included@ @[%t@]@]"
-                (Pp.dlist Pp.simple_functor_param got)
-                (Pp.dlist Pp.simple_functor_param expected)
-                in
-                { msgs = dwith_context ctx main :: before; post = None }
+                got expected
+            in
+            { msgs = dwith_context ctx main :: before; post = None }
         | Some d ->
             let d = FunctorDiff.prepare_patch ~drop:false ~ctx:`Sig d in
+            let got = Pp.(params_diff space (got functor_param) d) in
+            let expected = Pp.(params_diff space (expected functor_param) d) in
             let main =
               Format.dprintf
                 "@[<hv 2>Modules do not match:@ \
                  @[functor@ %t@ -> ...@]@;<1 -2>is not included in@ \
                  @[functor@ %t@ -> ...@]@]"
-                Pp.(params_diff space (got functor_param) d)
-                Pp.(params_diff space (expected functor_param) d)
+                got expected
             in
-            let post = if expansion_token then Some d else None in
+            let post = if expansion_token then Some (env,d) else None in
             { msgs = dwith_context ctx main :: before; post }
 
-  and signature ~expansion_token ~env ~before ~ctx sgs =
+  and signature ~expansion_token ~env:_ ~before ~ctx sgs =
     Printtyp.wrap_printing_env ~error:true sgs.env (fun () ->
     match sgs.missings, sgs.incompatibles with
     | a :: l , _ ->
         let more = List.map (Location.msg "%a" Pp.missing_field) l in
         let msgs = with_context ctx Pp.missing_field a :: more @ before in
         { msgs; post = None }
-    | [], a :: _ -> sigitem ~expansion_token ~env ~before ~ctx a
+    | [], a :: _ -> sigitem ~expansion_token ~env:sgs.env ~before ~ctx a
     | [], [] -> assert false
       )
   and sigitem ~expansion_token ~env ~before ~ctx (name,s) = match s with
@@ -1595,7 +1598,8 @@ module Linearize = struct
               ppf l in
           let post = match r.post with
             | None -> []
-            | Some patch -> param_suberrors arg ~expansion_token env patch in
+            | Some (env, patch) ->
+                param_suberrors arg ~expansion_token env patch in
           list (List.rev_append r.msgs post) in
         msg g e more
 
@@ -1648,7 +1652,7 @@ let err_msgs (env, err) =
       let main = Linearize.coalesce l in
       let sub = match l.Linearize.post with
         | None -> []
-        | Some post ->
+        | Some (env,post) ->
             Linearize.(param_suberrors arg) ~expansion_token:true env post in
       sub, main
     )
