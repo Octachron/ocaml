@@ -1535,27 +1535,31 @@ module Linearize = struct
       pp_orig_name
 
   let diff_arg g e more =
+    let g = Pp.definition_of_functor_param g in
+    let e = Pp.definition_of_functor_param e in
     Format.dprintf
       "Module types do not match:@ @[%t@]@;<1 -2>does not include@ \
        @[%t@]@;<1 -2>@[%t@]"
-      (Pp.definition_of_functor_param g)
-      (Pp.definition_of_functor_param e)
-      more
+      g e (more ())
 
   let diff_app g e more =
+    let g = Pp.definition_of_argument g in
+    let e = Pp.definition_of_functor_param e in
     Format.dprintf
       "Modules do not match:@ @[%t@]@;<1 -2>\
        is not included in@ @[%t@]@;<1 -2>@[%t@]"
-      (Pp.definition_of_argument g)
-      (Pp.definition_of_functor_param e)
-      more
+      g e (more ())
 
   let param_subcase sub ~expansion_token env (pos, diff) =
     Location.msg "%a @[<hv 2>%t@]" Pp.prefix (pos, diff)
-      (sub ~expansion_token env diff)
+      (Printtyp.wrap_printing_env env ~error:true
+         (fun () -> sub ~expansion_token env diff)
+      )
   let param_onlycase sub ~expansion_token env (_, diff) =
     Location.msg "   @[<hv 2>%t@]"
-      (sub ~expansion_token env diff)
+      (Printtyp.wrap_printing_env env ~error:true
+         (fun () -> sub ~expansion_token env diff)
+      )
 
   let param_suberrors sub ~expansion_token env l =
     let rec aux = function
@@ -1581,17 +1585,19 @@ module Linearize = struct
         Format.dprintf
           "the functor was expected to be generative at this position"
     | E.Mismatch(_,_,mty_diff) ->
-        let r =
-          module_type_symptom ~expansion_token ~env ~before:[] ~ctx:[]
-            mty_diff.symptom in
-        let list l ppf =
-          Format.pp_print_list ~pp_sep:Pp.space
-            (fun ppf f -> f.Location.txt ppf)
-            ppf l in
-        let post = match r.post with
-          | None -> []
-          | Some patch -> param_suberrors arg ~expansion_token env patch in
-        msg g e (list (List.rev_append r.msgs post))
+        let more () =
+          let r =
+            module_type_symptom ~expansion_token ~env ~before:[] ~ctx:[]
+              mty_diff.symptom in
+          let list l ppf =
+            Format.pp_print_list ~pp_sep:Pp.space
+              (fun ppf f -> f.Location.txt ppf)
+              ppf l in
+          let post = match r.post with
+            | None -> []
+            | Some patch -> param_suberrors arg ~expansion_token env patch in
+          list (List.rev_append r.msgs post) in
+        msg g e more
 
   and arg ~expansion_token env = function
     | Diff.Insert mty -> insert_suberror mty
@@ -1693,7 +1699,9 @@ let () =
             (path_arg, md_arg, mty_arg, param)
           in
           let args = List.map prepare_arg args in
-          Some (report_apply_error ~loc env (lid_app, mty_f, args))
+          Some (Printtyp.wrap_printing_env env ~error:true (fun () ->
+              report_apply_error ~loc env (lid_app, mty_f, args))
+            )
       | _ -> None
     )
 

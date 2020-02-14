@@ -27,7 +27,7 @@ Error: The functor application Set.Make(M) is ill-typed.
      Modules do not match:
        M : sig type t = M.t val equal : 'a -> 'a -> bool end
      is not included in
-       Stdlib__set.OrderedType
+       Set.OrderedType
      The value `compare' is required but not provided
      File "set.mli", line 52, characters 4-31: Expected declaration
 |} ]
