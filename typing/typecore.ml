@@ -755,30 +755,30 @@ end) = struct
           end;
           lbl
         | exception Not_found ->
-        (* then look outside the lexical scope *)
-        match lookup_from_type env tpath usage lid with
-        | lbl ->
-          (* warn only on nominal labels;
-             structural labels cannot be qualified anyway *)
-          if in_env lbl then warn_out_of_scope warn lid env tpath;
-          if not principal then warn_non_principal warn lid;
-          lbl
-        | exception Not_found ->
-        match lbls with
-        | (Error(loc', env', err) : _ result) ->
-            Env.lookup_error loc' env' err
-        | Ok lbls ->
-        let tp = (tpath0, expand_path env tpath) in
-        let tpl =
-          List.map
-            (fun (lbl, _) ->
-               let tp0 = get_type_path lbl in
-               let tp = expand_path env tp0 in
-               (tp0, tp))
-            lbls
-        in
-        raise (Error (lid.loc, env,
-                      Name_type_mismatch (kind, lid.txt, tp, tpl)));
+            (* then look outside the lexical scope *)
+            match lookup_from_type env tpath usage lid with
+            | lbl ->
+                (* warn only on nominal labels;
+                   structural labels cannot be qualified anyway *)
+                if in_env lbl then warn_out_of_scope warn lid env tpath;
+                if not principal then warn_non_principal warn lid;
+                lbl
+            | exception Not_found ->
+                match lbls with
+                | (Error(loc', env', err) : _ result) ->
+                    Env.lookup_error loc' env' err
+                | Ok lbls ->
+                    let tp = (tpath0, expand_path env tpath) in
+                    let tpl =
+                      List.map
+                        (fun (lbl, _) ->
+                           let tp0 = get_type_path lbl in
+                           let tp = expand_path env tp0 in
+                           (tp0, tp))
+                        lbls
+                    in
+                    raise (Error (lid.loc, env,
+                                  Name_type_mismatch (kind, lid.txt, tp, tpl)));
         end
     in
     (* warn only on nominal labels *)
@@ -826,10 +826,9 @@ let disambiguate_label_by_ids closed ids labels  : (_, _) result =
   match List.filter check_ids labels with
   | [] -> Error labels
   | labels ->
-  match List.filter check_closed labels with
-  | [] -> Error labels
-  | labels ->
-  Ok labels
+      match List.filter check_closed labels with
+      | [] -> Error labels
+      | labels -> Ok labels
 
 (* Only issue warnings once per record constructor/pattern *)
 let disambiguate_lid_a_list loc closed env expected_type lid_a_list =
