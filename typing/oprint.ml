@@ -518,12 +518,12 @@ and print_out_functor_parameters ppf l =
   in
   let rec print_args ppf = function
     | [] -> ()
-    | Some (None, mty_arg) :: l -> 
+    | Some (None, mty_arg) :: l ->
         fprintf ppf "%a ->@ %a"
           print_simple_out_module_type mty_arg
           print_args l
     | _ :: _ as non_anonymous_functor ->
-        let (args, anons) = split_anon_functor_arguments non_anonymous_functor in
+        let args, anons = split_anon_functor_arguments non_anonymous_functor in
         fprintf ppf "@[<2>functor@ %a@]@ ->@ %a"
           (pp_print_list ~pp_sep:pp_print_space print_nonanon_arg) args
           print_args anons

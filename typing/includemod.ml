@@ -165,7 +165,7 @@ let type_declarations ~loc env ~mark ?old_env:_ subst id decl1 decl2 =
     Includecore.type_declarations ~loc env ~mark
       (Ident.name id) decl1 (Path.Pident id) decl2
   with
-  | None -> Ok ()
+  | None -> Ok Tcoerce_none
   | Some err ->
       Error E.(Core(Type_declarations (diff decl1 decl2 err)))
 
@@ -175,7 +175,7 @@ let extension_constructors ~loc env ~mark  subst id ext1 ext2 =
   let mark = mark_positive mark in
   let ext2 = Subst.extension_constructor subst ext2 in
   match Includecore.extension_constructors ~loc env ~mark id ext1 ext2 with
-  | None -> Ok ()
+  | None -> Ok Tcoerce_none
   | Some err ->
       Error E.(Core(Extension_constructors(diff ext1 ext2 err)))
 
@@ -184,14 +184,14 @@ let extension_constructors ~loc env ~mark  subst id ext1 ext2 =
 let class_type_declarations ~loc ~old_env:_ env  subst _id decl1 decl2 =
   let decl2 = Subst.cltype_declaration subst decl2 in
   match Includeclass.class_type_declarations ~loc env decl1 decl2 with
-    []     -> Ok ()
+    []     -> Ok Tcoerce_none
   | reason ->
       Error E.(Core(Class_type_declarations(diff decl1 decl2 reason)))
 
 let class_declarations ~old_env:_ env  subst _id decl1 decl2 =
   let decl2 = Subst.class_declaration subst decl2 in
   match Includeclass.class_declarations env decl1 decl2 with
-    []     -> Ok ()
+    []     -> Ok Tcoerce_none
   | reason ->
      Error E.(Core(Class_declarations(diff decl1 decl2 reason)))
 
@@ -346,24 +346,8 @@ let rec retrieve_functor_params env = function
    Return the restriction that transforms a value of the smaller type
    into a value of the bigger type. *)
 
-let record_error (id:Ident.t) x (oks,errors) = match x with
-  | Ok _ -> oks, errors
-  | Error y -> oks , (id,y) :: errors
-
-let result_cons pos (id:Ident.t) x (oks,errors) = match x with
-  | Ok x -> (pos,x) :: oks, errors
-  | Error y -> oks , (id,y) :: errors
-
-let result_uncoerced_cons pos (id:Ident.t) x (oks,errors) = match x with
-  | Ok _ -> (pos,Tcoerce_none) :: oks, errors
-  | Error y -> oks , (id,y) :: errors
-
 let rec modtypes ~loc env ~mark subst mty1 mty2 =
   let dont_match reason =
-(*      match mty1, mty2 with
-        Mty_alias _, _
-      | _, Mty_alias _ -> err
-      | _ -> *)
     let mty2 = Subst.modtype Make_local subst mty2 in
     Error E.(diff mty1 mty2 reason) in
   try_modtypes ~loc env ~mark dont_match subst mty1 mty2
@@ -600,58 +584,72 @@ and signatures ~loc env ~mark subst sig1 sig2 =
 (* Inclusion between signature components *)
 
 and signature_components ~loc old_env ~mark env subst paired =
-  let comps_rec rem =
-    signature_components ~loc old_env ~mark env subst rem
-  in
   match paired with
-    [] -> [], []
-  | (Sig_value(id1, valdecl1, _) , Sig_value(_id2, valdecl2, _), pos) :: rem ->
-      let cc =
-        value_descriptions ~loc env ~mark subst id1 valdecl1 valdecl2
+  | [] -> [], []
+  | (sigi1, sigi2, pos) :: rem ->
+      let id, item, keep = match sigi1, sigi2 with
+        | Sig_value(id1, valdecl1, _) ,Sig_value(_id2, valdecl2, _) ->
+            let item =
+              value_descriptions ~loc env ~mark subst id1 valdecl1 valdecl2
+            in
+            let keep = match valdecl2.val_kind with
+              | Val_prim _ -> false
+              | _ -> true
+            in
+            id1, item, keep
+        | Sig_type(id1, tydec1, _, _), Sig_type(_id2, tydec2, _, _) ->
+            let item =
+              type_declarations ~loc ~old_env env ~mark subst id1 tydec1 tydec2
+            in
+            id1, item, false
+        | Sig_typext(id1, ext1, _, _), Sig_typext(_id2, ext2, _, _) ->
+            let item =
+              extension_constructors ~loc env ~mark  subst id1 ext1 ext2
+            in
+            id1, item, true
+        | Sig_module(id1, pres1, mty1, _, _), Sig_module(_, pres2, mty2, _, _)
+          -> begin
+              let item =
+                module_declarations ~loc env ~mark subst id1 mty1 mty2
+              in
+              let item =
+                Result.map_error (fun diff -> E.Module_type diff) item
+              in
+              let keep, item =
+                match pres1, pres2, mty1.md_type with
+                | Mp_present, Mp_present, _ -> true, item
+                | _, Mp_absent, _ -> false, item
+                | Mp_absent, Mp_present, Mty_alias p1 ->
+                    true, Result.map (fun i -> Tcoerce_alias (env, p1, i)) item
+                | Mp_absent, Mp_present, _ -> assert false
+              in
+              id1, item, keep
+            end
+        | Sig_modtype(id1, info1, _), Sig_modtype(_id2, info2, _) ->
+            let item =
+              modtype_infos ~loc env ~mark  subst id1 info1 info2
+            in
+            id1, item, false
+        | Sig_class(id1, decl1, _, _), Sig_class(_id2, decl2, _, _) ->
+            let item =
+              class_declarations ~old_env env subst id1 decl1 decl2
+            in
+            id1, item, true
+        | Sig_class_type(id1, info1, _, _), Sig_class_type(_id2, info2, _, _) ->
+            let item =
+              class_type_declarations ~loc ~old_env env subst id1 info1 info2
+            in
+            id1, item, false
+        | _ ->
+            assert false
       in
-      begin match valdecl2.val_kind with
-        Val_prim _ -> record_error id1 cc (comps_rec rem)
-      | _ -> result_cons pos id1 cc (comps_rec rem)
-      end
-  | (Sig_type(id1, tydecl1, _, _), Sig_type(_id2, tydecl2, _, _), _pos) :: rem
-    ->
-      record_error id1
-        (type_declarations ~loc ~old_env env ~mark subst id1 tydecl1 tydecl2)
-      (comps_rec rem)
-  | (Sig_typext(id1, ext1, _, _), Sig_typext(_id2, ext2, _, _), pos)
-    :: rem ->
-      result_uncoerced_cons pos id1
-        (extension_constructors ~loc env ~mark  subst id1 ext1 ext2)
-        (comps_rec rem)
-  | (Sig_module(id1, pres1, mty1, _, _),
-     Sig_module(_id2, pres2, mty2, _, _), pos) :: rem -> begin
-      let cc = module_declarations ~loc env ~mark  subst id1 mty1 mty2 in
-      let oks, errors = comps_rec rem in
-      match cc with
-      | Ok cc ->
-          begin
-            match pres1, pres2, mty1.md_type with
-            | Mp_present, Mp_present, _ -> (pos, cc) :: oks, errors
-            | _, Mp_absent, _ -> oks, errors
-            | Mp_absent, Mp_present, Mty_alias p1 ->
-                (pos, Tcoerce_alias (env, p1, cc)) :: oks, errors
-            | Mp_absent, Mp_present, _ -> assert false
-          end
-      | Error diff -> oks, (id1, E.Module_type diff) :: errors
-    end
-  | (Sig_modtype(id1, info1, _), Sig_modtype(_id2, info2, _), _pos) :: rem ->
-      record_error id1 (modtype_infos ~loc env ~mark  subst id1 info1 info2)
-      (comps_rec rem)
-  | (Sig_class(id1, decl1, _, _), Sig_class(_id2, decl2, _, _), pos) :: rem ->
-      let item = class_declarations ~old_env env  subst id1 decl1 decl2 in
-      result_uncoerced_cons pos id1 item (comps_rec rem)
-  | (Sig_class_type(id1, info1, _, _),
-     Sig_class_type(_id2, info2, _, _), _pos) :: rem ->
-      let item =
-        class_type_declarations ~loc ~old_env env subst id1 info1 info2 in
-      record_error id1 item (comps_rec rem)
-  | _ ->
-      assert false
+      let oks, errors =
+        signature_components ~loc old_env ~mark env subst rem
+      in
+      match item with
+      | Ok x when keep -> (pos,x) :: oks, errors
+      | Ok _ -> oks, errors
+      | Error y -> oks , (id,y) :: errors
 
 and module_declarations ~loc env ~mark  subst id1 md1 md2 =
   Builtin_attributes.check_alerts_inclusion
@@ -678,8 +676,8 @@ and modtype_infos ~loc env ~mark subst id info1 info2 =
   let info2 = Subst.modtype_declaration Keep subst info2 in
   let r =
     match (info1.mtd_type, info2.mtd_type) with
-      (None, None) -> Ok ()
-    | (Some _, None) -> Ok ()
+      (None, None) -> Ok Tcoerce_none
+    | (Some _, None) -> Ok Tcoerce_none
     | (Some mty1, Some mty2) ->
         check_modtype_equiv ~loc env ~mark mty1 mty2
     | (None, Some mty2) ->
@@ -693,7 +691,7 @@ and check_modtype_equiv ~loc env ~mark mty1 mty2 =
     (modtypes ~loc env ~mark Subst.identity mty1 mty2,
      modtypes ~loc env ~mark:(negate_mark mark) Subst.identity mty2 mty1)
   with
-    (Ok Tcoerce_none, Ok Tcoerce_none) -> Ok ()
+    (Ok Tcoerce_none, Ok Tcoerce_none) -> Ok Tcoerce_none
   | (Ok c1, Ok _c2) ->
       (* Format.eprintf "@[c1 = %a@ c2 = %a@]@."
         print_coercion _c1 print_coercion _c2; *)
@@ -726,37 +724,38 @@ exception Apply_error of {
     args : (Path.t option * Parsetree.module_expr option * module_type) list ;
   }
 
-let check_modtype_inclusion ~loc env mty1 path1 mty2 =
+let check_modtype_inclusion_raw ~loc env mty1 path1 mty2 =
   let aliasable = can_alias env path1 in
   modtypes ~loc env ~mark:Mark_both Subst.identity
     (Mtype.strengthen ~aliasable env mty1 path1) mty2
 
-let () =
-  Env.check_functor_application :=
-    (fun ~errors ~loc (lid_app, path_f, args) env mty1 path1 mty2 ->
-       match
-         check_modtype_inclusion ~loc env mty1 path1 mty2
-       with Error _errs ->
-         if errors then
-           let mty_arg arg =
-             let path, md = Env.find_module_by_name arg env in
-             let aliasable = can_alias env path in
-             let smd = Mtype.strengthen ~aliasable env md.md_type path in
-             (Some path, None, smd)
-           in
-           let args = List.map mty_arg args in
-           let mty_f = (Env.find_module path_f env).md_type in
-           let lid_app = Some lid_app in
-           raise (Apply_error {loc; env; lid_app; mty_f; args})
-         else
-           raise Not_found
-          | Ok _ -> ()
-    )
-
 let check_modtype_inclusion ~loc env mty1 path1 mty2 =
-  match check_modtype_inclusion ~loc env mty1 path1 mty2 with
+  match check_modtype_inclusion_raw ~loc env mty1 path1 mty2 with
   | Ok _ -> None
   | Error e -> Some (env, E.In_Module_type e)
+
+let check_functor_application_in_path
+    ~errors ~loc (lid_app, path_f, args) env mty1 path1 mty2 =
+  match check_modtype_inclusion_raw ~loc env mty1 path1 mty2 with
+  | Ok _ -> ()
+  | Error _errs ->
+      if errors then
+        let mty_arg arg =
+          let path, md = Env.find_module_by_name arg env in
+          let aliasable = can_alias env path in
+          let smd = Mtype.strengthen ~aliasable env md.md_type path in
+          (Some path, None, smd)
+        in
+        let args = List.map mty_arg args in
+        let mty_f = (Env.find_module path_f env).md_type in
+        let lid_app = Some lid_app in
+        raise (Apply_error {loc; env; lid_app; mty_f; args})
+      else
+        raise Not_found
+
+let () =
+  Env.check_functor_application := check_functor_application_in_path
+
 
 (* Check that an implementation of a compilation unit meets its
    interface. *)
@@ -785,20 +784,11 @@ let signatures env ?(mark=Mark_both) sig1 sig2 =
 
 let type_declarations ~loc env ?(mark=Mark_both) id decl1 decl2 =
   match type_declarations ~loc env ~mark Subst.identity id decl1 decl2 with
-  | Ok x -> x
+  | Ok _ -> ()
   | Error (E.Core reason) ->
       raise (Error(env,E.(In_Type_declaration(id,reason))))
   | Error _ -> assert false
 
-
-(*
-let modtypes env m1 m2 =
-  let c = modtypes env m1 m2 in
-  Format.eprintf "@[<2>modtypes@ %a@ %a =@ %a@]@."
-    Printtyp.modtype m1 Printtyp.modtype m2
-    print_coercion c;
-  c
-*)
 
 (* Error report *)
 
@@ -1390,14 +1380,14 @@ module Linearize = struct
     else
       dwith_context ?loc ctx (printer diff)
 
-
+  type ('a,'b) patch =
+    ( 'a Short_name.item, 'b Short_name.item,
+      Typedtree.module_coercion, E.functor_param_syndrom
+    ) Diff.change
   type ('a,'b) t = {
     msgs: Location.msg list;
     post:
-      (Env.t * (int * ('a Short_name.item,
-              'b Short_name.item,
-              Typedtree.module_coercion, E.functor_param_syndrom)
-         Diff.change) list) option
+      (Env.t * (int * ('a, 'b) patch) list) option
   }
 
   let rec module_type ~expansion_token ~eqmode ~env ~before ~ctx diff =
@@ -1606,15 +1596,16 @@ module Linearize = struct
   and arg ~expansion_token env = function
     | Diff.Insert mty -> insert_suberror mty
     | Diff.Delete mty -> delete_suberror mty
-    | Diff.Change (g, e, d) -> diff_suberror diff_arg ~expansion_token env g e d
+    | Diff.Change (g, e, d) ->
+        diff_suberror diff_arg ~expansion_token env g e d
     | Diff.Keep (x, y, _) -> ok_suberror x y
 
   let app ~expansion_token env = function
-      | Diff.Insert mty -> insert_suberror mty
-      | Diff.Delete mty -> delete_suberror_app mty
-      | Diff.Change (g, e, d) ->
-          diff_suberror diff_app ~expansion_token env g e d
-      | Diff.Keep (x, y, _) -> ok_suberror_app x y
+    | Diff.Insert mty -> insert_suberror mty
+    | Diff.Delete mty -> delete_suberror_app mty
+    | Diff.Change (g, e, d) ->
+        diff_suberror diff_app ~expansion_token env g e d
+    | Diff.Keep (x, y, _) -> ok_suberror_app x y
 
   let all env = function
     | In_Compilation_unit diff ->
