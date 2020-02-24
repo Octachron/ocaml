@@ -24,6 +24,9 @@ Working version
   (Gabriel Scherer and Rodolphe Lepigre,
    review by Jeremy Yallop, Damien Doligez and Frédéric Bour)
 
+- MPR#9331: Improve error messages for functor application and functor types.
+  (Florian Angeletti and Gabriel Radanne, review by ...)
+
 ### Runtime system:
 
 - #9119: Make [caml_stat_resize_noexc] compatible with the [realloc]
