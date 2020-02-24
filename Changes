@@ -22,6 +22,9 @@ Working version
   (GitHub user @EduardoRFS, review by Xavier Leroy, Nicolás Ojeda Bär
    and Anil Madhavapeddy, additional testing by Michael Schmidt)
 
+- MPR#9331: Improve error messages for functor application and functor types.
+  (Florian Angeletti and Gabriel Radanne, review by ...)
+
 ### Runtime system:
 
 - #1795, #9543: modernize signal handling on Linux i386, PowerPC, and s390x,
