@@ -3,6 +3,9 @@ Working version
 
 ### Language features:
 
+- MPR#9331: Improve error messages for functor application and functor types.
+  (Florian Angeletti and Gabriel Radanne, review by Leo White)
+
 ### Runtime system:
 
 ### Code generation and optimizations:
