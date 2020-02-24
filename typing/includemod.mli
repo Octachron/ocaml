@@ -31,6 +31,8 @@ type mark =
   | Mark_neither
       (** Do not mark definitions used from either argument *)
 
+type explanation
+
 val modtypes:
   loc:Location.t -> Env.t -> mark:mark ->
   module_type -> module_type -> module_coercion
@@ -41,7 +43,7 @@ val strengthened_module_decl:
 
 val check_modtype_inclusion :
   loc:Location.t -> Env.t -> Types.module_type -> Path.t -> Types.module_type ->
-  unit
+  explanation option
 (** [check_modtype_inclusion ~loc env mty1 path1 mty2] checks that the
     functor application F(M) is well typed, where mty2 is the type of
     the argument of F and path1/mty1 is the path/unstrenghened type of M. *)
@@ -87,7 +89,16 @@ type pos =
   | Body of functor_parameter
 type error = pos list * Env.t * symptom
 
-exception Error of error list
 
-val report_error: formatter -> error list -> unit
-val expand_module_alias: Env.t -> pos list -> Path.t -> Types.module_type
+exception Error of explanation
+exception Apply_error of {
+    loc : Location.t ;
+    env : Env.t ;
+    lid_app : Longident.t option ;
+    mty_f : module_type ;
+    args : (Path.t option * Parsetree.module_expr option * module_type) list ;
+  }
+
+val err_msgs: explanation ->
+  Location.msg list * (Format.formatter -> unit)
+val expand_module_alias: Env.t -> Path.t -> Types.module_type
