@@ -769,27 +769,6 @@ let compunit env ?(mark=Mark_both) impl_name impl_sig intf_name intf_sig =
     raise(Error(env, cdiff))
   | Ok x -> x
 
-
-
-(* Hide the context and substitution parameters to the outside world *)
-
-let modtypes ~loc env ?(mark=Mark_both) mty1 mty2 =
-  match modtypes ~loc env ~mark Subst.identity mty1 mty2 with
-  | Ok x -> x
-  | Error reason -> raise (Error (env, E.(In_Module_type reason)))
-let signatures env ?(mark=Mark_both) sig1 sig2 =
-  match signatures ~loc:Location.none env ~mark Subst.identity sig1 sig2 with
-  | Ok x -> x
-  | Error reason -> raise (Error(env,E.(In_Signature reason)))
-
-let type_declarations ~loc env ?(mark=Mark_both) id decl1 decl2 =
-  match type_declarations ~loc env ~mark Subst.identity id decl1 decl2 with
-  | Ok _ -> ()
-  | Error (E.Core reason) ->
-      raise (Error(env,E.(In_Type_declaration(id,reason))))
-  | Error _ -> assert false
-
-
 (* Error report *)
 
 module Short_name = struct
@@ -915,8 +894,14 @@ module FunctorDiff = struct
     let test (env, subst) (_,_,_,arg) param =
       let loc = Location.none in
       let snap = Btype.snapshot () in
-      let res, _, _ =
-        functor_param ~loc env ~mark:Mark_neither subst param arg
+      let res = match arg, param with
+        | Unit, Unit -> Ok Tcoerce_none
+        | Unit, Named _ | Named _, Unit ->
+            Result.Error (E.Incompatible_params(arg,param))
+        | Named (name1, arg1), Named (name2, arg2) ->
+            match modtypes ~loc env ~mark:Mark_neither subst arg1 arg2 with
+            | Error mty -> Result.Error (E.Mismatch(name1, name2,mty))
+            | Ok _ as x -> x
       in
       Btype.backtrack snap;
       res
@@ -975,6 +960,27 @@ module FunctorDiff = struct
     patch |> drop_suffix |> to_shortnames ctx
 
 end
+
+
+(* Hide the context and substitution parameters to the outside world *)
+
+let modtypes ~loc env ?(mark=Mark_both) mty1 mty2 =
+  match modtypes ~loc env ~mark Subst.identity mty1 mty2 with
+  | Ok x -> x
+  | Error reason -> raise (Error (env, E.(In_Module_type reason)))
+let signatures env ?(mark=Mark_both) sig1 sig2 =
+  match signatures ~loc:Location.none env ~mark Subst.identity sig1 sig2 with
+  | Ok x -> x
+  | Error reason -> raise (Error(env,E.(In_Signature reason)))
+
+let type_declarations ~loc env ?(mark=Mark_both) id decl1 decl2 =
+  match type_declarations ~loc env ~mark Subst.identity id decl1 decl2 with
+  | Ok _ -> ()
+  | Error (E.Core reason) ->
+      raise (Error(env,E.(In_Type_declaration(id,reason))))
+  | Error _ -> assert false
+
+
 
 module Illegal_permutation = struct
   (** Extraction of information in case of illegal permutation
