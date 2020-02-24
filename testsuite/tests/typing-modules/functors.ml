@@ -224,92 +224,95 @@ Error: The functor application is ill-typed.
 (** Dependent types *)
 (** Application side *)
 
-module F(B:sig type x type y end)(Y:sig type y = B.x end)(Z:sig type z = B.y end) = struct end
+module F
+    (A:sig type x type y end)
+    (B:sig type x = A.x end)
+    (C:sig type y = A.y end)
+= struct end
 module K = struct include X include Y end
-module M = F(K)(struct type y = K.x end)( (* struct type z = K.y end *) )
+module M = F(K)(struct type x = K.x end)( (* struct type z = K.y end *) )
 [%%expect {|
 module F :
-  functor (B : sig type x type y end) (Y : sig type y = B.x end)
-    (Z : sig type z = B.y end) -> sig end
+  functor (A : sig type x type y end) (B : sig type x = A.x end)
+    (C : sig type y = A.y end) -> sig end
 module K : sig type x = X.x type y = Y.y end
-Line 6, characters 11-73:
-6 | module M = F(K)(struct type y = K.x end)( (* struct type z = K.y end *) )
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Line 10, characters 11-73:
+10 | module M = F(K)(struct type x = K.x end)( (* struct type z = K.y end *) )
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: The functor application is ill-typed.
        These arguments:
          K ...(S2) ()
        do not match these parameters:
-         functor (B : ...) (Y : ...) (Z : ...(Z)) -> ...
+         functor (A : ...) (B : ...) (C : ...(C)) -> ...
   1. Module K matches the expected type
   2. Module ...(S2) matches the expected type
   3. the functor was expected to be applicative at this position
 |}]
 
-module M = F(K)(struct type z = K.y end)
+module M = F(K)(struct type y = K.y end)
 [%%expect {|
 Line 1, characters 11-40:
-1 | module M = F(K)(struct type z = K.y end)
+1 | module M = F(K)(struct type y = K.y end)
                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: The functor application is ill-typed.
        These arguments:
          K  ...(S3)
        do not match these parameters:
-         functor (B : ...) (Y : ...(Y)) (Z : ...) -> ...
+         functor (A : ...) (B : ...(B)) (C : ...) -> ...
   1. Module K matches the expected type
   2. An argument appears to be missing with type
-         ...(Y) = sig type y = B.x end
+         ...(B) = sig type x = A.x end
   3. Module ...(S3) matches the expected type
 |}]
 
 
 (** FIXME *)
-module M = F(struct include X include Y end)(struct type y = K.x end)(struct type zz = K.y end)
+module M =
+  F
+    (struct include X include Y end)
+    (struct type x = K.x end)
+    (struct type yy = K.y end)
 [%%expect {|
-Line 1, characters 11-95:
-1 | module M = F(struct include X include Y end)(struct type y = K.x end)(struct type zz = K.y end)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Lines 2-5, characters 2-30:
+2 | ..F
+3 |     (struct include X include Y end)
+4 |     (struct type x = K.x end)
+5 |     (struct type yy = K.y end)
 Error: The functor application is ill-typed.
        These arguments:
          ...(S1) ...(S2) ...(S3)
        do not match these parameters:
-         functor (B : ...) (Y : ...(Y)) (Z : ...(Z)) -> ...
+         functor (A : ...) (B : ...) (C : ...(C)) -> ...
   1. Module ...(S1) matches the expected type
-  2. Modules do not match:
-       ...(S2) = struct type y = K.x end
-     is not included in
-       ...(Y) = sig type y = B.x end
-     Type declarations do not match:
-       type y = K.x
-     is not included in
-       type y = B.x
+  2. Module ...(S2) matches the expected type
   3. Modules do not match:
-       ...(S3) = struct type zz = K.y end
+       ...(S3) = struct type yy = K.y end
      is not included in
-       ...(Z) = sig type z = B.y end
-     The type `z' is required but not provided
+       ...(C) = sig type y = A.y end
+     The type `y' is required but not provided
 |}]
 
 (** Inclusion side *)
 module type f =
-  functor(B:sig type x type y end)(Y:sig type y = B.x end)(Z:sig type z = B.y end)
+  functor(A:sig type x type y end)(B:sig type x = A.x end)(C:sig type y = A.y end)
     -> sig end
-module F: f = functor (X:sig include x include y end)(Z:sig type z = X.y end) -> struct end
+module F: f = functor (A:sig include x include y end)(Z:sig type y = A.y end) -> struct end
 [%%expect {|
 module type f =
-  functor (B : sig type x type y end) (Y : sig type y = B.x end)
-    (Z : sig type z = B.y end) -> sig end
+  functor (A : sig type x type y end) (B : sig type x = A.x end)
+    (C : sig type y = A.y end) -> sig end
 Line 4, characters 14-91:
-4 | module F: f = functor (X:sig include x include y end)(Z:sig type z = X.y end) -> struct end
+4 | module F: f = functor (A:sig include x include y end)(Z:sig type y = A.y end) -> struct end
                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: Signature mismatch:
        Modules do not match:
-         functor (X : ...(X))  (Z : ...(Z)) -> ...
+         functor (A : ...(A))  (Z : ...(Z)) -> ...
        is not included in
-         functor (B : ...(B)) (Y : ...(Y)) (Z : ...(Z)) -> ...
-  1. Module types ...(X) and ...(B) match
+         functor (A : ...(A)) (B : ...(B)) (C : ...(C)) -> ...
+  1. Module types ...(A) and ...(A) match
   2. An argument appears to be missing with type
-         ...(Y) = sig type y = B.x end
-  3. Module types ...(Z) and ...(Z) match
+         ...(B) = sig type x = A.x end
+  3. Module types ...(Z) and ...(C) match
 |}]
 
 

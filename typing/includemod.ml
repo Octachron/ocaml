@@ -846,7 +846,7 @@ module FunctorDiff = struct
         | Unit, Named _ | Named _, Unit -> assert false
       end
 
-  let update d ((env, subst) as st) = match d with
+  let update variance d ((env, subst) as st) = match d with
     | Insert (Unit | Named (None,_))
     | Delete (Unit | Named (None,_))
     | Keep (Unit,_,_)
@@ -858,22 +858,27 @@ module FunctorDiff = struct
     | Change (Unit, Named (Some p, arg), _) ->
         let arg' = Subst.modtype Keep subst arg in
         Env.add_module p Mp_present arg' env, subst
-    | Keep (Named (name1, _), Named (name2, arg2), _)
-    | Change (Named (name1, _), Named (name2, arg2), _) -> begin
-        let arg2' = Subst.modtype Keep subst arg2 in
+    | Keep (Named (name1, arg1), Named (name2, arg2), _)
+    | Change (Named (name1, arg1), Named (name2, arg2), _) -> begin
+        let arg = match variance with
+          | `Positive -> arg1
+          | `Negative -> arg2
+        in
+        let arg' = Subst.modtype Keep subst arg in
         match name1, name2 with
         | Some p1, Some p2 ->
-            Env.add_module p1 Mp_present arg2' env,
+            Env.add_module p1 Mp_present arg' env,
             Subst.add_module p2 (Path.Pident p1) subst
         | None, Some p2 ->
-            Env.add_module p2 Mp_present arg2' env, subst
+            Env.add_module p2 Mp_present arg' env, subst
         | Some p1, None ->
-            Env.add_module p1 Mp_present arg2' env, subst
+            Env.add_module p1 Mp_present arg' env, subst
         | None, None ->
             env, subst
       end
 
   let arg_diff env0 _ctxt l1 l2 =
+    let update = update `Negative in
     let test (env, subst) mty1 mty2 =
       let loc = Location.none in
       let snap = Btype.snapshot () in
@@ -890,7 +895,7 @@ module FunctorDiff = struct
   let app_diff env0 ~f ~args =
     let params = retrieve_functor_params env0 f in
     let weight d = weight (Diff.map Misc.for4 Fun.id d) in
-    let update d s = update (Diff.map Misc.for4 Fun.id d) s in
+    let update d s = update `Positive (Diff.map Misc.for4 Fun.id d) s in
     let test (env, subst) (_,_,_,arg) param =
       let loc = Location.none in
       let snap = Btype.snapshot () in
