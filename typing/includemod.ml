@@ -1508,12 +1508,12 @@ module Linearize = struct
 
   let insert_suberror mty =
     Format.dprintf
-      "An argument appears to be missing with type@;<1 2>@[%t@]"
+      "An argument appears to be missing with module type@;<1 2>@[%t@]"
       (Pp.definition_of_functor_param mty)
 
   let delete_suberror mty =
     Format.dprintf
-      "An extra argument is provided of type@;<1 2>@[%t@]"
+      "An extra argument is provided of module type@;<1 2>@[%t@]"
       (Pp.definition_of_functor_param mty)
 
   let delete_suberror_app mty =
@@ -1534,7 +1534,7 @@ module Linearize = struct
       | _ -> ignore
     in
     Format.dprintf
-      "Module %t matches the expected type%t"
+      "Module %t matches the expected module type%t"
       (Pp.short_argument x)
       pp_orig_name
 

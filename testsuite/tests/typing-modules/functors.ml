@@ -46,9 +46,9 @@ Error: The functor application is ill-typed.
          X  Z
        do not match these parameters:
          functor (X : x) (Y : y) (Z : z) -> ...
-  1. Module X matches the expected type x
-  2. An argument appears to be missing with type y
-  3. Module Z matches the expected type z
+  1. Module X matches the expected module type x
+  2. An argument appears to be missing with module type y
+  3. Module Z matches the expected module type z
 |}]
 
 module type f = functor (X:empty)(Y:empty) -> empty
@@ -66,7 +66,7 @@ Error: Signature mismatch:
          functor (X : empty) (Y : empty)  -> ...
   1. Module types empty and empty match
   2. Module types empty and empty match
-  3. An extra argument is provided of type empty
+  3. An extra argument is provided of module type empty
 |}]
 
 module type f = functor (X:a)(Y:b) -> c
@@ -83,7 +83,7 @@ Error: Signature mismatch:
          functor (X : a) (Y : b)  -> ...
   1. Module types a and a match
   2. Module types b and b match
-  3. An extra argument is provided of type c
+  3. An extra argument is provided of module type c
 |}]
 
 module M : sig module F: functor (X:sig end) -> sig end end =
@@ -147,9 +147,10 @@ Error: The functor application F(X)(Z) is ill-typed.
          X  Z
        do not match these parameters:
          functor (X : ...) (Y : ...(Y)) (Z : ...) -> ...
-  1. Module X matches the expected type
-  2. An argument appears to be missing with type ...(Y) = sig type y end
-  3. Module Z matches the expected type
+  1. Module X matches the expected module type
+  2. An argument appears to be missing with module type
+         ...(Y) = sig type y end
+  3. Module Z matches the expected module type
 |}]
 
 module F()(X:sig type t end) = struct end
@@ -164,7 +165,7 @@ Error: The functor application is ill-typed.
          () ()
        do not match these parameters:
          functor () (X : ...(X)) -> ...
-  1. Module () matches the expected type
+  1. Module () matches the expected module type
   2. the functor was expected to be applicative at this position
 |}]
 
@@ -191,7 +192,8 @@ Error: Signature mismatch:
          functor  (X : ...(X)) -> ...
        is not included in
          functor (X : ...(X)) (X : ...(X)) -> ...
-  1. An argument appears to be missing with type ...(X) = sig type x end
+  1. An argument appears to be missing with module type
+         ...(X) = sig type x end
   2. Module types ...(X) and ...(X) match
 |}]
 
@@ -244,8 +246,8 @@ Error: The functor application is ill-typed.
          K ...(S2) ()
        do not match these parameters:
          functor (A : ...) (B : ...) (C : ...(C)) -> ...
-  1. Module K matches the expected type
-  2. Module ...(S2) matches the expected type
+  1. Module K matches the expected module type
+  2. Module ...(S2) matches the expected module type
   3. the functor was expected to be applicative at this position
 |}]
 
@@ -259,10 +261,10 @@ Error: The functor application is ill-typed.
          K  ...(S3)
        do not match these parameters:
          functor (A : ...) (B : ...(B)) (C : ...) -> ...
-  1. Module K matches the expected type
-  2. An argument appears to be missing with type
+  1. Module K matches the expected module type
+  2. An argument appears to be missing with module type
          ...(B) = sig type x = A.x end
-  3. Module ...(S3) matches the expected type
+  3. Module ...(S3) matches the expected module type
 |}]
 
 
@@ -283,8 +285,8 @@ Error: The functor application is ill-typed.
          ...(S1) ...(S2) ...(S3)
        do not match these parameters:
          functor (A : ...) (B : ...) (C : ...(C)) -> ...
-  1. Module ...(S1) matches the expected type
-  2. Module ...(S2) matches the expected type
+  1. Module ...(S1) matches the expected module type
+  2. Module ...(S2) matches the expected module type
   3. Modules do not match:
        ...(S3) = struct type yy = K.y end
      is not included in
@@ -310,7 +312,7 @@ Error: Signature mismatch:
        is not included in
          functor (A : ...(A)) (B : ...(B)) (C : ...(C)) -> ...
   1. Module types ...(A) and ...(A) match
-  2. An argument appears to be missing with type
+  2. An argument appears to be missing with module type
          ...(B) = sig type x = A.x end
   3. Module types ...(Z) and ...(C) match
 |}]
@@ -334,7 +336,7 @@ Error: Signature mismatch:
        is not included in
          functor (B : ...(B)) (Y : ...(Y)) (Z : ...(Z)) -> ...
   1. Module types ...(X) and ...(B) match
-  2. An argument appears to be missing with type
+  2. An argument appears to be missing with module type
          ...(Y) = sig type yu = Y of B.u end
   3. Module types ...(Z) and ...(Z) match
 |}]
@@ -421,7 +423,7 @@ Error: The functor application is ill-typed.
          ...(S1) P.B ...(S3)
        do not match these parameters:
          functor (X : x) (B : b) (Y : y) -> ...
-  1. Module ...(S1) matches the expected type x
+  1. Module ...(S1) matches the expected module type x
   2. Modules do not match:
        P.B : b/1
      is not included in
@@ -687,7 +689,7 @@ Error: Signature mismatch:
          functor (X : ...(X)) (Y : ...(Y)) (Z : ...(Z)) -> ...
   1. Module types ...(X) and ...(X) match
   2. Module types ...(Y) and ...(Y) match
-  3. An argument appears to be missing with type
+  3. An argument appears to be missing with module type
          ...(Z) =
          functor (A : sig type za end) (B : sig type zb end) -> sig end
 |}]
@@ -934,7 +936,8 @@ Error: Signature mismatch:
      does not include
        ...(T2) = sig type y end
      The type `y'' is required but not provided
-  3. An argument appears to be missing with type ...(T3) = sig type z end
+  3. An argument appears to be missing with module type
+         ...(T3) = sig type z end
   4. Module types ...(W) and ...(T4) match
 |}]
 
@@ -975,10 +978,10 @@ Error: The functor application G(X)(Y)(X)(Y)(X) is ill-typed.
      is not included in
        A.A
 
-  2. Module A.Y matches the expected type A.A
+  2. Module A.Y matches the expected module type A.A
   3. The following extra argument is provided
          A.X : A.Honorificabilitudinitatibus
-  4. Module A.Y matches the expected type A.A
+  4. Module A.Y matches the expected module type A.A
   5. Modules do not match:
        A.X : A.Honorificabilitudinitatibus
      is not included in
