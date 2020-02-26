@@ -684,7 +684,8 @@ let pretty_pm pm =
 
 let pretty_hc_pm pm =
   pretty_cases (List.map (fun (p, ps, act) -> (p :: ps, act)) pm.cases);
-  if pm.default <> [] then pretty_def pm.default
+  if Default_environment.is_empty pm.default then
+    Default_environment.pp pm.default
 
 let rec pretty_precompiled = function
   | Pm pm ->
@@ -1226,7 +1227,6 @@ and split_no_or cls args def k =
     let discr = what_is_first_case cls in
     collect discr [] [] cls
   and collect group_discr rev_yes rev_no = function
-    | ([], _) :: _ -> assert false
     | [ ((p, ps, _) as cl) ]
       when rev_yes <> [] && List.for_all omega_like (p :: ps) ->
         (* This enables an extra division in some frequent cases:
