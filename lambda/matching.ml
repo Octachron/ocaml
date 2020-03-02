@@ -832,6 +832,13 @@ type 'args pm_half_compiled =
   | PmVar of { inside : 'args pm_half_compiled }
   | Pm of (Simple.clause, 'args) pattern_matching
 
+
+let map_arg_pm f pm = { pm with args = f pm.args }
+let rec map_arg_pm_half_compiled f = function
+  | PmOr pm -> PmOr { pm with body = map_arg_pm f pm.body }
+  | PmVar { inside } ->  PmVar { inside = map_arg_pm_half_compiled f inside }
+  | Pm pm -> Pm (map_arg_pm f pm)
+
 (* Only used inside the various split functions, we only keep [me] when we're
    done splitting / precompiling. *)
 type 'arg pm_half_compiled_info = {
@@ -1271,7 +1278,14 @@ let as_matrix pat_of_head cases =
 
 *)
 
-let rec split_or argo (cls : Half_simple.clause list) args def =
+let rec split_or: type head. (Ident.t -> head) ->
+  Ident.t option ->
+  Half_simple.clause list ->
+  head * args ->
+  Default_environment.t ->
+  (head * args) pm_half_compiled_info *
+  (int * (head * args) pm_half_compiled) list =
+ fun transl argo (cls : Half_simple.clause list) args def ->
   let rec do_split (rev_before : Simple.clause list) rev_ors rev_no = function
     | [] ->
         cons_next (List.rev rev_before) (List.rev rev_ors) (List.rev rev_no)
@@ -1299,12 +1313,20 @@ let rec split_or argo (cls : Half_simple.clause list) args def =
           (Default_environment.cons matrix idef def, (idef, next) :: nexts)
     in
     match yesor with
-    | [] -> split_no_or yes args def nexts
+    | [] -> split_no_or transl yes args def nexts
     | _ -> precompile_or argo yes yesor args def nexts
   in
   do_split [] [] [] cls
 
-and split_no_or cls args def k =
+and split_no_or: type head. (Ident.t -> head) ->
+  Simple.clause list ->
+  head * args ->
+  Default_environment.t ->
+  (int * (head * args) pm_half_compiled) list ->
+  (head * args) pm_half_compiled_info *
+  (int * (head * args) pm_half_compiled) list
+  =
+  fun transl cls args def k ->
   (* We split the remaining clauses in as few pms as possible while maintaining
      the property stated earlier (cf. {1. Precompilation}), i.e. for
      any pm in the result, it is possible to decide for any two patterns
@@ -1351,7 +1373,7 @@ and split_no_or cls args def k =
   and insert_split group_discr yes no def k =
     let precompile_group =
       if group_var group_discr then
-        precompile_var
+        precompile_var transl
       else
         do_not_precompile
     in
@@ -1372,7 +1394,14 @@ and split_no_or cls args def k =
   in
   split cls
 
-and precompile_var (_,rargs as args) cls def k =
+and precompile_var: type head. (Ident.t -> head) ->
+  head * args ->
+  Simple.clause list ->
+  Default_environment.t ->
+  (int * (head * args) pm_half_compiled) list ->
+  (head * args) pm_half_compiled_info *
+  (int * (head * args) pm_half_compiled) list
+  = fun transl (_,rargs as args) cls def k ->
   (* Strategy: pop the first column,
      precompile the rest, add a PmVar to all precompiled submatrices.
 
@@ -1387,7 +1416,7 @@ and precompile_var (_,rargs as args) cls def k =
           do_not_precompile args cls def k
       | _ -> (
           (* Precompile *)
-          let var_args = arg, rargs in
+          let var_args = v, rargs in
           let var_cls =
             List.map
               (fun ((p, ps), act) ->
@@ -1396,8 +1425,11 @@ and precompile_var (_,rargs as args) cls def k =
               cls
           and var_def = Default_environment.pop_column def in
           let { me = first; matrix }, nexts =
-            split_or (Some v) var_cls var_args var_def
+            split_or (fun x -> x) (Some v) var_cls var_args var_def
           in
+          let map = map_arg_pm_half_compiled (fun (x, l) -> transl x, l) in
+          let first = map first in
+          let nexts = List.map (fun (k,l) -> k, map l) nexts in
           (* Compute top information *)
           match nexts with
           | [] ->
@@ -1440,15 +1472,31 @@ and precompile_var (_,rargs as args) cls def k =
     )
   | _ -> do_not_precompile args cls def k
 
-and do_not_precompile args cls def k =
+and do_not_precompile: type head.
+head * args ->
+Simple.clause list ->
+Default_environment.t ->
+(int * (head * args) pm_half_compiled) list ->
+(head * args) pm_half_compiled_info *
+(int * (head * args) pm_half_compiled) list
+ = fun args cls def k ->
   ( { me = Pm { cases = cls; args; default = def };
       matrix = as_matrix Simple.to_pattern cls;
       top_default = def
     },
     k )
 
-and precompile_or argo cls ors (_arg,rargs as args) def k =
-  let rec do_cases = function
+and precompile_or: type head.
+  Ident.t option ->
+  Simple.clause list ->
+  ((Half_simple.pattern * Typedtree.pattern list) * Lambda.lambda) list ->
+  head * args ->
+  Default_environment.t ->
+  (int * (head * args) pm_half_compiled) list ->
+  (head * args) pm_half_compiled_info *
+  (int * (head * args) pm_half_compiled) list
+  = fun argo cls ors (_arg,rargs as args) def k ->
+    let rec do_cases = function
     | [] -> ([], [])
     | ((p, patl), action) :: rem -> (
         match Simple.try_no_or p with
@@ -1518,7 +1566,8 @@ let split_and_precompile_nonempty v pm =
   let pm =
     { pm with cases = List.map (Half_simple.of_clause ~arg:(Lvar v)) pm.cases }
   in
-  let { me = next }, nexts = split_or (Some v) pm.cases pm.args pm.default in
+  let { me = next }, nexts =
+    split_or (fun v -> v) (Some v) pm.cases pm.args pm.default in
   if
     dbg
     && (nexts <> []
@@ -1536,7 +1585,8 @@ let split_and_precompile_nonempty v pm =
 
 
 let split_and_precompile_simplified pm =
-  let { me = next }, nexts = split_no_or pm.cases pm.args pm.default [] in
+  let { me = next }, nexts =
+    split_no_or (fun v -> v) pm.cases pm.args pm.default [] in
   if
     dbg
     && (nexts <> []
@@ -1558,12 +1608,12 @@ type precompile_arg =
   | Var of Ident.t
 
 
-let split_and_precompile arg pm =
+let split_and_precompile f arg pm =
   let larg, varg = match arg with
     | For_multiple l -> l, None
     | Var v -> Lvar v, Some v in
   let pm = { pm with cases = half_simplify_cases larg pm.cases } in
-  let { me = next }, nexts = split_or varg pm.cases pm.args pm.default in
+  let { me = next }, nexts = split_or f varg pm.cases pm.args pm.default in
   if
     dbg
     && (nexts <> []
@@ -3235,8 +3285,13 @@ let arg_to_var arg cls =
 *)
 
 
-let unprecise (({ args = (v,a), l; _ } as m): (_,_) pattern_matching) =
+let unprecise (({ args = v, l; _ } as m): (_,_) pattern_matching) =
+  { m with args = (Lvar v, Alias) :: l }
+
+
+let unprecise2 (({ args = (v,a), l; _ } as m): (_,_) pattern_matching) =
   { m with args = (v, a) :: l }
+
 
 let wrap_arg (x: (_,_) pattern_matching) = { x with args = Some x.args }
 
@@ -3253,9 +3308,9 @@ let rec compile_match repr partial ctx
       else
         (event_branch repr action, Jumps.empty)
   | { args = (arg, str) :: argl } ->
-      let v, newarg = arg_to_var arg m.cases in
+      let v, _newarg = arg_to_var arg m.cases in
       let first_match, rem =
-        split_and_precompile (Var v) { m with args = (newarg, Alias), argl }
+        split_and_precompile (fun x -> x) (Var v) { m with args = v, argl }
       in
       let lam, total =
         comp_match_handlers
@@ -3278,7 +3333,7 @@ and compile_simplified repr partial ctx
       let arg = Lvar v in
       (* Not sure we need to do anything with arg/v *)
       let first_match, rem =
-        split_and_precompile_simplified { m with args = (arg, Alias), argl }
+        split_and_precompile_simplified { m with args = v, argl }
       in
       let lam, total =
         comp_match_handlers
@@ -3301,7 +3356,7 @@ and compile_half_compiled repr partial ctx
       let arg = Lvar v in
       (* Not sure we need to do anything with arg/v *)
       let first_match, rem =
-        split_and_precompile_nonempty v { m with args = (Lvar v, Alias), argl }
+        split_and_precompile_nonempty v { m with args = v, argl }
       in
       let lam, total =
         comp_match_handlers
@@ -3334,7 +3389,7 @@ and do_compile_matching_pr repr partial ctx x =
 and do_compile_matching repr partial ctx pmh =
   match pmh with
   | Pm pm -> (
-      let arg = (fst (fst pm.args)) in
+      let arg = Lvar (fst pm.args) in
       let pat = what_is_cases pm.cases in
       let ph = Simple.head pat in
       let pat = Simple.to_pattern pat in
@@ -3387,9 +3442,7 @@ and do_compile_matching repr partial ctx pmh =
       in
       (lam, Jumps.map Context.rshift total)
   | PmOr { body; handlers } ->
-      let args = match body.args with
-        | (Lvar v, Alias), q -> Some (v, q)
-        | _ -> assert false in
+      let args = Some body.args in
       let lam, total =
         compile_simplified repr partial ctx
           ({ body with args }: (_,_) pattern_matching) in
@@ -3806,7 +3859,8 @@ let do_for_multiple_match loc paraml pat_act_list partial =
   try
     try
       (* Once for checking that compilation is possible *)
-      let next, nexts = split_and_precompile (For_multiple arg) pm1 in
+      let next, nexts =
+        split_and_precompile (fun v -> Lvar v, Alias) (For_multiple arg) pm1 in
       let size = List.length paraml
       and idl = List.map (fun _ -> Ident.create_local "*match*") paraml in
       let args = match idl with
@@ -3829,7 +3883,7 @@ let do_for_multiple_match loc paraml pat_act_list partial =
         )
     with Cannot_flatten -> (
       let lambda, total =
-        compile_match None partial (Context.start 1) (unprecise pm1) in
+        compile_match None partial (Context.start 1) (unprecise2 pm1) in
       match partial with
       | Partial -> check_total total lambda raise_num (partial_function loc)
       | Total ->
