@@ -1278,14 +1278,34 @@ let as_matrix pat_of_head cases =
 
 *)
 
-let rec split_or: type head. (Ident.t -> head) ->
-  Ident.t option ->
+
+module Precompile_arg = struct
+  type _ t =
+    | For_multiple: lambda -> (lambda * let_kind) t
+    | Var: Ident.t -> Ident.t t
+
+  let lambda (type x) (x:x t) = match x with
+    | Var v -> Lvar v
+    | For_multiple l -> l
+
+  let to_lambda (type arg) (arg: arg t) (id: Ident.t): arg = match arg with
+    | Var _ -> id
+    | For_multiple _ -> Lvar id, Alias
+
+  let to_var (type arg) (x:arg t) = match x with
+    | Var v -> Some v
+    | For_multiple _ -> None
+end
+
+
+let rec split_or: type head.
+  head Precompile_arg.t ->
   Half_simple.clause list ->
   head * args ->
   Default_environment.t ->
   (head * args) pm_half_compiled_info *
   (int * (head * args) pm_half_compiled) list =
- fun transl argo (cls : Half_simple.clause list) args def ->
+ fun argo (cls : Half_simple.clause list) args def ->
   let rec do_split (rev_before : Simple.clause list) rev_ors rev_no = function
     | [] ->
         cons_next (List.rev rev_before) (List.rev rev_ors) (List.rev rev_no)
@@ -1313,8 +1333,8 @@ let rec split_or: type head. (Ident.t -> head) ->
           (Default_environment.cons matrix idef def, (idef, next) :: nexts)
     in
     match yesor with
-    | [] -> split_no_or transl yes args def nexts
-    | _ -> precompile_or argo yes yesor args def nexts
+    | [] -> split_no_or (Precompile_arg.to_lambda argo) yes args def nexts
+    | _ -> precompile_or (Precompile_arg.to_var argo) yes yesor args def nexts
   in
   do_split [] [] [] cls
 
@@ -1425,7 +1445,7 @@ and precompile_var: type head. (Ident.t -> head) ->
               cls
           and var_def = Default_environment.pop_column def in
           let { me = first; matrix }, nexts =
-            split_or (fun x -> x) (Some v) var_cls var_args var_def
+            split_or (Var v) var_cls var_args var_def
           in
           let map = map_arg_pm_half_compiled (fun (x, l) -> transl x, l) in
           let first = map first in
@@ -1567,7 +1587,7 @@ let split_and_precompile_nonempty v pm =
     { pm with cases = List.map (Half_simple.of_clause ~arg:(Lvar v)) pm.cases }
   in
   let { me = next }, nexts =
-    split_or (fun v -> v) (Some v) pm.cases pm.args pm.default in
+    split_or (Var v) pm.cases pm.args pm.default in
   if
     dbg
     && (nexts <> []
@@ -1603,17 +1623,11 @@ let split_and_precompile_simplified pm =
   (next, nexts)
 
 
-type precompile_arg =
-  | For_multiple of lambda
-  | Var of Ident.t
-
-
-let split_and_precompile f arg pm =
-  let larg, varg = match arg with
-    | For_multiple l -> l, None
-    | Var v -> Lvar v, Some v in
-  let pm = { pm with cases = half_simplify_cases larg pm.cases } in
-  let { me = next }, nexts = split_or f varg pm.cases pm.args pm.default in
+let split_and_precompile arg pm =
+  let pm =
+    let cases = half_simplify_cases (Precompile_arg.lambda arg) pm.cases in
+    { pm with cases } in
+  let { me = next }, nexts = split_or arg pm.cases pm.args pm.default in
   if
     dbg
     && (nexts <> []
@@ -3310,7 +3324,7 @@ let rec compile_match repr partial ctx
   | { args = (arg, str) :: argl } ->
       let v, _newarg = arg_to_var arg m.cases in
       let first_match, rem =
-        split_and_precompile (fun x -> x) (Var v) { m with args = v, argl }
+        split_and_precompile (Var v) { m with args = v, argl }
       in
       let lam, total =
         comp_match_handlers
@@ -3860,7 +3874,7 @@ let do_for_multiple_match loc paraml pat_act_list partial =
     try
       (* Once for checking that compilation is possible *)
       let next, nexts =
-        split_and_precompile (fun v -> Lvar v, Alias) (For_multiple arg) pm1 in
+        split_and_precompile (For_multiple arg) pm1 in
       let size = List.length paraml
       and idl = List.map (fun _ -> Ident.create_local "*match*") paraml in
       let args = match idl with
