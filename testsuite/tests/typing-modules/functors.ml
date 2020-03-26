@@ -422,7 +422,7 @@ Error: The functor application is ill-typed.
        These arguments:
          ...(S1) P.B ...(S3)
        do not match these parameters:
-         functor (X : x) (B : b) (Y : y) -> ...
+         functor (X : x) (B : b/2) (Y : y) -> ...
   1. Module ...(S1) matches the expected module type x
   2. Modules do not match:
        P.B : b/1
