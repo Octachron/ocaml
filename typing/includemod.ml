@@ -865,11 +865,9 @@ module FunctorDiff = struct
       end
 
   type state = {
-    got_res: module_type option;
-    expected_res: module_type option;
+    res: module_type option;
     env: Env.t;
     subst: Subst.t;
-    fuel: int;
   }
 
   let keep_expansible_param = function
@@ -892,24 +890,11 @@ module FunctorDiff = struct
             let more = Array.of_list @@ List.map param_preprocess @@ params  in
             Some (keep_expansible_param res, Array.append array more)
 
-  let arg_expansion state  =
-    let inner = state.inner in
-    let fuel = inner.fuel in
-    if fuel = 0 then state
-    else
-      let state =
-        match need_expansion inner.env state.line inner.got_res with
-        | None -> state
-        | Some (got_res, line) ->
-            let fuel = fuel - 1 in
-            { state with line; inner = { state.inner with got_res; fuel } } in
-      match need_expansion inner.env state.col inner.expected_res with
-      | None -> state
-      | Some (expected_res, col) ->
-          let fuel = fuel - 1 in
-          { state with col; inner = { state.inner with expected_res; fuel } }
-
-
+  let expand_arg_params state inner  =
+    match need_expansion inner.env state.line inner.res with
+    | None -> { state with inner }
+    | Some (res, line) ->
+        { state with line; inner = { inner with res } }
 
   let arg_update d st = match data d with
     | Insert (Unit | Named (None,_))
@@ -923,7 +908,7 @@ module FunctorDiff = struct
     | Change (Unit, Named (Some p, arg), _) ->
         let arg' = Subst.modtype Keep st.inner.subst arg in
         let env = Env.add_module p Mp_present arg' st.inner.env in
-        arg_expansion { st with inner = { st.inner with env } }
+        expand_arg_params st { st.inner with env }
     | Keep (Named (name1, _), Named (name2, arg2), _)
     | Change (Named (name1, _), Named (name2, arg2), _) -> begin
         let arg' = Subst.modtype Keep st.inner.subst arg2 in
@@ -931,18 +916,18 @@ module FunctorDiff = struct
         | Some p1, Some p2 ->
             let env = Env.add_module p1 Mp_present arg' st.inner.env in
             let subst = Subst.add_module p2 (Path.Pident p1) st.inner.subst in
-            arg_expansion { st with inner = { st.inner with env; subst } }
+            expand_arg_params st { st.inner with env; subst }
         | None, Some p2 ->
             let env = Env.add_module p2 Mp_present arg' st.inner.env in
-            arg_expansion { st with inner = { st.inner with env } }
+            { st with inner = { st.inner with env } }
         | Some p1, None ->
             let env = Env.add_module p1 Mp_present arg' st.inner.env in
-            arg_expansion { st with inner = { st.inner with env } }
+            expand_arg_params st { st.inner with env }
         | None, None ->
             st
       end
 
-  let arg_diff env0 _ctxt (l1,res1) (l2,res2) =
+  let arg_diff env0 _ctxt (l1,res1) (l2,_res2) =
     let update = arg_update in
     let test st mty1 mty2 =
       let loc = Location.none in
@@ -954,16 +939,13 @@ module FunctorDiff = struct
       Btype.backtrack snap;
       res
     in
-    let fuel = 5 in
     let state0 =
       { line = Array.map param_preprocess @@ Array.of_list l1;
         col = Array.map param_preprocess @@ Array.of_list l2;
         inner = {
           env=env0;
           subst = Subst.identity;
-          got_res = keep_expansible_param res1;
-          expected_res = keep_expansible_param res2;
-          fuel;
+          res = keep_expansible_param res1;
         }
       } in
     Diff.dynamically_resized_diff ~weight ~test ~update state0
@@ -973,19 +955,12 @@ module FunctorDiff = struct
     | Unit -> None
     | Named(_,mty) -> Some {path=parg; mty}
 
-
   let arg_preprocess (_,_,_,fn as data) =
     let metadata =
       match fn with
       | Unit ->None
       | Named(x,_) -> x in
     { data; metadata }
-
-  type app_state = {
-    res: module_type option;
-    env: Env.t;
-    subst: Subst.t;
-  }
 
   let expand_app_params st inner =
     match need_expansion inner.env st.col inner.res with
