@@ -605,10 +605,6 @@ module NameChoice(Name : sig
   val lookup_all_from_type:
     Location.t -> usage -> Path.t -> Env.t -> (t * (unit -> unit)) list
 
-  (** When no candidates are valid, we can spend some extra time
-      searching for misspelled candidates *)
-  val extra_spellchecking_candidates: (t -> bool) -> Env.t -> string list
-
   (** Some names (for example the fields of inline records) are not
       in the typing environment -- they behave as structural labels
       rather than nominal labels.*)
@@ -633,12 +629,6 @@ end) = struct
             descr
         | exception Not_found ->
             let valid_names = List.map (fun (nd, _) -> get_name nd) descrs in
-            let valid_names = match valid_names with
-              | [] ->
-                  let filter lbl =
-                    compare_type_path env type_path (get_type_path lbl) in
-                  extra_spellchecking_candidates filter env
-              | l -> l in
             raise (Wrong_name_disambiguation (env, {
                     type_path;
                     name = { lid with txt = name };
@@ -837,7 +827,6 @@ module Label = NameChoice (struct
   let get_type lbl = lbl.lbl_res
   let lookup_all_from_type loc () path env =
     Env.lookup_all_labels_from_type ~loc path env
-  let extra_spellchecking_candidates _ _ = []
   let in_env lbl =
     match lbl.lbl_repres with
     | Record_regular | Record_float | Record_unboxed false -> true
@@ -994,12 +983,16 @@ module Constructor = NameChoice (struct
   let get_name cstr = cstr.cstr_name
   let get_type cstr = cstr.cstr_res
   let lookup_all_from_type loc usage path env =
-    Env.lookup_all_constructors_from_type ~loc usage path env
-
-  let extra_spellchecking_candidates filter env =
-    let add_valid x acc = if filter x then get_name x::acc else acc in
-    Env.fold_constructors add_valid None env []
-
+    match Env.lookup_all_constructors_from_type ~loc usage path env with
+    | [] -> (* extensible types, will raise an error later *)
+        let filter lbl =
+          let get_type_path cstr = match (repr (get_type cstr)).desc with
+            | Tconstr(p, _,_ ) -> p
+            | _ -> assert false in
+          compare_type_path env path (get_type_path lbl) in
+        let add_valid x acc = if filter x then (x,ignore)::acc else acc in
+        Env.fold_constructors add_valid None env []
+    | x -> x
   let in_env _ = true
 end)
 
