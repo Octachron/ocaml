@@ -2041,12 +2041,6 @@ let get_expr_args_record ~scopes head (arg, _mut) rem =
   make_args 0
 
 let divide_record all_labels ~scopes head ctx pm =
-  (* There is some redundancy in the expansions here, [head] is
-     expanded here and again in the matcher. It would be
-     nicer to have a type-level distinction between expanded heads
-     and non-expanded heads, to be able to reason confidently on
-     when expansions must happen. *)
-  let head = expand_record_head head in
   divide_line (Context.specialize head)
     (get_expr_args_record ~scopes)
     (get_pat_args_record (Array.length all_labels))
