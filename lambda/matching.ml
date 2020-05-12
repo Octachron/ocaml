@@ -141,20 +141,6 @@ let all_record_args lbls =
       List.iter (fun ((_, lbl, _) as x) -> t.(lbl.lbl_pos) <- x) lbls;
       Array.to_list t
 
-let rec expand_record p =
-  match p.pat_desc with
-  | Tpat_record (l, _) ->
-      { p with pat_desc = Tpat_record (all_record_args l, Closed) }
-  | Tpat_alias (p, _, _) -> expand_record p
-  | _ -> p
-
-let expand_record_head head =
-  match Pattern_head.desc head with
-  | Record _ ->
-      head |> Pattern_head.to_omega_pattern |> expand_record
-      |> Pattern_head.deconstruct |> fst
-  | _ -> head
-
 let head_loc ~scopes head =
   Scoped_location.of_location ~scopes (Pattern_head.loc head)
 
@@ -170,16 +156,34 @@ module Non_empty_clause = struct
   let map_head f ((p, patl), act) = ((f p, patl), act)
 end
 
-type simple_view =
+type core_view =
   [ `Any
   | `Constant of constant
   | `Tuple of pattern list
   | `Construct of Longident.t loc * constructor_description * pattern list
   | `Variant of label * pattern option * row_desc ref
-  | `Record of
-    (Longident.t loc * label_description * pattern) list * closed_flag
   | `Array of pattern list
   | `Lazy of pattern ]
+
+type expanded_record_view =
+  [ `Expanded_record of
+      (Longident.t loc * label_description * pattern) list * closed_flag
+  ]
+
+type record_view =
+  [ `Record of
+      (Longident.t loc * label_description * pattern) list * closed_flag
+  ]
+
+type simple_view =
+  [ core_view
+  | `Expanded_record of
+    (Longident.t loc * label_description * pattern) list * closed_flag
+  ]
+
+type degenerate_simple_view =
+  [ simple_view | record_view ]
+
 
 type half_simple_view =
   [ simple_view | `Or of pattern * pattern * row_desc option ]
@@ -187,7 +191,9 @@ type half_simple_view =
 type general_view =
   [ half_simple_view
   | `Var of Ident.t * string loc
-  | `Alias of pattern * Ident.t * string loc ]
+  | `Alias of pattern * Ident.t * string loc
+  | record_view | expanded_record_view
+  ]
 
 module General : sig
   type pattern = general_view pattern_data
@@ -227,7 +233,7 @@ end = struct
     | `Construct (cstr, cst_descr, args) ->
         Tpat_construct (cstr, cst_descr, args)
     | `Variant (cstr, arg, row_desc) -> Tpat_variant (cstr, arg, row_desc)
-    | `Record (fields, closed) -> Tpat_record (fields, closed)
+    | `Record (fields, closed) | `Expanded_record (fields,closed) -> Tpat_record (fields, closed)
     | `Array ps -> Tpat_array ps
     | `Or (p, q, row_desc) -> Tpat_or (p, q, row_desc)
     | `Lazy p -> Tpat_lazy p
@@ -262,10 +268,21 @@ module Half_simple : sig
   type clause = pattern Non_empty_clause.t
 
   val of_clause : arg:lambda -> General.clause -> clause
+
+
+  (** We expose the information that record heads have been expanded *)
+  type expanded_head = private Pattern_head.t
+  val head : pattern -> expanded_head
+  val arity: expanded_head -> int
+
+  val omega: expanded_head
+
 end = struct
   type pattern = half_simple_view pattern_data
 
   type clause = pattern Non_empty_clause.t
+
+  type expanded_head = Pattern_head.t
 
   let rec simpl_under_orpat p =
     match p.pat_desc with
@@ -302,9 +319,11 @@ end = struct
           aux
             ( (General.view p, patl),
               bind_with_value_kind Alias (id, k) arg action )
-      | `Record ([], _) as view -> stop p view
+      | `Expanded_record _ as view ->
+          stop p view
+      | `Record ([],r) -> stop p (`Expanded_record ([],r))
       | `Record (lbls, closed) ->
-          let full_view = `Record (all_record_args lbls, closed) in
+          let full_view = `Expanded_record (all_record_args lbls, closed) in
           stop p full_view
       | `Or _ -> (
           let orpat = General.view (simpl_under_orpat (General.erase p)) in
@@ -317,6 +336,14 @@ end = struct
           stop p view
     in
     aux cl
+
+  let head p =
+    fst (Pattern_head.deconstruct (General.erase (p :> General.pattern)))
+
+  let arity = Pattern_head.arity
+
+  let omega = Pattern_head.omega
+
 end
 
 exception Cannot_flatten
@@ -326,7 +353,11 @@ module Simple : sig
 
   type clause = pattern Non_empty_clause.t
 
-  val head : pattern -> Pattern_head.t
+  type expanded_head = Half_simple.expanded_head
+  val head: pattern -> expanded_head
+  val arity: expanded_head -> int
+
+  val expand_record: degenerate_simple_view pattern_data -> pattern
 
   val explode_or_pat :
     Half_simple.pattern * Typedtree.pattern list ->
@@ -338,10 +369,11 @@ module Simple : sig
 end = struct
   type pattern = simple_view pattern_data
 
-  type clause = pattern Non_empty_clause.t
+  type expanded_head = Half_simple.expanded_head
+  let arity = Half_simple.arity
+  let head (p:pattern) = Half_simple.head (p:>Half_simple.pattern)
 
-  let head p =
-    fst (Pattern_head.deconstruct (General.erase (p :> General.pattern)))
+  type clause = pattern Non_empty_clause.t
 
   let alpha env (p : pattern) : pattern =
     let alpha_pat env p = Typedtree.alpha_pat env p in
@@ -354,9 +386,9 @@ end = struct
           `Construct (cstr, cst_descr, List.map (alpha_pat env) args)
       | `Variant (cstr, argo, row_desc) ->
           `Variant (cstr, Option.map (alpha_pat env) argo, row_desc)
-      | `Record (fields, closed) ->
+      | `Expanded_record (fields, closed) ->
           let alpha_field env (lid, l, p) = (lid, l, alpha_pat env p) in
-          `Record (List.map (alpha_field env) fields, closed)
+          `Expanded_record (List.map (alpha_field env) fields, closed)
       | `Array ps -> `Array (List.map (alpha_pat env) ps)
       | `Lazy p -> `Lazy (alpha_pat env p)
     in
@@ -374,6 +406,12 @@ end = struct
             Ident.create_local (Ident.name id) ))
       ids
 
+  let expand_record : degenerate_simple_view pattern_data -> pattern =
+    fun p ->
+    match p.pat_desc with
+    | `Record (l, _) -> { p with pat_desc = `Expanded_record (all_record_args l, Closed) }
+    | #simple_view as pat_desc -> { p with pat_desc }
+
   let explode_or_pat ((p : Half_simple.pattern), patl) ~arg ~mk_action ~vars
       (rem : clause list) : clause list =
     let rec explode p aliases rem =
@@ -386,6 +424,10 @@ end = struct
           explode
             { p with pat_desc = `Alias (Parmatch.omega, id, str) }
             aliases rem
+      | `Record _ as pat_desc ->
+          (* this case never happen: Half_simple always expand heads under the or-pattern *)
+          let fix = expand_record { p with pat_desc } in
+          explode (fix:>General.pattern) aliases rem
       | #simple_view as view ->
           let env = mk_alpha_env arg aliases vars in
           ( (alpha env { p with pat_desc = view }, patl),
@@ -395,11 +437,6 @@ end = struct
     explode (p : Half_simple.pattern :> General.pattern) [] rem
 end
 
-let expand_record_simple : Simple.pattern -> Simple.pattern =
- fun p ->
-  match p.pat_desc with
-  | `Record (l, _) -> { p with pat_desc = `Record (all_record_args l, Closed) }
-  | _ -> p
 
 type initial_clause = pattern list clause
 
@@ -419,10 +456,8 @@ let rec rev_split_at n ps =
 
 exception NoMatch
 
-let matcher discr (p : Simple.pattern) rem =
-  let discr = expand_record_head discr in
-  let p = expand_record_simple p in
-  let omegas = omegas (Pattern_head.arity discr) in
+let matcher (discr:Simple.expanded_head) (p : Simple.pattern) rem =
+  let omegas = omegas (Simple.arity discr) in
   let ph, args = Pattern_head.deconstruct (General.erase p) in
   let yes () = args @ rem in
   let no () = raise NoMatch in
@@ -432,7 +467,7 @@ let matcher discr (p : Simple.pattern) rem =
     else
       no ()
   in
-  match (Pattern_head.desc discr, Pattern_head.desc ph) with
+  match (Pattern_head.desc (discr:>Pattern_head.t), Pattern_head.desc ph) with
   | Any, _ -> rem
   | ( ( Constant _ | Construct _ | Variant _ | Lazy | Array _ | Record _
       | Tuple _ ),
@@ -489,7 +524,7 @@ module Context : sig
 
   val eprintf : t -> unit
 
-  val specialize : Pattern_head.t -> t -> t
+  val specialize : Half_simple.expanded_head -> t -> t
 
   val lshift : t -> t
 
@@ -568,7 +603,7 @@ end = struct
 
   let combine ctx = List.map Row.combine ctx
 
-  let specialize head ctx =
+  let specialize (head:Simple.expanded_head) ctx =
     let non_empty = function
       | { Row.left = _; right = [] } ->
           fatal_error "Matching.Context.specialize"
@@ -584,12 +619,12 @@ end = struct
               filter_rec ((left, p1, right) :: (left, p2, right) :: rem)
           | `Alias (p, _, _) -> filter_rec ((left, p, right) :: rem)
           | `Var _ -> filter_rec ((left, omega, right) :: rem)
-          | #simple_view as view -> (
+          | #degenerate_simple_view as view -> (
               let p = { p with pat_desc = view } in
-              match matcher head p right with
+              match matcher head (Simple.expand_record p) right with
               | exception NoMatch -> filter_rec rem
               | right ->
-                  let left = Pattern_head.to_omega_pattern head :: left in
+                  let left = Pattern_head.to_omega_pattern (head:>Pattern_head.t) :: left in
                   { Row.left; right }
                   :: filter_rec rem
             )
@@ -675,7 +710,7 @@ module Default_environment : sig
 
   val cons : matrix -> int -> t -> t
 
-  val specialize : Pattern_head.t -> t -> t
+  val specialize : Simple.expanded_head -> t -> t
 
   val pop_column : t -> t
 
@@ -710,9 +745,9 @@ end = struct
           | `Alias (p, _, _) -> filter_rec ((p, ps) :: rem)
           | `Var _ -> filter_rec ((omega, ps) :: rem)
           | `Or (p1, p2, _) -> filter_rec_or p1 p2 ps rem
-          | #simple_view as view -> (
+          | #degenerate_simple_view as view -> (
               let p = { p with pat_desc = view } in
-              match matcher p ps with
+              match matcher (Simple.expand_record p) ps with
               | exception NoMatch -> filter_rec rem
               | specialized ->
                   assert (List.length specialized = List.length ps + arity);
@@ -806,7 +841,7 @@ end = struct
     make_rec env
 
   let specialize head def =
-    specialize_ (Pattern_head.arity head) (matcher head) def
+    specialize_ (Simple.arity head) (matcher head) def
 
   let pop_column def = specialize_ 0 (fun _p rem -> rem) def
 
@@ -1125,12 +1160,13 @@ let half_simplify_clause ~arg (cls : Typedtree.pattern list clause) =
 
 let rec what_is_cases ~skip_any cases =
   match cases with
-  | [] -> Pattern_head.omega
+  | [] -> Half_simple.omega
   | ((p, _), _) :: rem -> (
-      let head = Simple.head p in
+      let shead = Simple.head p in
+      let head = (shead:>Pattern_head.t) in
       match Pattern_head.desc head with
       | Any when skip_any -> what_is_cases ~skip_any rem
-      | _ -> head
+      | _ -> shead
     )
 
 let what_is_first_case = what_is_cases ~skip_any:false
@@ -1145,7 +1181,7 @@ let pm_free_variables { cases } =
 (* Basic grouping predicates *)
 
 let can_group discr pat =
-  match (Pattern_head.desc discr, Pattern_head.desc (Simple.head pat)) with
+  match (Pattern_head.desc discr, Pattern_head.desc ((Simple.head pat):>Pattern_head.t)) with
   | Any, Any
   | Constant (Const_int _), Constant (Const_int _)
   | Constant (Const_char _), Constant (Const_char _)
@@ -1193,7 +1229,7 @@ let rec omega_like p =
   | _ -> false
 
 let simple_omega_like p =
-  match Pattern_head.desc (Simple.head p) with
+  match Pattern_head.desc ((Simple.head p):>Pattern_head.t) with
   | Any -> true
   | _ -> false
 
@@ -1385,7 +1421,7 @@ and split_no_or cls args def k =
   let rec split (cls : Simple.clause list) =
     let discr = what_is_first_case cls in
     collect discr [] [] cls
-  and collect group_discr rev_yes rev_no = function
+  and collect (group_discr:Simple.expanded_head) rev_yes rev_no = function
     | [ (((p, ps), _) as cl) ]
       when rev_yes <> [] && simple_omega_like p && List.for_all omega_like ps ->
         (* This enables an extra division in some frequent cases:
@@ -1400,7 +1436,7 @@ and split_no_or cls args def k =
            testsuite/tests/basic/patmatch_split_no_or.ml *)
         collect group_discr rev_yes (cl :: rev_no) []
     | (((p, _), _) as cl) :: rem ->
-        if can_group group_discr p && safe_before cl rev_no then
+        if can_group (group_discr:>Pattern_head.t) p && safe_before cl rev_no then
           collect group_discr (cl :: rev_yes) rev_no rem
         else if should_split group_discr then (
           assert (rev_no = []);
@@ -1411,9 +1447,9 @@ and split_no_or cls args def k =
     | [] ->
         let yes = List.rev rev_yes and no = List.rev rev_no in
         insert_split group_discr yes no def k
-  and insert_split group_discr yes no def k =
+  and insert_split (group_discr:Simple.expanded_head) yes no def k =
     let precompile_group =
-      match Pattern_head.desc group_discr with
+      match Pattern_head.desc (group_discr:>Pattern_head.t) with
       | Any -> precompile_var
       | _ -> do_not_precompile
     in
@@ -1425,8 +1461,8 @@ and split_no_or cls args def k =
         precompile_group args yes
           (Default_environment.cons matrix idef def)
           ((idef, next) :: nexts)
-  and should_split group_discr =
-    match Pattern_head.desc group_discr with
+  and should_split (group_discr:Simple.expanded_head) =
+    match Pattern_head.desc (group_discr:>Pattern_head.t) with
     | Construct { cstr_tag = Cstr_extension _ } ->
         (* it is unlikely that we will raise anything, so we split now *)
         true
@@ -1616,12 +1652,12 @@ let split_and_precompile ~arg_id ~arg_lambda pm =
 type cell = {
   pm : initial_clause pattern_matching;
   ctx : Context.t;
-  discr : Pattern_head.t
+  discr : Simple.expanded_head
 }
 (** a submatrix after specializing by discriminant pattern;
     [ctx] is the context shared by all rows. *)
 
-let make_matching get_expr_args head def ctx = function
+let make_matching get_expr_args (head:Simple.expanded_head) def ctx = function
   | [] -> fatal_error "Matching.make_matching"
   | arg :: rem ->
       let def = Default_environment.specialize head def
@@ -1724,7 +1760,8 @@ let get_pat_args_constr p rem =
   | { pat_desc = Tpat_construct (_, _, args) } -> args @ rem
   | _ -> assert false
 
-let get_expr_args_constr ~scopes head (arg, _mut) rem =
+let get_expr_args_constr ~scopes (ehead:Simple.expanded_head) (arg, _mut) rem =
+  let head = (ehead:>Pattern_head.t) in
   let cstr =
     match Pattern_head.desc head with
     | Construct cstr -> cstr
@@ -1763,7 +1800,7 @@ let divide_constructor ~scopes ctx pm =
 let get_expr_args_variant_constant = get_expr_args_constant
 
 let get_expr_args_variant_nonconst ~scopes head (arg, _mut) rem =
-  let loc = head_loc ~scopes head in
+  let loc = head_loc ~scopes (head:Simple.expanded_head:>Pattern_head.t) in
   (Lprim (Pfield 1, [ arg ], loc), Alias) :: rem
 
 let divide_variant ~scopes row ctx { cases = cl; args; default = def } =
@@ -1815,7 +1852,8 @@ let divide_var ctx pm =
   divide_line Context.lshift
     get_expr_args_var
     get_pat_args_var
-    Pattern_head.omega ctx pm
+    Half_simple.omega
+    ctx pm
 
 (* Matching and forcing a lazy value *)
 
@@ -1959,7 +1997,7 @@ let inline_lazy_force arg loc =
     inline_lazy_force_cond arg loc
 
 let get_expr_args_lazy ~scopes head (arg, _mut) rem =
-  let loc = head_loc ~scopes head in
+  let loc = head_loc ~scopes (head:Simple.expanded_head:>Pattern_head.t) in
   (inline_lazy_force arg loc, Strict) :: rem
 
 let divide_lazy ~scopes head ctx pm =
@@ -1976,9 +2014,9 @@ let get_pat_args_tuple arity p rem =
   | { pat_desc = Tpat_tuple args } -> args @ rem
   | _ -> assert false
 
-let get_expr_args_tuple ~scopes head (arg, _mut) rem =
-  let loc = head_loc ~scopes head in
-  let arity = Pattern_head.arity head in
+let get_expr_args_tuple ~scopes (head:Simple.expanded_head) (arg, _mut) rem =
+  let loc = head_loc ~scopes (head:>Pattern_head.t) in
+  let arity = Simple.arity head in
   let rec make_args pos =
     if pos >= arity then
       rem
@@ -1988,7 +2026,7 @@ let get_expr_args_tuple ~scopes head (arg, _mut) rem =
   make_args 0
 
 let divide_tuple ~scopes head ctx pm =
-  let arity = Pattern_head.arity head in
+  let arity = Simple.arity head in
   divide_line (Context.specialize head)
     (get_expr_args_tuple ~scopes)
     (get_pat_args_tuple arity)
@@ -2008,7 +2046,8 @@ let get_pat_args_record num_fields p rem =
       record_matching_line num_fields lbl_pat_list @ rem
   | _ -> assert false
 
-let get_expr_args_record ~scopes head (arg, _mut) rem =
+let get_expr_args_record ~scopes ehead (arg, _mut) rem =
+  let head = (ehead:Simple.expanded_head :> Pattern_head.t) in
   let loc = head_loc ~scopes head in
   let all_labels =
     match Pattern_head.desc head with
@@ -2058,6 +2097,7 @@ let get_pat_args_array p rem =
   | _ -> assert false
 
 let get_expr_args_array ~scopes kind head (arg, _mut) rem =
+  let head = (head:Simple.expanded_head:>Pattern_head.t) in
   let len =
     match Pattern_head.desc head with
     | Array len -> len
@@ -2962,7 +3002,7 @@ let compile_list compile_fun division =
             in
             ( (key, lambda1) :: c_rem,
               total,
-              Pattern_head.to_omega_pattern cell.discr :: new_discrs )
+              Pattern_head.to_omega_pattern (cell.discr:>Pattern_head.t) :: new_discrs )
           with Unused -> c_rec totals rem
       )
   in
@@ -3209,9 +3249,10 @@ and do_compile_matching ~scopes repr partial ctx pmh =
             assert false
       in
       let ph = what_is_cases pm.cases in
-      let pomega = Pattern_head.to_omega_pattern ph in
-      let ploc = head_loc ~scopes ph in
-      match Pattern_head.desc ph with
+      let gph = (ph:>Pattern_head.t) in
+      let pomega = Pattern_head.to_omega_pattern gph in
+      let ploc = head_loc ~scopes gph in
+      match Pattern_head.desc gph with
       | Any ->
           compile_no_test ~scopes
             divide_var
@@ -3236,7 +3277,7 @@ and do_compile_matching ~scopes repr partial ctx pmh =
             (compile_match ~scopes repr partial)
             partial (divide_constructor ~scopes)
             (combine_constructor ploc arg
-               (Pattern_head.env ph) cstr partial)
+               (Pattern_head.env gph) cstr partial)
             ctx pm
       | Array _ ->
           let kind = Typeopt.array_pattern_kind pomega in
