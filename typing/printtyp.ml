@@ -252,7 +252,7 @@ let set namespace x = map.(Namespace.id namespace) <- x
 let protected = ref S.empty
 
 let with_hidden ids f x =
-  let update m id = S.add (Ident.name id) m in
+  let update m (_,id) = S.add (Ident.name id) m in
   protect_refs [ R(protected, List.fold_left update !protected ids)]
     (fun () -> f x)
 
@@ -1656,11 +1656,13 @@ type syntactic_sig_item =
   { src: Types.signature_item; ghosts: Types.signature_item list }
 type rec_item_group =
   | Not_rec of syntactic_sig_item
-  | Rec_group of (Ident.t list * syntactic_sig_item list)
+  | Rec_group of ( (bool * Ident.t) list * syntactic_sig_item list)
 
-let with_hidden_items ~is_type ids f =
-  if is_type && not !Clflags.real_paths then
-    wrap_env (hide ids) (Naming_context.with_hidden ids f)
+let with_hidden_items ids f =
+  if not !Clflags.real_paths then
+    let type_ids =
+      List.filter_map (function (true,x) -> Some x | false, _ -> None ) ids in
+    wrap_env (hide type_ids) (Naming_context.with_hidden ids f)
   else Naming_context.with_hidden ids f
 
 let group_syntactic_items x =
@@ -1686,8 +1688,9 @@ let add_sigitem env x =
   Env.add_signature (x.src :: x.ghosts) env
 
 let recursive_sigitem = function
-  | Sig_class(id,_,rs,_) | Sig_class_type (id,_,rs,_) | Sig_type(id, _, rs, _)
-  | Sig_module(id, _, _, rs, _) -> Some (id,rs)
+  | Sig_type(id, _, rs, _) -> Some((true,id),rs)
+  | Sig_class(id,_,rs,_) | Sig_class_type (id,_,rs,_)
+  | Sig_module(id, _, _, rs, _) -> Some ((false,id),rs)
   | Sig_value _ | Sig_modtype _ | Sig_typext _  -> None
 
 let group_recursive_items x =
@@ -1756,11 +1759,8 @@ and trees_of_recursive_sigitem_group env group =
       match group with
       | Not_rec x -> add_sigitem env x, [display x]
       | Rec_group (ids,items) ->
-          let is_type = match items with
-            | {src=Sig_type _; _ } :: _ -> true
-            | _ -> false  in
           List.fold_left add_sigitem env items,
-          with_hidden_items ~is_type ids (List.map display) items
+          with_hidden_items ids (List.map display) items
 
 and tree_of_sigitem = function
   | Sig_value(id, decl, _) ->
@@ -2266,4 +2266,4 @@ let tree_of_modtype = tree_of_modtype ~ellipsis:false
 let type_expansion ty ppf ty' =
   type_expansion ppf (trees_of_type_expansion (ty,ty'))
 let tree_of_type_declaration id td rs =
-  with_hidden_items ~is_type:true [id] (tree_of_type_declaration id td) rs
+  with_hidden_items [true,id] (tree_of_type_declaration id td) rs
