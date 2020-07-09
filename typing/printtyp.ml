@@ -1745,16 +1745,16 @@ and tree_of_signature sg =
 
 and tree_of_signature_rec env' sg =
   let structured = group_recursive_items (group_syntactic_items sg) in
-  let collect_trees_of_rec_group (env,trees) group =
+  let collect_trees_of_rec_group group =
+    let env = !printing_env in
     let env', group_trees =
       Naming_context.with_ctx (fun () ->
-          trees_of_recursive_sigitem_group env group
+          trees_of_recursive_sigitem_group !printing_env group
         ) in
     set_printing_env env';
-    env', (env, group_trees) :: trees in
-  let _, rev_trees =
-    List.fold_left collect_trees_of_rec_group (env',[]) structured in
-  List.rev rev_trees
+    (env, group_trees) in
+  set_printing_env env';
+  List.map collect_trees_of_rec_group structured
 
 and trees_of_recursive_sigitem_group env group =
   let display x =  x.src, tree_of_sigitem x.src in
