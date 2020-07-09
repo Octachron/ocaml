@@ -1659,10 +1659,12 @@ type rec_item_group =
   | Rec_group of ( (bool * Ident.t) list * syntactic_sig_item list)
 
 let with_hidden_items ids f =
-  if not !Clflags.real_paths then
+  let with_hidden_in_printing_env ids f =
     let type_ids =
       List.filter_map (function (true,x) -> Some x | false, _ -> None ) ids in
-    wrap_env (hide type_ids) (Naming_context.with_hidden ids f)
+    wrap_env (hide type_ids) (Naming_context.with_hidden ids f) in
+  if not !Clflags.real_paths then
+    with_hidden_in_printing_env ids (Naming_context.with_hidden ids f)
   else Naming_context.with_hidden ids f
 
 let group_syntactic_items x =
