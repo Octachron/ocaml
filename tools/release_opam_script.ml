@@ -58,7 +58,7 @@ let variant_codename ppf = List.iter (variant_flag_codename ppf)
 let variant_flag_configure_option ppf = function
   | Flambda -> Format.fprintf ppf {|@ "--enable-flambda"|}
   | Fp -> Format.fprintf ppf {|@ "--enable-frame-pointers"|}
-  | Afl -> Format.fprintf ppf {|@ "--with-afl" "--disable-debug-runtime"|}
+  | Afl -> Format.fprintf ppf {|@ "--with-afl"@ "--disable-debug-runtime"|}
 
 let variant_configure_option ppf = List.iter (variant_flag_configure_option ppf)
 
@@ -137,14 +137,10 @@ let template version checksum ppf = Format.fprintf ppf (
 ^^ {|flags: compiler@,|}
 ^^ {|setenv: CAML_LD_LIBRARY_PATH = "%%{lib}%%/stublibs"@,|}
 ^^ {|build: [@,|}
-^^ {|  @[<hov 2>@[<hv 2>[@,"./configure"@ "--prefix=%%{prefix}%%"%a@;<0 -2>]@]|}
-^^ {|@ {os != "openbsd" & os != "macos"}@]@,|}
-^^ {|  [@,|}
-^^ {|    "./configure"@,|}
-^^ {|    @[<v>"--prefix=%%{prefix}%%"%a@]@,|}
-^^ {|    "CC=cc"@,|}
-^^ {|    "ASPP=cc -c"@,|}
-^^ {|  ] {os = "openbsd" | os = "macos"}@,|}
+^^ {|  @[<hv 2>[@,"./configure"@ "--prefix=%%{prefix}%%"%a@,|}
+^^ {|"CC=cc" {os = "openbsd" | os = "macos"}@,|}
+^^ {|"ASPP=cc -c" {os = "openbsd" | os = "macos"}|}
+^^ {|@;<0 -2>]@]@,|}
 ^^ {|  [make "-j%%{jobs}%%" {os != "cygwin"} "world"]@,|}
 ^^ {|  [make "-j%%{jobs}%%" {os != "cygwin"} "world.opt"]@,|}
 ^^ {|]@,|}
@@ -155,7 +151,7 @@ let template version checksum ppf = Format.fprintf ppf (
 ^^ {|}@,|}
 ^^ {|post-messages: [@,|}
 ^^ {|  "A failure in the middle of the build may be caused|}
-^^    {|by build parallelism@,|}
+^^ {| by build parallelism@,|}
 ^^ {|   (enabled by default).@,|}
 ^^ {|   Please file a bug report at https://github.com/ocaml/ocaml/issues"@,|}
 ^^ {|  {failure & jobs > 1 & os != "cygwin"}@,|}
@@ -167,7 +163,6 @@ let template version checksum ppf = Format.fprintf ppf (
   pp_core_version version.core
   pp_variant_intro version.variant
   pp_core_version version.core
-  variant_configure_option version.variant
   variant_configure_option version.variant
   pp_version version
   pp_checksum checksum
@@ -231,7 +226,7 @@ let args =
 
 
 let geometry ppf =
-      Format.pp_set_geometry ppf 65 72
+      Format.pp_set_geometry ppf ~max_indent:65 ~margin:72
 
 let out version fmt  = match !dir with
   | None ->
@@ -241,13 +236,14 @@ let out version fmt  = match !dir with
       let package =
         Format.asprintf "ocaml-variants.%a" pp_release_codename version in
       let dir = String.concat Filename.dir_sep [x; package ] in
-      let () = Unix.mkdir dir 0o777 in
+      let () = if not (Sys.file_exists dir) then Unix.mkdir dir 0o777 in
       let f = open_out @@ String.concat Filename.dir_sep [dir ; "opam"] in
       let ppf = Format.formatter_of_out_channel f in
       geometry ppf; Format.kfprintf (fun _ -> close_out f) ppf fmt
 
 let checksum () = match !checksum with
-  | None -> Sha256 (Format.sprintf "%064d" 0)
+  | None ->
+      Sha256 (Printf.sprintf "%064d" 0)
   | Some s -> s
 
 let by_variant core release variant =
