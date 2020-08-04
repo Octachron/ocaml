@@ -1,0 +1,64 @@
+Ptop_def
+  [
+    structure_item (//toplevel//[6,79+0]..[6,79+34])
+      Pstr_value Nonrec
+      [
+        <def>
+          pattern (//toplevel//[6,79+4]..[6,79+7])
+            Ppat_var "kas" (//toplevel//[6,79+4]..[6,79+7])
+          expression (//toplevel//[6,79+8]..[6,79+34]) ghost
+            Pexp_fun
+            Nolabel
+            None
+            pattern (//toplevel//[6,79+8]..[6,79+9])
+              Ppat_var "a" (//toplevel//[6,79+8]..[6,79+9])
+            expression (//toplevel//[6,79+12]..[6,79+34])
+              Pexp_match
+              expression (//toplevel//[6,79+18]..[6,79+19])
+                Pexp_ident "a" (//toplevel//[6,79+18]..[6,79+19])
+              [
+                <case>
+                  pattern (//toplevel//[6,79+25]..[6,79+26])
+                    Ppat_any
+                  expression (//toplevel//[6,79+30]..[6,79+34])
+                    Pexp_construct "true" (//toplevel//[6,79+30]..[6,79+34])
+                    None
+              ]
+      ]
+  ]
+
+let kas a = match a with | _ -> true;;
+[
+  structure_item (//toplevel//[6,79+0]..//toplevel//[6,79+34])
+    Tstr_value Nonrec
+    [
+      <def>
+        pattern (//toplevel//[6,79+4]..//toplevel//[6,79+7])
+          Tpat_var "kas/87"
+        expression (//toplevel//[6,79+8]..//toplevel//[6,79+34]) ghost
+          Texp_function
+          Nolabel
+          [
+            <case>
+              pattern (//toplevel//[6,79+8]..//toplevel//[6,79+9])
+                Tpat_var "a/89"
+              expression (//toplevel//[6,79+12]..//toplevel//[6,79+34])
+                Texp_match
+                expression (//toplevel//[6,79+18]..//toplevel//[6,79+19])
+                  Texp_ident "a/89"
+                [
+                  <case>
+                    pattern (//toplevel//[6,79+25]..//toplevel//[6,79+26])
+                      Tpat_value
+                      pattern (//toplevel//[6,79+25]..//toplevel//[6,79+26])
+                        Tpat_any
+                    expression (//toplevel//[6,79+30]..//toplevel//[6,79+34])
+                      Texp_construct "true"
+                      []
+                ]
+          ]
+    ]
+]
+
+{"phrase": "val kas : 'a -> bool = <fun>\n"}
+

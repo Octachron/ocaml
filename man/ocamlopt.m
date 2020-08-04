@@ -243,7 +243,10 @@ only print the error and its location;
 
 .B contextual
 like "short", but also display the source code snippet corresponding
-to the location of the error.
+to the location of the error;
+
+.B json
+prints in json format.
 
 The default setting is
 .B contextual.

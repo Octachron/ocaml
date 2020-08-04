@@ -1,0 +1,51 @@
+{"error_report":
+    [{"main":
+         {"location":
+             {"file": "warn_alert.ml",
+              "line": {"start": "6", "end": "6"},
+              "character": {"start": "12", "end": "78"}
+             },
+          "content":
+             "this pattern-matching is not exhaustive.\nHere is an example of a case that is not matched:\n\"\""
+         },
+      "kind": {"classsification": "warning", "id": "8"},
+      "submsgs": []
+     },
+     {"main":
+         {"location":
+             {"file": "warn_alert.ml",
+              "line": {"start": "6", "end": "6"},
+              "character": {"start": "60", "end": "76"}
+             },
+          "content":
+             "Stdlib.String.lowercase\nUse String.lowercase_ascii instead."
+         },
+      "kind": {"classsification": "alert", "id": "deprecated"},
+      "submsgs": []
+     },
+     {"main":
+         {"location":
+             {"file": "warn_alert.ml",
+              "line": {"start": "6", "end": "6"},
+              "character": {"start": "32", "end": "48"}
+             },
+          "content":
+             "Stdlib.String.uppercase\nUse String.uppercase_ascii instead."
+         },
+      "kind": {"classsification": "alert", "id": "deprecated"},
+      "submsgs": []
+     },
+     {"main":
+         {"location":
+             {"file": "warn_alert.ml",
+              "line": {"start": "5", "end": "5"},
+              "character": {"start": "4", "end": "8"}
+             },
+          "content":
+             "this pattern-matching is not exhaustive.\nHere is an example of a case that is not matched:\nSome _"
+         },
+      "kind": {"classsification": "warning", "id": "8"},
+      "submsgs": []
+     }
+    ]
+}

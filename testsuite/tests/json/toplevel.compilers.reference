@@ -1,0 +1,289 @@
+Ptop_def
+  [
+    structure_item (//toplevel//[6,107+0]..[6,107+30])
+      Pstr_eval
+      expression (//toplevel//[6,107+0]..[6,107+30])
+        Pexp_apply
+        expression (//toplevel//[6,107+0]..[6,107+25])
+          Pexp_ident "Printexc.record_backtrace" (//toplevel//[6,107+0]..[6,107+25])
+        [
+          <arg>
+          Nolabel
+            expression (//toplevel//[6,107+26]..[6,107+30])
+              Pexp_construct "true" (//toplevel//[6,107+26]..[6,107+30])
+              None
+        ]
+  ]
+
+;;Printexc.record_backtrace true;;
+[
+  structure_item (//toplevel//[6,107+0]..//toplevel//[6,107+30])
+    Tstr_eval
+    expression (//toplevel//[6,107+0]..//toplevel//[6,107+30])
+      Texp_apply
+      expression (//toplevel//[6,107+0]..//toplevel//[6,107+25])
+        Texp_ident "Stdlib!.Printexc.record_backtrace"
+      [
+        <arg>
+          Nolabel
+          expression (//toplevel//[6,107+26]..//toplevel//[6,107+30])
+            Texp_construct "true"
+            []
+      ]
+]
+
+(after <unknown> //toplevel//(6):107-137
+  (apply (field 6 (global Stdlib__printexc!)) 1a))
+(after <unknown> //toplevel//(6):107-137
+  (apply (field 6 (global Stdlib__printexc!)) 1a))
+	const 1a
+	push
+	getglobal Stdlib__printexc!
+	getfield 6
+	appterm 1, 2
+
+{"phrase": "- : unit = ()\n"}
+Ptop_def
+  [
+    structure_item (//toplevel//[2,1+0]..[2,1+26])
+      Pstr_value Nonrec
+      [
+        <def>
+          pattern (//toplevel//[2,1+4]..[2,1+5])
+            Ppat_var "f" (//toplevel//[2,1+4]..[2,1+5])
+          expression (//toplevel//[2,1+6]..[2,1+26]) ghost
+            Pexp_fun
+            Nolabel
+            None
+            pattern (//toplevel//[2,1+6]..[2,1+8])
+              Ppat_construct "()" (//toplevel//[2,1+6]..[2,1+8])
+              None
+            expression (//toplevel//[2,1+11]..[2,1+26])
+              Pexp_apply
+              expression (//toplevel//[2,1+11]..[2,1+16])
+                Pexp_ident "raise" (//toplevel//[2,1+11]..[2,1+16])
+              [
+                <arg>
+                Nolabel
+                  expression (//toplevel//[2,1+17]..[2,1+26])
+                    Pexp_construct "Not_found" (//toplevel//[2,1+17]..[2,1+26])
+                    None
+              ]
+      ]
+  ]
+
+let f () = raise Not_found;;
+[
+  structure_item (//toplevel//[2,1+0]..//toplevel//[2,1+26])
+    Tstr_value Nonrec
+    [
+      <def>
+        pattern (//toplevel//[2,1+4]..//toplevel//[2,1+5])
+          Tpat_var "f/129"
+        expression (//toplevel//[2,1+6]..//toplevel//[2,1+26]) ghost
+          Texp_function
+          Nolabel
+          [
+            <case>
+              pattern (//toplevel//[2,1+6]..//toplevel//[2,1+8])
+                Tpat_construct "()"
+                []
+              expression (//toplevel//[2,1+11]..//toplevel//[2,1+26])
+                Texp_apply
+                expression (//toplevel//[2,1+11]..//toplevel//[2,1+16])
+                  Texp_ident "Stdlib!.raise"
+                [
+                  <arg>
+                    Nolabel
+                    expression (//toplevel//[2,1+17]..//toplevel//[2,1+26])
+                      Texp_construct "Not_found"
+                      []
+                ]
+          ]
+    ]
+]
+
+(let
+  (f/129 =
+     (function param/131
+       (funct-body f //toplevel//(2)<ghost>:7-27
+         (before f //toplevel//(2):12-27
+           (raise (after f //toplevel//(2):12-27 (field 7 (global Stdlib!))))))))
+  (apply (field 1 (global Toploop!)) "f" f/129))
+(let
+  (f/129 =
+     (function param/131
+       (funct-body f //toplevel//(2)<ghost>:7-27
+         (before f //toplevel//(2):12-27
+           (raise (after f //toplevel//(2):12-27 (field 7 (global Stdlib!))))))))
+  (apply (field 1 (global Toploop!)) "f" f/129))
+	closure L1, 0
+	event "//toplevel//" 7-27
+	push
+	acc 0
+	push
+	const "f"
+	push
+	getglobal Toploop!
+	getfield 1
+	appterm 2, 4
+L1:	event "//toplevel//" 12-27
+	getglobal Stdlib!
+	getfield 7
+	event "//toplevel//" 12-27
+	raise
+
+{"phrase": "val f : unit -> 'a = <fun>\n"}
+Ptop_def
+  [
+    structure_item (//toplevel//[1,0+0]..[1,0+15])
+      Pstr_value Nonrec
+      [
+        <def>
+          pattern (//toplevel//[1,0+4]..[1,0+5])
+            Ppat_var "g" (//toplevel//[1,0+4]..[1,0+5])
+          expression (//toplevel//[1,0+6]..[1,0+15]) ghost
+            Pexp_fun
+            Nolabel
+            None
+            pattern (//toplevel//[1,0+6]..[1,0+8])
+              Ppat_construct "()" (//toplevel//[1,0+6]..[1,0+8])
+              None
+            expression (//toplevel//[1,0+11]..[1,0+15])
+              Pexp_apply
+              expression (//toplevel//[1,0+11]..[1,0+12])
+                Pexp_ident "f" (//toplevel//[1,0+11]..[1,0+12])
+              [
+                <arg>
+                Nolabel
+                  expression (//toplevel//[1,0+13]..[1,0+15])
+                    Pexp_construct "()" (//toplevel//[1,0+13]..[1,0+15])
+                    None
+              ]
+      ]
+  ]
+
+let g () = f ();;
+[
+  structure_item (//toplevel//[1,0+0]..//toplevel//[1,0+15])
+    Tstr_value Nonrec
+    [
+      <def>
+        pattern (//toplevel//[1,0+4]..//toplevel//[1,0+5])
+          Tpat_var "g/132"
+        expression (//toplevel//[1,0+6]..//toplevel//[1,0+15]) ghost
+          Texp_function
+          Nolabel
+          [
+            <case>
+              pattern (//toplevel//[1,0+6]..//toplevel//[1,0+8])
+                Tpat_construct "()"
+                []
+              expression (//toplevel//[1,0+11]..//toplevel//[1,0+15])
+                Texp_apply
+                expression (//toplevel//[1,0+11]..//toplevel//[1,0+12])
+                  Texp_ident "f/129"
+                [
+                  <arg>
+                    Nolabel
+                    expression (//toplevel//[1,0+13]..//toplevel//[1,0+15])
+                      Texp_construct "()"
+                      []
+                ]
+          ]
+    ]
+]
+
+(let
+  (f/129 = (apply (field 0 (global Toploop!)) "f")
+   g/132 =
+     (function param/134
+       (funct-body g //toplevel//(1)<ghost>:6-15
+         (before g //toplevel//(1):11-15
+           (after g //toplevel//(1):11-15 (apply f/129 0a))))))
+  (apply (field 1 (global Toploop!)) "g" g/132))
+(let
+  (f/129 = (apply (field 0 (global Toploop!)) "f")
+   g/132 =
+     (function param/134
+       (funct-body g //toplevel//(1)<ghost>:6-15
+         (before g //toplevel//(1):11-15
+           (after g //toplevel//(1):11-15 (apply f/129 0a))))))
+  (apply (field 1 (global Toploop!)) "g" g/132))
+	const "f"
+	push
+	getglobal Toploop!
+	getfield 0
+	apply 1
+	push
+	acc 0
+	closure L1, 1
+	event "//toplevel//" 6-15
+	push
+	acc 0
+	push
+	const "g"
+	push
+	getglobal Toploop!
+	getfield 1
+	appterm 2, 5
+L1:	event "//toplevel//" 11-15
+	const 0a
+	push
+	envacc 1
+	appterm 1, 2
+
+{"phrase": "val g : unit -> 'a = <fun>\n"}
+
+Ptop_def
+  [
+    structure_item (//toplevel//[1,0+0]..[1,0+4])
+      Pstr_eval
+      expression (//toplevel//[1,0+0]..[1,0+4])
+        Pexp_apply
+        expression (//toplevel//[1,0+0]..[1,0+1])
+          Pexp_ident "g" (//toplevel//[1,0+0]..[1,0+1])
+        [
+          <arg>
+          Nolabel
+            expression (//toplevel//[1,0+2]..[1,0+4])
+              Pexp_construct "()" (//toplevel//[1,0+2]..[1,0+4])
+              None
+        ]
+  ]
+
+;;g ();;
+[
+  structure_item (//toplevel//[1,0+0]..//toplevel//[1,0+4])
+    Tstr_eval
+    expression (//toplevel//[1,0+0]..//toplevel//[1,0+4])
+      Texp_apply
+      expression (//toplevel//[1,0+0]..//toplevel//[1,0+1])
+        Texp_ident "g/132"
+      [
+        <arg>
+          Nolabel
+          expression (//toplevel//[1,0+2]..//toplevel//[1,0+4])
+            Texp_construct "()"
+            []
+      ]
+]
+
+(let (g/132 = (apply (field 0 (global Toploop!)) "g"))
+  (after <unknown> //toplevel//(1):0-4 (apply g/132 0a)))
+(let (g/132 = (apply (field 0 (global Toploop!)) "g"))
+  (after <unknown> //toplevel//(1):0-4 (apply g/132 0a)))
+	const "g"
+	push
+	getglobal Toploop!
+	getfield 0
+	apply 1
+	push
+	const 0a
+	push
+	acc 1
+	appterm 1, 3
+
+Raised at f in file "//toplevel//", line 2, characters 11-26
+Called from Toploop.load_lambda in file "toplevel/toploop.ml", line 212, characters 17-27
+{"phrase": "Exception: Not_found.\n"}

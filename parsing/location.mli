@@ -109,7 +109,6 @@ val print_filename: formatter -> string -> unit
 val print_loc: formatter -> t -> unit
 val print_locs: formatter -> t list -> unit
 
-
 (** {1 Toplevel-specific location highlighting} *)
 
 val highlight_terminfo:
@@ -163,6 +162,8 @@ type report_printer = {
 *)
 
 (** {2 Report printers used in the compiler} *)
+
+val init_log : Format.formatter -> Misc.Log.t
 
 val batch_mode_printer: report_printer
 

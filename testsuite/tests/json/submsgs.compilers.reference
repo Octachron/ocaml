@@ -1,0 +1,24 @@
+
+{"error_report":
+    [{"main":
+         {"location":
+             {"file": "//toplevel//",
+              "line": {"start": "6", "end": "6"},
+              "character": {"start": "18", "end": "19"}
+             },
+          "content":
+             "This expression has type int but an expression was expected of type int64"
+         },
+      "kind": {"classsification": "error"},
+      "submsgs":
+         [{"location":
+              {"file": "_none_",
+               "line": {"start": "0", "end": "0"},
+               "character": {"start": "-1", "end": "-1"}
+              },
+           "content": "Hint: Did you mean `1L'?"
+          }
+         ]
+     }
+    ]
+}

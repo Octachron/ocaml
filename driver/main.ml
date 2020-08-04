@@ -19,19 +19,21 @@ open Compenv
 let usage = "Usage: ocamlc <options> <files>\nOptions are:"
 
 (* Error messages to standard error formatter *)
-let ppf = Format.err_formatter
 
 module Options = Main_args.Make_bytecomp_options (Main_args.Default.Main)
 
-let main () =
+let process_arguments ppf () =
   Clflags.add_arguments __LOC__ Options.list;
   Clflags.add_arguments __LOC__
     ["-depend", Arg.Unit Makedepend.main_from_option,
      "<options> Compute dependencies (use 'ocamlc -depend -help' for details)"];
+  readenv ppf Before_args;
+  Clflags.parse_arguments anonymous usage;
+  Compmisc.read_clflags_from_env ()
+
+let main log =
+  let ppf = Misc.Log.escape log in
   try
-    readenv ppf Before_args;
-    Clflags.parse_arguments anonymous usage;
-    Compmisc.read_clflags_from_env ();
     if !Clflags.plugin then
       fatal "-plugin is only supported up to OCaml 4.08.0";
     begin try
@@ -107,10 +109,16 @@ let main () =
       Warnings.check_fatal ();
     end;
   with x ->
-    Location.report_exception ppf x;
+    let out = Misc.Log.escape log in
+    Location.report_exception out x;
+    Misc.Log.flush_log log;
     exit 2
 
 let () =
-  main ();
-  Profile.print Format.std_formatter !Clflags.profile_columns;
+  let ppf = Format.err_formatter in
+  process_arguments ppf ();
+  let log = Location.init_log ppf in
+  main log;
+  Profile.print ppf !Clflags.profile_columns;
+  Misc.Log.flush_log log;
   exit 0

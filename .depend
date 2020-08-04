@@ -321,7 +321,8 @@ parsing/location.cmx : \
     utils/build_path_prefix_map.cmx \
     parsing/location.cmi
 parsing/location.cmi : \
-    utils/warnings.cmi
+    utils/warnings.cmi \
+    utils/misc.cmi
 parsing/longident.cmo : \
     utils/misc.cmi \
     parsing/longident.cmi
@@ -5824,6 +5825,7 @@ driver/errors.cmi :
 driver/main.cmo : \
     utils/warnings.cmi \
     utils/profile.cmi \
+    utils/misc.cmi \
     driver/makedepend.cmi \
     driver/main_args.cmi \
     parsing/location.cmi \
@@ -5839,6 +5841,7 @@ driver/main.cmo : \
 driver/main.cmx : \
     utils/warnings.cmx \
     utils/profile.cmx \
+    utils/misc.cmx \
     driver/makedepend.cmx \
     driver/main_args.cmx \
     parsing/location.cmx \
@@ -5942,6 +5945,7 @@ driver/optmain.cmo : \
     utils/profile.cmi \
     asmcomp/proc.cmi \
     driver/optcompile.cmi \
+    utils/misc.cmi \
     driver/makedepend.cmi \
     driver/main_args.cmi \
     parsing/location.cmi \
@@ -5962,6 +5966,7 @@ driver/optmain.cmx : \
     utils/profile.cmx \
     asmcomp/proc.cmx \
     driver/optcompile.cmx \
+    utils/misc.cmx \
     driver/makedepend.cmx \
     driver/main_args.cmx \
     parsing/location.cmx \

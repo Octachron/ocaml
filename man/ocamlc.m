@@ -287,13 +287,16 @@ only print the error and its location;
 
 .B contextual
 like "short", but also display the source code snippet corresponding
-to the location of the error.
+to the location of the error;
+
+.B json
+prints in json format.
 
 The default setting is
 .B contextual.
 
 The environment variable "OCAML_ERROR_STYLE" is considered if
-\-error\-style is not provided. Its values are short/contextual as
+\-error\-style is not provided. Its values are short/contextual/json as
 above.
 
 .TP

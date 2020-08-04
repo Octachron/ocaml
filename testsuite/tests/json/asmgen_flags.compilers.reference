@@ -1,0 +1,5116 @@
+[
+  structure_item (asmgen_flags.ml[6,212+0]..[6,212+34])
+    Pstr_value Nonrec
+    [
+      <def>
+        pattern (asmgen_flags.ml[6,212+4]..[6,212+7])
+          Ppat_var "kas" (asmgen_flags.ml[6,212+4]..[6,212+7])
+        expression (asmgen_flags.ml[6,212+8]..[6,212+34]) ghost
+          Pexp_fun
+          Nolabel
+          None
+          pattern (asmgen_flags.ml[6,212+8]..[6,212+9])
+            Ppat_var "a" (asmgen_flags.ml[6,212+8]..[6,212+9])
+          expression (asmgen_flags.ml[6,212+12]..[6,212+34])
+            Pexp_match
+            expression (asmgen_flags.ml[6,212+18]..[6,212+19])
+              Pexp_ident "a" (asmgen_flags.ml[6,212+18]..[6,212+19])
+            [
+              <case>
+                pattern (asmgen_flags.ml[6,212+25]..[6,212+26])
+                  Ppat_any
+                expression (asmgen_flags.ml[6,212+30]..[6,212+34])
+                  Pexp_construct "true" (asmgen_flags.ml[6,212+30]..[6,212+34])
+                  None
+            ]
+    ]
+]
+
+let kas a = match a with | _ -> true
+[
+  structure_item (asmgen_flags.ml[6,212+0]..asmgen_flags.ml[6,212+34])
+    Tstr_value Nonrec
+    [
+      <def>
+        pattern (asmgen_flags.ml[6,212+4]..asmgen_flags.ml[6,212+7])
+          Tpat_var "kas/80"
+        expression (asmgen_flags.ml[6,212+8]..asmgen_flags.ml[6,212+34]) ghost
+          Texp_function
+          Nolabel
+          [
+            <case>
+              pattern (asmgen_flags.ml[6,212+8]..asmgen_flags.ml[6,212+9])
+                Tpat_var "a/82"
+              expression (asmgen_flags.ml[6,212+12]..asmgen_flags.ml[6,212+34])
+                Texp_match
+                expression (asmgen_flags.ml[6,212+18]..asmgen_flags.ml[6,212+19])
+                  Texp_ident "a/82"
+                [
+                  <case>
+                    pattern (asmgen_flags.ml[6,212+25]..asmgen_flags.ml[6,212+26])
+                      Tpat_value
+                      pattern (asmgen_flags.ml[6,212+25]..asmgen_flags.ml[6,212+26])
+                        Tpat_any
+                    expression (asmgen_flags.ml[6,212+30]..asmgen_flags.ml[6,212+34])
+                      Texp_construct "true"
+                      []
+                ]
+          ]
+    ]
+]
+
+(seq
+  (let (kas/80 = (function a/82 1a))
+    (setfield_ptr(root-init) 0 (global Asmgen_flags!) kas/80))
+  0a)
+
+clambda:
+(seq
+  (let (kas/80 (closure  (fun camlAsmgen_flags__kas_80 1  a/82 1a) ))
+    (setfield_ptr(root-init) 0 (read_symbol camlAsmgen_flags) kas/80))
+  0a)
+*** After instruction selection
+camlAsmgen_flags__kas_80(R/0[%rax]) {asmgen_flags.ml:6,8-34}
+  { + R/0[%rax]}
+  a/29 := R/0[%rax]
+  {}
+  I/30 := 3
+  { + I/30}
+  R/0[%rax] := I/30
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After allocation combining
+camlAsmgen_flags__kas_80(R/0[%rax]) {asmgen_flags.ml:6,8-34}
+  { + R/0[%rax]}
+  a/29 := R/0[%rax]
+  {}
+  I/30 := 3
+  { + I/30}
+  R/0[%rax] := I/30
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After CSE
+camlAsmgen_flags__kas_80(R/0[%rax]) {asmgen_flags.ml:6,8-34}
+  { + R/0[%rax]}
+  a/29 := R/0[%rax]
+  {}
+  I/30 := 3
+  { + I/30}
+  R/0[%rax] := I/30
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** Liveness analysis
+camlAsmgen_flags__kas_80(R/0[%rax]) {asmgen_flags.ml:6,8-34}
+  {}
+  I/30 := 3
+  { + I/30}
+  R/0[%rax] := I/30
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After spilling
+camlAsmgen_flags__kas_80(R/0[%rax]) {asmgen_flags.ml:6,8-34}
+  {}
+  I/30 := 3
+  { + I/30}
+  R/0[%rax] := I/30
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After live range splitting
+camlAsmgen_flags__kas_80(R/0[%rax]) {asmgen_flags.ml:6,8-34}
+  {}
+  I/30 := 3
+  { + I/30}
+  R/0[%rax] := I/30
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** Liveness analysis
+camlAsmgen_flags__kas_80(R/0[%rax]) {asmgen_flags.ml:6,8-34}
+  {}
+  I/30 := 3
+  { + I/30}
+  R/0[%rax] := I/30
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** Intervals
+R/0[%rax]: [5;6]
+I/30: [3;4]
+*** After register allocation
+camlAsmgen_flags__kas_80(R/0[%rax]) {asmgen_flags.ml:6,8-34}
+  {}
+  I/30[%rax] := 3
+  { + I/30[%rax]}
+  R/0[%rax] := I/30[%rax]
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After insertion of reloading code
+camlAsmgen_flags__kas_80(R/0[%rax]) {asmgen_flags.ml:6,8-34}
+  {}
+  I/30[%rax] := 3
+  { + I/30[%rax]}
+  R/0[%rax] := I/30[%rax]
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** Linearized code
+camlAsmgen_flags__kas_80: {asmgen_flags.ml:6,8-34}
+  L100:
+  I/30[%rax] := 3
+  return R/0[%rax]
+  
+*** After instruction scheduling
+camlAsmgen_flags__kas_80: {asmgen_flags.ml:6,8-34}
+  L100:
+  I/30[%rax] := 3
+  return R/0[%rax]
+  
+*** After instruction selection
+camlAsmgen_flags__entry()
+  {}
+  kas/29 := "camlAsmgen_flags__1"
+  {}
+  I/30 := "camlAsmgen_flags"
+  { + kas/29 I/30}
+  val[I/30] := kas/29 (init)
+  {}
+  I/31 := 1
+  { + I/31}
+  R/0[%rax] := I/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After allocation combining
+camlAsmgen_flags__entry()
+  {}
+  kas/29 := "camlAsmgen_flags__1"
+  {}
+  I/30 := "camlAsmgen_flags"
+  { + kas/29 I/30}
+  val[I/30] := kas/29 (init)
+  {}
+  I/31 := 1
+  { + I/31}
+  R/0[%rax] := I/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After CSE
+camlAsmgen_flags__entry()
+  {}
+  kas/29 := "camlAsmgen_flags__1"
+  {}
+  I/30 := "camlAsmgen_flags"
+  { + kas/29 I/30}
+  val[I/30] := kas/29 (init)
+  {}
+  I/31 := 1
+  { + I/31}
+  R/0[%rax] := I/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** Liveness analysis
+camlAsmgen_flags__entry()
+  {}
+  kas/29 := "camlAsmgen_flags__1"
+  {kas/29}
+  I/30 := "camlAsmgen_flags"
+  { + kas/29 I/30}
+  val[I/30] := kas/29 (init)
+  {}
+  I/31 := 1
+  { + I/31}
+  R/0[%rax] := I/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After spilling
+camlAsmgen_flags__entry()
+  {}
+  kas/29 := "camlAsmgen_flags__1"
+  {kas/29}
+  I/30 := "camlAsmgen_flags"
+  { + kas/29 I/30}
+  val[I/30] := kas/29 (init)
+  {}
+  I/31 := 1
+  { + I/31}
+  R/0[%rax] := I/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After live range splitting
+camlAsmgen_flags__entry()
+  {}
+  kas/29 := "camlAsmgen_flags__1"
+  {}
+  I/30 := "camlAsmgen_flags"
+  { + kas/29 I/30}
+  val[I/30] := kas/29 (init)
+  {}
+  I/31 := 1
+  { + I/31}
+  R/0[%rax] := I/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** Liveness analysis
+camlAsmgen_flags__entry()
+  {}
+  kas/29 := "camlAsmgen_flags__1"
+  {kas/29}
+  I/30 := "camlAsmgen_flags"
+  { + kas/29 I/30}
+  val[I/30] := kas/29 (init)
+  {}
+  I/31 := 1
+  { + I/31}
+  R/0[%rax] := I/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** Intervals
+R/0[%rax]: [11;12]
+kas/29: [3;6]
+I/30: [5;6]
+I/31: [9;10]
+*** After register allocation
+camlAsmgen_flags__entry()
+  {}
+  kas/29[%rax] := "camlAsmgen_flags__1"
+  {kas/29[%rax]}
+  I/30[%rbx] := "camlAsmgen_flags"
+  { + kas/29[%rax] I/30[%rbx]}
+  val[I/30[%rbx]] := kas/29[%rax] (init)
+  {}
+  I/31[%rax] := 1
+  { + I/31[%rax]}
+  R/0[%rax] := I/31[%rax]
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After insertion of reloading code
+camlAsmgen_flags__entry()
+  {}
+  kas/29[%rax] := "camlAsmgen_flags__1"
+  {kas/29[%rax]}
+  I/30[%rbx] := "camlAsmgen_flags"
+  { + kas/29[%rax] I/30[%rbx]}
+  val[I/30[%rbx]] := kas/29[%rax] (init)
+  {}
+  I/31[%rax] := 1
+  { + I/31[%rax]}
+  R/0[%rax] := I/31[%rax]
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** Linearized code
+camlAsmgen_flags__entry:
+  L101:
+  kas/29[%rax] := "camlAsmgen_flags__1"
+  I/30[%rbx] := "camlAsmgen_flags"
+  val[I/30[%rbx]] := kas/29[%rax] (init)
+  I/31[%rax] := 1
+  return R/0[%rax]
+  
+*** After instruction scheduling
+camlAsmgen_flags__entry:
+  L101:
+  kas/29[%rax] := "camlAsmgen_flags__1"
+  I/30[%rbx] := "camlAsmgen_flags"
+  val[I/30[%rbx]] := kas/29[%rax] (init)
+  I/31[%rax] := 1
+  return R/0[%rax]
+  
+*** After instruction selection
+caml_program()
+  {}
+  call "camlCamlinternalFormatBasics__entry" 
+  {}
+  I/29 := "caml_globals_inited"
+  { + I/29}
+  [I/29] +:= 1
+  {}
+  call "camlStdlib__entry" 
+  {}
+  I/30 := "caml_globals_inited"
+  { + I/30}
+  [I/30] +:= 1
+  {}
+  call "camlAsmgen_flags__entry" 
+  {}
+  I/31 := "caml_globals_inited"
+  { + I/31}
+  [I/31] +:= 1
+  {}
+  call "camlStd_exit__entry" 
+  {}
+  I/32 := "caml_globals_inited"
+  { + I/32}
+  [I/32] +:= 1
+  {}
+  I/33 := 1
+  { + I/33}
+  R/0[%rax] := I/33
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After allocation combining
+caml_program()
+  {}
+  call "camlCamlinternalFormatBasics__entry" 
+  {}
+  I/29 := "caml_globals_inited"
+  { + I/29}
+  [I/29] +:= 1
+  {}
+  call "camlStdlib__entry" 
+  {}
+  I/30 := "caml_globals_inited"
+  { + I/30}
+  [I/30] +:= 1
+  {}
+  call "camlAsmgen_flags__entry" 
+  {}
+  I/31 := "caml_globals_inited"
+  { + I/31}
+  [I/31] +:= 1
+  {}
+  call "camlStd_exit__entry" 
+  {}
+  I/32 := "caml_globals_inited"
+  { + I/32}
+  [I/32] +:= 1
+  {}
+  I/33 := 1
+  { + I/33}
+  R/0[%rax] := I/33
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After CSE
+caml_program()
+  {}
+  call "camlCamlinternalFormatBasics__entry" 
+  {}
+  I/29 := "caml_globals_inited"
+  { + I/29}
+  [I/29] +:= 1
+  {}
+  call "camlStdlib__entry" 
+  {}
+  I/30 := "caml_globals_inited"
+  { + I/30}
+  [I/30] +:= 1
+  {}
+  call "camlAsmgen_flags__entry" 
+  {}
+  I/31 := "caml_globals_inited"
+  { + I/31}
+  [I/31] +:= 1
+  {}
+  call "camlStd_exit__entry" 
+  {}
+  I/32 := "caml_globals_inited"
+  { + I/32}
+  [I/32] +:= 1
+  {}
+  I/33 := 1
+  { + I/33}
+  R/0[%rax] := I/33
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** Liveness analysis
+caml_program()
+  {}
+  call "camlCamlinternalFormatBasics__entry" 
+  {}
+  I/29 := "caml_globals_inited"
+  { + I/29}
+  [I/29] +:= 1
+  {}
+  call "camlStdlib__entry" 
+  {}
+  I/30 := "caml_globals_inited"
+  { + I/30}
+  [I/30] +:= 1
+  {}
+  call "camlAsmgen_flags__entry" 
+  {}
+  I/31 := "caml_globals_inited"
+  { + I/31}
+  [I/31] +:= 1
+  {}
+  call "camlStd_exit__entry" 
+  {}
+  I/32 := "caml_globals_inited"
+  { + I/32}
+  [I/32] +:= 1
+  {}
+  I/33 := 1
+  { + I/33}
+  R/0[%rax] := I/33
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After spilling
+caml_program()
+  {}
+  call "camlCamlinternalFormatBasics__entry" 
+  {}
+  I/29 := "caml_globals_inited"
+  { + I/29}
+  [I/29] +:= 1
+  {}
+  call "camlStdlib__entry" 
+  {}
+  I/30 := "caml_globals_inited"
+  { + I/30}
+  [I/30] +:= 1
+  {}
+  call "camlAsmgen_flags__entry" 
+  {}
+  I/31 := "caml_globals_inited"
+  { + I/31}
+  [I/31] +:= 1
+  {}
+  call "camlStd_exit__entry" 
+  {}
+  I/32 := "caml_globals_inited"
+  { + I/32}
+  [I/32] +:= 1
+  {}
+  I/33 := 1
+  { + I/33}
+  R/0[%rax] := I/33
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After live range splitting
+caml_program()
+  {}
+  call "camlCamlinternalFormatBasics__entry" 
+  {}
+  I/29 := "caml_globals_inited"
+  { + I/29}
+  [I/29] +:= 1
+  {}
+  call "camlStdlib__entry" 
+  {}
+  I/30 := "caml_globals_inited"
+  { + I/30}
+  [I/30] +:= 1
+  {}
+  call "camlAsmgen_flags__entry" 
+  {}
+  I/31 := "caml_globals_inited"
+  { + I/31}
+  [I/31] +:= 1
+  {}
+  call "camlStd_exit__entry" 
+  {}
+  I/32 := "caml_globals_inited"
+  { + I/32}
+  [I/32] +:= 1
+  {}
+  I/33 := 1
+  { + I/33}
+  R/0[%rax] := I/33
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** Liveness analysis
+caml_program()
+  {}
+  call "camlCamlinternalFormatBasics__entry" 
+  {}
+  I/29 := "caml_globals_inited"
+  { + I/29}
+  [I/29] +:= 1
+  {}
+  call "camlStdlib__entry" 
+  {}
+  I/30 := "caml_globals_inited"
+  { + I/30}
+  [I/30] +:= 1
+  {}
+  call "camlAsmgen_flags__entry" 
+  {}
+  I/31 := "caml_globals_inited"
+  { + I/31}
+  [I/31] +:= 1
+  {}
+  call "camlStd_exit__entry" 
+  {}
+  I/32 := "caml_globals_inited"
+  { + I/32}
+  [I/32] +:= 1
+  {}
+  I/33 := 1
+  { + I/33}
+  R/0[%rax] := I/33
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** Intervals
+R/0[%rax]: [29;30]
+I/29: [5;6]
+I/30: [11;12]
+I/31: [17;18]
+I/32: [23;24]
+I/33: [27;28]
+*** After register allocation
+caml_program()
+  {}
+  call "camlCamlinternalFormatBasics__entry" 
+  {}
+  I/29[%rax] := "caml_globals_inited"
+  { + I/29[%rax]}
+  [I/29[%rax]] +:= 1
+  {}
+  call "camlStdlib__entry" 
+  {}
+  I/30[%rax] := "caml_globals_inited"
+  { + I/30[%rax]}
+  [I/30[%rax]] +:= 1
+  {}
+  call "camlAsmgen_flags__entry" 
+  {}
+  I/31[%rax] := "caml_globals_inited"
+  { + I/31[%rax]}
+  [I/31[%rax]] +:= 1
+  {}
+  call "camlStd_exit__entry" 
+  {}
+  I/32[%rax] := "caml_globals_inited"
+  { + I/32[%rax]}
+  [I/32[%rax]] +:= 1
+  {}
+  I/33[%rax] := 1
+  { + I/33[%rax]}
+  R/0[%rax] := I/33[%rax]
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After insertion of reloading code
+caml_program()
+  {}
+  call "camlCamlinternalFormatBasics__entry" 
+  {}
+  I/29[%rax] := "caml_globals_inited"
+  { + I/29[%rax]}
+  [I/29[%rax]] +:= 1
+  {}
+  call "camlStdlib__entry" 
+  {}
+  I/30[%rax] := "caml_globals_inited"
+  { + I/30[%rax]}
+  [I/30[%rax]] +:= 1
+  {}
+  call "camlAsmgen_flags__entry" 
+  {}
+  I/31[%rax] := "caml_globals_inited"
+  { + I/31[%rax]}
+  [I/31[%rax]] +:= 1
+  {}
+  call "camlStd_exit__entry" 
+  {}
+  I/32[%rax] := "caml_globals_inited"
+  { + I/32[%rax]}
+  [I/32[%rax]] +:= 1
+  {}
+  I/33[%rax] := 1
+  { + I/33[%rax]}
+  R/0[%rax] := I/33[%rax]
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** Linearized code
+caml_program:
+  prologue
+  L106:
+  {}
+  call "camlCamlinternalFormatBasics__entry" 
+  I/29[%rax] := "caml_globals_inited"
+  [I/29[%rax]] +:= 1
+  {}
+  call "camlStdlib__entry" 
+  I/30[%rax] := "caml_globals_inited"
+  [I/30[%rax]] +:= 1
+  {}
+  call "camlAsmgen_flags__entry" 
+  I/31[%rax] := "caml_globals_inited"
+  [I/31[%rax]] +:= 1
+  {}
+  call "camlStd_exit__entry" 
+  I/32[%rax] := "caml_globals_inited"
+  [I/32[%rax]] +:= 1
+  I/33[%rax] := 1
+  reload retaddr
+  return R/0[%rax]
+  
+*** After instruction scheduling
+caml_program:
+  prologue
+  L106:
+  {}
+  call "camlCamlinternalFormatBasics__entry" 
+  I/29[%rax] := "caml_globals_inited"
+  [I/29[%rax]] +:= 1
+  {}
+  call "camlStdlib__entry" 
+  I/30[%rax] := "caml_globals_inited"
+  [I/30[%rax]] +:= 1
+  {}
+  call "camlAsmgen_flags__entry" 
+  I/31[%rax] := "caml_globals_inited"
+  [I/31[%rax]] +:= 1
+  {}
+  call "camlStd_exit__entry" 
+  I/32[%rax] := "caml_globals_inited"
+  [I/32[%rax]] +:= 1
+  I/33[%rax] := 1
+  reload retaddr
+  return R/0[%rax]
+  
+*** After instruction selection
+caml_curry4(R/0[%rax] R/1[%rbx])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {}
+  V/31 := alloc 48
+  { + V/31}
+  [V/31 + -8] := 5367 (init)
+  {}
+  I/32 := "caml_curry4_1"
+  { + I/32 V/31}
+  val[V/31] := I/32 (init)
+  { + V/31}
+  [V/31 + 8] := 7 (init)
+  {}
+  I/33 := "caml_curry4_1_app"
+  { + I/33 V/31}
+  val[V/31 + 16] := I/33 (init)
+  { + arg/29 V/31}
+  val[V/31 + 24] := arg/29 (init)
+  { + clos/30 V/31}
+  val[V/31 + 32] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After allocation combining
+caml_curry4(R/0[%rax] R/1[%rbx])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {}
+  V/31 := alloc 48
+  { + V/31}
+  [V/31 + -8] := 5367 (init)
+  {}
+  I/32 := "caml_curry4_1"
+  { + I/32 V/31}
+  val[V/31] := I/32 (init)
+  { + V/31}
+  [V/31 + 8] := 7 (init)
+  {}
+  I/33 := "caml_curry4_1_app"
+  { + I/33 V/31}
+  val[V/31 + 16] := I/33 (init)
+  { + arg/29 V/31}
+  val[V/31 + 24] := arg/29 (init)
+  { + clos/30 V/31}
+  val[V/31 + 32] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After CSE
+caml_curry4(R/0[%rax] R/1[%rbx])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {}
+  V/31 := alloc 48
+  { + V/31}
+  [V/31 + -8] := 5367 (init)
+  {}
+  I/32 := "caml_curry4_1"
+  { + I/32 V/31}
+  val[V/31] := I/32 (init)
+  { + V/31}
+  [V/31 + 8] := 7 (init)
+  {}
+  I/33 := "caml_curry4_1_app"
+  { + I/33 V/31}
+  val[V/31 + 16] := I/33 (init)
+  { + arg/29 V/31}
+  val[V/31 + 24] := arg/29 (init)
+  { + clos/30 V/31}
+  val[V/31 + 32] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** Liveness analysis
+caml_curry4(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  {arg/29* + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {arg/29* clos/30*}
+  V/31 := alloc 48
+  {arg/29* clos/30* V/31* + V/31}
+  [V/31 + -8] := 5367 (init)
+  {arg/29* clos/30* V/31*}
+  I/32 := "caml_curry4_1"
+  {arg/29* clos/30* V/31* + I/32 V/31}
+  val[V/31] := I/32 (init)
+  {arg/29* clos/30* V/31* + V/31}
+  [V/31 + 8] := 7 (init)
+  {arg/29* clos/30* V/31*}
+  I/33 := "caml_curry4_1_app"
+  {arg/29* clos/30* V/31* + I/33 V/31}
+  val[V/31 + 16] := I/33 (init)
+  {clos/30* V/31* + arg/29 V/31}
+  val[V/31 + 24] := arg/29 (init)
+  {V/31* + clos/30 V/31}
+  val[V/31 + 32] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After spilling
+caml_curry4(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  {arg/29* + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {arg/29* clos/30*}
+  V/31 := alloc 48
+  {arg/29* clos/30* V/31* + V/31}
+  [V/31 + -8] := 5367 (init)
+  {arg/29* clos/30* V/31*}
+  I/32 := "caml_curry4_1"
+  {arg/29* clos/30* V/31* + I/32 V/31}
+  val[V/31] := I/32 (init)
+  {arg/29* clos/30* V/31* + V/31}
+  [V/31 + 8] := 7 (init)
+  {arg/29* clos/30* V/31*}
+  I/33 := "caml_curry4_1_app"
+  {arg/29* clos/30* V/31* + I/33 V/31}
+  val[V/31 + 16] := I/33 (init)
+  {clos/30* V/31* + arg/29 V/31}
+  val[V/31 + 24] := arg/29 (init)
+  {V/31* + clos/30 V/31}
+  val[V/31 + 32] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After live range splitting
+caml_curry4(R/0[%rax] R/1[%rbx])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {}
+  V/31 := alloc 48
+  { + V/31}
+  [V/31 + -8] := 5367 (init)
+  {}
+  I/32 := "caml_curry4_1"
+  { + I/32 V/31}
+  val[V/31] := I/32 (init)
+  { + V/31}
+  [V/31 + 8] := 7 (init)
+  {}
+  I/33 := "caml_curry4_1_app"
+  { + I/33 V/31}
+  val[V/31 + 16] := I/33 (init)
+  { + arg/29 V/31}
+  val[V/31 + 24] := arg/29 (init)
+  { + clos/30 V/31}
+  val[V/31 + 32] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** Liveness analysis
+caml_curry4(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  {arg/29* + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {arg/29* clos/30*}
+  V/31 := alloc 48
+  {arg/29* clos/30* V/31* + V/31}
+  [V/31 + -8] := 5367 (init)
+  {arg/29* clos/30* V/31*}
+  I/32 := "caml_curry4_1"
+  {arg/29* clos/30* V/31* + I/32 V/31}
+  val[V/31] := I/32 (init)
+  {arg/29* clos/30* V/31* + V/31}
+  [V/31 + 8] := 7 (init)
+  {arg/29* clos/30* V/31*}
+  I/33 := "caml_curry4_1_app"
+  {arg/29* clos/30* V/31* + I/33 V/31}
+  val[V/31 + 16] := I/33 (init)
+  {clos/30* V/31* + arg/29 V/31}
+  val[V/31 + 24] := arg/29 (init)
+  {V/31* + clos/30 V/31}
+  val[V/31 + 32] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** Intervals
+R/11[%r11]: [7;7]
+R/10[%r10]: [7;7]
+R/1[%rbx]: [2;4]
+R/0[%rax]: [2;2] [25;26]
+arg/29: [3;20]
+clos/30: [5;22]
+V/31: [7;24]
+I/32: [11;12]
+I/33: [17;18]
+*** After register allocation
+caml_curry4(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29[%rax] := R/0[%rax]
+  {arg/29[%rax]* + R/1[%rbx]}
+  clos/30[%rbx] := R/1[%rbx]
+  {arg/29[%rax]* clos/30[%rbx]*}
+  V/31[%rdi] := alloc 48
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + V/31[%rdi]}
+  [V/31[%rdi] + -8] := 5367 (init)
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]*}
+  I/32[%rsi] := "caml_curry4_1"
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + I/32[%rsi] V/31[%rdi]}
+  val[V/31[%rdi]] := I/32[%rsi] (init)
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + V/31[%rdi]}
+  [V/31[%rdi] + 8] := 7 (init)
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]*}
+  I/33[%rsi] := "caml_curry4_1_app"
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + I/33[%rsi] V/31[%rdi]}
+  val[V/31[%rdi] + 16] := I/33[%rsi] (init)
+  {clos/30[%rbx]* V/31[%rdi]* + arg/29[%rax] V/31[%rdi]}
+  val[V/31[%rdi] + 24] := arg/29[%rax] (init)
+  {V/31[%rdi]* + clos/30[%rbx] V/31[%rdi]}
+  val[V/31[%rdi] + 32] := clos/30[%rbx] (init)
+  { + V/31[%rdi]}
+  R/0[%rax] := V/31[%rdi]
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After insertion of reloading code
+caml_curry4(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29[%rax] := R/0[%rax]
+  {arg/29[%rax]* + R/1[%rbx]}
+  clos/30[%rbx] := R/1[%rbx]
+  {arg/29[%rax]* clos/30[%rbx]*}
+  V/31[%rdi] := alloc 48
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + V/31[%rdi]}
+  [V/31[%rdi] + -8] := 5367 (init)
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]*}
+  I/32[%rsi] := "caml_curry4_1"
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + I/32[%rsi] V/31[%rdi]}
+  val[V/31[%rdi]] := I/32[%rsi] (init)
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + V/31[%rdi]}
+  [V/31[%rdi] + 8] := 7 (init)
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]*}
+  I/33[%rsi] := "caml_curry4_1_app"
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + I/33[%rsi] V/31[%rdi]}
+  val[V/31[%rdi] + 16] := I/33[%rsi] (init)
+  {clos/30[%rbx]* V/31[%rdi]* + arg/29[%rax] V/31[%rdi]}
+  val[V/31[%rdi] + 24] := arg/29[%rax] (init)
+  {V/31[%rdi]* + clos/30[%rbx] V/31[%rdi]}
+  val[V/31[%rdi] + 32] := clos/30[%rbx] (init)
+  { + V/31[%rdi]}
+  R/0[%rax] := V/31[%rdi]
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** Linearized code
+caml_curry4:
+  prologue
+  L107:
+  {arg/29[%rax]* clos/30[%rbx]*}
+  V/31[%rdi] := alloc 48
+  [V/31[%rdi] + -8] := 5367 (init)
+  I/32[%rsi] := "caml_curry4_1"
+  val[V/31[%rdi]] := I/32[%rsi] (init)
+  [V/31[%rdi] + 8] := 7 (init)
+  I/33[%rsi] := "caml_curry4_1_app"
+  val[V/31[%rdi] + 16] := I/33[%rsi] (init)
+  val[V/31[%rdi] + 24] := arg/29[%rax] (init)
+  val[V/31[%rdi] + 32] := clos/30[%rbx] (init)
+  R/0[%rax] := V/31[%rdi]
+  reload retaddr
+  return R/0[%rax]
+  
+*** After instruction scheduling
+caml_curry4:
+  prologue
+  L107:
+  {arg/29[%rax]* clos/30[%rbx]*}
+  V/31[%rdi] := alloc 48
+  [V/31[%rdi] + -8] := 5367 (init)
+  I/32[%rsi] := "caml_curry4_1"
+  val[V/31[%rdi]] := I/32[%rsi] (init)
+  [V/31[%rdi] + 8] := 7 (init)
+  I/33[%rsi] := "caml_curry4_1_app"
+  val[V/31[%rdi] + 16] := I/33[%rsi] (init)
+  val[V/31[%rdi] + 24] := arg/29[%rax] (init)
+  val[V/31[%rdi] + 32] := clos/30[%rbx] (init)
+  R/0[%rax] := V/31[%rdi]
+  reload retaddr
+  return R/0[%rax]
+  
+*** After instruction selection
+caml_curry4_1_app(R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi])
+  { + R/0[%rax]}
+  arg2/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  arg3/30 := R/1[%rbx]
+  { + R/2[%rdi]}
+  arg4/31 := R/2[%rdi]
+  { + R/3[%rsi]}
+  clos/32 := R/3[%rsi]
+  { + clos/32}
+  clos/33 := val[clos/32 + 32]
+  { + clos/32}
+  V/34 := val[clos/32 + 24]
+  { + clos/33}
+  V/35 := val[clos/33 + 16]
+  { + V/34}
+  R/0[%rax] := V/34
+  { + arg2/29}
+  R/1[%rbx] := arg2/29
+  { + arg3/30}
+  R/2[%rdi] := arg3/30
+  { + arg4/31}
+  R/3[%rsi] := arg4/31
+  { + clos/33}
+  R/4[%rdx] := clos/33
+  { + V/35 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]}
+  tailcall V/35 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]
+*** After allocation combining
+caml_curry4_1_app(R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi])
+  { + R/0[%rax]}
+  arg2/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  arg3/30 := R/1[%rbx]
+  { + R/2[%rdi]}
+  arg4/31 := R/2[%rdi]
+  { + R/3[%rsi]}
+  clos/32 := R/3[%rsi]
+  { + clos/32}
+  clos/33 := val[clos/32 + 32]
+  { + clos/32}
+  V/34 := val[clos/32 + 24]
+  { + clos/33}
+  V/35 := val[clos/33 + 16]
+  { + V/34}
+  R/0[%rax] := V/34
+  { + arg2/29}
+  R/1[%rbx] := arg2/29
+  { + arg3/30}
+  R/2[%rdi] := arg3/30
+  { + arg4/31}
+  R/3[%rsi] := arg4/31
+  { + clos/33}
+  R/4[%rdx] := clos/33
+  { + V/35 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]}
+  tailcall V/35 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]
+*** After CSE
+caml_curry4_1_app(R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi])
+  { + R/0[%rax]}
+  arg2/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  arg3/30 := R/1[%rbx]
+  { + R/2[%rdi]}
+  arg4/31 := R/2[%rdi]
+  { + R/3[%rsi]}
+  clos/32 := R/3[%rsi]
+  { + clos/32}
+  clos/33 := val[clos/32 + 32]
+  { + clos/32}
+  V/34 := val[clos/32 + 24]
+  { + clos/33}
+  V/35 := val[clos/33 + 16]
+  { + V/34}
+  R/0[%rax] := V/34
+  { + arg2/29}
+  R/1[%rbx] := arg2/29
+  { + arg3/30}
+  R/2[%rdi] := arg3/30
+  { + arg4/31}
+  R/3[%rsi] := arg4/31
+  { + clos/33}
+  R/4[%rdx] := clos/33
+  { + V/35 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]}
+  tailcall V/35 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]
+*** Liveness analysis
+caml_curry4_1_app(R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi])
+  {R/1[%rbx] R/2[%rdi] R/3[%rsi] + R/0[%rax]}
+  arg2/29 := R/0[%rax]
+  {R/2[%rdi] R/3[%rsi] arg2/29* + R/1[%rbx]}
+  arg3/30 := R/1[%rbx]
+  {R/3[%rsi] arg2/29* arg3/30* + R/2[%rdi]}
+  arg4/31 := R/2[%rdi]
+  {arg2/29* arg3/30* arg4/31* + R/3[%rsi]}
+  clos/32 := R/3[%rsi]
+  {arg2/29* arg3/30* arg4/31* clos/32* + clos/32}
+  clos/33 := val[clos/32 + 32]
+  {arg2/29* arg3/30* arg4/31* clos/33* + clos/32}
+  V/34 := val[clos/32 + 24]
+  {arg2/29* arg3/30* arg4/31* clos/33* V/34* + clos/33}
+  V/35 := val[clos/33 + 16]
+  {arg2/29* arg3/30* arg4/31* clos/33* V/35* + V/34}
+  R/0[%rax] := V/34
+  {R/0[%rax] arg3/30* arg4/31* clos/33* V/35* + arg2/29}
+  R/1[%rbx] := arg2/29
+  {R/0[%rax] R/1[%rbx] arg4/31* clos/33* V/35* + arg3/30}
+  R/2[%rdi] := arg3/30
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] clos/33* V/35* + arg4/31}
+  R/3[%rsi] := arg4/31
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] V/35* + clos/33}
+  R/4[%rdx] := clos/33
+  { + V/35 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]}
+  tailcall V/35 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]
+*** After spilling
+caml_curry4_1_app(R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi])
+  {R/1[%rbx] R/2[%rdi] R/3[%rsi] + R/0[%rax]}
+  arg2/29 := R/0[%rax]
+  {R/2[%rdi] R/3[%rsi] arg2/29* + R/1[%rbx]}
+  arg3/30 := R/1[%rbx]
+  {R/3[%rsi] arg2/29* arg3/30* + R/2[%rdi]}
+  arg4/31 := R/2[%rdi]
+  {arg2/29* arg3/30* arg4/31* + R/3[%rsi]}
+  clos/32 := R/3[%rsi]
+  {arg2/29* arg3/30* arg4/31* clos/32* + clos/32}
+  clos/33 := val[clos/32 + 32]
+  {arg2/29* arg3/30* arg4/31* clos/33* + clos/32}
+  V/34 := val[clos/32 + 24]
+  {arg2/29* arg3/30* arg4/31* clos/33* V/34* + clos/33}
+  V/35 := val[clos/33 + 16]
+  {arg2/29* arg3/30* arg4/31* clos/33* V/35* + V/34}
+  R/0[%rax] := V/34
+  {R/0[%rax] arg3/30* arg4/31* clos/33* V/35* + arg2/29}
+  R/1[%rbx] := arg2/29
+  {R/0[%rax] R/1[%rbx] arg4/31* clos/33* V/35* + arg3/30}
+  R/2[%rdi] := arg3/30
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] clos/33* V/35* + arg4/31}
+  R/3[%rsi] := arg4/31
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] V/35* + clos/33}
+  R/4[%rdx] := clos/33
+  { + V/35 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]}
+  tailcall V/35 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]
+*** After live range splitting
+caml_curry4_1_app(R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi])
+  { + R/0[%rax]}
+  arg2/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  arg3/30 := R/1[%rbx]
+  { + R/2[%rdi]}
+  arg4/31 := R/2[%rdi]
+  { + R/3[%rsi]}
+  clos/32 := R/3[%rsi]
+  { + clos/32}
+  clos/33 := val[clos/32 + 32]
+  { + clos/32}
+  V/34 := val[clos/32 + 24]
+  { + clos/33}
+  V/35 := val[clos/33 + 16]
+  { + V/34}
+  R/0[%rax] := V/34
+  { + arg2/29}
+  R/1[%rbx] := arg2/29
+  { + arg3/30}
+  R/2[%rdi] := arg3/30
+  { + arg4/31}
+  R/3[%rsi] := arg4/31
+  { + clos/33}
+  R/4[%rdx] := clos/33
+  { + V/35 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]}
+  tailcall V/35 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]
+*** Liveness analysis
+caml_curry4_1_app(R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi])
+  {R/1[%rbx] R/2[%rdi] R/3[%rsi] + R/0[%rax]}
+  arg2/29 := R/0[%rax]
+  {R/2[%rdi] R/3[%rsi] arg2/29* + R/1[%rbx]}
+  arg3/30 := R/1[%rbx]
+  {R/3[%rsi] arg2/29* arg3/30* + R/2[%rdi]}
+  arg4/31 := R/2[%rdi]
+  {arg2/29* arg3/30* arg4/31* + R/3[%rsi]}
+  clos/32 := R/3[%rsi]
+  {arg2/29* arg3/30* arg4/31* clos/32* + clos/32}
+  clos/33 := val[clos/32 + 32]
+  {arg2/29* arg3/30* arg4/31* clos/33* + clos/32}
+  V/34 := val[clos/32 + 24]
+  {arg2/29* arg3/30* arg4/31* clos/33* V/34* + clos/33}
+  V/35 := val[clos/33 + 16]
+  {arg2/29* arg3/30* arg4/31* clos/33* V/35* + V/34}
+  R/0[%rax] := V/34
+  {R/0[%rax] arg3/30* arg4/31* clos/33* V/35* + arg2/29}
+  R/1[%rbx] := arg2/29
+  {R/0[%rax] R/1[%rbx] arg4/31* clos/33* V/35* + arg3/30}
+  R/2[%rdi] := arg3/30
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] clos/33* V/35* + arg4/31}
+  R/3[%rsi] := arg4/31
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] V/35* + clos/33}
+  R/4[%rdx] := clos/33
+  { + V/35 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]}
+  tailcall V/35 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]
+*** Intervals
+R/4[%rdx]: [25;26]
+R/3[%rsi]: [2;8] [23;26]
+R/2[%rdi]: [2;6] [21;26]
+R/1[%rbx]: [2;4] [19;26]
+R/0[%rax]: [2;2] [17;26]
+arg2/29: [3;18]
+arg3/30: [5;20]
+arg4/31: [7;22]
+clos/32: [9;12]
+clos/33: [11;24]
+V/34: [13;16]
+V/35: [15;26]
+*** After register allocation
+caml_curry4_1_app(R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi])
+  {R/1[%rbx] R/2[%rdi] R/3[%rsi] + R/0[%rax]}
+  arg2/29[%rdx] := R/0[%rax]
+  {R/2[%rdi] R/3[%rsi] arg2/29[%rdx]* + R/1[%rbx]}
+  arg3/30[%rcx] := R/1[%rbx]
+  {R/3[%rsi] arg2/29[%rdx]* arg3/30[%rcx]* + R/2[%rdi]}
+  arg4/31[%r8] := R/2[%rdi]
+  {arg2/29[%rdx]* arg3/30[%rcx]* arg4/31[%r8]* + R/3[%rsi]}
+  clos/32[%rax] := R/3[%rsi]
+  {arg2/29[%rdx]* arg3/30[%rcx]* arg4/31[%r8]* clos/32[%rax]* +
+   clos/32[%rax]}
+  clos/33[%r9] := val[clos/32[%rax] + 32]
+  {arg2/29[%rdx]* arg3/30[%rcx]* arg4/31[%r8]* clos/33[%r9]* + clos/32[%rax]}
+  V/34[%rax] := val[clos/32[%rax] + 24]
+  {arg2/29[%rdx]* arg3/30[%rcx]* arg4/31[%r8]* clos/33[%r9]* V/34[%rax]* +
+   clos/33[%r9]}
+  V/35[%r12] := val[clos/33[%r9] + 16]
+  {arg2/29[%rdx]* arg3/30[%rcx]* arg4/31[%r8]* clos/33[%r9]* V/35[%r12]* +
+   V/34[%rax]}
+  R/0[%rax] := V/34[%rax]
+  {R/0[%rax] arg3/30[%rcx]* arg4/31[%r8]* clos/33[%r9]* V/35[%r12]* +
+   arg2/29[%rdx]}
+  R/1[%rbx] := arg2/29[%rdx]
+  {R/0[%rax] R/1[%rbx] arg4/31[%r8]* clos/33[%r9]* V/35[%r12]* +
+   arg3/30[%rcx]}
+  R/2[%rdi] := arg3/30[%rcx]
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] clos/33[%r9]* V/35[%r12]* + arg4/31[%r8]}
+  R/3[%rsi] := arg4/31[%r8]
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] V/35[%r12]* + clos/33[%r9]}
+  R/4[%rdx] := clos/33[%r9]
+  { + V/35[%r12] R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]}
+  tailcall V/35[%r12] R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]
+*** After insertion of reloading code
+caml_curry4_1_app(R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi])
+  {R/1[%rbx] R/2[%rdi] R/3[%rsi] + R/0[%rax]}
+  arg2/29[%rdx] := R/0[%rax]
+  {R/2[%rdi] R/3[%rsi] arg2/29[%rdx]* + R/1[%rbx]}
+  arg3/30[%rcx] := R/1[%rbx]
+  {R/3[%rsi] arg2/29[%rdx]* arg3/30[%rcx]* + R/2[%rdi]}
+  arg4/31[%r8] := R/2[%rdi]
+  {arg2/29[%rdx]* arg3/30[%rcx]* arg4/31[%r8]* + R/3[%rsi]}
+  clos/32[%rax] := R/3[%rsi]
+  {arg2/29[%rdx]* arg3/30[%rcx]* arg4/31[%r8]* clos/32[%rax]* +
+   clos/32[%rax]}
+  clos/33[%r9] := val[clos/32[%rax] + 32]
+  {arg2/29[%rdx]* arg3/30[%rcx]* arg4/31[%r8]* clos/33[%r9]* + clos/32[%rax]}
+  V/34[%rax] := val[clos/32[%rax] + 24]
+  {arg2/29[%rdx]* arg3/30[%rcx]* arg4/31[%r8]* clos/33[%r9]* V/34[%rax]* +
+   clos/33[%r9]}
+  V/35[%r12] := val[clos/33[%r9] + 16]
+  {arg2/29[%rdx]* arg3/30[%rcx]* arg4/31[%r8]* clos/33[%r9]* V/35[%r12]* +
+   V/34[%rax]}
+  R/0[%rax] := V/34[%rax]
+  {R/0[%rax] arg3/30[%rcx]* arg4/31[%r8]* clos/33[%r9]* V/35[%r12]* +
+   arg2/29[%rdx]}
+  R/1[%rbx] := arg2/29[%rdx]
+  {R/0[%rax] R/1[%rbx] arg4/31[%r8]* clos/33[%r9]* V/35[%r12]* +
+   arg3/30[%rcx]}
+  R/2[%rdi] := arg3/30[%rcx]
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] clos/33[%r9]* V/35[%r12]* + arg4/31[%r8]}
+  R/3[%rsi] := arg4/31[%r8]
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] V/35[%r12]* + clos/33[%r9]}
+  R/4[%rdx] := clos/33[%r9]
+  { + V/35[%r12] R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]}
+  tailcall V/35[%r12] R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]
+*** Linearized code
+caml_curry4_1_app:
+  L112:
+  arg2/29[%rdx] := R/0[%rax]
+  arg3/30[%rcx] := R/1[%rbx]
+  arg4/31[%r8] := R/2[%rdi]
+  clos/32[%rax] := R/3[%rsi]
+  clos/33[%r9] := val[clos/32[%rax] + 32]
+  V/34[%rax] := val[clos/32[%rax] + 24]
+  V/35[%r12] := val[clos/33[%r9] + 16]
+  R/1[%rbx] := arg2/29[%rdx]
+  R/2[%rdi] := arg3/30[%rcx]
+  R/3[%rsi] := arg4/31[%r8]
+  R/4[%rdx] := clos/33[%r9]
+  tailcall V/35[%r12] R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]
+  
+*** After instruction scheduling
+caml_curry4_1_app:
+  L112:
+  arg2/29[%rdx] := R/0[%rax]
+  arg3/30[%rcx] := R/1[%rbx]
+  arg4/31[%r8] := R/2[%rdi]
+  clos/32[%rax] := R/3[%rsi]
+  clos/33[%r9] := val[clos/32[%rax] + 32]
+  V/34[%rax] := val[clos/32[%rax] + 24]
+  V/35[%r12] := val[clos/33[%r9] + 16]
+  R/1[%rbx] := arg2/29[%rdx]
+  R/2[%rdi] := arg3/30[%rcx]
+  R/3[%rsi] := arg4/31[%r8]
+  R/4[%rdx] := clos/33[%r9]
+  tailcall V/35[%r12] R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]
+  
+*** After instruction selection
+caml_curry4_1(R/0[%rax] R/1[%rbx])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {}
+  V/31 := alloc 48
+  { + V/31}
+  [V/31 + -8] := 5367 (init)
+  {}
+  I/32 := "caml_curry4_2"
+  { + I/32 V/31}
+  val[V/31] := I/32 (init)
+  { + V/31}
+  [V/31 + 8] := 5 (init)
+  {}
+  I/33 := "caml_curry4_2_app"
+  { + I/33 V/31}
+  val[V/31 + 16] := I/33 (init)
+  { + arg/29 V/31}
+  val[V/31 + 24] := arg/29 (init)
+  { + clos/30 V/31}
+  val[V/31 + 32] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After allocation combining
+caml_curry4_1(R/0[%rax] R/1[%rbx])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {}
+  V/31 := alloc 48
+  { + V/31}
+  [V/31 + -8] := 5367 (init)
+  {}
+  I/32 := "caml_curry4_2"
+  { + I/32 V/31}
+  val[V/31] := I/32 (init)
+  { + V/31}
+  [V/31 + 8] := 5 (init)
+  {}
+  I/33 := "caml_curry4_2_app"
+  { + I/33 V/31}
+  val[V/31 + 16] := I/33 (init)
+  { + arg/29 V/31}
+  val[V/31 + 24] := arg/29 (init)
+  { + clos/30 V/31}
+  val[V/31 + 32] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After CSE
+caml_curry4_1(R/0[%rax] R/1[%rbx])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {}
+  V/31 := alloc 48
+  { + V/31}
+  [V/31 + -8] := 5367 (init)
+  {}
+  I/32 := "caml_curry4_2"
+  { + I/32 V/31}
+  val[V/31] := I/32 (init)
+  { + V/31}
+  [V/31 + 8] := 5 (init)
+  {}
+  I/33 := "caml_curry4_2_app"
+  { + I/33 V/31}
+  val[V/31 + 16] := I/33 (init)
+  { + arg/29 V/31}
+  val[V/31 + 24] := arg/29 (init)
+  { + clos/30 V/31}
+  val[V/31 + 32] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** Liveness analysis
+caml_curry4_1(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  {arg/29* + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {arg/29* clos/30*}
+  V/31 := alloc 48
+  {arg/29* clos/30* V/31* + V/31}
+  [V/31 + -8] := 5367 (init)
+  {arg/29* clos/30* V/31*}
+  I/32 := "caml_curry4_2"
+  {arg/29* clos/30* V/31* + I/32 V/31}
+  val[V/31] := I/32 (init)
+  {arg/29* clos/30* V/31* + V/31}
+  [V/31 + 8] := 5 (init)
+  {arg/29* clos/30* V/31*}
+  I/33 := "caml_curry4_2_app"
+  {arg/29* clos/30* V/31* + I/33 V/31}
+  val[V/31 + 16] := I/33 (init)
+  {clos/30* V/31* + arg/29 V/31}
+  val[V/31 + 24] := arg/29 (init)
+  {V/31* + clos/30 V/31}
+  val[V/31 + 32] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After spilling
+caml_curry4_1(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  {arg/29* + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {arg/29* clos/30*}
+  V/31 := alloc 48
+  {arg/29* clos/30* V/31* + V/31}
+  [V/31 + -8] := 5367 (init)
+  {arg/29* clos/30* V/31*}
+  I/32 := "caml_curry4_2"
+  {arg/29* clos/30* V/31* + I/32 V/31}
+  val[V/31] := I/32 (init)
+  {arg/29* clos/30* V/31* + V/31}
+  [V/31 + 8] := 5 (init)
+  {arg/29* clos/30* V/31*}
+  I/33 := "caml_curry4_2_app"
+  {arg/29* clos/30* V/31* + I/33 V/31}
+  val[V/31 + 16] := I/33 (init)
+  {clos/30* V/31* + arg/29 V/31}
+  val[V/31 + 24] := arg/29 (init)
+  {V/31* + clos/30 V/31}
+  val[V/31 + 32] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After live range splitting
+caml_curry4_1(R/0[%rax] R/1[%rbx])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {}
+  V/31 := alloc 48
+  { + V/31}
+  [V/31 + -8] := 5367 (init)
+  {}
+  I/32 := "caml_curry4_2"
+  { + I/32 V/31}
+  val[V/31] := I/32 (init)
+  { + V/31}
+  [V/31 + 8] := 5 (init)
+  {}
+  I/33 := "caml_curry4_2_app"
+  { + I/33 V/31}
+  val[V/31 + 16] := I/33 (init)
+  { + arg/29 V/31}
+  val[V/31 + 24] := arg/29 (init)
+  { + clos/30 V/31}
+  val[V/31 + 32] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** Liveness analysis
+caml_curry4_1(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  {arg/29* + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {arg/29* clos/30*}
+  V/31 := alloc 48
+  {arg/29* clos/30* V/31* + V/31}
+  [V/31 + -8] := 5367 (init)
+  {arg/29* clos/30* V/31*}
+  I/32 := "caml_curry4_2"
+  {arg/29* clos/30* V/31* + I/32 V/31}
+  val[V/31] := I/32 (init)
+  {arg/29* clos/30* V/31* + V/31}
+  [V/31 + 8] := 5 (init)
+  {arg/29* clos/30* V/31*}
+  I/33 := "caml_curry4_2_app"
+  {arg/29* clos/30* V/31* + I/33 V/31}
+  val[V/31 + 16] := I/33 (init)
+  {clos/30* V/31* + arg/29 V/31}
+  val[V/31 + 24] := arg/29 (init)
+  {V/31* + clos/30 V/31}
+  val[V/31 + 32] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** Intervals
+R/11[%r11]: [7;7]
+R/10[%r10]: [7;7]
+R/1[%rbx]: [2;4]
+R/0[%rax]: [2;2] [25;26]
+arg/29: [3;20]
+clos/30: [5;22]
+V/31: [7;24]
+I/32: [11;12]
+I/33: [17;18]
+*** After register allocation
+caml_curry4_1(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29[%rax] := R/0[%rax]
+  {arg/29[%rax]* + R/1[%rbx]}
+  clos/30[%rbx] := R/1[%rbx]
+  {arg/29[%rax]* clos/30[%rbx]*}
+  V/31[%rdi] := alloc 48
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + V/31[%rdi]}
+  [V/31[%rdi] + -8] := 5367 (init)
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]*}
+  I/32[%rsi] := "caml_curry4_2"
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + I/32[%rsi] V/31[%rdi]}
+  val[V/31[%rdi]] := I/32[%rsi] (init)
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + V/31[%rdi]}
+  [V/31[%rdi] + 8] := 5 (init)
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]*}
+  I/33[%rsi] := "caml_curry4_2_app"
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + I/33[%rsi] V/31[%rdi]}
+  val[V/31[%rdi] + 16] := I/33[%rsi] (init)
+  {clos/30[%rbx]* V/31[%rdi]* + arg/29[%rax] V/31[%rdi]}
+  val[V/31[%rdi] + 24] := arg/29[%rax] (init)
+  {V/31[%rdi]* + clos/30[%rbx] V/31[%rdi]}
+  val[V/31[%rdi] + 32] := clos/30[%rbx] (init)
+  { + V/31[%rdi]}
+  R/0[%rax] := V/31[%rdi]
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After insertion of reloading code
+caml_curry4_1(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29[%rax] := R/0[%rax]
+  {arg/29[%rax]* + R/1[%rbx]}
+  clos/30[%rbx] := R/1[%rbx]
+  {arg/29[%rax]* clos/30[%rbx]*}
+  V/31[%rdi] := alloc 48
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + V/31[%rdi]}
+  [V/31[%rdi] + -8] := 5367 (init)
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]*}
+  I/32[%rsi] := "caml_curry4_2"
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + I/32[%rsi] V/31[%rdi]}
+  val[V/31[%rdi]] := I/32[%rsi] (init)
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + V/31[%rdi]}
+  [V/31[%rdi] + 8] := 5 (init)
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]*}
+  I/33[%rsi] := "caml_curry4_2_app"
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + I/33[%rsi] V/31[%rdi]}
+  val[V/31[%rdi] + 16] := I/33[%rsi] (init)
+  {clos/30[%rbx]* V/31[%rdi]* + arg/29[%rax] V/31[%rdi]}
+  val[V/31[%rdi] + 24] := arg/29[%rax] (init)
+  {V/31[%rdi]* + clos/30[%rbx] V/31[%rdi]}
+  val[V/31[%rdi] + 32] := clos/30[%rbx] (init)
+  { + V/31[%rdi]}
+  R/0[%rax] := V/31[%rdi]
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** Linearized code
+caml_curry4_1:
+  prologue
+  L113:
+  {arg/29[%rax]* clos/30[%rbx]*}
+  V/31[%rdi] := alloc 48
+  [V/31[%rdi] + -8] := 5367 (init)
+  I/32[%rsi] := "caml_curry4_2"
+  val[V/31[%rdi]] := I/32[%rsi] (init)
+  [V/31[%rdi] + 8] := 5 (init)
+  I/33[%rsi] := "caml_curry4_2_app"
+  val[V/31[%rdi] + 16] := I/33[%rsi] (init)
+  val[V/31[%rdi] + 24] := arg/29[%rax] (init)
+  val[V/31[%rdi] + 32] := clos/30[%rbx] (init)
+  R/0[%rax] := V/31[%rdi]
+  reload retaddr
+  return R/0[%rax]
+  
+*** After instruction scheduling
+caml_curry4_1:
+  prologue
+  L113:
+  {arg/29[%rax]* clos/30[%rbx]*}
+  V/31[%rdi] := alloc 48
+  [V/31[%rdi] + -8] := 5367 (init)
+  I/32[%rsi] := "caml_curry4_2"
+  val[V/31[%rdi]] := I/32[%rsi] (init)
+  [V/31[%rdi] + 8] := 5 (init)
+  I/33[%rsi] := "caml_curry4_2_app"
+  val[V/31[%rdi] + 16] := I/33[%rsi] (init)
+  val[V/31[%rdi] + 24] := arg/29[%rax] (init)
+  val[V/31[%rdi] + 32] := clos/30[%rbx] (init)
+  R/0[%rax] := V/31[%rdi]
+  reload retaddr
+  return R/0[%rax]
+  
+*** After instruction selection
+caml_curry4_2_app(R/0[%rax] R/1[%rbx] R/2[%rdi])
+  { + R/0[%rax]}
+  arg3/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  arg4/30 := R/1[%rbx]
+  { + R/2[%rdi]}
+  clos/31 := R/2[%rdi]
+  { + clos/31}
+  clos/32 := val[clos/31 + 32]
+  { + clos/32}
+  clos/33 := val[clos/32 + 32]
+  { + clos/31}
+  V/34 := val[clos/31 + 24]
+  { + clos/32}
+  V/35 := val[clos/32 + 24]
+  { + clos/33}
+  V/36 := val[clos/33 + 16]
+  { + V/35}
+  R/0[%rax] := V/35
+  { + V/34}
+  R/1[%rbx] := V/34
+  { + arg3/29}
+  R/2[%rdi] := arg3/29
+  { + arg4/30}
+  R/3[%rsi] := arg4/30
+  { + clos/33}
+  R/4[%rdx] := clos/33
+  { + V/36 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]}
+  tailcall V/36 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]
+*** After allocation combining
+caml_curry4_2_app(R/0[%rax] R/1[%rbx] R/2[%rdi])
+  { + R/0[%rax]}
+  arg3/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  arg4/30 := R/1[%rbx]
+  { + R/2[%rdi]}
+  clos/31 := R/2[%rdi]
+  { + clos/31}
+  clos/32 := val[clos/31 + 32]
+  { + clos/32}
+  clos/33 := val[clos/32 + 32]
+  { + clos/31}
+  V/34 := val[clos/31 + 24]
+  { + clos/32}
+  V/35 := val[clos/32 + 24]
+  { + clos/33}
+  V/36 := val[clos/33 + 16]
+  { + V/35}
+  R/0[%rax] := V/35
+  { + V/34}
+  R/1[%rbx] := V/34
+  { + arg3/29}
+  R/2[%rdi] := arg3/29
+  { + arg4/30}
+  R/3[%rsi] := arg4/30
+  { + clos/33}
+  R/4[%rdx] := clos/33
+  { + V/36 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]}
+  tailcall V/36 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]
+*** After CSE
+caml_curry4_2_app(R/0[%rax] R/1[%rbx] R/2[%rdi])
+  { + R/0[%rax]}
+  arg3/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  arg4/30 := R/1[%rbx]
+  { + R/2[%rdi]}
+  clos/31 := R/2[%rdi]
+  { + clos/31}
+  clos/32 := val[clos/31 + 32]
+  { + clos/32}
+  clos/33 := val[clos/32 + 32]
+  { + clos/31}
+  V/34 := val[clos/31 + 24]
+  { + clos/32}
+  V/35 := val[clos/32 + 24]
+  { + clos/33}
+  V/36 := val[clos/33 + 16]
+  { + V/35}
+  R/0[%rax] := V/35
+  { + V/34}
+  R/1[%rbx] := V/34
+  { + arg3/29}
+  R/2[%rdi] := arg3/29
+  { + arg4/30}
+  R/3[%rsi] := arg4/30
+  { + clos/33}
+  R/4[%rdx] := clos/33
+  { + V/36 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]}
+  tailcall V/36 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]
+*** Liveness analysis
+caml_curry4_2_app(R/0[%rax] R/1[%rbx] R/2[%rdi])
+  {R/1[%rbx] R/2[%rdi] + R/0[%rax]}
+  arg3/29 := R/0[%rax]
+  {R/2[%rdi] arg3/29* + R/1[%rbx]}
+  arg4/30 := R/1[%rbx]
+  {arg3/29* arg4/30* + R/2[%rdi]}
+  clos/31 := R/2[%rdi]
+  {arg3/29* arg4/30* clos/31* + clos/31}
+  clos/32 := val[clos/31 + 32]
+  {arg3/29* arg4/30* clos/31* clos/32* + clos/32}
+  clos/33 := val[clos/32 + 32]
+  {arg3/29* arg4/30* clos/32* clos/33* + clos/31}
+  V/34 := val[clos/31 + 24]
+  {arg3/29* arg4/30* clos/33* V/34* + clos/32}
+  V/35 := val[clos/32 + 24]
+  {arg3/29* arg4/30* clos/33* V/34* V/35* + clos/33}
+  V/36 := val[clos/33 + 16]
+  {arg3/29* arg4/30* clos/33* V/34* V/36* + V/35}
+  R/0[%rax] := V/35
+  {R/0[%rax] arg3/29* arg4/30* clos/33* V/36* + V/34}
+  R/1[%rbx] := V/34
+  {R/0[%rax] R/1[%rbx] arg4/30* clos/33* V/36* + arg3/29}
+  R/2[%rdi] := arg3/29
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] clos/33* V/36* + arg4/30}
+  R/3[%rsi] := arg4/30
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] V/36* + clos/33}
+  R/4[%rdx] := clos/33
+  { + V/36 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]}
+  tailcall V/36 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]
+*** After spilling
+caml_curry4_2_app(R/0[%rax] R/1[%rbx] R/2[%rdi])
+  {R/1[%rbx] R/2[%rdi] + R/0[%rax]}
+  arg3/29 := R/0[%rax]
+  {R/2[%rdi] arg3/29* + R/1[%rbx]}
+  arg4/30 := R/1[%rbx]
+  {arg3/29* arg4/30* + R/2[%rdi]}
+  clos/31 := R/2[%rdi]
+  {arg3/29* arg4/30* clos/31* + clos/31}
+  clos/32 := val[clos/31 + 32]
+  {arg3/29* arg4/30* clos/31* clos/32* + clos/32}
+  clos/33 := val[clos/32 + 32]
+  {arg3/29* arg4/30* clos/32* clos/33* + clos/31}
+  V/34 := val[clos/31 + 24]
+  {arg3/29* arg4/30* clos/33* V/34* + clos/32}
+  V/35 := val[clos/32 + 24]
+  {arg3/29* arg4/30* clos/33* V/34* V/35* + clos/33}
+  V/36 := val[clos/33 + 16]
+  {arg3/29* arg4/30* clos/33* V/34* V/36* + V/35}
+  R/0[%rax] := V/35
+  {R/0[%rax] arg3/29* arg4/30* clos/33* V/36* + V/34}
+  R/1[%rbx] := V/34
+  {R/0[%rax] R/1[%rbx] arg4/30* clos/33* V/36* + arg3/29}
+  R/2[%rdi] := arg3/29
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] clos/33* V/36* + arg4/30}
+  R/3[%rsi] := arg4/30
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] V/36* + clos/33}
+  R/4[%rdx] := clos/33
+  { + V/36 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]}
+  tailcall V/36 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]
+*** After live range splitting
+caml_curry4_2_app(R/0[%rax] R/1[%rbx] R/2[%rdi])
+  { + R/0[%rax]}
+  arg3/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  arg4/30 := R/1[%rbx]
+  { + R/2[%rdi]}
+  clos/31 := R/2[%rdi]
+  { + clos/31}
+  clos/32 := val[clos/31 + 32]
+  { + clos/32}
+  clos/33 := val[clos/32 + 32]
+  { + clos/31}
+  V/34 := val[clos/31 + 24]
+  { + clos/32}
+  V/35 := val[clos/32 + 24]
+  { + clos/33}
+  V/36 := val[clos/33 + 16]
+  { + V/35}
+  R/0[%rax] := V/35
+  { + V/34}
+  R/1[%rbx] := V/34
+  { + arg3/29}
+  R/2[%rdi] := arg3/29
+  { + arg4/30}
+  R/3[%rsi] := arg4/30
+  { + clos/33}
+  R/4[%rdx] := clos/33
+  { + V/36 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]}
+  tailcall V/36 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]
+*** Liveness analysis
+caml_curry4_2_app(R/0[%rax] R/1[%rbx] R/2[%rdi])
+  {R/1[%rbx] R/2[%rdi] + R/0[%rax]}
+  arg3/29 := R/0[%rax]
+  {R/2[%rdi] arg3/29* + R/1[%rbx]}
+  arg4/30 := R/1[%rbx]
+  {arg3/29* arg4/30* + R/2[%rdi]}
+  clos/31 := R/2[%rdi]
+  {arg3/29* arg4/30* clos/31* + clos/31}
+  clos/32 := val[clos/31 + 32]
+  {arg3/29* arg4/30* clos/31* clos/32* + clos/32}
+  clos/33 := val[clos/32 + 32]
+  {arg3/29* arg4/30* clos/32* clos/33* + clos/31}
+  V/34 := val[clos/31 + 24]
+  {arg3/29* arg4/30* clos/33* V/34* + clos/32}
+  V/35 := val[clos/32 + 24]
+  {arg3/29* arg4/30* clos/33* V/34* V/35* + clos/33}
+  V/36 := val[clos/33 + 16]
+  {arg3/29* arg4/30* clos/33* V/34* V/36* + V/35}
+  R/0[%rax] := V/35
+  {R/0[%rax] arg3/29* arg4/30* clos/33* V/36* + V/34}
+  R/1[%rbx] := V/34
+  {R/0[%rax] R/1[%rbx] arg4/30* clos/33* V/36* + arg3/29}
+  R/2[%rdi] := arg3/29
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] clos/33* V/36* + arg4/30}
+  R/3[%rsi] := arg4/30
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] V/36* + clos/33}
+  R/4[%rdx] := clos/33
+  { + V/36 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]}
+  tailcall V/36 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]
+*** Intervals
+R/4[%rdx]: [27;28]
+R/3[%rsi]: [25;28]
+R/2[%rdi]: [2;6] [23;28]
+R/1[%rbx]: [2;4] [21;28]
+R/0[%rax]: [2;2] [19;28]
+arg3/29: [3;22]
+arg4/30: [5;24]
+clos/31: [7;12]
+clos/32: [9;14]
+clos/33: [11;26]
+V/34: [13;20]
+V/35: [15;18]
+V/36: [17;28]
+*** After register allocation
+caml_curry4_2_app(R/0[%rax] R/1[%rbx] R/2[%rdi])
+  {R/1[%rbx] R/2[%rdi] + R/0[%rax]}
+  arg3/29[%rsi] := R/0[%rax]
+  {R/2[%rdi] arg3/29[%rsi]* + R/1[%rbx]}
+  arg4/30[%rdx] := R/1[%rbx]
+  {arg3/29[%rsi]* arg4/30[%rdx]* + R/2[%rdi]}
+  clos/31[%rax] := R/2[%rdi]
+  {arg3/29[%rsi]* arg4/30[%rdx]* clos/31[%rax]* + clos/31[%rax]}
+  clos/32[%rbx] := val[clos/31[%rax] + 32]
+  {arg3/29[%rsi]* arg4/30[%rdx]* clos/31[%rax]* clos/32[%rbx]* +
+   clos/32[%rbx]}
+  clos/33[%rcx] := val[clos/32[%rbx] + 32]
+  {arg3/29[%rsi]* arg4/30[%rdx]* clos/32[%rbx]* clos/33[%rcx]* +
+   clos/31[%rax]}
+  V/34[%rdi] := val[clos/31[%rax] + 24]
+  {arg3/29[%rsi]* arg4/30[%rdx]* clos/33[%rcx]* V/34[%rdi]* + clos/32[%rbx]}
+  V/35[%rax] := val[clos/32[%rbx] + 24]
+  {arg3/29[%rsi]* arg4/30[%rdx]* clos/33[%rcx]* V/34[%rdi]* V/35[%rax]* +
+   clos/33[%rcx]}
+  V/36[%r8] := val[clos/33[%rcx] + 16]
+  {arg3/29[%rsi]* arg4/30[%rdx]* clos/33[%rcx]* V/34[%rdi]* V/36[%r8]* +
+   V/35[%rax]}
+  R/0[%rax] := V/35[%rax]
+  {R/0[%rax] arg3/29[%rsi]* arg4/30[%rdx]* clos/33[%rcx]* V/36[%r8]* +
+   V/34[%rdi]}
+  R/1[%rbx] := V/34[%rdi]
+  {R/0[%rax] R/1[%rbx] arg4/30[%rdx]* clos/33[%rcx]* V/36[%r8]* +
+   arg3/29[%rsi]}
+  R/2[%rdi] := arg3/29[%rsi]
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] clos/33[%rcx]* V/36[%r8]* + arg4/30[%rdx]}
+  R/3[%rsi] := arg4/30[%rdx]
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] V/36[%r8]* + clos/33[%rcx]}
+  R/4[%rdx] := clos/33[%rcx]
+  { + V/36[%r8] R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]}
+  tailcall V/36[%r8] R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]
+*** After insertion of reloading code
+caml_curry4_2_app(R/0[%rax] R/1[%rbx] R/2[%rdi])
+  {R/1[%rbx] R/2[%rdi] + R/0[%rax]}
+  arg3/29[%rsi] := R/0[%rax]
+  {R/2[%rdi] arg3/29[%rsi]* + R/1[%rbx]}
+  arg4/30[%rdx] := R/1[%rbx]
+  {arg3/29[%rsi]* arg4/30[%rdx]* + R/2[%rdi]}
+  clos/31[%rax] := R/2[%rdi]
+  {arg3/29[%rsi]* arg4/30[%rdx]* clos/31[%rax]* + clos/31[%rax]}
+  clos/32[%rbx] := val[clos/31[%rax] + 32]
+  {arg3/29[%rsi]* arg4/30[%rdx]* clos/31[%rax]* clos/32[%rbx]* +
+   clos/32[%rbx]}
+  clos/33[%rcx] := val[clos/32[%rbx] + 32]
+  {arg3/29[%rsi]* arg4/30[%rdx]* clos/32[%rbx]* clos/33[%rcx]* +
+   clos/31[%rax]}
+  V/34[%rdi] := val[clos/31[%rax] + 24]
+  {arg3/29[%rsi]* arg4/30[%rdx]* clos/33[%rcx]* V/34[%rdi]* + clos/32[%rbx]}
+  V/35[%rax] := val[clos/32[%rbx] + 24]
+  {arg3/29[%rsi]* arg4/30[%rdx]* clos/33[%rcx]* V/34[%rdi]* V/35[%rax]* +
+   clos/33[%rcx]}
+  V/36[%r8] := val[clos/33[%rcx] + 16]
+  {arg3/29[%rsi]* arg4/30[%rdx]* clos/33[%rcx]* V/34[%rdi]* V/36[%r8]* +
+   V/35[%rax]}
+  R/0[%rax] := V/35[%rax]
+  {R/0[%rax] arg3/29[%rsi]* arg4/30[%rdx]* clos/33[%rcx]* V/36[%r8]* +
+   V/34[%rdi]}
+  R/1[%rbx] := V/34[%rdi]
+  {R/0[%rax] R/1[%rbx] arg4/30[%rdx]* clos/33[%rcx]* V/36[%r8]* +
+   arg3/29[%rsi]}
+  R/2[%rdi] := arg3/29[%rsi]
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] clos/33[%rcx]* V/36[%r8]* + arg4/30[%rdx]}
+  R/3[%rsi] := arg4/30[%rdx]
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] V/36[%r8]* + clos/33[%rcx]}
+  R/4[%rdx] := clos/33[%rcx]
+  { + V/36[%r8] R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]}
+  tailcall V/36[%r8] R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]
+*** Linearized code
+caml_curry4_2_app:
+  L118:
+  arg3/29[%rsi] := R/0[%rax]
+  arg4/30[%rdx] := R/1[%rbx]
+  clos/31[%rax] := R/2[%rdi]
+  clos/32[%rbx] := val[clos/31[%rax] + 32]
+  clos/33[%rcx] := val[clos/32[%rbx] + 32]
+  V/34[%rdi] := val[clos/31[%rax] + 24]
+  V/35[%rax] := val[clos/32[%rbx] + 24]
+  V/36[%r8] := val[clos/33[%rcx] + 16]
+  R/1[%rbx] := V/34[%rdi]
+  R/2[%rdi] := arg3/29[%rsi]
+  R/3[%rsi] := arg4/30[%rdx]
+  R/4[%rdx] := clos/33[%rcx]
+  tailcall V/36[%r8] R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]
+  
+*** After instruction scheduling
+caml_curry4_2_app:
+  L118:
+  arg3/29[%rsi] := R/0[%rax]
+  arg4/30[%rdx] := R/1[%rbx]
+  clos/31[%rax] := R/2[%rdi]
+  clos/32[%rbx] := val[clos/31[%rax] + 32]
+  clos/33[%rcx] := val[clos/32[%rbx] + 32]
+  V/34[%rdi] := val[clos/31[%rax] + 24]
+  V/35[%rax] := val[clos/32[%rbx] + 24]
+  V/36[%r8] := val[clos/33[%rcx] + 16]
+  R/1[%rbx] := V/34[%rdi]
+  R/2[%rdi] := arg3/29[%rsi]
+  R/3[%rsi] := arg4/30[%rdx]
+  R/4[%rdx] := clos/33[%rcx]
+  tailcall V/36[%r8] R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]
+  
+*** After instruction selection
+caml_curry4_2(R/0[%rax] R/1[%rbx])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {}
+  V/31 := alloc 40
+  { + V/31}
+  [V/31 + -8] := 4343 (init)
+  {}
+  I/32 := "caml_curry4_3"
+  { + I/32 V/31}
+  val[V/31] := I/32 (init)
+  { + V/31}
+  [V/31 + 8] := 3 (init)
+  { + arg/29 V/31}
+  val[V/31 + 16] := arg/29 (init)
+  { + clos/30 V/31}
+  val[V/31 + 24] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After allocation combining
+caml_curry4_2(R/0[%rax] R/1[%rbx])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {}
+  V/31 := alloc 40
+  { + V/31}
+  [V/31 + -8] := 4343 (init)
+  {}
+  I/32 := "caml_curry4_3"
+  { + I/32 V/31}
+  val[V/31] := I/32 (init)
+  { + V/31}
+  [V/31 + 8] := 3 (init)
+  { + arg/29 V/31}
+  val[V/31 + 16] := arg/29 (init)
+  { + clos/30 V/31}
+  val[V/31 + 24] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After CSE
+caml_curry4_2(R/0[%rax] R/1[%rbx])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {}
+  V/31 := alloc 40
+  { + V/31}
+  [V/31 + -8] := 4343 (init)
+  {}
+  I/32 := "caml_curry4_3"
+  { + I/32 V/31}
+  val[V/31] := I/32 (init)
+  { + V/31}
+  [V/31 + 8] := 3 (init)
+  { + arg/29 V/31}
+  val[V/31 + 16] := arg/29 (init)
+  { + clos/30 V/31}
+  val[V/31 + 24] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** Liveness analysis
+caml_curry4_2(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  {arg/29* + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {arg/29* clos/30*}
+  V/31 := alloc 40
+  {arg/29* clos/30* V/31* + V/31}
+  [V/31 + -8] := 4343 (init)
+  {arg/29* clos/30* V/31*}
+  I/32 := "caml_curry4_3"
+  {arg/29* clos/30* V/31* + I/32 V/31}
+  val[V/31] := I/32 (init)
+  {arg/29* clos/30* V/31* + V/31}
+  [V/31 + 8] := 3 (init)
+  {clos/30* V/31* + arg/29 V/31}
+  val[V/31 + 16] := arg/29 (init)
+  {V/31* + clos/30 V/31}
+  val[V/31 + 24] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After spilling
+caml_curry4_2(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  {arg/29* + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {arg/29* clos/30*}
+  V/31 := alloc 40
+  {arg/29* clos/30* V/31* + V/31}
+  [V/31 + -8] := 4343 (init)
+  {arg/29* clos/30* V/31*}
+  I/32 := "caml_curry4_3"
+  {arg/29* clos/30* V/31* + I/32 V/31}
+  val[V/31] := I/32 (init)
+  {arg/29* clos/30* V/31* + V/31}
+  [V/31 + 8] := 3 (init)
+  {clos/30* V/31* + arg/29 V/31}
+  val[V/31 + 16] := arg/29 (init)
+  {V/31* + clos/30 V/31}
+  val[V/31 + 24] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After live range splitting
+caml_curry4_2(R/0[%rax] R/1[%rbx])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {}
+  V/31 := alloc 40
+  { + V/31}
+  [V/31 + -8] := 4343 (init)
+  {}
+  I/32 := "caml_curry4_3"
+  { + I/32 V/31}
+  val[V/31] := I/32 (init)
+  { + V/31}
+  [V/31 + 8] := 3 (init)
+  { + arg/29 V/31}
+  val[V/31 + 16] := arg/29 (init)
+  { + clos/30 V/31}
+  val[V/31 + 24] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** Liveness analysis
+caml_curry4_2(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  {arg/29* + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {arg/29* clos/30*}
+  V/31 := alloc 40
+  {arg/29* clos/30* V/31* + V/31}
+  [V/31 + -8] := 4343 (init)
+  {arg/29* clos/30* V/31*}
+  I/32 := "caml_curry4_3"
+  {arg/29* clos/30* V/31* + I/32 V/31}
+  val[V/31] := I/32 (init)
+  {arg/29* clos/30* V/31* + V/31}
+  [V/31 + 8] := 3 (init)
+  {clos/30* V/31* + arg/29 V/31}
+  val[V/31 + 16] := arg/29 (init)
+  {V/31* + clos/30 V/31}
+  val[V/31 + 24] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** Intervals
+R/11[%r11]: [7;7]
+R/10[%r10]: [7;7]
+R/1[%rbx]: [2;4]
+R/0[%rax]: [2;2] [21;22]
+arg/29: [3;16]
+clos/30: [5;18]
+V/31: [7;20]
+I/32: [11;12]
+*** After register allocation
+caml_curry4_2(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29[%rax] := R/0[%rax]
+  {arg/29[%rax]* + R/1[%rbx]}
+  clos/30[%rbx] := R/1[%rbx]
+  {arg/29[%rax]* clos/30[%rbx]*}
+  V/31[%rdi] := alloc 40
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + V/31[%rdi]}
+  [V/31[%rdi] + -8] := 4343 (init)
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]*}
+  I/32[%rsi] := "caml_curry4_3"
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + I/32[%rsi] V/31[%rdi]}
+  val[V/31[%rdi]] := I/32[%rsi] (init)
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + V/31[%rdi]}
+  [V/31[%rdi] + 8] := 3 (init)
+  {clos/30[%rbx]* V/31[%rdi]* + arg/29[%rax] V/31[%rdi]}
+  val[V/31[%rdi] + 16] := arg/29[%rax] (init)
+  {V/31[%rdi]* + clos/30[%rbx] V/31[%rdi]}
+  val[V/31[%rdi] + 24] := clos/30[%rbx] (init)
+  { + V/31[%rdi]}
+  R/0[%rax] := V/31[%rdi]
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After insertion of reloading code
+caml_curry4_2(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29[%rax] := R/0[%rax]
+  {arg/29[%rax]* + R/1[%rbx]}
+  clos/30[%rbx] := R/1[%rbx]
+  {arg/29[%rax]* clos/30[%rbx]*}
+  V/31[%rdi] := alloc 40
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + V/31[%rdi]}
+  [V/31[%rdi] + -8] := 4343 (init)
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]*}
+  I/32[%rsi] := "caml_curry4_3"
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + I/32[%rsi] V/31[%rdi]}
+  val[V/31[%rdi]] := I/32[%rsi] (init)
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + V/31[%rdi]}
+  [V/31[%rdi] + 8] := 3 (init)
+  {clos/30[%rbx]* V/31[%rdi]* + arg/29[%rax] V/31[%rdi]}
+  val[V/31[%rdi] + 16] := arg/29[%rax] (init)
+  {V/31[%rdi]* + clos/30[%rbx] V/31[%rdi]}
+  val[V/31[%rdi] + 24] := clos/30[%rbx] (init)
+  { + V/31[%rdi]}
+  R/0[%rax] := V/31[%rdi]
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** Linearized code
+caml_curry4_2:
+  prologue
+  L119:
+  {arg/29[%rax]* clos/30[%rbx]*}
+  V/31[%rdi] := alloc 40
+  [V/31[%rdi] + -8] := 4343 (init)
+  I/32[%rsi] := "caml_curry4_3"
+  val[V/31[%rdi]] := I/32[%rsi] (init)
+  [V/31[%rdi] + 8] := 3 (init)
+  val[V/31[%rdi] + 16] := arg/29[%rax] (init)
+  val[V/31[%rdi] + 24] := clos/30[%rbx] (init)
+  R/0[%rax] := V/31[%rdi]
+  reload retaddr
+  return R/0[%rax]
+  
+*** After instruction scheduling
+caml_curry4_2:
+  prologue
+  L119:
+  {arg/29[%rax]* clos/30[%rbx]*}
+  V/31[%rdi] := alloc 40
+  [V/31[%rdi] + -8] := 4343 (init)
+  I/32[%rsi] := "caml_curry4_3"
+  val[V/31[%rdi]] := I/32[%rsi] (init)
+  [V/31[%rdi] + 8] := 3 (init)
+  val[V/31[%rdi] + 16] := arg/29[%rax] (init)
+  val[V/31[%rdi] + 24] := clos/30[%rbx] (init)
+  R/0[%rax] := V/31[%rdi]
+  reload retaddr
+  return R/0[%rax]
+  
+*** After instruction selection
+caml_curry4_3(R/0[%rax] R/1[%rbx])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  { + clos/30}
+  clos/31 := val[clos/30 + 24]
+  { + clos/31}
+  clos/32 := val[clos/31 + 32]
+  { + clos/32}
+  clos/33 := val[clos/32 + 32]
+  { + clos/30}
+  V/34 := val[clos/30 + 16]
+  { + clos/31}
+  V/35 := val[clos/31 + 24]
+  { + clos/32}
+  V/36 := val[clos/32 + 24]
+  { + clos/33}
+  V/37 := val[clos/33 + 16]
+  { + V/36}
+  R/0[%rax] := V/36
+  { + V/35}
+  R/1[%rbx] := V/35
+  { + V/34}
+  R/2[%rdi] := V/34
+  { + arg/29}
+  R/3[%rsi] := arg/29
+  { + clos/33}
+  R/4[%rdx] := clos/33
+  { + V/37 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]}
+  tailcall V/37 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]
+*** After allocation combining
+caml_curry4_3(R/0[%rax] R/1[%rbx])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  { + clos/30}
+  clos/31 := val[clos/30 + 24]
+  { + clos/31}
+  clos/32 := val[clos/31 + 32]
+  { + clos/32}
+  clos/33 := val[clos/32 + 32]
+  { + clos/30}
+  V/34 := val[clos/30 + 16]
+  { + clos/31}
+  V/35 := val[clos/31 + 24]
+  { + clos/32}
+  V/36 := val[clos/32 + 24]
+  { + clos/33}
+  V/37 := val[clos/33 + 16]
+  { + V/36}
+  R/0[%rax] := V/36
+  { + V/35}
+  R/1[%rbx] := V/35
+  { + V/34}
+  R/2[%rdi] := V/34
+  { + arg/29}
+  R/3[%rsi] := arg/29
+  { + clos/33}
+  R/4[%rdx] := clos/33
+  { + V/37 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]}
+  tailcall V/37 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]
+*** After CSE
+caml_curry4_3(R/0[%rax] R/1[%rbx])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  { + clos/30}
+  clos/31 := val[clos/30 + 24]
+  { + clos/31}
+  clos/32 := val[clos/31 + 32]
+  { + clos/32}
+  clos/33 := val[clos/32 + 32]
+  { + clos/30}
+  V/34 := val[clos/30 + 16]
+  { + clos/31}
+  V/35 := val[clos/31 + 24]
+  { + clos/32}
+  V/36 := val[clos/32 + 24]
+  { + clos/33}
+  V/37 := val[clos/33 + 16]
+  { + V/36}
+  R/0[%rax] := V/36
+  { + V/35}
+  R/1[%rbx] := V/35
+  { + V/34}
+  R/2[%rdi] := V/34
+  { + arg/29}
+  R/3[%rsi] := arg/29
+  { + clos/33}
+  R/4[%rdx] := clos/33
+  { + V/37 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]}
+  tailcall V/37 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]
+*** Liveness analysis
+caml_curry4_3(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  {arg/29* + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {arg/29* clos/30* + clos/30}
+  clos/31 := val[clos/30 + 24]
+  {arg/29* clos/30* clos/31* + clos/31}
+  clos/32 := val[clos/31 + 32]
+  {arg/29* clos/30* clos/31* clos/32* + clos/32}
+  clos/33 := val[clos/32 + 32]
+  {arg/29* clos/31* clos/32* clos/33* + clos/30}
+  V/34 := val[clos/30 + 16]
+  {arg/29* clos/32* clos/33* V/34* + clos/31}
+  V/35 := val[clos/31 + 24]
+  {arg/29* clos/33* V/34* V/35* + clos/32}
+  V/36 := val[clos/32 + 24]
+  {arg/29* clos/33* V/34* V/35* V/36* + clos/33}
+  V/37 := val[clos/33 + 16]
+  {arg/29* clos/33* V/34* V/35* V/37* + V/36}
+  R/0[%rax] := V/36
+  {R/0[%rax] arg/29* clos/33* V/34* V/37* + V/35}
+  R/1[%rbx] := V/35
+  {R/0[%rax] R/1[%rbx] arg/29* clos/33* V/37* + V/34}
+  R/2[%rdi] := V/34
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] clos/33* V/37* + arg/29}
+  R/3[%rsi] := arg/29
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] V/37* + clos/33}
+  R/4[%rdx] := clos/33
+  { + V/37 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]}
+  tailcall V/37 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]
+*** After spilling
+caml_curry4_3(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  {arg/29* + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {arg/29* clos/30* + clos/30}
+  clos/31 := val[clos/30 + 24]
+  {arg/29* clos/30* clos/31* + clos/31}
+  clos/32 := val[clos/31 + 32]
+  {arg/29* clos/30* clos/31* clos/32* + clos/32}
+  clos/33 := val[clos/32 + 32]
+  {arg/29* clos/31* clos/32* clos/33* + clos/30}
+  V/34 := val[clos/30 + 16]
+  {arg/29* clos/32* clos/33* V/34* + clos/31}
+  V/35 := val[clos/31 + 24]
+  {arg/29* clos/33* V/34* V/35* + clos/32}
+  V/36 := val[clos/32 + 24]
+  {arg/29* clos/33* V/34* V/35* V/36* + clos/33}
+  V/37 := val[clos/33 + 16]
+  {arg/29* clos/33* V/34* V/35* V/37* + V/36}
+  R/0[%rax] := V/36
+  {R/0[%rax] arg/29* clos/33* V/34* V/37* + V/35}
+  R/1[%rbx] := V/35
+  {R/0[%rax] R/1[%rbx] arg/29* clos/33* V/37* + V/34}
+  R/2[%rdi] := V/34
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] clos/33* V/37* + arg/29}
+  R/3[%rsi] := arg/29
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] V/37* + clos/33}
+  R/4[%rdx] := clos/33
+  { + V/37 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]}
+  tailcall V/37 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]
+*** After live range splitting
+caml_curry4_3(R/0[%rax] R/1[%rbx])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  { + clos/30}
+  clos/31 := val[clos/30 + 24]
+  { + clos/31}
+  clos/32 := val[clos/31 + 32]
+  { + clos/32}
+  clos/33 := val[clos/32 + 32]
+  { + clos/30}
+  V/34 := val[clos/30 + 16]
+  { + clos/31}
+  V/35 := val[clos/31 + 24]
+  { + clos/32}
+  V/36 := val[clos/32 + 24]
+  { + clos/33}
+  V/37 := val[clos/33 + 16]
+  { + V/36}
+  R/0[%rax] := V/36
+  { + V/35}
+  R/1[%rbx] := V/35
+  { + V/34}
+  R/2[%rdi] := V/34
+  { + arg/29}
+  R/3[%rsi] := arg/29
+  { + clos/33}
+  R/4[%rdx] := clos/33
+  { + V/37 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]}
+  tailcall V/37 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]
+*** Liveness analysis
+caml_curry4_3(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  {arg/29* + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {arg/29* clos/30* + clos/30}
+  clos/31 := val[clos/30 + 24]
+  {arg/29* clos/30* clos/31* + clos/31}
+  clos/32 := val[clos/31 + 32]
+  {arg/29* clos/30* clos/31* clos/32* + clos/32}
+  clos/33 := val[clos/32 + 32]
+  {arg/29* clos/31* clos/32* clos/33* + clos/30}
+  V/34 := val[clos/30 + 16]
+  {arg/29* clos/32* clos/33* V/34* + clos/31}
+  V/35 := val[clos/31 + 24]
+  {arg/29* clos/33* V/34* V/35* + clos/32}
+  V/36 := val[clos/32 + 24]
+  {arg/29* clos/33* V/34* V/35* V/36* + clos/33}
+  V/37 := val[clos/33 + 16]
+  {arg/29* clos/33* V/34* V/35* V/37* + V/36}
+  R/0[%rax] := V/36
+  {R/0[%rax] arg/29* clos/33* V/34* V/37* + V/35}
+  R/1[%rbx] := V/35
+  {R/0[%rax] R/1[%rbx] arg/29* clos/33* V/37* + V/34}
+  R/2[%rdi] := V/34
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] clos/33* V/37* + arg/29}
+  R/3[%rsi] := arg/29
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] V/37* + clos/33}
+  R/4[%rdx] := clos/33
+  { + V/37 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]}
+  tailcall V/37 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]
+*** Intervals
+R/4[%rdx]: [29;30]
+R/3[%rsi]: [27;30]
+R/2[%rdi]: [25;30]
+R/1[%rbx]: [2;4] [23;30]
+R/0[%rax]: [2;2] [21;30]
+arg/29: [3;26]
+clos/30: [5;12]
+clos/31: [7;14]
+clos/32: [9;16]
+clos/33: [11;28]
+V/34: [13;24]
+V/35: [15;22]
+V/36: [17;20]
+V/37: [19;30]
+*** After register allocation
+caml_curry4_3(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29[%rsi] := R/0[%rax]
+  {arg/29[%rsi]* + R/1[%rbx]}
+  clos/30[%rax] := R/1[%rbx]
+  {arg/29[%rsi]* clos/30[%rax]* + clos/30[%rax]}
+  clos/31[%rbx] := val[clos/30[%rax] + 24]
+  {arg/29[%rsi]* clos/30[%rax]* clos/31[%rbx]* + clos/31[%rbx]}
+  clos/32[%rdi] := val[clos/31[%rbx] + 32]
+  {arg/29[%rsi]* clos/30[%rax]* clos/31[%rbx]* clos/32[%rdi]* +
+   clos/32[%rdi]}
+  clos/33[%rdx] := val[clos/32[%rdi] + 32]
+  {arg/29[%rsi]* clos/31[%rbx]* clos/32[%rdi]* clos/33[%rdx]* +
+   clos/30[%rax]}
+  V/34[%rcx] := val[clos/30[%rax] + 16]
+  {arg/29[%rsi]* clos/32[%rdi]* clos/33[%rdx]* V/34[%rcx]* + clos/31[%rbx]}
+  V/35[%rbx] := val[clos/31[%rbx] + 24]
+  {arg/29[%rsi]* clos/33[%rdx]* V/34[%rcx]* V/35[%rbx]* + clos/32[%rdi]}
+  V/36[%rax] := val[clos/32[%rdi] + 24]
+  {arg/29[%rsi]* clos/33[%rdx]* V/34[%rcx]* V/35[%rbx]* V/36[%rax]* +
+   clos/33[%rdx]}
+  V/37[%r8] := val[clos/33[%rdx] + 16]
+  {arg/29[%rsi]* clos/33[%rdx]* V/34[%rcx]* V/35[%rbx]* V/37[%r8]* +
+   V/36[%rax]}
+  R/0[%rax] := V/36[%rax]
+  {R/0[%rax] arg/29[%rsi]* clos/33[%rdx]* V/34[%rcx]* V/37[%r8]* +
+   V/35[%rbx]}
+  R/1[%rbx] := V/35[%rbx]
+  {R/0[%rax] R/1[%rbx] arg/29[%rsi]* clos/33[%rdx]* V/37[%r8]* + V/34[%rcx]}
+  R/2[%rdi] := V/34[%rcx]
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] clos/33[%rdx]* V/37[%r8]* + arg/29[%rsi]}
+  R/3[%rsi] := arg/29[%rsi]
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] V/37[%r8]* + clos/33[%rdx]}
+  R/4[%rdx] := clos/33[%rdx]
+  { + V/37[%r8] R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]}
+  tailcall V/37[%r8] R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]
+*** After insertion of reloading code
+caml_curry4_3(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29[%rsi] := R/0[%rax]
+  {arg/29[%rsi]* + R/1[%rbx]}
+  clos/30[%rax] := R/1[%rbx]
+  {arg/29[%rsi]* clos/30[%rax]* + clos/30[%rax]}
+  clos/31[%rbx] := val[clos/30[%rax] + 24]
+  {arg/29[%rsi]* clos/30[%rax]* clos/31[%rbx]* + clos/31[%rbx]}
+  clos/32[%rdi] := val[clos/31[%rbx] + 32]
+  {arg/29[%rsi]* clos/30[%rax]* clos/31[%rbx]* clos/32[%rdi]* +
+   clos/32[%rdi]}
+  clos/33[%rdx] := val[clos/32[%rdi] + 32]
+  {arg/29[%rsi]* clos/31[%rbx]* clos/32[%rdi]* clos/33[%rdx]* +
+   clos/30[%rax]}
+  V/34[%rcx] := val[clos/30[%rax] + 16]
+  {arg/29[%rsi]* clos/32[%rdi]* clos/33[%rdx]* V/34[%rcx]* + clos/31[%rbx]}
+  V/35[%rbx] := val[clos/31[%rbx] + 24]
+  {arg/29[%rsi]* clos/33[%rdx]* V/34[%rcx]* V/35[%rbx]* + clos/32[%rdi]}
+  V/36[%rax] := val[clos/32[%rdi] + 24]
+  {arg/29[%rsi]* clos/33[%rdx]* V/34[%rcx]* V/35[%rbx]* V/36[%rax]* +
+   clos/33[%rdx]}
+  V/37[%r8] := val[clos/33[%rdx] + 16]
+  {arg/29[%rsi]* clos/33[%rdx]* V/34[%rcx]* V/35[%rbx]* V/37[%r8]* +
+   V/36[%rax]}
+  R/0[%rax] := V/36[%rax]
+  {R/0[%rax] arg/29[%rsi]* clos/33[%rdx]* V/34[%rcx]* V/37[%r8]* +
+   V/35[%rbx]}
+  R/1[%rbx] := V/35[%rbx]
+  {R/0[%rax] R/1[%rbx] arg/29[%rsi]* clos/33[%rdx]* V/37[%r8]* + V/34[%rcx]}
+  R/2[%rdi] := V/34[%rcx]
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] clos/33[%rdx]* V/37[%r8]* + arg/29[%rsi]}
+  R/3[%rsi] := arg/29[%rsi]
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] V/37[%r8]* + clos/33[%rdx]}
+  R/4[%rdx] := clos/33[%rdx]
+  { + V/37[%r8] R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]}
+  tailcall V/37[%r8] R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]
+*** Linearized code
+caml_curry4_3:
+  L124:
+  arg/29[%rsi] := R/0[%rax]
+  clos/30[%rax] := R/1[%rbx]
+  clos/31[%rbx] := val[clos/30[%rax] + 24]
+  clos/32[%rdi] := val[clos/31[%rbx] + 32]
+  clos/33[%rdx] := val[clos/32[%rdi] + 32]
+  V/34[%rcx] := val[clos/30[%rax] + 16]
+  V/35[%rbx] := val[clos/31[%rbx] + 24]
+  V/36[%rax] := val[clos/32[%rdi] + 24]
+  V/37[%r8] := val[clos/33[%rdx] + 16]
+  R/2[%rdi] := V/34[%rcx]
+  tailcall V/37[%r8] R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]
+  
+*** After instruction scheduling
+caml_curry4_3:
+  L124:
+  arg/29[%rsi] := R/0[%rax]
+  clos/30[%rax] := R/1[%rbx]
+  clos/31[%rbx] := val[clos/30[%rax] + 24]
+  clos/32[%rdi] := val[clos/31[%rbx] + 32]
+  clos/33[%rdx] := val[clos/32[%rdi] + 32]
+  V/34[%rcx] := val[clos/30[%rax] + 16]
+  V/35[%rbx] := val[clos/31[%rbx] + 24]
+  V/36[%rax] := val[clos/32[%rdi] + 24]
+  V/37[%r8] := val[clos/33[%rdx] + 16]
+  R/2[%rdi] := V/34[%rcx]
+  tailcall V/37[%r8] R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi] R/4[%rdx]
+  
+*** After instruction selection
+caml_curry3(R/0[%rax] R/1[%rbx])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {}
+  V/31 := alloc 48
+  { + V/31}
+  [V/31 + -8] := 5367 (init)
+  {}
+  I/32 := "caml_curry3_1"
+  { + I/32 V/31}
+  val[V/31] := I/32 (init)
+  { + V/31}
+  [V/31 + 8] := 5 (init)
+  {}
+  I/33 := "caml_curry3_1_app"
+  { + I/33 V/31}
+  val[V/31 + 16] := I/33 (init)
+  { + arg/29 V/31}
+  val[V/31 + 24] := arg/29 (init)
+  { + clos/30 V/31}
+  val[V/31 + 32] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After allocation combining
+caml_curry3(R/0[%rax] R/1[%rbx])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {}
+  V/31 := alloc 48
+  { + V/31}
+  [V/31 + -8] := 5367 (init)
+  {}
+  I/32 := "caml_curry3_1"
+  { + I/32 V/31}
+  val[V/31] := I/32 (init)
+  { + V/31}
+  [V/31 + 8] := 5 (init)
+  {}
+  I/33 := "caml_curry3_1_app"
+  { + I/33 V/31}
+  val[V/31 + 16] := I/33 (init)
+  { + arg/29 V/31}
+  val[V/31 + 24] := arg/29 (init)
+  { + clos/30 V/31}
+  val[V/31 + 32] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After CSE
+caml_curry3(R/0[%rax] R/1[%rbx])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {}
+  V/31 := alloc 48
+  { + V/31}
+  [V/31 + -8] := 5367 (init)
+  {}
+  I/32 := "caml_curry3_1"
+  { + I/32 V/31}
+  val[V/31] := I/32 (init)
+  { + V/31}
+  [V/31 + 8] := 5 (init)
+  {}
+  I/33 := "caml_curry3_1_app"
+  { + I/33 V/31}
+  val[V/31 + 16] := I/33 (init)
+  { + arg/29 V/31}
+  val[V/31 + 24] := arg/29 (init)
+  { + clos/30 V/31}
+  val[V/31 + 32] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** Liveness analysis
+caml_curry3(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  {arg/29* + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {arg/29* clos/30*}
+  V/31 := alloc 48
+  {arg/29* clos/30* V/31* + V/31}
+  [V/31 + -8] := 5367 (init)
+  {arg/29* clos/30* V/31*}
+  I/32 := "caml_curry3_1"
+  {arg/29* clos/30* V/31* + I/32 V/31}
+  val[V/31] := I/32 (init)
+  {arg/29* clos/30* V/31* + V/31}
+  [V/31 + 8] := 5 (init)
+  {arg/29* clos/30* V/31*}
+  I/33 := "caml_curry3_1_app"
+  {arg/29* clos/30* V/31* + I/33 V/31}
+  val[V/31 + 16] := I/33 (init)
+  {clos/30* V/31* + arg/29 V/31}
+  val[V/31 + 24] := arg/29 (init)
+  {V/31* + clos/30 V/31}
+  val[V/31 + 32] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After spilling
+caml_curry3(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  {arg/29* + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {arg/29* clos/30*}
+  V/31 := alloc 48
+  {arg/29* clos/30* V/31* + V/31}
+  [V/31 + -8] := 5367 (init)
+  {arg/29* clos/30* V/31*}
+  I/32 := "caml_curry3_1"
+  {arg/29* clos/30* V/31* + I/32 V/31}
+  val[V/31] := I/32 (init)
+  {arg/29* clos/30* V/31* + V/31}
+  [V/31 + 8] := 5 (init)
+  {arg/29* clos/30* V/31*}
+  I/33 := "caml_curry3_1_app"
+  {arg/29* clos/30* V/31* + I/33 V/31}
+  val[V/31 + 16] := I/33 (init)
+  {clos/30* V/31* + arg/29 V/31}
+  val[V/31 + 24] := arg/29 (init)
+  {V/31* + clos/30 V/31}
+  val[V/31 + 32] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After live range splitting
+caml_curry3(R/0[%rax] R/1[%rbx])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {}
+  V/31 := alloc 48
+  { + V/31}
+  [V/31 + -8] := 5367 (init)
+  {}
+  I/32 := "caml_curry3_1"
+  { + I/32 V/31}
+  val[V/31] := I/32 (init)
+  { + V/31}
+  [V/31 + 8] := 5 (init)
+  {}
+  I/33 := "caml_curry3_1_app"
+  { + I/33 V/31}
+  val[V/31 + 16] := I/33 (init)
+  { + arg/29 V/31}
+  val[V/31 + 24] := arg/29 (init)
+  { + clos/30 V/31}
+  val[V/31 + 32] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** Liveness analysis
+caml_curry3(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  {arg/29* + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {arg/29* clos/30*}
+  V/31 := alloc 48
+  {arg/29* clos/30* V/31* + V/31}
+  [V/31 + -8] := 5367 (init)
+  {arg/29* clos/30* V/31*}
+  I/32 := "caml_curry3_1"
+  {arg/29* clos/30* V/31* + I/32 V/31}
+  val[V/31] := I/32 (init)
+  {arg/29* clos/30* V/31* + V/31}
+  [V/31 + 8] := 5 (init)
+  {arg/29* clos/30* V/31*}
+  I/33 := "caml_curry3_1_app"
+  {arg/29* clos/30* V/31* + I/33 V/31}
+  val[V/31 + 16] := I/33 (init)
+  {clos/30* V/31* + arg/29 V/31}
+  val[V/31 + 24] := arg/29 (init)
+  {V/31* + clos/30 V/31}
+  val[V/31 + 32] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** Intervals
+R/11[%r11]: [7;7]
+R/10[%r10]: [7;7]
+R/1[%rbx]: [2;4]
+R/0[%rax]: [2;2] [25;26]
+arg/29: [3;20]
+clos/30: [5;22]
+V/31: [7;24]
+I/32: [11;12]
+I/33: [17;18]
+*** After register allocation
+caml_curry3(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29[%rax] := R/0[%rax]
+  {arg/29[%rax]* + R/1[%rbx]}
+  clos/30[%rbx] := R/1[%rbx]
+  {arg/29[%rax]* clos/30[%rbx]*}
+  V/31[%rdi] := alloc 48
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + V/31[%rdi]}
+  [V/31[%rdi] + -8] := 5367 (init)
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]*}
+  I/32[%rsi] := "caml_curry3_1"
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + I/32[%rsi] V/31[%rdi]}
+  val[V/31[%rdi]] := I/32[%rsi] (init)
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + V/31[%rdi]}
+  [V/31[%rdi] + 8] := 5 (init)
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]*}
+  I/33[%rsi] := "caml_curry3_1_app"
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + I/33[%rsi] V/31[%rdi]}
+  val[V/31[%rdi] + 16] := I/33[%rsi] (init)
+  {clos/30[%rbx]* V/31[%rdi]* + arg/29[%rax] V/31[%rdi]}
+  val[V/31[%rdi] + 24] := arg/29[%rax] (init)
+  {V/31[%rdi]* + clos/30[%rbx] V/31[%rdi]}
+  val[V/31[%rdi] + 32] := clos/30[%rbx] (init)
+  { + V/31[%rdi]}
+  R/0[%rax] := V/31[%rdi]
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After insertion of reloading code
+caml_curry3(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29[%rax] := R/0[%rax]
+  {arg/29[%rax]* + R/1[%rbx]}
+  clos/30[%rbx] := R/1[%rbx]
+  {arg/29[%rax]* clos/30[%rbx]*}
+  V/31[%rdi] := alloc 48
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + V/31[%rdi]}
+  [V/31[%rdi] + -8] := 5367 (init)
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]*}
+  I/32[%rsi] := "caml_curry3_1"
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + I/32[%rsi] V/31[%rdi]}
+  val[V/31[%rdi]] := I/32[%rsi] (init)
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + V/31[%rdi]}
+  [V/31[%rdi] + 8] := 5 (init)
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]*}
+  I/33[%rsi] := "caml_curry3_1_app"
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + I/33[%rsi] V/31[%rdi]}
+  val[V/31[%rdi] + 16] := I/33[%rsi] (init)
+  {clos/30[%rbx]* V/31[%rdi]* + arg/29[%rax] V/31[%rdi]}
+  val[V/31[%rdi] + 24] := arg/29[%rax] (init)
+  {V/31[%rdi]* + clos/30[%rbx] V/31[%rdi]}
+  val[V/31[%rdi] + 32] := clos/30[%rbx] (init)
+  { + V/31[%rdi]}
+  R/0[%rax] := V/31[%rdi]
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** Linearized code
+caml_curry3:
+  prologue
+  L125:
+  {arg/29[%rax]* clos/30[%rbx]*}
+  V/31[%rdi] := alloc 48
+  [V/31[%rdi] + -8] := 5367 (init)
+  I/32[%rsi] := "caml_curry3_1"
+  val[V/31[%rdi]] := I/32[%rsi] (init)
+  [V/31[%rdi] + 8] := 5 (init)
+  I/33[%rsi] := "caml_curry3_1_app"
+  val[V/31[%rdi] + 16] := I/33[%rsi] (init)
+  val[V/31[%rdi] + 24] := arg/29[%rax] (init)
+  val[V/31[%rdi] + 32] := clos/30[%rbx] (init)
+  R/0[%rax] := V/31[%rdi]
+  reload retaddr
+  return R/0[%rax]
+  
+*** After instruction scheduling
+caml_curry3:
+  prologue
+  L125:
+  {arg/29[%rax]* clos/30[%rbx]*}
+  V/31[%rdi] := alloc 48
+  [V/31[%rdi] + -8] := 5367 (init)
+  I/32[%rsi] := "caml_curry3_1"
+  val[V/31[%rdi]] := I/32[%rsi] (init)
+  [V/31[%rdi] + 8] := 5 (init)
+  I/33[%rsi] := "caml_curry3_1_app"
+  val[V/31[%rdi] + 16] := I/33[%rsi] (init)
+  val[V/31[%rdi] + 24] := arg/29[%rax] (init)
+  val[V/31[%rdi] + 32] := clos/30[%rbx] (init)
+  R/0[%rax] := V/31[%rdi]
+  reload retaddr
+  return R/0[%rax]
+  
+*** After instruction selection
+caml_curry3_1_app(R/0[%rax] R/1[%rbx] R/2[%rdi])
+  { + R/0[%rax]}
+  arg2/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  arg3/30 := R/1[%rbx]
+  { + R/2[%rdi]}
+  clos/31 := R/2[%rdi]
+  { + clos/31}
+  clos/32 := val[clos/31 + 32]
+  { + clos/31}
+  V/33 := val[clos/31 + 24]
+  { + clos/32}
+  V/34 := val[clos/32 + 16]
+  { + V/33}
+  R/0[%rax] := V/33
+  { + arg2/29}
+  R/1[%rbx] := arg2/29
+  { + arg3/30}
+  R/2[%rdi] := arg3/30
+  { + clos/32}
+  R/3[%rsi] := clos/32
+  { + V/34 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]}
+  tailcall V/34 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]
+*** After allocation combining
+caml_curry3_1_app(R/0[%rax] R/1[%rbx] R/2[%rdi])
+  { + R/0[%rax]}
+  arg2/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  arg3/30 := R/1[%rbx]
+  { + R/2[%rdi]}
+  clos/31 := R/2[%rdi]
+  { + clos/31}
+  clos/32 := val[clos/31 + 32]
+  { + clos/31}
+  V/33 := val[clos/31 + 24]
+  { + clos/32}
+  V/34 := val[clos/32 + 16]
+  { + V/33}
+  R/0[%rax] := V/33
+  { + arg2/29}
+  R/1[%rbx] := arg2/29
+  { + arg3/30}
+  R/2[%rdi] := arg3/30
+  { + clos/32}
+  R/3[%rsi] := clos/32
+  { + V/34 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]}
+  tailcall V/34 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]
+*** After CSE
+caml_curry3_1_app(R/0[%rax] R/1[%rbx] R/2[%rdi])
+  { + R/0[%rax]}
+  arg2/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  arg3/30 := R/1[%rbx]
+  { + R/2[%rdi]}
+  clos/31 := R/2[%rdi]
+  { + clos/31}
+  clos/32 := val[clos/31 + 32]
+  { + clos/31}
+  V/33 := val[clos/31 + 24]
+  { + clos/32}
+  V/34 := val[clos/32 + 16]
+  { + V/33}
+  R/0[%rax] := V/33
+  { + arg2/29}
+  R/1[%rbx] := arg2/29
+  { + arg3/30}
+  R/2[%rdi] := arg3/30
+  { + clos/32}
+  R/3[%rsi] := clos/32
+  { + V/34 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]}
+  tailcall V/34 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]
+*** Liveness analysis
+caml_curry3_1_app(R/0[%rax] R/1[%rbx] R/2[%rdi])
+  {R/1[%rbx] R/2[%rdi] + R/0[%rax]}
+  arg2/29 := R/0[%rax]
+  {R/2[%rdi] arg2/29* + R/1[%rbx]}
+  arg3/30 := R/1[%rbx]
+  {arg2/29* arg3/30* + R/2[%rdi]}
+  clos/31 := R/2[%rdi]
+  {arg2/29* arg3/30* clos/31* + clos/31}
+  clos/32 := val[clos/31 + 32]
+  {arg2/29* arg3/30* clos/32* + clos/31}
+  V/33 := val[clos/31 + 24]
+  {arg2/29* arg3/30* clos/32* V/33* + clos/32}
+  V/34 := val[clos/32 + 16]
+  {arg2/29* arg3/30* clos/32* V/34* + V/33}
+  R/0[%rax] := V/33
+  {R/0[%rax] arg3/30* clos/32* V/34* + arg2/29}
+  R/1[%rbx] := arg2/29
+  {R/0[%rax] R/1[%rbx] clos/32* V/34* + arg3/30}
+  R/2[%rdi] := arg3/30
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] V/34* + clos/32}
+  R/3[%rsi] := clos/32
+  { + V/34 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]}
+  tailcall V/34 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]
+*** After spilling
+caml_curry3_1_app(R/0[%rax] R/1[%rbx] R/2[%rdi])
+  {R/1[%rbx] R/2[%rdi] + R/0[%rax]}
+  arg2/29 := R/0[%rax]
+  {R/2[%rdi] arg2/29* + R/1[%rbx]}
+  arg3/30 := R/1[%rbx]
+  {arg2/29* arg3/30* + R/2[%rdi]}
+  clos/31 := R/2[%rdi]
+  {arg2/29* arg3/30* clos/31* + clos/31}
+  clos/32 := val[clos/31 + 32]
+  {arg2/29* arg3/30* clos/32* + clos/31}
+  V/33 := val[clos/31 + 24]
+  {arg2/29* arg3/30* clos/32* V/33* + clos/32}
+  V/34 := val[clos/32 + 16]
+  {arg2/29* arg3/30* clos/32* V/34* + V/33}
+  R/0[%rax] := V/33
+  {R/0[%rax] arg3/30* clos/32* V/34* + arg2/29}
+  R/1[%rbx] := arg2/29
+  {R/0[%rax] R/1[%rbx] clos/32* V/34* + arg3/30}
+  R/2[%rdi] := arg3/30
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] V/34* + clos/32}
+  R/3[%rsi] := clos/32
+  { + V/34 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]}
+  tailcall V/34 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]
+*** After live range splitting
+caml_curry3_1_app(R/0[%rax] R/1[%rbx] R/2[%rdi])
+  { + R/0[%rax]}
+  arg2/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  arg3/30 := R/1[%rbx]
+  { + R/2[%rdi]}
+  clos/31 := R/2[%rdi]
+  { + clos/31}
+  clos/32 := val[clos/31 + 32]
+  { + clos/31}
+  V/33 := val[clos/31 + 24]
+  { + clos/32}
+  V/34 := val[clos/32 + 16]
+  { + V/33}
+  R/0[%rax] := V/33
+  { + arg2/29}
+  R/1[%rbx] := arg2/29
+  { + arg3/30}
+  R/2[%rdi] := arg3/30
+  { + clos/32}
+  R/3[%rsi] := clos/32
+  { + V/34 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]}
+  tailcall V/34 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]
+*** Liveness analysis
+caml_curry3_1_app(R/0[%rax] R/1[%rbx] R/2[%rdi])
+  {R/1[%rbx] R/2[%rdi] + R/0[%rax]}
+  arg2/29 := R/0[%rax]
+  {R/2[%rdi] arg2/29* + R/1[%rbx]}
+  arg3/30 := R/1[%rbx]
+  {arg2/29* arg3/30* + R/2[%rdi]}
+  clos/31 := R/2[%rdi]
+  {arg2/29* arg3/30* clos/31* + clos/31}
+  clos/32 := val[clos/31 + 32]
+  {arg2/29* arg3/30* clos/32* + clos/31}
+  V/33 := val[clos/31 + 24]
+  {arg2/29* arg3/30* clos/32* V/33* + clos/32}
+  V/34 := val[clos/32 + 16]
+  {arg2/29* arg3/30* clos/32* V/34* + V/33}
+  R/0[%rax] := V/33
+  {R/0[%rax] arg3/30* clos/32* V/34* + arg2/29}
+  R/1[%rbx] := arg2/29
+  {R/0[%rax] R/1[%rbx] clos/32* V/34* + arg3/30}
+  R/2[%rdi] := arg3/30
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] V/34* + clos/32}
+  R/3[%rsi] := clos/32
+  { + V/34 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]}
+  tailcall V/34 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]
+*** Intervals
+R/3[%rsi]: [21;22]
+R/2[%rdi]: [2;6] [19;22]
+R/1[%rbx]: [2;4] [17;22]
+R/0[%rax]: [2;2] [15;22]
+arg2/29: [3;16]
+arg3/30: [5;18]
+clos/31: [7;10]
+clos/32: [9;20]
+V/33: [11;14]
+V/34: [13;22]
+*** After register allocation
+caml_curry3_1_app(R/0[%rax] R/1[%rbx] R/2[%rdi])
+  {R/1[%rbx] R/2[%rdi] + R/0[%rax]}
+  arg2/29[%rsi] := R/0[%rax]
+  {R/2[%rdi] arg2/29[%rsi]* + R/1[%rbx]}
+  arg3/30[%rdx] := R/1[%rbx]
+  {arg2/29[%rsi]* arg3/30[%rdx]* + R/2[%rdi]}
+  clos/31[%rax] := R/2[%rdi]
+  {arg2/29[%rsi]* arg3/30[%rdx]* clos/31[%rax]* + clos/31[%rax]}
+  clos/32[%rcx] := val[clos/31[%rax] + 32]
+  {arg2/29[%rsi]* arg3/30[%rdx]* clos/32[%rcx]* + clos/31[%rax]}
+  V/33[%rax] := val[clos/31[%rax] + 24]
+  {arg2/29[%rsi]* arg3/30[%rdx]* clos/32[%rcx]* V/33[%rax]* + clos/32[%rcx]}
+  V/34[%r8] := val[clos/32[%rcx] + 16]
+  {arg2/29[%rsi]* arg3/30[%rdx]* clos/32[%rcx]* V/34[%r8]* + V/33[%rax]}
+  R/0[%rax] := V/33[%rax]
+  {R/0[%rax] arg3/30[%rdx]* clos/32[%rcx]* V/34[%r8]* + arg2/29[%rsi]}
+  R/1[%rbx] := arg2/29[%rsi]
+  {R/0[%rax] R/1[%rbx] clos/32[%rcx]* V/34[%r8]* + arg3/30[%rdx]}
+  R/2[%rdi] := arg3/30[%rdx]
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] V/34[%r8]* + clos/32[%rcx]}
+  R/3[%rsi] := clos/32[%rcx]
+  { + V/34[%r8] R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]}
+  tailcall V/34[%r8] R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]
+*** After insertion of reloading code
+caml_curry3_1_app(R/0[%rax] R/1[%rbx] R/2[%rdi])
+  {R/1[%rbx] R/2[%rdi] + R/0[%rax]}
+  arg2/29[%rsi] := R/0[%rax]
+  {R/2[%rdi] arg2/29[%rsi]* + R/1[%rbx]}
+  arg3/30[%rdx] := R/1[%rbx]
+  {arg2/29[%rsi]* arg3/30[%rdx]* + R/2[%rdi]}
+  clos/31[%rax] := R/2[%rdi]
+  {arg2/29[%rsi]* arg3/30[%rdx]* clos/31[%rax]* + clos/31[%rax]}
+  clos/32[%rcx] := val[clos/31[%rax] + 32]
+  {arg2/29[%rsi]* arg3/30[%rdx]* clos/32[%rcx]* + clos/31[%rax]}
+  V/33[%rax] := val[clos/31[%rax] + 24]
+  {arg2/29[%rsi]* arg3/30[%rdx]* clos/32[%rcx]* V/33[%rax]* + clos/32[%rcx]}
+  V/34[%r8] := val[clos/32[%rcx] + 16]
+  {arg2/29[%rsi]* arg3/30[%rdx]* clos/32[%rcx]* V/34[%r8]* + V/33[%rax]}
+  R/0[%rax] := V/33[%rax]
+  {R/0[%rax] arg3/30[%rdx]* clos/32[%rcx]* V/34[%r8]* + arg2/29[%rsi]}
+  R/1[%rbx] := arg2/29[%rsi]
+  {R/0[%rax] R/1[%rbx] clos/32[%rcx]* V/34[%r8]* + arg3/30[%rdx]}
+  R/2[%rdi] := arg3/30[%rdx]
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] V/34[%r8]* + clos/32[%rcx]}
+  R/3[%rsi] := clos/32[%rcx]
+  { + V/34[%r8] R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]}
+  tailcall V/34[%r8] R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]
+*** Linearized code
+caml_curry3_1_app:
+  L130:
+  arg2/29[%rsi] := R/0[%rax]
+  arg3/30[%rdx] := R/1[%rbx]
+  clos/31[%rax] := R/2[%rdi]
+  clos/32[%rcx] := val[clos/31[%rax] + 32]
+  V/33[%rax] := val[clos/31[%rax] + 24]
+  V/34[%r8] := val[clos/32[%rcx] + 16]
+  R/1[%rbx] := arg2/29[%rsi]
+  R/2[%rdi] := arg3/30[%rdx]
+  R/3[%rsi] := clos/32[%rcx]
+  tailcall V/34[%r8] R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]
+  
+*** After instruction scheduling
+caml_curry3_1_app:
+  L130:
+  arg2/29[%rsi] := R/0[%rax]
+  arg3/30[%rdx] := R/1[%rbx]
+  clos/31[%rax] := R/2[%rdi]
+  clos/32[%rcx] := val[clos/31[%rax] + 32]
+  V/33[%rax] := val[clos/31[%rax] + 24]
+  V/34[%r8] := val[clos/32[%rcx] + 16]
+  R/1[%rbx] := arg2/29[%rsi]
+  R/2[%rdi] := arg3/30[%rdx]
+  R/3[%rsi] := clos/32[%rcx]
+  tailcall V/34[%r8] R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]
+  
+*** After instruction selection
+caml_curry3_1(R/0[%rax] R/1[%rbx])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {}
+  V/31 := alloc 40
+  { + V/31}
+  [V/31 + -8] := 4343 (init)
+  {}
+  I/32 := "caml_curry3_2"
+  { + I/32 V/31}
+  val[V/31] := I/32 (init)
+  { + V/31}
+  [V/31 + 8] := 3 (init)
+  { + arg/29 V/31}
+  val[V/31 + 16] := arg/29 (init)
+  { + clos/30 V/31}
+  val[V/31 + 24] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After allocation combining
+caml_curry3_1(R/0[%rax] R/1[%rbx])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {}
+  V/31 := alloc 40
+  { + V/31}
+  [V/31 + -8] := 4343 (init)
+  {}
+  I/32 := "caml_curry3_2"
+  { + I/32 V/31}
+  val[V/31] := I/32 (init)
+  { + V/31}
+  [V/31 + 8] := 3 (init)
+  { + arg/29 V/31}
+  val[V/31 + 16] := arg/29 (init)
+  { + clos/30 V/31}
+  val[V/31 + 24] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After CSE
+caml_curry3_1(R/0[%rax] R/1[%rbx])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {}
+  V/31 := alloc 40
+  { + V/31}
+  [V/31 + -8] := 4343 (init)
+  {}
+  I/32 := "caml_curry3_2"
+  { + I/32 V/31}
+  val[V/31] := I/32 (init)
+  { + V/31}
+  [V/31 + 8] := 3 (init)
+  { + arg/29 V/31}
+  val[V/31 + 16] := arg/29 (init)
+  { + clos/30 V/31}
+  val[V/31 + 24] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** Liveness analysis
+caml_curry3_1(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  {arg/29* + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {arg/29* clos/30*}
+  V/31 := alloc 40
+  {arg/29* clos/30* V/31* + V/31}
+  [V/31 + -8] := 4343 (init)
+  {arg/29* clos/30* V/31*}
+  I/32 := "caml_curry3_2"
+  {arg/29* clos/30* V/31* + I/32 V/31}
+  val[V/31] := I/32 (init)
+  {arg/29* clos/30* V/31* + V/31}
+  [V/31 + 8] := 3 (init)
+  {clos/30* V/31* + arg/29 V/31}
+  val[V/31 + 16] := arg/29 (init)
+  {V/31* + clos/30 V/31}
+  val[V/31 + 24] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After spilling
+caml_curry3_1(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  {arg/29* + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {arg/29* clos/30*}
+  V/31 := alloc 40
+  {arg/29* clos/30* V/31* + V/31}
+  [V/31 + -8] := 4343 (init)
+  {arg/29* clos/30* V/31*}
+  I/32 := "caml_curry3_2"
+  {arg/29* clos/30* V/31* + I/32 V/31}
+  val[V/31] := I/32 (init)
+  {arg/29* clos/30* V/31* + V/31}
+  [V/31 + 8] := 3 (init)
+  {clos/30* V/31* + arg/29 V/31}
+  val[V/31 + 16] := arg/29 (init)
+  {V/31* + clos/30 V/31}
+  val[V/31 + 24] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After live range splitting
+caml_curry3_1(R/0[%rax] R/1[%rbx])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {}
+  V/31 := alloc 40
+  { + V/31}
+  [V/31 + -8] := 4343 (init)
+  {}
+  I/32 := "caml_curry3_2"
+  { + I/32 V/31}
+  val[V/31] := I/32 (init)
+  { + V/31}
+  [V/31 + 8] := 3 (init)
+  { + arg/29 V/31}
+  val[V/31 + 16] := arg/29 (init)
+  { + clos/30 V/31}
+  val[V/31 + 24] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** Liveness analysis
+caml_curry3_1(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  {arg/29* + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {arg/29* clos/30*}
+  V/31 := alloc 40
+  {arg/29* clos/30* V/31* + V/31}
+  [V/31 + -8] := 4343 (init)
+  {arg/29* clos/30* V/31*}
+  I/32 := "caml_curry3_2"
+  {arg/29* clos/30* V/31* + I/32 V/31}
+  val[V/31] := I/32 (init)
+  {arg/29* clos/30* V/31* + V/31}
+  [V/31 + 8] := 3 (init)
+  {clos/30* V/31* + arg/29 V/31}
+  val[V/31 + 16] := arg/29 (init)
+  {V/31* + clos/30 V/31}
+  val[V/31 + 24] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** Intervals
+R/11[%r11]: [7;7]
+R/10[%r10]: [7;7]
+R/1[%rbx]: [2;4]
+R/0[%rax]: [2;2] [21;22]
+arg/29: [3;16]
+clos/30: [5;18]
+V/31: [7;20]
+I/32: [11;12]
+*** After register allocation
+caml_curry3_1(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29[%rax] := R/0[%rax]
+  {arg/29[%rax]* + R/1[%rbx]}
+  clos/30[%rbx] := R/1[%rbx]
+  {arg/29[%rax]* clos/30[%rbx]*}
+  V/31[%rdi] := alloc 40
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + V/31[%rdi]}
+  [V/31[%rdi] + -8] := 4343 (init)
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]*}
+  I/32[%rsi] := "caml_curry3_2"
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + I/32[%rsi] V/31[%rdi]}
+  val[V/31[%rdi]] := I/32[%rsi] (init)
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + V/31[%rdi]}
+  [V/31[%rdi] + 8] := 3 (init)
+  {clos/30[%rbx]* V/31[%rdi]* + arg/29[%rax] V/31[%rdi]}
+  val[V/31[%rdi] + 16] := arg/29[%rax] (init)
+  {V/31[%rdi]* + clos/30[%rbx] V/31[%rdi]}
+  val[V/31[%rdi] + 24] := clos/30[%rbx] (init)
+  { + V/31[%rdi]}
+  R/0[%rax] := V/31[%rdi]
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After insertion of reloading code
+caml_curry3_1(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29[%rax] := R/0[%rax]
+  {arg/29[%rax]* + R/1[%rbx]}
+  clos/30[%rbx] := R/1[%rbx]
+  {arg/29[%rax]* clos/30[%rbx]*}
+  V/31[%rdi] := alloc 40
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + V/31[%rdi]}
+  [V/31[%rdi] + -8] := 4343 (init)
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]*}
+  I/32[%rsi] := "caml_curry3_2"
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + I/32[%rsi] V/31[%rdi]}
+  val[V/31[%rdi]] := I/32[%rsi] (init)
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + V/31[%rdi]}
+  [V/31[%rdi] + 8] := 3 (init)
+  {clos/30[%rbx]* V/31[%rdi]* + arg/29[%rax] V/31[%rdi]}
+  val[V/31[%rdi] + 16] := arg/29[%rax] (init)
+  {V/31[%rdi]* + clos/30[%rbx] V/31[%rdi]}
+  val[V/31[%rdi] + 24] := clos/30[%rbx] (init)
+  { + V/31[%rdi]}
+  R/0[%rax] := V/31[%rdi]
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** Linearized code
+caml_curry3_1:
+  prologue
+  L131:
+  {arg/29[%rax]* clos/30[%rbx]*}
+  V/31[%rdi] := alloc 40
+  [V/31[%rdi] + -8] := 4343 (init)
+  I/32[%rsi] := "caml_curry3_2"
+  val[V/31[%rdi]] := I/32[%rsi] (init)
+  [V/31[%rdi] + 8] := 3 (init)
+  val[V/31[%rdi] + 16] := arg/29[%rax] (init)
+  val[V/31[%rdi] + 24] := clos/30[%rbx] (init)
+  R/0[%rax] := V/31[%rdi]
+  reload retaddr
+  return R/0[%rax]
+  
+*** After instruction scheduling
+caml_curry3_1:
+  prologue
+  L131:
+  {arg/29[%rax]* clos/30[%rbx]*}
+  V/31[%rdi] := alloc 40
+  [V/31[%rdi] + -8] := 4343 (init)
+  I/32[%rsi] := "caml_curry3_2"
+  val[V/31[%rdi]] := I/32[%rsi] (init)
+  [V/31[%rdi] + 8] := 3 (init)
+  val[V/31[%rdi] + 16] := arg/29[%rax] (init)
+  val[V/31[%rdi] + 24] := clos/30[%rbx] (init)
+  R/0[%rax] := V/31[%rdi]
+  reload retaddr
+  return R/0[%rax]
+  
+*** After instruction selection
+caml_curry3_2(R/0[%rax] R/1[%rbx])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  { + clos/30}
+  clos/31 := val[clos/30 + 24]
+  { + clos/31}
+  clos/32 := val[clos/31 + 32]
+  { + clos/30}
+  V/33 := val[clos/30 + 16]
+  { + clos/31}
+  V/34 := val[clos/31 + 24]
+  { + clos/32}
+  V/35 := val[clos/32 + 16]
+  { + V/34}
+  R/0[%rax] := V/34
+  { + V/33}
+  R/1[%rbx] := V/33
+  { + arg/29}
+  R/2[%rdi] := arg/29
+  { + clos/32}
+  R/3[%rsi] := clos/32
+  { + V/35 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]}
+  tailcall V/35 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]
+*** After allocation combining
+caml_curry3_2(R/0[%rax] R/1[%rbx])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  { + clos/30}
+  clos/31 := val[clos/30 + 24]
+  { + clos/31}
+  clos/32 := val[clos/31 + 32]
+  { + clos/30}
+  V/33 := val[clos/30 + 16]
+  { + clos/31}
+  V/34 := val[clos/31 + 24]
+  { + clos/32}
+  V/35 := val[clos/32 + 16]
+  { + V/34}
+  R/0[%rax] := V/34
+  { + V/33}
+  R/1[%rbx] := V/33
+  { + arg/29}
+  R/2[%rdi] := arg/29
+  { + clos/32}
+  R/3[%rsi] := clos/32
+  { + V/35 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]}
+  tailcall V/35 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]
+*** After CSE
+caml_curry3_2(R/0[%rax] R/1[%rbx])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  { + clos/30}
+  clos/31 := val[clos/30 + 24]
+  { + clos/31}
+  clos/32 := val[clos/31 + 32]
+  { + clos/30}
+  V/33 := val[clos/30 + 16]
+  { + clos/31}
+  V/34 := val[clos/31 + 24]
+  { + clos/32}
+  V/35 := val[clos/32 + 16]
+  { + V/34}
+  R/0[%rax] := V/34
+  { + V/33}
+  R/1[%rbx] := V/33
+  { + arg/29}
+  R/2[%rdi] := arg/29
+  { + clos/32}
+  R/3[%rsi] := clos/32
+  { + V/35 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]}
+  tailcall V/35 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]
+*** Liveness analysis
+caml_curry3_2(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  {arg/29* + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {arg/29* clos/30* + clos/30}
+  clos/31 := val[clos/30 + 24]
+  {arg/29* clos/30* clos/31* + clos/31}
+  clos/32 := val[clos/31 + 32]
+  {arg/29* clos/31* clos/32* + clos/30}
+  V/33 := val[clos/30 + 16]
+  {arg/29* clos/32* V/33* + clos/31}
+  V/34 := val[clos/31 + 24]
+  {arg/29* clos/32* V/33* V/34* + clos/32}
+  V/35 := val[clos/32 + 16]
+  {arg/29* clos/32* V/33* V/35* + V/34}
+  R/0[%rax] := V/34
+  {R/0[%rax] arg/29* clos/32* V/35* + V/33}
+  R/1[%rbx] := V/33
+  {R/0[%rax] R/1[%rbx] clos/32* V/35* + arg/29}
+  R/2[%rdi] := arg/29
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] V/35* + clos/32}
+  R/3[%rsi] := clos/32
+  { + V/35 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]}
+  tailcall V/35 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]
+*** After spilling
+caml_curry3_2(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  {arg/29* + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {arg/29* clos/30* + clos/30}
+  clos/31 := val[clos/30 + 24]
+  {arg/29* clos/30* clos/31* + clos/31}
+  clos/32 := val[clos/31 + 32]
+  {arg/29* clos/31* clos/32* + clos/30}
+  V/33 := val[clos/30 + 16]
+  {arg/29* clos/32* V/33* + clos/31}
+  V/34 := val[clos/31 + 24]
+  {arg/29* clos/32* V/33* V/34* + clos/32}
+  V/35 := val[clos/32 + 16]
+  {arg/29* clos/32* V/33* V/35* + V/34}
+  R/0[%rax] := V/34
+  {R/0[%rax] arg/29* clos/32* V/35* + V/33}
+  R/1[%rbx] := V/33
+  {R/0[%rax] R/1[%rbx] clos/32* V/35* + arg/29}
+  R/2[%rdi] := arg/29
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] V/35* + clos/32}
+  R/3[%rsi] := clos/32
+  { + V/35 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]}
+  tailcall V/35 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]
+*** After live range splitting
+caml_curry3_2(R/0[%rax] R/1[%rbx])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  { + clos/30}
+  clos/31 := val[clos/30 + 24]
+  { + clos/31}
+  clos/32 := val[clos/31 + 32]
+  { + clos/30}
+  V/33 := val[clos/30 + 16]
+  { + clos/31}
+  V/34 := val[clos/31 + 24]
+  { + clos/32}
+  V/35 := val[clos/32 + 16]
+  { + V/34}
+  R/0[%rax] := V/34
+  { + V/33}
+  R/1[%rbx] := V/33
+  { + arg/29}
+  R/2[%rdi] := arg/29
+  { + clos/32}
+  R/3[%rsi] := clos/32
+  { + V/35 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]}
+  tailcall V/35 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]
+*** Liveness analysis
+caml_curry3_2(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  {arg/29* + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {arg/29* clos/30* + clos/30}
+  clos/31 := val[clos/30 + 24]
+  {arg/29* clos/30* clos/31* + clos/31}
+  clos/32 := val[clos/31 + 32]
+  {arg/29* clos/31* clos/32* + clos/30}
+  V/33 := val[clos/30 + 16]
+  {arg/29* clos/32* V/33* + clos/31}
+  V/34 := val[clos/31 + 24]
+  {arg/29* clos/32* V/33* V/34* + clos/32}
+  V/35 := val[clos/32 + 16]
+  {arg/29* clos/32* V/33* V/35* + V/34}
+  R/0[%rax] := V/34
+  {R/0[%rax] arg/29* clos/32* V/35* + V/33}
+  R/1[%rbx] := V/33
+  {R/0[%rax] R/1[%rbx] clos/32* V/35* + arg/29}
+  R/2[%rdi] := arg/29
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] V/35* + clos/32}
+  R/3[%rsi] := clos/32
+  { + V/35 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]}
+  tailcall V/35 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]
+*** Intervals
+R/3[%rsi]: [23;24]
+R/2[%rdi]: [21;24]
+R/1[%rbx]: [2;4] [19;24]
+R/0[%rax]: [2;2] [17;24]
+arg/29: [3;20]
+clos/30: [5;10]
+clos/31: [7;12]
+clos/32: [9;22]
+V/33: [11;18]
+V/34: [13;16]
+V/35: [15;24]
+*** After register allocation
+caml_curry3_2(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29[%rdi] := R/0[%rax]
+  {arg/29[%rdi]* + R/1[%rbx]}
+  clos/30[%rax] := R/1[%rbx]
+  {arg/29[%rdi]* clos/30[%rax]* + clos/30[%rax]}
+  clos/31[%rbx] := val[clos/30[%rax] + 24]
+  {arg/29[%rdi]* clos/30[%rax]* clos/31[%rbx]* + clos/31[%rbx]}
+  clos/32[%rsi] := val[clos/31[%rbx] + 32]
+  {arg/29[%rdi]* clos/31[%rbx]* clos/32[%rsi]* + clos/30[%rax]}
+  V/33[%rdx] := val[clos/30[%rax] + 16]
+  {arg/29[%rdi]* clos/32[%rsi]* V/33[%rdx]* + clos/31[%rbx]}
+  V/34[%rax] := val[clos/31[%rbx] + 24]
+  {arg/29[%rdi]* clos/32[%rsi]* V/33[%rdx]* V/34[%rax]* + clos/32[%rsi]}
+  V/35[%rcx] := val[clos/32[%rsi] + 16]
+  {arg/29[%rdi]* clos/32[%rsi]* V/33[%rdx]* V/35[%rcx]* + V/34[%rax]}
+  R/0[%rax] := V/34[%rax]
+  {R/0[%rax] arg/29[%rdi]* clos/32[%rsi]* V/35[%rcx]* + V/33[%rdx]}
+  R/1[%rbx] := V/33[%rdx]
+  {R/0[%rax] R/1[%rbx] clos/32[%rsi]* V/35[%rcx]* + arg/29[%rdi]}
+  R/2[%rdi] := arg/29[%rdi]
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] V/35[%rcx]* + clos/32[%rsi]}
+  R/3[%rsi] := clos/32[%rsi]
+  { + V/35[%rcx] R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]}
+  tailcall V/35[%rcx] R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]
+*** After insertion of reloading code
+caml_curry3_2(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29[%rdi] := R/0[%rax]
+  {arg/29[%rdi]* + R/1[%rbx]}
+  clos/30[%rax] := R/1[%rbx]
+  {arg/29[%rdi]* clos/30[%rax]* + clos/30[%rax]}
+  clos/31[%rbx] := val[clos/30[%rax] + 24]
+  {arg/29[%rdi]* clos/30[%rax]* clos/31[%rbx]* + clos/31[%rbx]}
+  clos/32[%rsi] := val[clos/31[%rbx] + 32]
+  {arg/29[%rdi]* clos/31[%rbx]* clos/32[%rsi]* + clos/30[%rax]}
+  V/33[%rdx] := val[clos/30[%rax] + 16]
+  {arg/29[%rdi]* clos/32[%rsi]* V/33[%rdx]* + clos/31[%rbx]}
+  V/34[%rax] := val[clos/31[%rbx] + 24]
+  {arg/29[%rdi]* clos/32[%rsi]* V/33[%rdx]* V/34[%rax]* + clos/32[%rsi]}
+  V/35[%rcx] := val[clos/32[%rsi] + 16]
+  {arg/29[%rdi]* clos/32[%rsi]* V/33[%rdx]* V/35[%rcx]* + V/34[%rax]}
+  R/0[%rax] := V/34[%rax]
+  {R/0[%rax] arg/29[%rdi]* clos/32[%rsi]* V/35[%rcx]* + V/33[%rdx]}
+  R/1[%rbx] := V/33[%rdx]
+  {R/0[%rax] R/1[%rbx] clos/32[%rsi]* V/35[%rcx]* + arg/29[%rdi]}
+  R/2[%rdi] := arg/29[%rdi]
+  {R/0[%rax] R/1[%rbx] R/2[%rdi] V/35[%rcx]* + clos/32[%rsi]}
+  R/3[%rsi] := clos/32[%rsi]
+  { + V/35[%rcx] R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]}
+  tailcall V/35[%rcx] R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]
+*** Linearized code
+caml_curry3_2:
+  L136:
+  arg/29[%rdi] := R/0[%rax]
+  clos/30[%rax] := R/1[%rbx]
+  clos/31[%rbx] := val[clos/30[%rax] + 24]
+  clos/32[%rsi] := val[clos/31[%rbx] + 32]
+  V/33[%rdx] := val[clos/30[%rax] + 16]
+  V/34[%rax] := val[clos/31[%rbx] + 24]
+  V/35[%rcx] := val[clos/32[%rsi] + 16]
+  R/1[%rbx] := V/33[%rdx]
+  tailcall V/35[%rcx] R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]
+  
+*** After instruction scheduling
+caml_curry3_2:
+  L136:
+  arg/29[%rdi] := R/0[%rax]
+  clos/30[%rax] := R/1[%rbx]
+  clos/31[%rbx] := val[clos/30[%rax] + 24]
+  clos/32[%rsi] := val[clos/31[%rbx] + 32]
+  V/33[%rdx] := val[clos/30[%rax] + 16]
+  V/34[%rax] := val[clos/31[%rbx] + 24]
+  V/35[%rcx] := val[clos/32[%rsi] + 16]
+  R/1[%rbx] := V/33[%rdx]
+  tailcall V/35[%rcx] R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]
+  
+*** After instruction selection
+caml_curry2(R/0[%rax] R/1[%rbx])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {}
+  V/31 := alloc 40
+  { + V/31}
+  [V/31 + -8] := 4343 (init)
+  {}
+  I/32 := "caml_curry2_1"
+  { + I/32 V/31}
+  val[V/31] := I/32 (init)
+  { + V/31}
+  [V/31 + 8] := 3 (init)
+  { + arg/29 V/31}
+  val[V/31 + 16] := arg/29 (init)
+  { + clos/30 V/31}
+  val[V/31 + 24] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After allocation combining
+caml_curry2(R/0[%rax] R/1[%rbx])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {}
+  V/31 := alloc 40
+  { + V/31}
+  [V/31 + -8] := 4343 (init)
+  {}
+  I/32 := "caml_curry2_1"
+  { + I/32 V/31}
+  val[V/31] := I/32 (init)
+  { + V/31}
+  [V/31 + 8] := 3 (init)
+  { + arg/29 V/31}
+  val[V/31 + 16] := arg/29 (init)
+  { + clos/30 V/31}
+  val[V/31 + 24] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After CSE
+caml_curry2(R/0[%rax] R/1[%rbx])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {}
+  V/31 := alloc 40
+  { + V/31}
+  [V/31 + -8] := 4343 (init)
+  {}
+  I/32 := "caml_curry2_1"
+  { + I/32 V/31}
+  val[V/31] := I/32 (init)
+  { + V/31}
+  [V/31 + 8] := 3 (init)
+  { + arg/29 V/31}
+  val[V/31 + 16] := arg/29 (init)
+  { + clos/30 V/31}
+  val[V/31 + 24] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** Liveness analysis
+caml_curry2(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  {arg/29* + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {arg/29* clos/30*}
+  V/31 := alloc 40
+  {arg/29* clos/30* V/31* + V/31}
+  [V/31 + -8] := 4343 (init)
+  {arg/29* clos/30* V/31*}
+  I/32 := "caml_curry2_1"
+  {arg/29* clos/30* V/31* + I/32 V/31}
+  val[V/31] := I/32 (init)
+  {arg/29* clos/30* V/31* + V/31}
+  [V/31 + 8] := 3 (init)
+  {clos/30* V/31* + arg/29 V/31}
+  val[V/31 + 16] := arg/29 (init)
+  {V/31* + clos/30 V/31}
+  val[V/31 + 24] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After spilling
+caml_curry2(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  {arg/29* + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {arg/29* clos/30*}
+  V/31 := alloc 40
+  {arg/29* clos/30* V/31* + V/31}
+  [V/31 + -8] := 4343 (init)
+  {arg/29* clos/30* V/31*}
+  I/32 := "caml_curry2_1"
+  {arg/29* clos/30* V/31* + I/32 V/31}
+  val[V/31] := I/32 (init)
+  {arg/29* clos/30* V/31* + V/31}
+  [V/31 + 8] := 3 (init)
+  {clos/30* V/31* + arg/29 V/31}
+  val[V/31 + 16] := arg/29 (init)
+  {V/31* + clos/30 V/31}
+  val[V/31 + 24] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After live range splitting
+caml_curry2(R/0[%rax] R/1[%rbx])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {}
+  V/31 := alloc 40
+  { + V/31}
+  [V/31 + -8] := 4343 (init)
+  {}
+  I/32 := "caml_curry2_1"
+  { + I/32 V/31}
+  val[V/31] := I/32 (init)
+  { + V/31}
+  [V/31 + 8] := 3 (init)
+  { + arg/29 V/31}
+  val[V/31 + 16] := arg/29 (init)
+  { + clos/30 V/31}
+  val[V/31 + 24] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** Liveness analysis
+caml_curry2(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  {arg/29* + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {arg/29* clos/30*}
+  V/31 := alloc 40
+  {arg/29* clos/30* V/31* + V/31}
+  [V/31 + -8] := 4343 (init)
+  {arg/29* clos/30* V/31*}
+  I/32 := "caml_curry2_1"
+  {arg/29* clos/30* V/31* + I/32 V/31}
+  val[V/31] := I/32 (init)
+  {arg/29* clos/30* V/31* + V/31}
+  [V/31 + 8] := 3 (init)
+  {clos/30* V/31* + arg/29 V/31}
+  val[V/31 + 16] := arg/29 (init)
+  {V/31* + clos/30 V/31}
+  val[V/31 + 24] := clos/30 (init)
+  { + V/31}
+  R/0[%rax] := V/31
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** Intervals
+R/11[%r11]: [7;7]
+R/10[%r10]: [7;7]
+R/1[%rbx]: [2;4]
+R/0[%rax]: [2;2] [21;22]
+arg/29: [3;16]
+clos/30: [5;18]
+V/31: [7;20]
+I/32: [11;12]
+*** After register allocation
+caml_curry2(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29[%rax] := R/0[%rax]
+  {arg/29[%rax]* + R/1[%rbx]}
+  clos/30[%rbx] := R/1[%rbx]
+  {arg/29[%rax]* clos/30[%rbx]*}
+  V/31[%rdi] := alloc 40
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + V/31[%rdi]}
+  [V/31[%rdi] + -8] := 4343 (init)
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]*}
+  I/32[%rsi] := "caml_curry2_1"
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + I/32[%rsi] V/31[%rdi]}
+  val[V/31[%rdi]] := I/32[%rsi] (init)
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + V/31[%rdi]}
+  [V/31[%rdi] + 8] := 3 (init)
+  {clos/30[%rbx]* V/31[%rdi]* + arg/29[%rax] V/31[%rdi]}
+  val[V/31[%rdi] + 16] := arg/29[%rax] (init)
+  {V/31[%rdi]* + clos/30[%rbx] V/31[%rdi]}
+  val[V/31[%rdi] + 24] := clos/30[%rbx] (init)
+  { + V/31[%rdi]}
+  R/0[%rax] := V/31[%rdi]
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** After insertion of reloading code
+caml_curry2(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29[%rax] := R/0[%rax]
+  {arg/29[%rax]* + R/1[%rbx]}
+  clos/30[%rbx] := R/1[%rbx]
+  {arg/29[%rax]* clos/30[%rbx]*}
+  V/31[%rdi] := alloc 40
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + V/31[%rdi]}
+  [V/31[%rdi] + -8] := 4343 (init)
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]*}
+  I/32[%rsi] := "caml_curry2_1"
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + I/32[%rsi] V/31[%rdi]}
+  val[V/31[%rdi]] := I/32[%rsi] (init)
+  {arg/29[%rax]* clos/30[%rbx]* V/31[%rdi]* + V/31[%rdi]}
+  [V/31[%rdi] + 8] := 3 (init)
+  {clos/30[%rbx]* V/31[%rdi]* + arg/29[%rax] V/31[%rdi]}
+  val[V/31[%rdi] + 16] := arg/29[%rax] (init)
+  {V/31[%rdi]* + clos/30[%rbx] V/31[%rdi]}
+  val[V/31[%rdi] + 24] := clos/30[%rbx] (init)
+  { + V/31[%rdi]}
+  R/0[%rax] := V/31[%rdi]
+  { + R/0[%rax]}
+  return R/0[%rax]
+*** Linearized code
+caml_curry2:
+  prologue
+  L137:
+  {arg/29[%rax]* clos/30[%rbx]*}
+  V/31[%rdi] := alloc 40
+  [V/31[%rdi] + -8] := 4343 (init)
+  I/32[%rsi] := "caml_curry2_1"
+  val[V/31[%rdi]] := I/32[%rsi] (init)
+  [V/31[%rdi] + 8] := 3 (init)
+  val[V/31[%rdi] + 16] := arg/29[%rax] (init)
+  val[V/31[%rdi] + 24] := clos/30[%rbx] (init)
+  R/0[%rax] := V/31[%rdi]
+  reload retaddr
+  return R/0[%rax]
+  
+*** After instruction scheduling
+caml_curry2:
+  prologue
+  L137:
+  {arg/29[%rax]* clos/30[%rbx]*}
+  V/31[%rdi] := alloc 40
+  [V/31[%rdi] + -8] := 4343 (init)
+  I/32[%rsi] := "caml_curry2_1"
+  val[V/31[%rdi]] := I/32[%rsi] (init)
+  [V/31[%rdi] + 8] := 3 (init)
+  val[V/31[%rdi] + 16] := arg/29[%rax] (init)
+  val[V/31[%rdi] + 24] := clos/30[%rbx] (init)
+  R/0[%rax] := V/31[%rdi]
+  reload retaddr
+  return R/0[%rax]
+  
+*** After instruction selection
+caml_curry2_1(R/0[%rax] R/1[%rbx])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  { + clos/30}
+  clos/31 := val[clos/30 + 24]
+  { + clos/30}
+  V/32 := val[clos/30 + 16]
+  { + clos/31}
+  V/33 := val[clos/31 + 16]
+  { + V/32}
+  R/0[%rax] := V/32
+  { + arg/29}
+  R/1[%rbx] := arg/29
+  { + clos/31}
+  R/2[%rdi] := clos/31
+  { + V/33 R/0[%rax] R/1[%rbx] R/2[%rdi]}
+  tailcall V/33 R/0[%rax] R/1[%rbx] R/2[%rdi]
+*** After allocation combining
+caml_curry2_1(R/0[%rax] R/1[%rbx])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  { + clos/30}
+  clos/31 := val[clos/30 + 24]
+  { + clos/30}
+  V/32 := val[clos/30 + 16]
+  { + clos/31}
+  V/33 := val[clos/31 + 16]
+  { + V/32}
+  R/0[%rax] := V/32
+  { + arg/29}
+  R/1[%rbx] := arg/29
+  { + clos/31}
+  R/2[%rdi] := clos/31
+  { + V/33 R/0[%rax] R/1[%rbx] R/2[%rdi]}
+  tailcall V/33 R/0[%rax] R/1[%rbx] R/2[%rdi]
+*** After CSE
+caml_curry2_1(R/0[%rax] R/1[%rbx])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  { + clos/30}
+  clos/31 := val[clos/30 + 24]
+  { + clos/30}
+  V/32 := val[clos/30 + 16]
+  { + clos/31}
+  V/33 := val[clos/31 + 16]
+  { + V/32}
+  R/0[%rax] := V/32
+  { + arg/29}
+  R/1[%rbx] := arg/29
+  { + clos/31}
+  R/2[%rdi] := clos/31
+  { + V/33 R/0[%rax] R/1[%rbx] R/2[%rdi]}
+  tailcall V/33 R/0[%rax] R/1[%rbx] R/2[%rdi]
+*** Liveness analysis
+caml_curry2_1(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  {arg/29* + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {arg/29* clos/30* + clos/30}
+  clos/31 := val[clos/30 + 24]
+  {arg/29* clos/31* + clos/30}
+  V/32 := val[clos/30 + 16]
+  {arg/29* clos/31* V/32* + clos/31}
+  V/33 := val[clos/31 + 16]
+  {arg/29* clos/31* V/33* + V/32}
+  R/0[%rax] := V/32
+  {R/0[%rax] clos/31* V/33* + arg/29}
+  R/1[%rbx] := arg/29
+  {R/0[%rax] R/1[%rbx] V/33* + clos/31}
+  R/2[%rdi] := clos/31
+  { + V/33 R/0[%rax] R/1[%rbx] R/2[%rdi]}
+  tailcall V/33 R/0[%rax] R/1[%rbx] R/2[%rdi]
+*** After spilling
+caml_curry2_1(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  {arg/29* + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {arg/29* clos/30* + clos/30}
+  clos/31 := val[clos/30 + 24]
+  {arg/29* clos/31* + clos/30}
+  V/32 := val[clos/30 + 16]
+  {arg/29* clos/31* V/32* + clos/31}
+  V/33 := val[clos/31 + 16]
+  {arg/29* clos/31* V/33* + V/32}
+  R/0[%rax] := V/32
+  {R/0[%rax] clos/31* V/33* + arg/29}
+  R/1[%rbx] := arg/29
+  {R/0[%rax] R/1[%rbx] V/33* + clos/31}
+  R/2[%rdi] := clos/31
+  { + V/33 R/0[%rax] R/1[%rbx] R/2[%rdi]}
+  tailcall V/33 R/0[%rax] R/1[%rbx] R/2[%rdi]
+*** After live range splitting
+caml_curry2_1(R/0[%rax] R/1[%rbx])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  { + clos/30}
+  clos/31 := val[clos/30 + 24]
+  { + clos/30}
+  V/32 := val[clos/30 + 16]
+  { + clos/31}
+  V/33 := val[clos/31 + 16]
+  { + V/32}
+  R/0[%rax] := V/32
+  { + arg/29}
+  R/1[%rbx] := arg/29
+  { + clos/31}
+  R/2[%rdi] := clos/31
+  { + V/33 R/0[%rax] R/1[%rbx] R/2[%rdi]}
+  tailcall V/33 R/0[%rax] R/1[%rbx] R/2[%rdi]
+*** Liveness analysis
+caml_curry2_1(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  {arg/29* + R/1[%rbx]}
+  clos/30 := R/1[%rbx]
+  {arg/29* clos/30* + clos/30}
+  clos/31 := val[clos/30 + 24]
+  {arg/29* clos/31* + clos/30}
+  V/32 := val[clos/30 + 16]
+  {arg/29* clos/31* V/32* + clos/31}
+  V/33 := val[clos/31 + 16]
+  {arg/29* clos/31* V/33* + V/32}
+  R/0[%rax] := V/32
+  {R/0[%rax] clos/31* V/33* + arg/29}
+  R/1[%rbx] := arg/29
+  {R/0[%rax] R/1[%rbx] V/33* + clos/31}
+  R/2[%rdi] := clos/31
+  { + V/33 R/0[%rax] R/1[%rbx] R/2[%rdi]}
+  tailcall V/33 R/0[%rax] R/1[%rbx] R/2[%rdi]
+*** Intervals
+R/2[%rdi]: [17;18]
+R/1[%rbx]: [2;4] [15;18]
+R/0[%rax]: [2;2] [13;18]
+arg/29: [3;14]
+clos/30: [5;8]
+clos/31: [7;16]
+V/32: [9;12]
+V/33: [11;18]
+*** After register allocation
+caml_curry2_1(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29[%rdi] := R/0[%rax]
+  {arg/29[%rdi]* + R/1[%rbx]}
+  clos/30[%rax] := R/1[%rbx]
+  {arg/29[%rdi]* clos/30[%rax]* + clos/30[%rax]}
+  clos/31[%rsi] := val[clos/30[%rax] + 24]
+  {arg/29[%rdi]* clos/31[%rsi]* + clos/30[%rax]}
+  V/32[%rax] := val[clos/30[%rax] + 16]
+  {arg/29[%rdi]* clos/31[%rsi]* V/32[%rax]* + clos/31[%rsi]}
+  V/33[%rdx] := val[clos/31[%rsi] + 16]
+  {arg/29[%rdi]* clos/31[%rsi]* V/33[%rdx]* + V/32[%rax]}
+  R/0[%rax] := V/32[%rax]
+  {R/0[%rax] clos/31[%rsi]* V/33[%rdx]* + arg/29[%rdi]}
+  R/1[%rbx] := arg/29[%rdi]
+  {R/0[%rax] R/1[%rbx] V/33[%rdx]* + clos/31[%rsi]}
+  R/2[%rdi] := clos/31[%rsi]
+  { + V/33[%rdx] R/0[%rax] R/1[%rbx] R/2[%rdi]}
+  tailcall V/33[%rdx] R/0[%rax] R/1[%rbx] R/2[%rdi]
+*** After insertion of reloading code
+caml_curry2_1(R/0[%rax] R/1[%rbx])
+  {R/1[%rbx] + R/0[%rax]}
+  arg/29[%rdi] := R/0[%rax]
+  {arg/29[%rdi]* + R/1[%rbx]}
+  clos/30[%rax] := R/1[%rbx]
+  {arg/29[%rdi]* clos/30[%rax]* + clos/30[%rax]}
+  clos/31[%rsi] := val[clos/30[%rax] + 24]
+  {arg/29[%rdi]* clos/31[%rsi]* + clos/30[%rax]}
+  V/32[%rax] := val[clos/30[%rax] + 16]
+  {arg/29[%rdi]* clos/31[%rsi]* V/32[%rax]* + clos/31[%rsi]}
+  V/33[%rdx] := val[clos/31[%rsi] + 16]
+  {arg/29[%rdi]* clos/31[%rsi]* V/33[%rdx]* + V/32[%rax]}
+  R/0[%rax] := V/32[%rax]
+  {R/0[%rax] clos/31[%rsi]* V/33[%rdx]* + arg/29[%rdi]}
+  R/1[%rbx] := arg/29[%rdi]
+  {R/0[%rax] R/1[%rbx] V/33[%rdx]* + clos/31[%rsi]}
+  R/2[%rdi] := clos/31[%rsi]
+  { + V/33[%rdx] R/0[%rax] R/1[%rbx] R/2[%rdi]}
+  tailcall V/33[%rdx] R/0[%rax] R/1[%rbx] R/2[%rdi]
+*** Linearized code
+caml_curry2_1:
+  L142:
+  arg/29[%rdi] := R/0[%rax]
+  clos/30[%rax] := R/1[%rbx]
+  clos/31[%rsi] := val[clos/30[%rax] + 24]
+  V/32[%rax] := val[clos/30[%rax] + 16]
+  V/33[%rdx] := val[clos/31[%rsi] + 16]
+  R/1[%rbx] := arg/29[%rdi]
+  R/2[%rdi] := clos/31[%rsi]
+  tailcall V/33[%rdx] R/0[%rax] R/1[%rbx] R/2[%rdi]
+  
+*** After instruction scheduling
+caml_curry2_1:
+  L142:
+  arg/29[%rdi] := R/0[%rax]
+  clos/30[%rax] := R/1[%rbx]
+  clos/31[%rsi] := val[clos/30[%rax] + 24]
+  V/32[%rax] := val[clos/30[%rax] + 16]
+  V/33[%rdx] := val[clos/31[%rsi] + 16]
+  R/1[%rbx] := arg/29[%rdi]
+  R/2[%rdi] := clos/31[%rsi]
+  tailcall V/33[%rdx] R/0[%rax] R/1[%rbx] R/2[%rdi]
+  
+*** After instruction selection
+caml_apply3(R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  arg/30 := R/1[%rbx]
+  { + R/2[%rdi]}
+  arg/31 := R/2[%rdi]
+  { + R/3[%rsi]}
+  clos/32 := R/3[%rsi]
+  { + clos/32}
+  V/33 := val[clos/32 + 8]
+  { + V/33}
+  if V/33 ==s 7 then
+    { + clos/32}
+    V/39 := val[clos/32 + 16]
+    { + arg/29}
+    R/0[%rax] := arg/29
+    { + arg/30}
+    R/1[%rbx] := arg/30
+    { + arg/31}
+    R/2[%rdi] := arg/31
+    { + clos/32}
+    R/3[%rsi] := clos/32
+    { + V/39 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]}
+    tailcall V/39 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]
+  else
+    { + clos/32}
+    V/34 := val[clos/32]
+    { + arg/29}
+    R/0[%rax] := arg/29
+    { + clos/32}
+    R/1[%rbx] := clos/32
+    { + V/34 R/0[%rax] R/1[%rbx]}
+    R/0[%rax] := call V/34 R/0[%rax] R/1[%rbx]
+    { + R/0[%rax]}
+    clos/35 := R/0[%rax]
+    { + clos/35}
+    V/36 := val[clos/35]
+    { + arg/30}
+    R/0[%rax] := arg/30
+    { + clos/35}
+    R/1[%rbx] := clos/35
+    { + V/36 R/0[%rax] R/1[%rbx]}
+    R/0[%rax] := call V/36 R/0[%rax] R/1[%rbx]
+    { + R/0[%rax]}
+    clos/37 := R/0[%rax]
+    { + clos/37}
+    V/38 := val[clos/37]
+    { + arg/31}
+    R/0[%rax] := arg/31
+    { + clos/37}
+    R/1[%rbx] := clos/37
+    { + V/38 R/0[%rax] R/1[%rbx]}
+    tailcall V/38 R/0[%rax] R/1[%rbx]
+  endif
+*** After allocation combining
+caml_apply3(R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  arg/30 := R/1[%rbx]
+  { + R/2[%rdi]}
+  arg/31 := R/2[%rdi]
+  { + R/3[%rsi]}
+  clos/32 := R/3[%rsi]
+  { + clos/32}
+  V/33 := val[clos/32 + 8]
+  { + V/33}
+  if V/33 ==s 7 then
+    { + clos/32}
+    V/39 := val[clos/32 + 16]
+    { + arg/29}
+    R/0[%rax] := arg/29
+    { + arg/30}
+    R/1[%rbx] := arg/30
+    { + arg/31}
+    R/2[%rdi] := arg/31
+    { + clos/32}
+    R/3[%rsi] := clos/32
+    { + V/39 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]}
+    tailcall V/39 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]
+  else
+    { + clos/32}
+    V/34 := val[clos/32]
+    { + arg/29}
+    R/0[%rax] := arg/29
+    { + clos/32}
+    R/1[%rbx] := clos/32
+    { + V/34 R/0[%rax] R/1[%rbx]}
+    R/0[%rax] := call V/34 R/0[%rax] R/1[%rbx]
+    { + R/0[%rax]}
+    clos/35 := R/0[%rax]
+    { + clos/35}
+    V/36 := val[clos/35]
+    { + arg/30}
+    R/0[%rax] := arg/30
+    { + clos/35}
+    R/1[%rbx] := clos/35
+    { + V/36 R/0[%rax] R/1[%rbx]}
+    R/0[%rax] := call V/36 R/0[%rax] R/1[%rbx]
+    { + R/0[%rax]}
+    clos/37 := R/0[%rax]
+    { + clos/37}
+    V/38 := val[clos/37]
+    { + arg/31}
+    R/0[%rax] := arg/31
+    { + clos/37}
+    R/1[%rbx] := clos/37
+    { + V/38 R/0[%rax] R/1[%rbx]}
+    tailcall V/38 R/0[%rax] R/1[%rbx]
+  endif
+*** After CSE
+caml_apply3(R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  arg/30 := R/1[%rbx]
+  { + R/2[%rdi]}
+  arg/31 := R/2[%rdi]
+  { + R/3[%rsi]}
+  clos/32 := R/3[%rsi]
+  { + clos/32}
+  V/33 := val[clos/32 + 8]
+  { + V/33}
+  if V/33 ==s 7 then
+    { + clos/32}
+    V/39 := val[clos/32 + 16]
+    { + arg/29}
+    R/0[%rax] := arg/29
+    { + arg/30}
+    R/1[%rbx] := arg/30
+    { + arg/31}
+    R/2[%rdi] := arg/31
+    { + clos/32}
+    R/3[%rsi] := clos/32
+    { + V/39 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]}
+    tailcall V/39 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]
+  else
+    { + clos/32}
+    V/34 := val[clos/32]
+    { + arg/29}
+    R/0[%rax] := arg/29
+    { + clos/32}
+    R/1[%rbx] := clos/32
+    { + V/34 R/0[%rax] R/1[%rbx]}
+    R/0[%rax] := call V/34 R/0[%rax] R/1[%rbx]
+    { + R/0[%rax]}
+    clos/35 := R/0[%rax]
+    { + clos/35}
+    V/36 := val[clos/35]
+    { + arg/30}
+    R/0[%rax] := arg/30
+    { + clos/35}
+    R/1[%rbx] := clos/35
+    { + V/36 R/0[%rax] R/1[%rbx]}
+    R/0[%rax] := call V/36 R/0[%rax] R/1[%rbx]
+    { + R/0[%rax]}
+    clos/37 := R/0[%rax]
+    { + clos/37}
+    V/38 := val[clos/37]
+    { + arg/31}
+    R/0[%rax] := arg/31
+    { + clos/37}
+    R/1[%rbx] := clos/37
+    { + V/38 R/0[%rax] R/1[%rbx]}
+    tailcall V/38 R/0[%rax] R/1[%rbx]
+  endif
+*** Liveness analysis
+caml_apply3(R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi])
+  {R/1[%rbx] R/2[%rdi] R/3[%rsi] + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  {R/2[%rdi] R/3[%rsi] arg/29* + R/1[%rbx]}
+  arg/30 := R/1[%rbx]
+  {R/3[%rsi] arg/29* arg/30* + R/2[%rdi]}
+  arg/31 := R/2[%rdi]
+  {arg/29* arg/30* arg/31* + R/3[%rsi]}
+  clos/32 := R/3[%rsi]
+  {arg/29* arg/30* arg/31* clos/32* + clos/32}
+  V/33 := val[clos/32 + 8]
+  {arg/29* arg/30* arg/31* clos/32* + V/33}
+  if V/33 ==s 7 then
+    {arg/29* arg/30* arg/31* clos/32* + clos/32}
+    V/39 := val[clos/32 + 16]
+    {arg/30* arg/31* clos/32* V/39* + arg/29}
+    R/0[%rax] := arg/29
+    {R/0[%rax] arg/31* clos/32* V/39* + arg/30}
+    R/1[%rbx] := arg/30
+    {R/0[%rax] R/1[%rbx] clos/32* V/39* + arg/31}
+    R/2[%rdi] := arg/31
+    {R/0[%rax] R/1[%rbx] R/2[%rdi] V/39* + clos/32}
+    R/3[%rsi] := clos/32
+    { + V/39 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]}
+    tailcall V/39 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]
+  else
+    {arg/29* arg/30* arg/31* clos/32* + clos/32}
+    V/34 := val[clos/32]
+    {arg/30* arg/31* clos/32* V/34* + arg/29}
+    R/0[%rax] := arg/29
+    {R/0[%rax] arg/30* arg/31* V/34* + clos/32}
+    R/1[%rbx] := clos/32
+    {arg/30* arg/31* + V/34 R/0[%rax] R/1[%rbx]}
+    R/0[%rax] := call V/34 R/0[%rax] R/1[%rbx]
+    {arg/30* arg/31* + R/0[%rax]}
+    clos/35 := R/0[%rax]
+    {arg/30* arg/31* clos/35* + clos/35}
+    V/36 := val[clos/35]
+    {arg/31* clos/35* V/36* + arg/30}
+    R/0[%rax] := arg/30
+    {R/0[%rax] arg/31* V/36* + clos/35}
+    R/1[%rbx] := clos/35
+    {arg/31* + V/36 R/0[%rax] R/1[%rbx]}
+    R/0[%rax] := call V/36 R/0[%rax] R/1[%rbx]
+    {arg/31* + R/0[%rax]}
+    clos/37 := R/0[%rax]
+    {arg/31* clos/37* + clos/37}
+    V/38 := val[clos/37]
+    {clos/37* V/38* + arg/31}
+    R/0[%rax] := arg/31
+    {R/0[%rax] V/38* + clos/37}
+    R/1[%rbx] := clos/37
+    { + V/38 R/0[%rax] R/1[%rbx]}
+    tailcall V/38 R/0[%rax] R/1[%rbx]
+  endif
+*** After spilling
+caml_apply3(R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi])
+  {R/1[%rbx] R/2[%rdi] R/3[%rsi] + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  {R/2[%rdi] R/3[%rsi] arg/29* + R/1[%rbx]}
+  arg/30 := R/1[%rbx]
+  {R/3[%rsi] arg/29* arg/30* + R/2[%rdi]}
+  arg/31 := R/2[%rdi]
+  {arg/29* arg/30* arg/31* + R/3[%rsi]}
+  clos/32 := R/3[%rsi]
+  {arg/29* arg/30* arg/31* clos/32* + clos/32}
+  V/33 := val[clos/32 + 8]
+  {arg/29* arg/30* arg/31* clos/32* + V/33}
+  if V/33 ==s 7 then
+    {arg/29* arg/30* arg/31* clos/32* + clos/32}
+    V/39 := val[clos/32 + 16]
+    {arg/30* arg/31* clos/32* V/39* + arg/29}
+    R/0[%rax] := arg/29
+    {R/0[%rax] arg/31* clos/32* V/39* + arg/30}
+    R/1[%rbx] := arg/30
+    {R/0[%rax] R/1[%rbx] clos/32* V/39* + arg/31}
+    R/2[%rdi] := arg/31
+    {R/0[%rax] R/1[%rbx] R/2[%rdi] V/39* + clos/32}
+    R/3[%rsi] := clos/32
+    { + V/39 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]}
+    tailcall V/39 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]
+  else
+    {arg/29* arg/30* clos/32* + arg/31}
+    spilled-arg/40 := arg/31 (spill)
+    {arg/29* clos/32* spilled-arg/40* + arg/30}
+    spilled-arg/41 := arg/30 (spill)
+    {arg/29* clos/32* spilled-arg/40* spilled-arg/41* + clos/32}
+    V/34 := val[clos/32]
+    {clos/32* V/34* spilled-arg/40* spilled-arg/41* + arg/29}
+    R/0[%rax] := arg/29
+    {R/0[%rax] V/34* spilled-arg/40* spilled-arg/41* + clos/32}
+    R/1[%rbx] := clos/32
+    {spilled-arg/40* spilled-arg/41* + V/34 R/0[%rax] R/1[%rbx]}
+    R/0[%rax] := call V/34 R/0[%rax] R/1[%rbx]
+    {spilled-arg/40* spilled-arg/41* + R/0[%rax]}
+    clos/35 := R/0[%rax]
+    {clos/35* spilled-arg/40* spilled-arg/41* + clos/35}
+    V/36 := val[clos/35]
+    {clos/35* V/36* spilled-arg/40* + spilled-arg/41}
+    arg/30 := spilled-arg/41 (reload)
+    {clos/35* V/36* spilled-arg/40* + arg/30}
+    R/0[%rax] := arg/30
+    {R/0[%rax] V/36* spilled-arg/40* + clos/35}
+    R/1[%rbx] := clos/35
+    {spilled-arg/40* + V/36 R/0[%rax] R/1[%rbx]}
+    R/0[%rax] := call V/36 R/0[%rax] R/1[%rbx]
+    {spilled-arg/40* + R/0[%rax]}
+    clos/37 := R/0[%rax]
+    {clos/37* spilled-arg/40* + clos/37}
+    V/38 := val[clos/37]
+    {clos/37* V/38* + spilled-arg/40}
+    arg/31 := spilled-arg/40 (reload)
+    {clos/37* V/38* + arg/31}
+    R/0[%rax] := arg/31
+    {R/0[%rax] V/38* + clos/37}
+    R/1[%rbx] := clos/37
+    { + V/38 R/0[%rax] R/1[%rbx]}
+    tailcall V/38 R/0[%rax] R/1[%rbx]
+  endif
+*** After live range splitting
+caml_apply3(R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  arg/30 := R/1[%rbx]
+  { + R/2[%rdi]}
+  arg/31 := R/2[%rdi]
+  { + R/3[%rsi]}
+  clos/32 := R/3[%rsi]
+  { + clos/32}
+  V/33 := val[clos/32 + 8]
+  { + V/33}
+  if V/33 ==s 7 then
+    { + clos/32}
+    V/39 := val[clos/32 + 16]
+    { + arg/29}
+    R/0[%rax] := arg/29
+    { + arg/30}
+    R/1[%rbx] := arg/30
+    { + arg/31}
+    R/2[%rdi] := arg/31
+    { + clos/32}
+    R/3[%rsi] := clos/32
+    { + V/39 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]}
+    tailcall V/39 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]
+  else
+    { + arg/31}
+    spilled-arg/40 := arg/31 (spill)
+    { + arg/30}
+    spilled-arg/41 := arg/30 (spill)
+    { + clos/32}
+    V/34 := val[clos/32]
+    { + arg/29}
+    R/0[%rax] := arg/29
+    { + clos/32}
+    R/1[%rbx] := clos/32
+    { + V/34 R/0[%rax] R/1[%rbx]}
+    R/0[%rax] := call V/34 R/0[%rax] R/1[%rbx]
+    { + R/0[%rax]}
+    clos/35 := R/0[%rax]
+    { + clos/35}
+    V/36 := val[clos/35]
+    { + spilled-arg/41}
+    arg/42 := spilled-arg/41 (reload)
+    { + arg/42}
+    R/0[%rax] := arg/42
+    { + clos/35}
+    R/1[%rbx] := clos/35
+    { + V/36 R/0[%rax] R/1[%rbx]}
+    R/0[%rax] := call V/36 R/0[%rax] R/1[%rbx]
+    { + R/0[%rax]}
+    clos/37 := R/0[%rax]
+    { + clos/37}
+    V/38 := val[clos/37]
+    { + spilled-arg/40}
+    arg/43 := spilled-arg/40 (reload)
+    { + arg/43}
+    R/0[%rax] := arg/43
+    { + clos/37}
+    R/1[%rbx] := clos/37
+    { + V/38 R/0[%rax] R/1[%rbx]}
+    tailcall V/38 R/0[%rax] R/1[%rbx]
+  endif
+*** Liveness analysis
+caml_apply3(R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi])
+  {R/1[%rbx] R/2[%rdi] R/3[%rsi] + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  {R/2[%rdi] R/3[%rsi] arg/29* + R/1[%rbx]}
+  arg/30 := R/1[%rbx]
+  {R/3[%rsi] arg/29* arg/30* + R/2[%rdi]}
+  arg/31 := R/2[%rdi]
+  {arg/29* arg/30* arg/31* + R/3[%rsi]}
+  clos/32 := R/3[%rsi]
+  {arg/29* arg/30* arg/31* clos/32* + clos/32}
+  V/33 := val[clos/32 + 8]
+  {arg/29* arg/30* arg/31* clos/32* + V/33}
+  if V/33 ==s 7 then
+    {arg/29* arg/30* arg/31* clos/32* + clos/32}
+    V/39 := val[clos/32 + 16]
+    {arg/30* arg/31* clos/32* V/39* + arg/29}
+    R/0[%rax] := arg/29
+    {R/0[%rax] arg/31* clos/32* V/39* + arg/30}
+    R/1[%rbx] := arg/30
+    {R/0[%rax] R/1[%rbx] clos/32* V/39* + arg/31}
+    R/2[%rdi] := arg/31
+    {R/0[%rax] R/1[%rbx] R/2[%rdi] V/39* + clos/32}
+    R/3[%rsi] := clos/32
+    { + V/39 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]}
+    tailcall V/39 R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]
+  else
+    {arg/29* arg/30* clos/32* + arg/31}
+    spilled-arg/40 := arg/31 (spill)
+    {arg/29* clos/32* spilled-arg/40* + arg/30}
+    spilled-arg/41 := arg/30 (spill)
+    {arg/29* clos/32* spilled-arg/40* spilled-arg/41* + clos/32}
+    V/34 := val[clos/32]
+    {clos/32* V/34* spilled-arg/40* spilled-arg/41* + arg/29}
+    R/0[%rax] := arg/29
+    {R/0[%rax] V/34* spilled-arg/40* spilled-arg/41* + clos/32}
+    R/1[%rbx] := clos/32
+    {spilled-arg/40* spilled-arg/41* + V/34 R/0[%rax] R/1[%rbx]}
+    R/0[%rax] := call V/34 R/0[%rax] R/1[%rbx]
+    {spilled-arg/40* spilled-arg/41* + R/0[%rax]}
+    clos/35 := R/0[%rax]
+    {clos/35* spilled-arg/40* spilled-arg/41* + clos/35}
+    V/36 := val[clos/35]
+    {clos/35* V/36* spilled-arg/40* + spilled-arg/41}
+    arg/42 := spilled-arg/41 (reload)
+    {clos/35* V/36* spilled-arg/40* + arg/42}
+    R/0[%rax] := arg/42
+    {R/0[%rax] V/36* spilled-arg/40* + clos/35}
+    R/1[%rbx] := clos/35
+    {spilled-arg/40* + V/36 R/0[%rax] R/1[%rbx]}
+    R/0[%rax] := call V/36 R/0[%rax] R/1[%rbx]
+    {spilled-arg/40* + R/0[%rax]}
+    clos/37 := R/0[%rax]
+    {clos/37* spilled-arg/40* + clos/37}
+    V/38 := val[clos/37]
+    {clos/37* V/38* + spilled-arg/40}
+    arg/43 := spilled-arg/40 (reload)
+    {clos/37* V/38* + arg/43}
+    R/0[%rax] := arg/43
+    {R/0[%rax] V/38* + clos/37}
+    R/1[%rbx] := clos/37
+    { + V/38 R/0[%rax] R/1[%rbx]}
+    tailcall V/38 R/0[%rax] R/1[%rbx]
+  endif
+*** Intervals
+R/3[%rsi]: [2;8] [23;24]
+R/2[%rdi]: [2;6] [21;24]
+R/1[%rbx]: [2;4] [19;24] [37;38] [49;50] [61;62]
+R/0[%rax]: [2;2] [17;24] [35;40] [47;52] [59;62]
+arg/29: [3;16] [28;34]
+arg/30: [5;18] [28;30]
+arg/31: [7;20] [28;28]
+clos/32: [9;22] [28;36]
+V/33: [11;12]
+V/39: [15;24]
+spilled-arg/40: [29;56]
+spilled-arg/41: [31;44]
+V/34: [33;38]
+clos/35: [41;48]
+V/36: [43;50]
+arg/42: [45;46]
+clos/37: [53;60]
+V/38: [55;62]
+arg/43: [57;58]
+*** After register allocation
+caml_apply3(R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi])
+  {R/1[%rbx] R/2[%rdi] R/3[%rsi] + R/0[%rax]}
+  arg/29[%rax] := R/0[%rax]
+  {R/2[%rdi] R/3[%rsi] arg/29[%rax]* + R/1[%rbx]}
+  arg/30[%rbx] := R/1[%rbx]
+  {R/3[%rsi] arg/29[%rax]* arg/30[%rbx]* + R/2[%rdi]}
+  arg/31[%rdi] := R/2[%rdi]
+  {arg/29[%rax]* arg/30[%rbx]* arg/31[%rdi]* + R/3[%rsi]}
+  clos/32[%rsi] := R/3[%rsi]
+  {arg/29[%rax]* arg/30[%rbx]* arg/31[%rdi]* clos/32[%rsi]* + clos/32[%rsi]}
+  V/33[%rdx] := val[clos/32[%rsi] + 8]
+  {arg/29[%rax]* arg/30[%rbx]* arg/31[%rdi]* clos/32[%rsi]* + V/33[%rdx]}
+  if V/33[%rdx] ==s 7 then
+    {arg/29[%rax]* arg/30[%rbx]* arg/31[%rdi]* clos/32[%rsi]* +
+     clos/32[%rsi]}
+    V/39[%rdx] := val[clos/32[%rsi] + 16]
+    {arg/30[%rbx]* arg/31[%rdi]* clos/32[%rsi]* V/39[%rdx]* + arg/29[%rax]}
+    R/0[%rax] := arg/29[%rax]
+    {R/0[%rax] arg/31[%rdi]* clos/32[%rsi]* V/39[%rdx]* + arg/30[%rbx]}
+    R/1[%rbx] := arg/30[%rbx]
+    {R/0[%rax] R/1[%rbx] clos/32[%rsi]* V/39[%rdx]* + arg/31[%rdi]}
+    R/2[%rdi] := arg/31[%rdi]
+    {R/0[%rax] R/1[%rbx] R/2[%rdi] V/39[%rdx]* + clos/32[%rsi]}
+    R/3[%rsi] := clos/32[%rsi]
+    { + V/39[%rdx] R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]}
+    tailcall V/39[%rdx] R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]
+  else
+    {arg/29[%rax]* arg/30[%rbx]* clos/32[%rsi]* + arg/31[%rdi]}
+    spilled-arg/40[s0] := arg/31[%rdi] (spill)
+    {arg/29[%rax]* clos/32[%rsi]* spilled-arg/40[s0]* + arg/30[%rbx]}
+    spilled-arg/41[s1] := arg/30[%rbx] (spill)
+    {arg/29[%rax]* clos/32[%rsi]* spilled-arg/40[s0]* spilled-arg/41[s1]* +
+     clos/32[%rsi]}
+    V/34[%rdi] := val[clos/32[%rsi]]
+    {clos/32[%rsi]* V/34[%rdi]* spilled-arg/40[s0]* spilled-arg/41[s1]* +
+     arg/29[%rax]}
+    R/0[%rax] := arg/29[%rax]
+    {R/0[%rax] V/34[%rdi]* spilled-arg/40[s0]* spilled-arg/41[s1]* +
+     clos/32[%rsi]}
+    R/1[%rbx] := clos/32[%rsi]
+    {spilled-arg/40[s0]* spilled-arg/41[s1]* +
+     V/34[%rdi] R/0[%rax] R/1[%rbx]}
+    R/0[%rax] := call V/34[%rdi] R/0[%rax] R/1[%rbx]
+    {spilled-arg/40[s0]* spilled-arg/41[s1]* + R/0[%rax]}
+    clos/35[%rbx] := R/0[%rax]
+    {clos/35[%rbx]* spilled-arg/40[s0]* spilled-arg/41[s1]* + clos/35[%rbx]}
+    V/36[%rdi] := val[clos/35[%rbx]]
+    {clos/35[%rbx]* V/36[%rdi]* spilled-arg/40[s0]* + spilled-arg/41[s1]}
+    arg/42[%rax] := spilled-arg/41[s1] (reload)
+    {clos/35[%rbx]* V/36[%rdi]* spilled-arg/40[s0]* + arg/42[%rax]}
+    R/0[%rax] := arg/42[%rax]
+    {R/0[%rax] V/36[%rdi]* spilled-arg/40[s0]* + clos/35[%rbx]}
+    R/1[%rbx] := clos/35[%rbx]
+    {spilled-arg/40[s0]* + V/36[%rdi] R/0[%rax] R/1[%rbx]}
+    R/0[%rax] := call V/36[%rdi] R/0[%rax] R/1[%rbx]
+    {spilled-arg/40[s0]* + R/0[%rax]}
+    clos/37[%rbx] := R/0[%rax]
+    {clos/37[%rbx]* spilled-arg/40[s0]* + clos/37[%rbx]}
+    V/38[%rdi] := val[clos/37[%rbx]]
+    {clos/37[%rbx]* V/38[%rdi]* + spilled-arg/40[s0]}
+    arg/43[%rax] := spilled-arg/40[s0] (reload)
+    {clos/37[%rbx]* V/38[%rdi]* + arg/43[%rax]}
+    R/0[%rax] := arg/43[%rax]
+    {R/0[%rax] V/38[%rdi]* + clos/37[%rbx]}
+    R/1[%rbx] := clos/37[%rbx]
+    { + V/38[%rdi] R/0[%rax] R/1[%rbx]}
+    tailcall V/38[%rdi] R/0[%rax] R/1[%rbx]
+  endif
+*** After insertion of reloading code
+caml_apply3(R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi])
+  {R/1[%rbx] R/2[%rdi] R/3[%rsi] + R/0[%rax]}
+  arg/29[%rax] := R/0[%rax]
+  {R/2[%rdi] R/3[%rsi] arg/29[%rax]* + R/1[%rbx]}
+  arg/30[%rbx] := R/1[%rbx]
+  {R/3[%rsi] arg/29[%rax]* arg/30[%rbx]* + R/2[%rdi]}
+  arg/31[%rdi] := R/2[%rdi]
+  {arg/29[%rax]* arg/30[%rbx]* arg/31[%rdi]* + R/3[%rsi]}
+  clos/32[%rsi] := R/3[%rsi]
+  {arg/29[%rax]* arg/30[%rbx]* arg/31[%rdi]* clos/32[%rsi]* + clos/32[%rsi]}
+  V/33[%rdx] := val[clos/32[%rsi] + 8]
+  { + V/33[%rdx]}
+  if V/33[%rdx] ==s 7 then
+    {arg/29[%rax]* arg/30[%rbx]* arg/31[%rdi]* clos/32[%rsi]* +
+     clos/32[%rsi]}
+    V/39[%rdx] := val[clos/32[%rsi] + 16]
+    {arg/30[%rbx]* arg/31[%rdi]* clos/32[%rsi]* V/39[%rdx]* + arg/29[%rax]}
+    R/0[%rax] := arg/29[%rax]
+    {R/0[%rax] arg/31[%rdi]* clos/32[%rsi]* V/39[%rdx]* + arg/30[%rbx]}
+    R/1[%rbx] := arg/30[%rbx]
+    {R/0[%rax] R/1[%rbx] clos/32[%rsi]* V/39[%rdx]* + arg/31[%rdi]}
+    R/2[%rdi] := arg/31[%rdi]
+    {R/0[%rax] R/1[%rbx] R/2[%rdi] V/39[%rdx]* + clos/32[%rsi]}
+    R/3[%rsi] := clos/32[%rsi]
+    { + V/39[%rdx] R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]}
+    tailcall V/39[%rdx] R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]
+  else
+    {arg/29[%rax]* arg/30[%rbx]* clos/32[%rsi]* + arg/31[%rdi]}
+    spilled-arg/40[s0] := arg/31[%rdi] (spill)
+    {arg/29[%rax]* clos/32[%rsi]* spilled-arg/40[s0]* + arg/30[%rbx]}
+    spilled-arg/41[s1] := arg/30[%rbx] (spill)
+    {arg/29[%rax]* clos/32[%rsi]* spilled-arg/40[s0]* spilled-arg/41[s1]* +
+     clos/32[%rsi]}
+    V/34[%rdi] := val[clos/32[%rsi]]
+    {clos/32[%rsi]* V/34[%rdi]* spilled-arg/40[s0]* spilled-arg/41[s1]* +
+     arg/29[%rax]}
+    R/0[%rax] := arg/29[%rax]
+    {R/0[%rax] V/34[%rdi]* spilled-arg/40[s0]* spilled-arg/41[s1]* +
+     clos/32[%rsi]}
+    R/1[%rbx] := clos/32[%rsi]
+    {spilled-arg/40[s0]* spilled-arg/41[s1]* +
+     V/34[%rdi] R/0[%rax] R/1[%rbx]}
+    R/0[%rax] := call V/34[%rdi] R/0[%rax] R/1[%rbx]
+    {spilled-arg/40[s0]* spilled-arg/41[s1]* + R/0[%rax]}
+    clos/35[%rbx] := R/0[%rax]
+    {clos/35[%rbx]* spilled-arg/40[s0]* spilled-arg/41[s1]* + clos/35[%rbx]}
+    V/36[%rdi] := val[clos/35[%rbx]]
+    {clos/35[%rbx]* V/36[%rdi]* spilled-arg/40[s0]* + spilled-arg/41[s1]}
+    arg/42[%rax] := spilled-arg/41[s1] (reload)
+    {clos/35[%rbx]* V/36[%rdi]* spilled-arg/40[s0]* + arg/42[%rax]}
+    R/0[%rax] := arg/42[%rax]
+    {R/0[%rax] V/36[%rdi]* spilled-arg/40[s0]* + clos/35[%rbx]}
+    R/1[%rbx] := clos/35[%rbx]
+    {spilled-arg/40[s0]* + V/36[%rdi] R/0[%rax] R/1[%rbx]}
+    R/0[%rax] := call V/36[%rdi] R/0[%rax] R/1[%rbx]
+    {spilled-arg/40[s0]* + R/0[%rax]}
+    clos/37[%rbx] := R/0[%rax]
+    {clos/37[%rbx]* spilled-arg/40[s0]* + clos/37[%rbx]}
+    V/38[%rdi] := val[clos/37[%rbx]]
+    {clos/37[%rbx]* V/38[%rdi]* + spilled-arg/40[s0]}
+    arg/43[%rax] := spilled-arg/40[s0] (reload)
+    {clos/37[%rbx]* V/38[%rdi]* + arg/43[%rax]}
+    R/0[%rax] := arg/43[%rax]
+    {R/0[%rax] V/38[%rdi]* + clos/37[%rbx]}
+    R/1[%rbx] := clos/37[%rbx]
+    { + V/38[%rdi] R/0[%rax] R/1[%rbx]}
+    tailcall V/38[%rdi] R/0[%rax] R/1[%rbx]
+  endif
+*** Linearized code
+caml_apply3:
+  prologue
+  L148:
+  V/33[%rdx] := val[clos/32[%rsi] + 8]
+  if V/33[%rdx] !=s 7 goto L147
+  V/39[%rdx] := val[clos/32[%rsi] + 16]
+  tailcall V/39[%rdx] R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]
+  L147:
+  spilled-arg/40[s0] := arg/31[%rdi] (spill)
+  spilled-arg/41[s1] := arg/30[%rbx] (spill)
+  V/34[%rdi] := val[clos/32[%rsi]]
+  R/1[%rbx] := clos/32[%rsi]
+  {spilled-arg/40[s0]* spilled-arg/41[s1]*}
+  R/0[%rax] := call V/34[%rdi] R/0[%rax] R/1[%rbx]
+  clos/35[%rbx] := R/0[%rax]
+  V/36[%rdi] := val[clos/35[%rbx]]
+  arg/42[%rax] := spilled-arg/41[s1] (reload)
+  {spilled-arg/40[s0]*}
+  R/0[%rax] := call V/36[%rdi] R/0[%rax] R/1[%rbx]
+  clos/37[%rbx] := R/0[%rax]
+  V/38[%rdi] := val[clos/37[%rbx]]
+  arg/43[%rax] := spilled-arg/40[s0] (reload)
+  tailcall V/38[%rdi] R/0[%rax] R/1[%rbx]
+  
+*** After instruction scheduling
+caml_apply3:
+  prologue
+  L148:
+  V/33[%rdx] := val[clos/32[%rsi] + 8]
+  if V/33[%rdx] !=s 7 goto L147
+  V/39[%rdx] := val[clos/32[%rsi] + 16]
+  tailcall V/39[%rdx] R/0[%rax] R/1[%rbx] R/2[%rdi] R/3[%rsi]
+  L147:
+  spilled-arg/40[s0] := arg/31[%rdi] (spill)
+  spilled-arg/41[s1] := arg/30[%rbx] (spill)
+  V/34[%rdi] := val[clos/32[%rsi]]
+  R/1[%rbx] := clos/32[%rsi]
+  {spilled-arg/40[s0]* spilled-arg/41[s1]*}
+  R/0[%rax] := call V/34[%rdi] R/0[%rax] R/1[%rbx]
+  clos/35[%rbx] := R/0[%rax]
+  V/36[%rdi] := val[clos/35[%rbx]]
+  arg/42[%rax] := spilled-arg/41[s1] (reload)
+  {spilled-arg/40[s0]*}
+  R/0[%rax] := call V/36[%rdi] R/0[%rax] R/1[%rbx]
+  clos/37[%rbx] := R/0[%rax]
+  V/38[%rdi] := val[clos/37[%rbx]]
+  arg/43[%rax] := spilled-arg/40[s0] (reload)
+  tailcall V/38[%rdi] R/0[%rax] R/1[%rbx]
+  
+*** After instruction selection
+caml_apply2(R/0[%rax] R/1[%rbx] R/2[%rdi])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  arg/30 := R/1[%rbx]
+  { + R/2[%rdi]}
+  clos/31 := R/2[%rdi]
+  { + clos/31}
+  V/32 := val[clos/31 + 8]
+  { + V/32}
+  if V/32 ==s 5 then
+    { + clos/31}
+    V/36 := val[clos/31 + 16]
+    { + arg/29}
+    R/0[%rax] := arg/29
+    { + arg/30}
+    R/1[%rbx] := arg/30
+    { + clos/31}
+    R/2[%rdi] := clos/31
+    { + V/36 R/0[%rax] R/1[%rbx] R/2[%rdi]}
+    tailcall V/36 R/0[%rax] R/1[%rbx] R/2[%rdi]
+  else
+    { + clos/31}
+    V/33 := val[clos/31]
+    { + arg/29}
+    R/0[%rax] := arg/29
+    { + clos/31}
+    R/1[%rbx] := clos/31
+    { + V/33 R/0[%rax] R/1[%rbx]}
+    R/0[%rax] := call V/33 R/0[%rax] R/1[%rbx]
+    { + R/0[%rax]}
+    clos/34 := R/0[%rax]
+    { + clos/34}
+    V/35 := val[clos/34]
+    { + arg/30}
+    R/0[%rax] := arg/30
+    { + clos/34}
+    R/1[%rbx] := clos/34
+    { + V/35 R/0[%rax] R/1[%rbx]}
+    tailcall V/35 R/0[%rax] R/1[%rbx]
+  endif
+*** After allocation combining
+caml_apply2(R/0[%rax] R/1[%rbx] R/2[%rdi])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  arg/30 := R/1[%rbx]
+  { + R/2[%rdi]}
+  clos/31 := R/2[%rdi]
+  { + clos/31}
+  V/32 := val[clos/31 + 8]
+  { + V/32}
+  if V/32 ==s 5 then
+    { + clos/31}
+    V/36 := val[clos/31 + 16]
+    { + arg/29}
+    R/0[%rax] := arg/29
+    { + arg/30}
+    R/1[%rbx] := arg/30
+    { + clos/31}
+    R/2[%rdi] := clos/31
+    { + V/36 R/0[%rax] R/1[%rbx] R/2[%rdi]}
+    tailcall V/36 R/0[%rax] R/1[%rbx] R/2[%rdi]
+  else
+    { + clos/31}
+    V/33 := val[clos/31]
+    { + arg/29}
+    R/0[%rax] := arg/29
+    { + clos/31}
+    R/1[%rbx] := clos/31
+    { + V/33 R/0[%rax] R/1[%rbx]}
+    R/0[%rax] := call V/33 R/0[%rax] R/1[%rbx]
+    { + R/0[%rax]}
+    clos/34 := R/0[%rax]
+    { + clos/34}
+    V/35 := val[clos/34]
+    { + arg/30}
+    R/0[%rax] := arg/30
+    { + clos/34}
+    R/1[%rbx] := clos/34
+    { + V/35 R/0[%rax] R/1[%rbx]}
+    tailcall V/35 R/0[%rax] R/1[%rbx]
+  endif
+*** After CSE
+caml_apply2(R/0[%rax] R/1[%rbx] R/2[%rdi])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  arg/30 := R/1[%rbx]
+  { + R/2[%rdi]}
+  clos/31 := R/2[%rdi]
+  { + clos/31}
+  V/32 := val[clos/31 + 8]
+  { + V/32}
+  if V/32 ==s 5 then
+    { + clos/31}
+    V/36 := val[clos/31 + 16]
+    { + arg/29}
+    R/0[%rax] := arg/29
+    { + arg/30}
+    R/1[%rbx] := arg/30
+    { + clos/31}
+    R/2[%rdi] := clos/31
+    { + V/36 R/0[%rax] R/1[%rbx] R/2[%rdi]}
+    tailcall V/36 R/0[%rax] R/1[%rbx] R/2[%rdi]
+  else
+    { + clos/31}
+    V/33 := val[clos/31]
+    { + arg/29}
+    R/0[%rax] := arg/29
+    { + clos/31}
+    R/1[%rbx] := clos/31
+    { + V/33 R/0[%rax] R/1[%rbx]}
+    R/0[%rax] := call V/33 R/0[%rax] R/1[%rbx]
+    { + R/0[%rax]}
+    clos/34 := R/0[%rax]
+    { + clos/34}
+    V/35 := val[clos/34]
+    { + arg/30}
+    R/0[%rax] := arg/30
+    { + clos/34}
+    R/1[%rbx] := clos/34
+    { + V/35 R/0[%rax] R/1[%rbx]}
+    tailcall V/35 R/0[%rax] R/1[%rbx]
+  endif
+*** Liveness analysis
+caml_apply2(R/0[%rax] R/1[%rbx] R/2[%rdi])
+  {R/1[%rbx] R/2[%rdi] + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  {R/2[%rdi] arg/29* + R/1[%rbx]}
+  arg/30 := R/1[%rbx]
+  {arg/29* arg/30* + R/2[%rdi]}
+  clos/31 := R/2[%rdi]
+  {arg/29* arg/30* clos/31* + clos/31}
+  V/32 := val[clos/31 + 8]
+  {arg/29* arg/30* clos/31* + V/32}
+  if V/32 ==s 5 then
+    {arg/29* arg/30* clos/31* + clos/31}
+    V/36 := val[clos/31 + 16]
+    {arg/30* clos/31* V/36* + arg/29}
+    R/0[%rax] := arg/29
+    {R/0[%rax] clos/31* V/36* + arg/30}
+    R/1[%rbx] := arg/30
+    {R/0[%rax] R/1[%rbx] V/36* + clos/31}
+    R/2[%rdi] := clos/31
+    { + V/36 R/0[%rax] R/1[%rbx] R/2[%rdi]}
+    tailcall V/36 R/0[%rax] R/1[%rbx] R/2[%rdi]
+  else
+    {arg/29* arg/30* clos/31* + clos/31}
+    V/33 := val[clos/31]
+    {arg/30* clos/31* V/33* + arg/29}
+    R/0[%rax] := arg/29
+    {R/0[%rax] arg/30* V/33* + clos/31}
+    R/1[%rbx] := clos/31
+    {arg/30* + V/33 R/0[%rax] R/1[%rbx]}
+    R/0[%rax] := call V/33 R/0[%rax] R/1[%rbx]
+    {arg/30* + R/0[%rax]}
+    clos/34 := R/0[%rax]
+    {arg/30* clos/34* + clos/34}
+    V/35 := val[clos/34]
+    {clos/34* V/35* + arg/30}
+    R/0[%rax] := arg/30
+    {R/0[%rax] V/35* + clos/34}
+    R/1[%rbx] := clos/34
+    { + V/35 R/0[%rax] R/1[%rbx]}
+    tailcall V/35 R/0[%rax] R/1[%rbx]
+  endif
+*** After spilling
+caml_apply2(R/0[%rax] R/1[%rbx] R/2[%rdi])
+  {R/1[%rbx] R/2[%rdi] + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  {R/2[%rdi] arg/29* + R/1[%rbx]}
+  arg/30 := R/1[%rbx]
+  {arg/29* arg/30* + R/2[%rdi]}
+  clos/31 := R/2[%rdi]
+  {arg/29* arg/30* clos/31* + clos/31}
+  V/32 := val[clos/31 + 8]
+  {arg/29* arg/30* clos/31* + V/32}
+  if V/32 ==s 5 then
+    {arg/29* arg/30* clos/31* + clos/31}
+    V/36 := val[clos/31 + 16]
+    {arg/30* clos/31* V/36* + arg/29}
+    R/0[%rax] := arg/29
+    {R/0[%rax] clos/31* V/36* + arg/30}
+    R/1[%rbx] := arg/30
+    {R/0[%rax] R/1[%rbx] V/36* + clos/31}
+    R/2[%rdi] := clos/31
+    { + V/36 R/0[%rax] R/1[%rbx] R/2[%rdi]}
+    tailcall V/36 R/0[%rax] R/1[%rbx] R/2[%rdi]
+  else
+    {arg/29* clos/31* + arg/30}
+    spilled-arg/37 := arg/30 (spill)
+    {arg/29* clos/31* spilled-arg/37* + clos/31}
+    V/33 := val[clos/31]
+    {clos/31* V/33* spilled-arg/37* + arg/29}
+    R/0[%rax] := arg/29
+    {R/0[%rax] V/33* spilled-arg/37* + clos/31}
+    R/1[%rbx] := clos/31
+    {spilled-arg/37* + V/33 R/0[%rax] R/1[%rbx]}
+    R/0[%rax] := call V/33 R/0[%rax] R/1[%rbx]
+    {spilled-arg/37* + R/0[%rax]}
+    clos/34 := R/0[%rax]
+    {clos/34* spilled-arg/37* + clos/34}
+    V/35 := val[clos/34]
+    {clos/34* V/35* + spilled-arg/37}
+    arg/30 := spilled-arg/37 (reload)
+    {clos/34* V/35* + arg/30}
+    R/0[%rax] := arg/30
+    {R/0[%rax] V/35* + clos/34}
+    R/1[%rbx] := clos/34
+    { + V/35 R/0[%rax] R/1[%rbx]}
+    tailcall V/35 R/0[%rax] R/1[%rbx]
+  endif
+*** After live range splitting
+caml_apply2(R/0[%rax] R/1[%rbx] R/2[%rdi])
+  { + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  { + R/1[%rbx]}
+  arg/30 := R/1[%rbx]
+  { + R/2[%rdi]}
+  clos/31 := R/2[%rdi]
+  { + clos/31}
+  V/32 := val[clos/31 + 8]
+  { + V/32}
+  if V/32 ==s 5 then
+    { + clos/31}
+    V/36 := val[clos/31 + 16]
+    { + arg/29}
+    R/0[%rax] := arg/29
+    { + arg/30}
+    R/1[%rbx] := arg/30
+    { + clos/31}
+    R/2[%rdi] := clos/31
+    { + V/36 R/0[%rax] R/1[%rbx] R/2[%rdi]}
+    tailcall V/36 R/0[%rax] R/1[%rbx] R/2[%rdi]
+  else
+    { + arg/30}
+    spilled-arg/37 := arg/30 (spill)
+    { + clos/31}
+    V/33 := val[clos/31]
+    { + arg/29}
+    R/0[%rax] := arg/29
+    { + clos/31}
+    R/1[%rbx] := clos/31
+    { + V/33 R/0[%rax] R/1[%rbx]}
+    R/0[%rax] := call V/33 R/0[%rax] R/1[%rbx]
+    { + R/0[%rax]}
+    clos/34 := R/0[%rax]
+    { + clos/34}
+    V/35 := val[clos/34]
+    { + spilled-arg/37}
+    arg/38 := spilled-arg/37 (reload)
+    { + arg/38}
+    R/0[%rax] := arg/38
+    { + clos/34}
+    R/1[%rbx] := clos/34
+    { + V/35 R/0[%rax] R/1[%rbx]}
+    tailcall V/35 R/0[%rax] R/1[%rbx]
+  endif
+*** Liveness analysis
+caml_apply2(R/0[%rax] R/1[%rbx] R/2[%rdi])
+  {R/1[%rbx] R/2[%rdi] + R/0[%rax]}
+  arg/29 := R/0[%rax]
+  {R/2[%rdi] arg/29* + R/1[%rbx]}
+  arg/30 := R/1[%rbx]
+  {arg/29* arg/30* + R/2[%rdi]}
+  clos/31 := R/2[%rdi]
+  {arg/29* arg/30* clos/31* + clos/31}
+  V/32 := val[clos/31 + 8]
+  {arg/29* arg/30* clos/31* + V/32}
+  if V/32 ==s 5 then
+    {arg/29* arg/30* clos/31* + clos/31}
+    V/36 := val[clos/31 + 16]
+    {arg/30* clos/31* V/36* + arg/29}
+    R/0[%rax] := arg/29
+    {R/0[%rax] clos/31* V/36* + arg/30}
+    R/1[%rbx] := arg/30
+    {R/0[%rax] R/1[%rbx] V/36* + clos/31}
+    R/2[%rdi] := clos/31
+    { + V/36 R/0[%rax] R/1[%rbx] R/2[%rdi]}
+    tailcall V/36 R/0[%rax] R/1[%rbx] R/2[%rdi]
+  else
+    {arg/29* clos/31* + arg/30}
+    spilled-arg/37 := arg/30 (spill)
+    {arg/29* clos/31* spilled-arg/37* + clos/31}
+    V/33 := val[clos/31]
+    {clos/31* V/33* spilled-arg/37* + arg/29}
+    R/0[%rax] := arg/29
+    {R/0[%rax] V/33* spilled-arg/37* + clos/31}
+    R/1[%rbx] := clos/31
+    {spilled-arg/37* + V/33 R/0[%rax] R/1[%rbx]}
+    R/0[%rax] := call V/33 R/0[%rax] R/1[%rbx]
+    {spilled-arg/37* + R/0[%rax]}
+    clos/34 := R/0[%rax]
+    {clos/34* spilled-arg/37* + clos/34}
+    V/35 := val[clos/34]
+    {clos/34* V/35* + spilled-arg/37}
+    arg/38 := spilled-arg/37 (reload)
+    {clos/34* V/35* + arg/38}
+    R/0[%rax] := arg/38
+    {R/0[%rax] V/35* + clos/34}
+    R/1[%rbx] := clos/34
+    { + V/35 R/0[%rax] R/1[%rbx]}
+    tailcall V/35 R/0[%rax] R/1[%rbx]
+  endif
+*** Intervals
+R/2[%rdi]: [2;6] [19;20]
+R/1[%rbx]: [2;4] [17;20] [31;32] [43;44]
+R/0[%rax]: [2;2] [15;20] [29;34] [41;44]
+arg/29: [3;14] [24;28]
+arg/30: [5;16] [24;24]
+clos/31: [7;18] [24;30]
+V/32: [9;10]
+V/36: [13;20]
+spilled-arg/37: [25;38]
+V/33: [27;32]
+clos/34: [35;42]
+V/35: [37;44]
+arg/38: [39;40]
+*** After register allocation
+caml_apply2(R/0[%rax] R/1[%rbx] R/2[%rdi])
+  {R/1[%rbx] R/2[%rdi] + R/0[%rax]}
+  arg/29[%rax] := R/0[%rax]
+  {R/2[%rdi] arg/29[%rax]* + R/1[%rbx]}
+  arg/30[%rbx] := R/1[%rbx]
+  {arg/29[%rax]* arg/30[%rbx]* + R/2[%rdi]}
+  clos/31[%rdi] := R/2[%rdi]
+  {arg/29[%rax]* arg/30[%rbx]* clos/31[%rdi]* + clos/31[%rdi]}
+  V/32[%rsi] := val[clos/31[%rdi] + 8]
+  {arg/29[%rax]* arg/30[%rbx]* clos/31[%rdi]* + V/32[%rsi]}
+  if V/32[%rsi] ==s 5 then
+    {arg/29[%rax]* arg/30[%rbx]* clos/31[%rdi]* + clos/31[%rdi]}
+    V/36[%rsi] := val[clos/31[%rdi] + 16]
+    {arg/30[%rbx]* clos/31[%rdi]* V/36[%rsi]* + arg/29[%rax]}
+    R/0[%rax] := arg/29[%rax]
+    {R/0[%rax] clos/31[%rdi]* V/36[%rsi]* + arg/30[%rbx]}
+    R/1[%rbx] := arg/30[%rbx]
+    {R/0[%rax] R/1[%rbx] V/36[%rsi]* + clos/31[%rdi]}
+    R/2[%rdi] := clos/31[%rdi]
+    { + V/36[%rsi] R/0[%rax] R/1[%rbx] R/2[%rdi]}
+    tailcall V/36[%rsi] R/0[%rax] R/1[%rbx] R/2[%rdi]
+  else
+    {arg/29[%rax]* clos/31[%rdi]* + arg/30[%rbx]}
+    spilled-arg/37[s0] := arg/30[%rbx] (spill)
+    {arg/29[%rax]* clos/31[%rdi]* spilled-arg/37[s0]* + clos/31[%rdi]}
+    V/33[%rsi] := val[clos/31[%rdi]]
+    {clos/31[%rdi]* V/33[%rsi]* spilled-arg/37[s0]* + arg/29[%rax]}
+    R/0[%rax] := arg/29[%rax]
+    {R/0[%rax] V/33[%rsi]* spilled-arg/37[s0]* + clos/31[%rdi]}
+    R/1[%rbx] := clos/31[%rdi]
+    {spilled-arg/37[s0]* + V/33[%rsi] R/0[%rax] R/1[%rbx]}
+    R/0[%rax] := call V/33[%rsi] R/0[%rax] R/1[%rbx]
+    {spilled-arg/37[s0]* + R/0[%rax]}
+    clos/34[%rbx] := R/0[%rax]
+    {clos/34[%rbx]* spilled-arg/37[s0]* + clos/34[%rbx]}
+    V/35[%rdi] := val[clos/34[%rbx]]
+    {clos/34[%rbx]* V/35[%rdi]* + spilled-arg/37[s0]}
+    arg/38[%rax] := spilled-arg/37[s0] (reload)
+    {clos/34[%rbx]* V/35[%rdi]* + arg/38[%rax]}
+    R/0[%rax] := arg/38[%rax]
+    {R/0[%rax] V/35[%rdi]* + clos/34[%rbx]}
+    R/1[%rbx] := clos/34[%rbx]
+    { + V/35[%rdi] R/0[%rax] R/1[%rbx]}
+    tailcall V/35[%rdi] R/0[%rax] R/1[%rbx]
+  endif
+*** After insertion of reloading code
+caml_apply2(R/0[%rax] R/1[%rbx] R/2[%rdi])
+  {R/1[%rbx] R/2[%rdi] + R/0[%rax]}
+  arg/29[%rax] := R/0[%rax]
+  {R/2[%rdi] arg/29[%rax]* + R/1[%rbx]}
+  arg/30[%rbx] := R/1[%rbx]
+  {arg/29[%rax]* arg/30[%rbx]* + R/2[%rdi]}
+  clos/31[%rdi] := R/2[%rdi]
+  {arg/29[%rax]* arg/30[%rbx]* clos/31[%rdi]* + clos/31[%rdi]}
+  V/32[%rsi] := val[clos/31[%rdi] + 8]
+  { + V/32[%rsi]}
+  if V/32[%rsi] ==s 5 then
+    {arg/29[%rax]* arg/30[%rbx]* clos/31[%rdi]* + clos/31[%rdi]}
+    V/36[%rsi] := val[clos/31[%rdi] + 16]
+    {arg/30[%rbx]* clos/31[%rdi]* V/36[%rsi]* + arg/29[%rax]}
+    R/0[%rax] := arg/29[%rax]
+    {R/0[%rax] clos/31[%rdi]* V/36[%rsi]* + arg/30[%rbx]}
+    R/1[%rbx] := arg/30[%rbx]
+    {R/0[%rax] R/1[%rbx] V/36[%rsi]* + clos/31[%rdi]}
+    R/2[%rdi] := clos/31[%rdi]
+    { + V/36[%rsi] R/0[%rax] R/1[%rbx] R/2[%rdi]}
+    tailcall V/36[%rsi] R/0[%rax] R/1[%rbx] R/2[%rdi]
+  else
+    {arg/29[%rax]* clos/31[%rdi]* + arg/30[%rbx]}
+    spilled-arg/37[s0] := arg/30[%rbx] (spill)
+    {arg/29[%rax]* clos/31[%rdi]* spilled-arg/37[s0]* + clos/31[%rdi]}
+    V/33[%rsi] := val[clos/31[%rdi]]
+    {clos/31[%rdi]* V/33[%rsi]* spilled-arg/37[s0]* + arg/29[%rax]}
+    R/0[%rax] := arg/29[%rax]
+    {R/0[%rax] V/33[%rsi]* spilled-arg/37[s0]* + clos/31[%rdi]}
+    R/1[%rbx] := clos/31[%rdi]
+    {spilled-arg/37[s0]* + V/33[%rsi] R/0[%rax] R/1[%rbx]}
+    R/0[%rax] := call V/33[%rsi] R/0[%rax] R/1[%rbx]
+    {spilled-arg/37[s0]* + R/0[%rax]}
+    clos/34[%rbx] := R/0[%rax]
+    {clos/34[%rbx]* spilled-arg/37[s0]* + clos/34[%rbx]}
+    V/35[%rdi] := val[clos/34[%rbx]]
+    {clos/34[%rbx]* V/35[%rdi]* + spilled-arg/37[s0]}
+    arg/38[%rax] := spilled-arg/37[s0] (reload)
+    {clos/34[%rbx]* V/35[%rdi]* + arg/38[%rax]}
+    R/0[%rax] := arg/38[%rax]
+    {R/0[%rax] V/35[%rdi]* + clos/34[%rbx]}
+    R/1[%rbx] := clos/34[%rbx]
+    { + V/35[%rdi] R/0[%rax] R/1[%rbx]}
+    tailcall V/35[%rdi] R/0[%rax] R/1[%rbx]
+  endif
+*** Linearized code
+caml_apply2:
+  prologue
+  L153:
+  V/32[%rsi] := val[clos/31[%rdi] + 8]
+  if V/32[%rsi] !=s 5 goto L152
+  V/36[%rsi] := val[clos/31[%rdi] + 16]
+  tailcall V/36[%rsi] R/0[%rax] R/1[%rbx] R/2[%rdi]
+  L152:
+  spilled-arg/37[s0] := arg/30[%rbx] (spill)
+  V/33[%rsi] := val[clos/31[%rdi]]
+  R/1[%rbx] := clos/31[%rdi]
+  {spilled-arg/37[s0]*}
+  R/0[%rax] := call V/33[%rsi] R/0[%rax] R/1[%rbx]
+  clos/34[%rbx] := R/0[%rax]
+  V/35[%rdi] := val[clos/34[%rbx]]
+  arg/38[%rax] := spilled-arg/37[s0] (reload)
+  tailcall V/35[%rdi] R/0[%rax] R/1[%rbx]
+  
+*** After instruction scheduling
+caml_apply2:
+  prologue
+  L153:
+  V/32[%rsi] := val[clos/31[%rdi] + 8]
+  if V/32[%rsi] !=s 5 goto L152
+  V/36[%rsi] := val[clos/31[%rdi] + 16]
+  tailcall V/36[%rsi] R/0[%rax] R/1[%rbx] R/2[%rdi]
+  L152:
+  spilled-arg/37[s0] := arg/30[%rbx] (spill)
+  V/33[%rsi] := val[clos/31[%rdi]]
+  R/1[%rbx] := clos/31[%rdi]
+  {spilled-arg/37[s0]*}
+  R/0[%rax] := call V/33[%rsi] R/0[%rax] R/1[%rbx]
+  clos/34[%rbx] := R/0[%rax]
+  V/35[%rdi] := val[clos/34[%rbx]]
+  arg/38[%rax] := spilled-arg/37[s0] (reload)
+  tailcall V/35[%rdi] R/0[%rax] R/1[%rbx]
+  
+{}

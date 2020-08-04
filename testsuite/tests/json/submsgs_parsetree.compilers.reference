@@ -1,0 +1,45 @@
+
+Ptop_def
+  [
+    structure_item (//toplevel//[6,56+0]..[6,56+19])
+      Pstr_value Nonrec
+      [
+        <def>
+          pattern (//toplevel//[6,56+4]..[6,56+5])
+            Ppat_var "a" (//toplevel//[6,56+4]..[6,56+5])
+          expression (//toplevel//[6,56+8]..[6,56+19])
+            Pexp_apply
+            expression (//toplevel//[6,56+8]..[6,56+17])
+              Pexp_ident "Int64.add" (//toplevel//[6,56+8]..[6,56+17])
+            [
+              <arg>
+              Nolabel
+                expression (//toplevel//[6,56+18]..[6,56+19])
+                  Pexp_constant PConst_int (1,None)
+            ]
+      ]
+  ]
+
+{"error_report":
+    [{"main":
+         {"location":
+             {"file": "//toplevel//",
+              "line": {"start": "6", "end": "6"},
+              "character": {"start": "18", "end": "19"}
+             },
+          "content":
+             "This expression has type int but an expression was expected of type int64"
+         },
+      "kind": {"classsification": "error"},
+      "submsgs":
+         [{"location":
+              {"file": "_none_",
+               "line": {"start": "0", "end": "0"},
+               "character": {"start": "-1", "end": "-1"}
+              },
+           "content": "Hint: Did you mean `1L'?"
+          }
+         ]
+     }
+    ]
+}

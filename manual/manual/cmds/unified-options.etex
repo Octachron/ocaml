@@ -142,11 +142,12 @@ The following modes are supported:
   \item["short"] only print the error and its location;
   \item["contextual"] like "short", but also display the source code snippet
    corresponding to the location of the error.
+  \item["json"] prints in json format;
   \end{description}
 The default setting is "contextual".
 
 The environment variable "OCAML_ERROR_STYLE" is considered if "-error-style" is
-not provided. Its values are short/contextual as above.
+not provided. Its values are short/contextual/json as above.
 }%notop
 
 \comp{%
