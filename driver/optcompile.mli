@@ -15,9 +15,10 @@
 
 (** Native compilation for .ml and .mli files. *)
 
-val interface: source_file:string -> output_prefix:string -> unit
+val interface: Misc.Log.t -> source_file:string -> output_prefix:string -> unit
 
 val implementation:
+   Misc.Log.t ->
    backend:(module Backend_intf.S)
    -> source_file:string -> output_prefix:string -> unit
 

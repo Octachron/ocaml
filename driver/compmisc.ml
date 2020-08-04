@@ -72,16 +72,22 @@ let read_clflags_from_env () =
   set_from_env Clflags.error_style Clflags.error_style_reader;
   ()
 
-let with_ppf_dump ~file_prefix f =
+let with_ppf_dump ~file_prefix log f =
   let ppf_dump, finally =
     if not !Clflags.dump_into_file
-    then Format.err_formatter, ignore
+    then log, ignore
     else
-       let ch = open_out (file_prefix ^ ".dump") in
-       let ppf = Format.formatter_of_out_channel ch in
-       ppf,
-       (fun () ->
-         Format.pp_print_flush ppf ();
-         close_out ch)
+      let ch = open_out (file_prefix ^ ".dump") in
+      let ppf = Format.formatter_of_out_channel ch in
+      let init_log ppf =
+        if !Clflags.json then
+          Misc.Log.Json { main_rep = ref Misc.Stdlib.String.Map.empty ; err_rep = ref []; out = ppf } 
+        else Misc.Log.Direct ppf
+      in
+      let log_from_ppf = init_log ppf in
+      log_from_ppf,
+      (fun () ->
+        Misc.Log.flush_log log_from_ppf;
+        close_out ch)
   in
   Misc.try_finally (fun () -> f ppf_dump) ~always:finally

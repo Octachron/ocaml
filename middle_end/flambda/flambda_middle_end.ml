@@ -66,10 +66,8 @@ let lambda_to_flambda ~ppf_dump ~prefixname ~backend ~size ~filename
          let (+-+) flam (name, pass) =
            incr pass_number;
            if !Clflags.dump_flambda_verbose then begin
-             Format.fprintf ppf_dump "@.PASS: %s@." name;
-             Format.fprintf ppf_dump "Before pass %d, round %d:@ %a@."
-               !pass_number !round_number Flambda.print_program flam;
-             Format.fprintf ppf_dump "\n@?"
+            Misc.Log.log_itemf "flambda_verbose" ppf_dump "@.PASS: %s@. Before pass %d, round %d:@ %a@. \n@?"
+              name !pass_number !round_number Flambda.print_program flam;
            end;
            let flam = Profile.record ~accumulate:true name pass flam in
            if !Clflags.flambda_invariant_checks then begin
@@ -87,7 +85,7 @@ let lambda_to_flambda ~ppf_dump ~prefixname ~backend ~size ~filename
            in
            if !Clflags.dump_rawflambda
            then
-             Format.fprintf ppf_dump "After closure conversion:@ %a@."
+              Misc.Log.log_itemf "dump_rawflambda" ppf_dump "After closure conversion:@ %a@."
                Flambda.print_program flam;
            check flam;
            let fast_mode flam =
@@ -188,7 +186,7 @@ let lambda_to_flambda ~ppf_dump ~prefixname ~backend ~size ~filename
                      was being applied)"));
            if !Clflags.dump_flambda
            then
-             Format.fprintf ppf_dump "End of middle end:@ %a@."
+           Misc.Log.log_itemf "dump_flambda" ppf_dump "End of middle end:@ %a@."
                Flambda.print_program flam;
            check flam;
            (* CR-someday mshinwell: add -d... option for this *)
@@ -196,20 +194,27 @@ let lambda_to_flambda ~ppf_dump ~prefixname ~backend ~size ~filename
            flam))
       )
 
-let flambda_raw_clambda_dump_if ppf
+let flambda_raw_clambda_dump_if log
       ({ Flambda_to_clambda. expr = ulambda; preallocated_blocks = _;
         structured_constants; exported = _; } as input) =
-  if !Clflags.dump_rawclambda then
-    begin
-      Format.fprintf ppf "@.clambda (before Un_anf):@.";
-      Printclambda.clambda ppf ulambda;
-      Symbol.Map.iter (fun sym cst ->
-          Format.fprintf ppf "%a:@ %a@."
-            Symbol.print sym
-            Printclambda.structured_constant cst)
-        structured_constants
-    end;
-  if !Clflags.dump_cmm then Format.fprintf ppf "@.cmm:@.";
+  let printer ppf () = 
+    Format.fprintf ppf "@.clambda (before Un_anf):@.";
+    Printclambda.clambda ppf ulambda;
+    Symbol.Map.iter (fun sym cst ->
+        Format.fprintf ppf "%a:@ %a@."
+          Symbol.print sym
+          Printclambda.structured_constant cst)
+      structured_constants in
+  if (Misc.Log.is_direct log) then
+    if !Clflags.dump_rawclambda then
+      begin
+        let ppf = Misc.Log.escape log in
+        printer ppf ();
+        if !Clflags.dump_cmm then Format.fprintf ppf "@.cmm:@.";
+      end
+  else begin
+    if !Clflags.dump_rawclambda then Misc.Log.log_itemf "dump_rawclambda" log "%a@." printer ();
+  end;
   input
 
 let lambda_to_clambda ~backend ~filename ~prefixname ~ppf_dump

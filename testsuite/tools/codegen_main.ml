@@ -15,6 +15,7 @@
 
 open Clflags
 let write_asm_file = ref false
+let err_log = Misc.Log.Direct Format.std_formatter
 
 let compile_file filename =
   if !write_asm_file then begin
@@ -28,7 +29,7 @@ let compile_file filename =
   lb.Lexing.lex_curr_p <- Lexing.{ lb.lex_curr_p with pos_fname = filename };
   try
     while true do
-      Asmgen.compile_phrase ~ppf_dump:Format.std_formatter
+      Asmgen.compile_phrase ~ppf_dump: err_log
         (Parsecmm.phrase Lexcmm.token lb)
     done
   with
@@ -76,5 +77,5 @@ let main() =
 
 let () =
   main ();
-  Profile.print Format.std_formatter !Clflags.profile_columns;
+  Profile.print err_log !Clflags.profile_columns;
   exit 0

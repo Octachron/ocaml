@@ -946,8 +946,8 @@ let debug_prefix_map_flags () =
         []
   end
 
-let print_if ppf flag printer arg =
-  if !flag then Format.fprintf ppf "%a@." printer arg;
+let print_if key log flag printer arg =
+  if !flag then Log.log_itemf key log "%a@." printer arg;
   arg
 
 

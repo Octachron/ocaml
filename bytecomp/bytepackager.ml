@@ -197,7 +197,7 @@ let build_global_target ~ppf_dump oc target_name members mapping pos coercion =
       components (Ident.create_persistent target_name) coercion in
   let lam = Simplif.simplify_lambda lam in
   if !Clflags.dump_lambda then
-    Format.fprintf ppf_dump "%a@." Printlambda.lambda lam;
+    Format.fprintf (Misc.Log.escape ppf_dump) "%a@." Printlambda.lambda lam;
   let instrs =
     Bytegen.compile_implementation target_name lam in
   let rel =

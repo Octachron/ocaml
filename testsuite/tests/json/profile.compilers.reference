@@ -1,7 +1,3 @@
-0.001s 0.09MB ------ ------ profile.ml
-  ------ 0.02MB ------ ------ parsing
-    ------ 0.01MB ------ ------ parser
-  0.001s 0.05MB ------ ------ typing
-  ------ 0.01MB ------ ------ transl
-0.030s 6.06MB 2.79MB 2.79MB other
-{}
+{"profile":
+    "0.001s 0.09MB ------ ------ profile.ml\n  ------ 0.02MB ------ ------ parsing\n    ------ 0.01MB ------ ------ parser\n  ------ 0.05MB ------ ------ typing\n  ------ 0.01MB ------ ------ transl\n0.032s 6.53MB 2.79MB 2.79MB other\n\n"
+}

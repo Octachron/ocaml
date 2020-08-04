@@ -15,19 +15,25 @@
 
 [@@@ocaml.warning "+a-4-30-40-41-42"]
 
-let raw_clambda_dump_if ppf
+let raw_clambda_dump_if log
       ((ulambda, _, structured_constants) : Clambda.with_constants) =
-  if !Clflags.dump_rawclambda || !Clflags.dump_clambda then
-    begin
-      Format.fprintf ppf "@.clambda:@.";
-      Printclambda.clambda ppf ulambda;
-      List.iter (fun { Clambda. symbol; definition; _ } ->
-          Format.fprintf ppf "%s:@ %a@."
-            symbol
-            Printclambda.structured_constant definition)
-        structured_constants
-    end;
-  if !Clflags.dump_cmm then Format.fprintf ppf "@.cmm:@."
+  let printer ppf () =
+    Format.fprintf ppf "@.clambda:@.";
+    Printclambda.clambda ppf ulambda;
+    List.iter (fun { Clambda. symbol; definition; _ } ->
+        Format.fprintf ppf "%s:@ %a@."
+          symbol
+          Printclambda.structured_constant definition)
+      structured_constants in
+  if (Misc.Log.is_direct log) then
+    let ppf = Misc.Log.escape log in
+    if !Clflags.dump_rawclambda || !Clflags.dump_clambda then printer ppf ();
+    if !Clflags.dump_cmm then Format.fprintf ppf "@.cmm:@.";
+  else begin
+    if !Clflags.dump_rawclambda then Misc.Log.log_itemf "dump_rawclambda" log "%a@." printer ();
+    if !Clflags.dump_clambda then Misc.Log.log_itemf "dump_clambda" log "%a@." printer ();
+  end
+ 
 
 let lambda_to_clambda ~backend ~filename:_ ~prefixname:_ ~ppf_dump
       (lambda : Lambda.program) =

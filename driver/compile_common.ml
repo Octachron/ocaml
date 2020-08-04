@@ -21,7 +21,7 @@ type info = {
   module_name : string;
   output_prefix : string;
   env : Env.t;
-  ppf_dump : Format.formatter;
+  ppf_dump : Misc.Log.t;
   tool_name : string;
   native : bool;
 }
@@ -31,13 +31,13 @@ let obj i = i.output_prefix ^ Config.ext_obj
 let cmo i = i.output_prefix ^ ".cmo"
 let annot i = i.output_prefix ^ ".annot"
 
-let with_info ~native ~tool_name ~source_file ~output_prefix ~dump_ext k =
+let with_info log ~native ~tool_name ~source_file ~output_prefix ~dump_ext k =
   Compmisc.init_path ();
   let module_name = module_of_filename source_file output_prefix in
   Env.set_unit_name module_name;
   let env = Compmisc.initial_env() in
   let dump_file = String.concat "." [output_prefix; dump_ext] in
-  Compmisc.with_ppf_dump ~file_prefix:dump_file @@ fun ppf_dump ->
+  Compmisc.with_ppf_dump ~file_prefix:dump_file log @@ fun ppf_dump ->
   k {
     module_name;
     output_prefix;
@@ -52,15 +52,15 @@ let with_info ~native ~tool_name ~source_file ~output_prefix ~dump_ext k =
 
 let parse_intf i =
   Pparse.parse_interface ~tool_name:i.tool_name i.source_file
-  |> print_if i.ppf_dump Clflags.dump_parsetree Printast.interface
-  |> print_if i.ppf_dump Clflags.dump_source Pprintast.signature
+  |> print_if "parsetree" i.ppf_dump Clflags.dump_parsetree Printast.interface
+  |> print_if "source" i.ppf_dump Clflags.dump_source Pprintast.signature
 
 let typecheck_intf info ast =
   Profile.(record_call typing) @@ fun () ->
   let tsg =
     ast
     |> Typemod.type_interface info.env
-    |> print_if info.ppf_dump Clflags.dump_typedtree Printtyped.interface
+    |> print_if "typedtree" info.ppf_dump Clflags.dump_typedtree Printtyped.interface
   in
   let sg = tsg.Typedtree.sig_type in
   if !Clflags.print_types then
@@ -97,15 +97,15 @@ let interface info =
 
 let parse_impl i =
   Pparse.parse_implementation ~tool_name:i.tool_name i.source_file
-  |> print_if i.ppf_dump Clflags.dump_parsetree Printast.implementation
-  |> print_if i.ppf_dump Clflags.dump_source Pprintast.structure
+  |> print_if "parsetree" i.ppf_dump Clflags.dump_parsetree Printast.implementation
+  |> print_if "source" i.ppf_dump Clflags.dump_source Pprintast.structure
 
 let typecheck_impl i parsetree =
   parsetree
   |> Profile.(record typing)
     (Typemod.type_implementation
        i.source_file i.output_prefix i.module_name i.env)
-  |> print_if i.ppf_dump Clflags.dump_typedtree
+  |> print_if "typedtree" i.ppf_dump Clflags.dump_typedtree
     Printtyped.implementation_with_coercion
 
 let implementation info ~backend =

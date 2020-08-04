@@ -20,11 +20,11 @@ open Compile_common
 
 let tool_name = "ocamlopt"
 
-let with_info =
-  Compile_common.with_info ~native:true ~tool_name
+let with_info log =
+  Compile_common.with_info log ~native:true ~tool_name
 
-let interface ~source_file ~output_prefix =
-  with_info ~source_file ~output_prefix ~dump_ext:"cmi" @@ fun info ->
+let interface log ~source_file ~output_prefix =
+  with_info log ~source_file ~output_prefix ~dump_ext:"cmi" @@ fun info ->
   Compile_common.interface info
 
 let (|>>) (x, y) f = (x, f y)
@@ -45,9 +45,9 @@ let flambda i backend typed =
     (fun {Lambda.module_ident; main_module_block_size;
           required_globals; code } ->
     ((module_ident, main_module_block_size), code)
-    |>> print_if i.ppf_dump Clflags.dump_rawlambda Printlambda.lambda
+    |>> print_if "raw_flambda" i.ppf_dump Clflags.dump_rawlambda Printlambda.lambda
     |>> Simplif.simplify_lambda
-    |>> print_if i.ppf_dump Clflags.dump_lambda Printlambda.lambda
+    |>> print_if "flambda" i.ppf_dump Clflags.dump_lambda Printlambda.lambda
     |> (fun ((module_ident, main_module_block_size), code) ->
       let program : Lambda.program =
         { Lambda.
@@ -71,12 +71,12 @@ let clambda i backend typed =
   typed
   |> Profile.(record transl)
     (Translmod.transl_store_implementation i.module_name)
-  |> print_if i.ppf_dump Clflags.dump_rawlambda Printlambda.program
+  |> print_if "raw_clambda" i.ppf_dump Clflags.dump_rawlambda Printlambda.program
   |> Profile.(record generate)
     (fun program ->
        let code = Simplif.simplify_lambda program.Lambda.code in
        { program with Lambda.code }
-       |> print_if i.ppf_dump Clflags.dump_lambda Printlambda.program
+       |> print_if "clambda" i.ppf_dump Clflags.dump_lambda Printlambda.program
        |> Asmgen.compile_implementation
             ~backend
             ~filename:i.source_file
@@ -85,12 +85,12 @@ let clambda i backend typed =
             ~ppf_dump:i.ppf_dump;
        Compilenv.save_unit_info (cmx i))
 
-let implementation ~backend ~source_file ~output_prefix =
+let implementation log ~backend ~source_file ~output_prefix =
   let backend info typed =
     Compilenv.reset ?packname:!Clflags.for_package info.module_name;
     if Config.flambda
     then flambda info backend typed
     else clambda info backend typed
   in
-  with_info ~source_file ~output_prefix ~dump_ext:"cmx" @@ fun info ->
+  with_info log ~source_file ~output_prefix ~dump_ext:"cmx" @@ fun info ->
   Compile_common.implementation info ~backend

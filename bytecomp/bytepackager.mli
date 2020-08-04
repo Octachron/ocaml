@@ -17,7 +17,7 @@
    original compilation units as sub-modules. *)
 
 val package_files:
-  ppf_dump:Format.formatter -> Env.t -> string list -> string -> unit
+  ppf_dump: Misc.Log.t -> Env.t -> string list -> string -> unit
 
 type error =
     Forward_reference of string * Ident.t

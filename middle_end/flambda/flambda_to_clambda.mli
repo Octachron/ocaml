@@ -36,6 +36,6 @@ type result = {
     tables are also built.
 *)
 val convert
-   : ppf_dump:Format.formatter
+   : ppf_dump:Misc.Log.t
   -> Flambda.program * Export_info.transient
   -> result

@@ -188,13 +188,13 @@ let record_backtrace () =
   if Printexc.backtrace_status ()
   then backtrace := Some (Printexc.get_backtrace ())
 
-let load_lambda ppf lam =
-  if !Clflags.dump_rawlambda then fprintf ppf "%a@." Printlambda.lambda lam;
+let load_lambda log lam =
+  if !Clflags.dump_rawlambda then Log.logf "dump_rawlambda" log "%a@." Printlambda.lambda lam;
   let slam = Simplif.simplify_lambda lam in
-  if !Clflags.dump_lambda then fprintf ppf "%a@." Printlambda.lambda slam;
+  if !Clflags.dump_lambda then Log.logf "dump_lambda" log "%a@." Printlambda.lambda slam;
   let (init_code, fun_code) = Bytegen.compile_phrase slam in
   if !Clflags.dump_instr then
-    fprintf ppf "%a%a@."
+    Log.logf "dump_instr" log "%a%a@."
     Printinstr.instrlist init_code
     Printinstr.instrlist fun_code;
   let (code, reloc, events) =
@@ -268,13 +268,12 @@ let add_directive name dir_fun dir_info =
 (* Execute a toplevel phrase *)
 
 let execute_phrase print_outcome log phr =
-  let ppf = Misc.Log.escape log in
   match phr with
   | Ptop_def sstr ->
       let oldenv = !toplevel_env in
       Typecore.reset_delayed_checks ();
       let (str, sg, sn, newenv) = Typemod.type_toplevel_phrase oldenv sstr in
-      if !Clflags.dump_typedtree then Printtyped.implementation ppf str;
+      if !Clflags.dump_typedtree then Log.logf "dumped_typed_tree" log "%a" Printtyped.implementation str;
       let sg' = Typemod.Signature_names.simplify newenv sn sg in
       ignore (Includemod.signatures oldenv sg sg');
       Typecore.force_delayed_checks ();
@@ -282,7 +281,7 @@ let execute_phrase print_outcome log phr =
       Warnings.check_fatal ();
       begin try
         toplevel_env := newenv;
-        let res = load_lambda ppf lam in
+        let res = load_lambda log lam in
         let out_phr =
           match res with
           | Result v ->
@@ -293,9 +292,9 @@ let execute_phrase print_outcome log phr =
                           (Tstr_eval (exp, _)
                           |Tstr_value
                               (Asttypes.Nonrecursive,
-                               [{vb_pat = {pat_desc=Tpat_any};
-                                 vb_expr = exp}
-                               ]
+                              [{vb_pat = {pat_desc=Tpat_any};
+                                vb_expr = exp}
+                              ]
                               )
                           )
                       }
@@ -321,8 +320,7 @@ let execute_phrase print_outcome log phr =
           match !backtrace with
             | None -> ()
             | Some b ->
-                pp_print_string ppf b;
-                pp_print_flush ppf ();
+                Log.logf "backtrace" log "%a@?" pp_print_string b;
                 backtrace := None;
         end;
         begin match out_phr with
@@ -339,34 +337,33 @@ let execute_phrase print_outcome log phr =
       in
       begin match d with
       | None ->
-          fprintf ppf "Unknown directive `%s'." dir_name;
           let directives =
             Hashtbl.fold (fun dir _ acc -> dir::acc) directive_table [] in
-          Misc.did_you_mean ppf
-            (fun () -> Misc.spellcheck directives dir_name);
-          fprintf ppf "@.";
+          Log.logf "Unknown dir" log "Unknown directive `%s'. %a @." dir_name
+          Misc.did_you_mean (fun () -> Misc.spellcheck directives dir_name);
+
           false
       | Some d ->
           match d, pdir_arg with
           | Directive_none f, None -> f (); true
           | Directive_string f, Some {pdira_desc = Pdir_string s} -> f s; true
           | Directive_int f, Some {pdira_desc = Pdir_int (n,None) } ->
-             begin match Int_literal_converter.int n with
-             | n -> f n; true
-             | exception _ ->
-               fprintf ppf "Integer literal exceeds the range of \
+            begin match Int_literal_converter.int n with
+            | n -> f n; true
+            | exception _ ->
+              Log.logf "integer range exceed" log "Integer literal exceeds the range of \
                             representable integers for directive `%s'.@."
-                       dir_name;
-               false
-             end
+                      dir_name;
+              false
+            end
           | Directive_int _, Some {pdira_desc = Pdir_int (_, Some _)} ->
-              fprintf ppf "Wrong integer literal for directive `%s'.@."
+              Log.logf "wrong literal" log "Wrong integer literal for directive `%s'.@."
                 dir_name;
               false
           | Directive_ident f, Some {pdira_desc = Pdir_ident lid} -> f lid; true
           | Directive_bool f, Some {pdira_desc = Pdir_bool b} -> f b; true
           | _ ->
-              fprintf ppf "Wrong type of argument for directive `%s'.@."
+              Log.logf "wrong type argument" log "Wrong type of argument for directive `%s'.@."
                 dir_name;
               false
       end
@@ -383,7 +380,6 @@ let execute_phrase print_outcome log phr =
 let use_print_results = ref true
 
 let preprocess_phrase log phr =
-  let ppf = Misc.Log.escape log in
   let phr =
     match phr with
     | Ptop_def str ->
@@ -393,8 +389,8 @@ let preprocess_phrase log phr =
         Ptop_def str
     | phr -> phr
   in
-  if !Clflags.dump_parsetree then Printast.top_phrase ppf phr;
-  if !Clflags.dump_source then Pprintast.top_phrase ppf phr;
+  if !Clflags.dump_parsetree then Log.logf "dump_parsetree" log "%a" Printast.top_phrase phr;
+  if !Clflags.dump_source then Log.logf "dump_source" log "%a" Pprintast.top_phrase phr;
   phr
 
 let use_channel ppf ~wrap_in_module ic name filename =

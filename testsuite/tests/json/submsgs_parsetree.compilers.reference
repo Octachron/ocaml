@@ -1,25 +1,4 @@
 
-Ptop_def
-  [
-    structure_item (//toplevel//[6,56+0]..[6,56+19])
-      Pstr_value Nonrec
-      [
-        <def>
-          pattern (//toplevel//[6,56+4]..[6,56+5])
-            Ppat_var "a" (//toplevel//[6,56+4]..[6,56+5])
-          expression (//toplevel//[6,56+8]..[6,56+19])
-            Pexp_apply
-            expression (//toplevel//[6,56+8]..[6,56+17])
-              Pexp_ident "Int64.add" (//toplevel//[6,56+8]..[6,56+17])
-            [
-              <arg>
-              Nolabel
-                expression (//toplevel//[6,56+18]..[6,56+19])
-                  Pexp_constant PConst_int (1,None)
-            ]
-      ]
-  ]
-
 {"error_report":
     [{"main":
          {"location":
@@ -41,5 +20,7 @@ Ptop_def
           }
          ]
      }
-    ]
+    ],
+ "dump_parsetree":
+    "Ptop_def\n  [\n    structure_item (//toplevel//[6,56+0]..[6,56+19])\n      Pstr_value Nonrec\n      [\n        <def>\n          pattern (//toplevel//[6,56+4]..[6,56+5])\n            Ppat_var \"a\" (//toplevel//[6,56+4]..[6,56+5])\n          expression (//toplevel//[6,56+8]..[6,56+19])\n            Pexp_apply\n            expression (//toplevel//[6,56+8]..[6,56+17])\n              Pexp_ident \"Int64.add\" (//toplevel//[6,56+8]..[6,56+17])\n            [\n              <arg>\n              Nolabel\n                expression (//toplevel//[6,56+18]..[6,56+19])\n                  Pexp_constant PConst_int (1,None)\n            ]\n      ]\n  ]\n"
 }

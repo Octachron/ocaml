@@ -1,336 +1,50 @@
-[
-  structure_item (no_log.ml[6,126+0]..[6,126+34])
-    Pstr_value Nonrec
-    [
-      <def>
-        pattern (no_log.ml[6,126+4]..[6,126+7])
-          Ppat_var "kas" (no_log.ml[6,126+4]..[6,126+7])
-        expression (no_log.ml[6,126+8]..[6,126+34]) ghost
-          Pexp_fun
-          Nolabel
-          None
-          pattern (no_log.ml[6,126+8]..[6,126+9])
-            Ppat_var "a" (no_log.ml[6,126+8]..[6,126+9])
-          expression (no_log.ml[6,126+12]..[6,126+34])
-            Pexp_match
-            expression (no_log.ml[6,126+18]..[6,126+19])
-              Pexp_ident "a" (no_log.ml[6,126+18]..[6,126+19])
-            [
-              <case>
-                pattern (no_log.ml[6,126+25]..[6,126+26])
-                  Ppat_any
-                expression (no_log.ml[6,126+30]..[6,126+34])
-                  Pexp_construct "true" (no_log.ml[6,126+30]..[6,126+34])
-                  None
-            ]
-    ]
-]
-
-let kas a = match a with | _ -> true
-[
-  structure_item (no_log.ml[6,126+0]..no_log.ml[6,126+34])
-    Tstr_value Nonrec
-    [
-      <def>
-        pattern (no_log.ml[6,126+4]..no_log.ml[6,126+7])
-          Tpat_var "kas/80"
-        expression (no_log.ml[6,126+8]..no_log.ml[6,126+34]) ghost
-          Texp_function
-          Nolabel
-          [
-            <case>
-              pattern (no_log.ml[6,126+8]..no_log.ml[6,126+9])
-                Tpat_var "a/82"
-              expression (no_log.ml[6,126+12]..no_log.ml[6,126+34])
-                Texp_match
-                expression (no_log.ml[6,126+18]..no_log.ml[6,126+19])
-                  Texp_ident "a/82"
-                [
-                  <case>
-                    pattern (no_log.ml[6,126+25]..no_log.ml[6,126+26])
-                      Tpat_value
-                      pattern (no_log.ml[6,126+25]..no_log.ml[6,126+26])
-                        Tpat_any
-                    expression (no_log.ml[6,126+30]..no_log.ml[6,126+34])
-                      Texp_construct "true"
-                      []
-                ]
-          ]
-    ]
-]
-
-(seq
-  (let (kas/80 = (function a/82 1a))
-    (setfield_ptr(root-init) 0 (global No_log!) kas/80))
-  0a)
-
-clambda:
-(seq
-  (let (kas/80 (closure  (fun camlNo_log__kas_80 1  a/82 1a) ))
-    (setfield_ptr(root-init) 0 (read_symbol camlNo_log) kas/80))
-  0a)
-*** Interferences
-I/30:
-a/29:
-*** Preferences
-I/30:  R/0[%rax] weight 8
-a/29: 
-*** Interferences
-I/31:
-I/30: kas/29
-kas/29: I/30
-*** Preferences
-I/31:  R/0[%rax] weight 8
-I/30: 
-kas/29: 
-*** Interferences
-I/33:
-I/32:
-I/31:
-I/30:
-I/29:
-*** Preferences
-I/33:  R/0[%rax] weight 8
-I/32: 
-I/31: 
-I/30: 
-I/29: 
-*** Interferences
-I/33: V/31 clos/30 arg/29
-I/32: V/31 clos/30 arg/29
-V/31: I/33 I/32 clos/30 arg/29
-clos/30: I/33 I/32 V/31 R/11[%r11] R/10[%r10] arg/29
-arg/29: I/33 I/32 V/31 R/11[%r11] R/10[%r10] clos/30 R/1[%rbx]
-*** Preferences
-I/33: 
-I/32: 
-V/31:  R/0[%rax] weight 8
-clos/30:  R/1[%rbx] weight 8
-arg/29:  R/0[%rax] weight 8
-*** Interferences
-V/35: R/4[%rdx] R/3[%rsi] R/2[%rdi] R/1[%rbx] R/0[%rax] V/34 clos/33 arg4/31
-  arg3/30 arg2/29
-V/34: V/35 clos/33 arg4/31 arg3/30 arg2/29
-clos/33: R/3[%rsi] R/2[%rdi] R/1[%rbx] R/0[%rax] V/35 V/34 clos/32 arg4/31
-  arg3/30 arg2/29
-clos/32: clos/33 arg4/31 arg3/30 arg2/29
-arg4/31: R/2[%rdi] R/1[%rbx] R/0[%rax] V/35 V/34 clos/33 clos/32 arg3/30
-  arg2/29 R/3[%rsi]
-arg3/30: R/1[%rbx] R/0[%rax] V/35 V/34 clos/33 clos/32 arg4/31 arg2/29
-  R/3[%rsi] R/2[%rdi]
-arg2/29: R/0[%rax] V/35 V/34 clos/33 clos/32 arg4/31 arg3/30 R/3[%rsi]
-  R/2[%rdi] R/1[%rbx]
-*** Preferences
-V/35: 
-V/34:  R/0[%rax] weight 8
-clos/33:  R/4[%rdx] weight 8
-clos/32:  R/3[%rsi] weight 8
-arg4/31: 
-arg3/30: 
-arg2/29: 
-*** Interferences
-I/33: V/31 clos/30 arg/29
-I/32: V/31 clos/30 arg/29
-V/31: I/33 I/32 clos/30 arg/29
-clos/30: I/33 I/32 V/31 R/11[%r11] R/10[%r10] arg/29
-arg/29: I/33 I/32 V/31 R/11[%r11] R/10[%r10] clos/30 R/1[%rbx]
-*** Preferences
-I/33: 
-I/32: 
-V/31:  R/0[%rax] weight 8
-clos/30:  R/1[%rbx] weight 8
-arg/29:  R/0[%rax] weight 8
-*** Interferences
-V/36: R/4[%rdx] R/3[%rsi] R/2[%rdi] R/1[%rbx] R/0[%rax] V/35 V/34 clos/33
-  arg4/30 arg3/29
-V/35: V/36 V/34 clos/33 arg4/30 arg3/29
-V/34: R/0[%rax] V/36 V/35 clos/33 clos/32 arg4/30 arg3/29
-clos/33: R/3[%rsi] R/2[%rdi] R/1[%rbx] R/0[%rax] V/36 V/35 V/34 clos/32
-  clos/31 arg4/30 arg3/29
-clos/32: V/34 clos/33 clos/31 arg4/30 arg3/29
-clos/31: clos/33 clos/32 arg4/30 arg3/29
-arg4/30: R/1[%rbx] R/0[%rax] V/36 V/35 V/34 clos/33 clos/32 clos/31 arg3/29
-  R/2[%rdi]
-arg3/29: R/0[%rax] V/36 V/35 V/34 clos/33 clos/32 clos/31 arg4/30 R/2[%rdi]
-  R/1[%rbx]
-*** Preferences
-V/36: 
-V/35:  R/0[%rax] weight 8
-V/34:  R/1[%rbx] weight 8
-clos/33:  R/4[%rdx] weight 8
-clos/32: 
-clos/31:  R/2[%rdi] weight 8
-arg4/30:  R/3[%rsi] weight 8
-arg3/29: 
-*** Interferences
-I/32: V/31 clos/30 arg/29
-V/31: I/32 clos/30 arg/29
-clos/30: I/32 V/31 R/11[%r11] R/10[%r10] arg/29
-arg/29: I/32 V/31 R/11[%r11] R/10[%r10] clos/30 R/1[%rbx]
-*** Preferences
-I/32: 
-V/31:  R/0[%rax] weight 8
-clos/30:  R/1[%rbx] weight 8
-arg/29:  R/0[%rax] weight 8
-*** Interferences
-V/37: R/4[%rdx] R/3[%rsi] R/2[%rdi] R/1[%rbx] R/0[%rax] V/36 V/35 V/34
-  clos/33 arg/29
-V/36: V/37 V/35 V/34 clos/33 arg/29
-V/35: R/0[%rax] V/37 V/36 V/34 clos/33 clos/32 arg/29
-V/34: R/1[%rbx] R/0[%rax] V/37 V/36 V/35 clos/33 clos/32 clos/31 arg/29
-clos/33: R/3[%rsi] R/2[%rdi] R/1[%rbx] R/0[%rax] V/37 V/36 V/35 V/34 clos/32
-  clos/31 clos/30 arg/29
-clos/32: V/35 V/34 clos/33 clos/31 clos/30 arg/29
-clos/31: V/34 clos/33 clos/32 clos/30 arg/29
-clos/30: clos/33 clos/32 clos/31 arg/29
-arg/29: R/2[%rdi] R/0[%rax] V/37 V/36 V/35 V/34 clos/33 clos/32 clos/31
-  clos/30 R/1[%rbx]
-*** Preferences
-V/37: 
-V/36:  R/0[%rax] weight 8
-V/35:  R/1[%rbx] weight 8
-V/34:  R/2[%rdi] weight 8
-clos/33:  R/4[%rdx] weight 8
-clos/32: 
-clos/31: 
-clos/30:  R/1[%rbx] weight 8
-arg/29:  R/3[%rsi] weight 8
-*** Interferences
-I/33: V/31 clos/30 arg/29
-I/32: V/31 clos/30 arg/29
-V/31: I/33 I/32 clos/30 arg/29
-clos/30: I/33 I/32 V/31 R/11[%r11] R/10[%r10] arg/29
-arg/29: I/33 I/32 V/31 R/11[%r11] R/10[%r10] clos/30 R/1[%rbx]
-*** Preferences
-I/33: 
-I/32: 
-V/31:  R/0[%rax] weight 8
-clos/30:  R/1[%rbx] weight 8
-arg/29:  R/0[%rax] weight 8
-*** Interferences
-V/34: R/3[%rsi] R/2[%rdi] R/1[%rbx] R/0[%rax] V/33 clos/32 arg3/30 arg2/29
-V/33: V/34 clos/32 arg3/30 arg2/29
-clos/32: R/2[%rdi] R/1[%rbx] R/0[%rax] V/34 V/33 clos/31 arg3/30 arg2/29
-clos/31: clos/32 arg3/30 arg2/29
-arg3/30: R/1[%rbx] R/0[%rax] V/34 V/33 clos/32 clos/31 arg2/29 R/2[%rdi]
-arg2/29: R/0[%rax] V/34 V/33 clos/32 clos/31 arg3/30 R/2[%rdi] R/1[%rbx]
-*** Preferences
-V/34: 
-V/33:  R/0[%rax] weight 8
-clos/32:  R/3[%rsi] weight 8
-clos/31:  R/2[%rdi] weight 8
-arg3/30: 
-arg2/29: 
-*** Interferences
-I/32: V/31 clos/30 arg/29
-V/31: I/32 clos/30 arg/29
-clos/30: I/32 V/31 R/11[%r11] R/10[%r10] arg/29
-arg/29: I/32 V/31 R/11[%r11] R/10[%r10] clos/30 R/1[%rbx]
-*** Preferences
-I/32: 
-V/31:  R/0[%rax] weight 8
-clos/30:  R/1[%rbx] weight 8
-arg/29:  R/0[%rax] weight 8
-*** Interferences
-V/35: R/3[%rsi] R/2[%rdi] R/1[%rbx] R/0[%rax] V/34 V/33 clos/32 arg/29
-V/34: V/35 V/33 clos/32 arg/29
-V/33: R/0[%rax] V/35 V/34 clos/32 clos/31 arg/29
-clos/32: R/2[%rdi] R/1[%rbx] R/0[%rax] V/35 V/34 V/33 clos/31 clos/30 arg/29
-clos/31: V/33 clos/32 clos/30 arg/29
-clos/30: clos/32 clos/31 arg/29
-arg/29: R/0[%rax] V/35 V/34 V/33 clos/32 clos/31 clos/30 R/1[%rbx]
-*** Preferences
-V/35: 
-V/34:  R/0[%rax] weight 8
-V/33:  R/1[%rbx] weight 8
-clos/32:  R/3[%rsi] weight 8
-clos/31: 
-clos/30:  R/1[%rbx] weight 8
-arg/29:  R/2[%rdi] weight 8
-*** Interferences
-I/32: V/31 clos/30 arg/29
-V/31: I/32 clos/30 arg/29
-clos/30: I/32 V/31 R/11[%r11] R/10[%r10] arg/29
-arg/29: I/32 V/31 R/11[%r11] R/10[%r10] clos/30 R/1[%rbx]
-*** Preferences
-I/32: 
-V/31:  R/0[%rax] weight 8
-clos/30:  R/1[%rbx] weight 8
-arg/29:  R/0[%rax] weight 8
-*** Interferences
-V/33: R/2[%rdi] R/1[%rbx] R/0[%rax] V/32 clos/31 arg/29
-V/32: V/33 clos/31 arg/29
-clos/31: R/1[%rbx] R/0[%rax] V/33 V/32 clos/30 arg/29
-clos/30: clos/31 arg/29
-arg/29: R/0[%rax] V/33 V/32 clos/31 clos/30 R/1[%rbx]
-*** Preferences
-V/33: 
-V/32:  R/0[%rax] weight 8
-clos/31:  R/2[%rdi] weight 8
-clos/30:  R/1[%rbx] weight 8
-arg/29: 
-*** Interferences
-arg/43: V/38 clos/37
-arg/42: spilled-arg/40 V/36 clos/35
-spilled-arg/41: V/36 clos/35 R/12[%rbp] R/11[%r11] R/10[%r10] R/9[%r13]
-  R/8[%r12] R/7[%r9] R/6[%r8] R/5[%rcx] R/4[%rdx] R/3[%rsi] R/2[%rdi]
-  R/1[%rbx] R/0[%rax] V/34 spilled-arg/40 clos/32 arg/29
-spilled-arg/40: V/38 clos/37 arg/42 V/36 clos/35 R/12[%rbp] R/11[%r11]
-  R/10[%r10] R/9[%r13] R/8[%r12] R/7[%r9] R/6[%r8] R/5[%rcx] R/4[%rdx]
-  R/3[%rsi] R/2[%rdi] R/1[%rbx] R/0[%rax] V/34 spilled-arg/41 clos/32 arg/30
-  arg/29
-V/39: R/3[%rsi] R/2[%rdi] R/1[%rbx] R/0[%rax] clos/32 arg/31 arg/30 arg/29
-V/38: R/1[%rbx] R/0[%rax] arg/43 spilled-arg/40 clos/37
-clos/37: R/0[%rax] arg/43 V/38 spilled-arg/40
-V/36: R/1[%rbx] R/0[%rax] arg/42 spilled-arg/41 spilled-arg/40 clos/35
-clos/35: R/0[%rax] arg/42 V/36 spilled-arg/41 spilled-arg/40
-V/34: R/1[%rbx] R/0[%rax] spilled-arg/41 spilled-arg/40 clos/32 arg/29
-V/33: clos/32 arg/31 arg/30 arg/29
-clos/32: V/34 spilled-arg/41 spilled-arg/40 R/2[%rdi] R/1[%rbx] R/0[%rax]
-  V/39 V/33 arg/31 arg/30 arg/29
-arg/31: R/1[%rbx] R/0[%rax] V/39 V/33 clos/32 arg/30 arg/29 R/3[%rsi]
-arg/30: spilled-arg/40 R/0[%rax] V/39 V/33 clos/32 arg/31 arg/29 R/3[%rsi]
-  R/2[%rdi]
-arg/29: V/34 spilled-arg/41 spilled-arg/40 V/39 V/33 clos/32 arg/31 arg/30
-  R/3[%rsi] R/2[%rdi] R/1[%rbx]
-*** Preferences
-arg/43:  R/0[%rax] weight 8 spilled-arg/40 weight 2
-arg/42:  R/0[%rax] weight 8 spilled-arg/41 weight 2
-spilled-arg/41: 
-spilled-arg/40: 
-V/39: 
-V/38: 
-clos/37:  R/1[%rbx] weight 8
-V/36: 
-clos/35:  R/1[%rbx] weight 8
-V/34: 
-V/33: 
-clos/32:  R/3[%rsi] weight 8 R/3[%rsi] weight 8
-arg/31:  spilled-arg/40 weight 2 R/2[%rdi] weight 8 R/2[%rdi] weight 8
-arg/30:  spilled-arg/41 weight 2 R/1[%rbx] weight 8 R/1[%rbx] weight 8
-arg/29:  R/0[%rax] weight 8 R/0[%rax] weight 8 R/0[%rax] weight 8
-*** Interferences
-arg/38: V/35 clos/34
-spilled-arg/37: V/35 clos/34 R/12[%rbp] R/11[%r11] R/10[%r10] R/9[%r13]
-  R/8[%r12] R/7[%r9] R/6[%r8] R/5[%rcx] R/4[%rdx] R/3[%rsi] R/2[%rdi]
-  R/1[%rbx] R/0[%rax] V/33 clos/31 arg/29
-V/36: R/2[%rdi] R/1[%rbx] R/0[%rax] clos/31 arg/30 arg/29
-V/35: R/1[%rbx] R/0[%rax] arg/38 spilled-arg/37 clos/34
-clos/34: R/0[%rax] arg/38 V/35 spilled-arg/37
-V/33: R/1[%rbx] R/0[%rax] spilled-arg/37 clos/31 arg/29
-V/32: clos/31 arg/30 arg/29
-clos/31: V/33 spilled-arg/37 R/1[%rbx] R/0[%rax] V/36 V/32 arg/30 arg/29
-arg/30: R/0[%rax] V/36 V/32 clos/31 arg/29 R/2[%rdi]
-arg/29: V/33 spilled-arg/37 V/36 V/32 clos/31 arg/30 R/2[%rdi] R/1[%rbx]
-*** Preferences
-arg/38:  R/0[%rax] weight 8 spilled-arg/37 weight 2
-spilled-arg/37: 
-V/36: 
-V/35: 
-clos/34:  R/1[%rbx] weight 8
-V/33: 
-V/32: 
-clos/31:  R/2[%rdi] weight 8 R/2[%rdi] weight 8
-arg/30:  spilled-arg/37 weight 2 R/1[%rbx] weight 8 R/1[%rbx] weight 8
-arg/29:  R/0[%rax] weight 8 R/0[%rax] weight 8 R/0[%rax] weight 8
-{}
+{"clambda":
+    "(seq\n  (let (kas/80 = (function a/82 1a))\n    (setfield_ptr(root-init) 0 (global No_log!) kas/80))\n  0a)\n",
+ "dump_clambda":
+    "\nclambda:\n(seq\n  (let (kas/80 (closure  (fun camlNo_log__kas_80 1  a/82 1a) ))\n    (setfield_ptr(root-init) 0 (read_symbol camlNo_log) kas/80))\n  0a)\n\n",
+ "dump_interf":
+    ["*** Interferences\narg/38: V/35 clos/34\nspilled-arg/37: V/35 clos/34 R/12[%rbp] R/11[%r11] R/10[%r10] R/9[%r13]\n  R/8[%r12] R/7[%r9] R/6[%r8] R/5[%rcx] R/4[%rdx] R/3[%rsi] R/2[%rdi]\n  R/1[%rbx] R/0[%rax] V/33 clos/31 arg/29\nV/36: R/2[%rdi] R/1[%rbx] R/0[%rax] clos/31 arg/30 arg/29\nV/35: R/1[%rbx] R/0[%rax] arg/38 spilled-arg/37 clos/34\nclos/34: R/0[%rax] arg/38 V/35 spilled-arg/37\nV/33: R/1[%rbx] R/0[%rax] spilled-arg/37 clos/31 arg/29\nV/32: clos/31 arg/30 arg/29\nclos/31: V/33 spilled-arg/37 R/1[%rbx] R/0[%rax] V/36 V/32 arg/30 arg/29\narg/30: R/0[%rax] V/36 V/32 clos/31 arg/29 R/2[%rdi]\narg/29: V/33 spilled-arg/37 V/36 V/32 clos/31 arg/30 R/2[%rdi] R/1[%rbx]\n\n",
+     "*** Interferences\narg/43: V/38 clos/37\narg/42: spilled-arg/40 V/36 clos/35\nspilled-arg/41: V/36 clos/35 R/12[%rbp] R/11[%r11] R/10[%r10] R/9[%r13]\n  R/8[%r12] R/7[%r9] R/6[%r8] R/5[%rcx] R/4[%rdx] R/3[%rsi] R/2[%rdi]\n  R/1[%rbx] R/0[%rax] V/34 spilled-arg/40 clos/32 arg/29\nspilled-arg/40: V/38 clos/37 arg/42 V/36 clos/35 R/12[%rbp] R/11[%r11]\n  R/10[%r10] R/9[%r13] R/8[%r12] R/7[%r9] R/6[%r8] R/5[%rcx] R/4[%rdx]\n  R/3[%rsi] R/2[%rdi] R/1[%rbx] R/0[%rax] V/34 spilled-arg/41 clos/32 arg/30\n  arg/29\nV/39: R/3[%rsi] R/2[%rdi] R/1[%rbx] R/0[%rax] clos/32 arg/31 arg/30 arg/29\nV/38: R/1[%rbx] R/0[%rax] arg/43 spilled-arg/40 clos/37\nclos/37: R/0[%rax] arg/43 V/38 spilled-arg/40\nV/36: R/1[%rbx] R/0[%rax] arg/42 spilled-arg/41 spilled-arg/40 clos/35\nclos/35: R/0[%rax] arg/42 V/36 spilled-arg/41 spilled-arg/40\nV/34: R/1[%rbx] R/0[%rax] spilled-arg/41 spilled-arg/40 clos/32 arg/29\nV/33: clos/32 arg/31 arg/30 arg/29\nclos/32: V/34 spilled-arg/41 spilled-arg/40 R/2[%rdi] R/1[%rbx] R/0[%rax]\n  V/39 V/33 arg/31 arg/30 arg/29\narg/31: R/1[%rbx] R/0[%rax] V/39 V/33 clos/32 arg/30 arg/29 R/3[%rsi]\narg/30: spilled-arg/40 R/0[%rax] V/39 V/33 clos/32 arg/31 arg/29 R/3[%rsi]\n  R/2[%rdi]\narg/29: V/34 spilled-arg/41 spilled-arg/40 V/39 V/33 clos/32 arg/31 arg/30\n  R/3[%rsi] R/2[%rdi] R/1[%rbx]\n\n",
+     "*** Interferences\nV/33: R/2[%rdi] R/1[%rbx] R/0[%rax] V/32 clos/31 arg/29\nV/32: V/33 clos/31 arg/29\nclos/31: R/1[%rbx] R/0[%rax] V/33 V/32 clos/30 arg/29\nclos/30: clos/31 arg/29\narg/29: R/0[%rax] V/33 V/32 clos/31 clos/30 R/1[%rbx]\n\n",
+     "*** Interferences\nI/32: V/31 clos/30 arg/29\nV/31: I/32 clos/30 arg/29\nclos/30: I/32 V/31 R/11[%r11] R/10[%r10] arg/29\narg/29: I/32 V/31 R/11[%r11] R/10[%r10] clos/30 R/1[%rbx]\n\n",
+     "*** Interferences\nV/35: R/3[%rsi] R/2[%rdi] R/1[%rbx] R/0[%rax] V/34 V/33 clos/32 arg/29\nV/34: V/35 V/33 clos/32 arg/29\nV/33: R/0[%rax] V/35 V/34 clos/32 clos/31 arg/29\nclos/32: R/2[%rdi] R/1[%rbx] R/0[%rax] V/35 V/34 V/33 clos/31 clos/30 arg/29\nclos/31: V/33 clos/32 clos/30 arg/29\nclos/30: clos/32 clos/31 arg/29\narg/29: R/0[%rax] V/35 V/34 V/33 clos/32 clos/31 clos/30 R/1[%rbx]\n\n",
+     "*** Interferences\nI/32: V/31 clos/30 arg/29\nV/31: I/32 clos/30 arg/29\nclos/30: I/32 V/31 R/11[%r11] R/10[%r10] arg/29\narg/29: I/32 V/31 R/11[%r11] R/10[%r10] clos/30 R/1[%rbx]\n\n",
+     "*** Interferences\nV/34: R/3[%rsi] R/2[%rdi] R/1[%rbx] R/0[%rax] V/33 clos/32 arg3/30 arg2/29\nV/33: V/34 clos/32 arg3/30 arg2/29\nclos/32: R/2[%rdi] R/1[%rbx] R/0[%rax] V/34 V/33 clos/31 arg3/30 arg2/29\nclos/31: clos/32 arg3/30 arg2/29\narg3/30: R/1[%rbx] R/0[%rax] V/34 V/33 clos/32 clos/31 arg2/29 R/2[%rdi]\narg2/29: R/0[%rax] V/34 V/33 clos/32 clos/31 arg3/30 R/2[%rdi] R/1[%rbx]\n\n",
+     "*** Interferences\nI/33: V/31 clos/30 arg/29\nI/32: V/31 clos/30 arg/29\nV/31: I/33 I/32 clos/30 arg/29\nclos/30: I/33 I/32 V/31 R/11[%r11] R/10[%r10] arg/29\narg/29: I/33 I/32 V/31 R/11[%r11] R/10[%r10] clos/30 R/1[%rbx]\n\n",
+     "*** Interferences\nV/37: R/4[%rdx] R/3[%rsi] R/2[%rdi] R/1[%rbx] R/0[%rax] V/36 V/35 V/34\n  clos/33 arg/29\nV/36: V/37 V/35 V/34 clos/33 arg/29\nV/35: R/0[%rax] V/37 V/36 V/34 clos/33 clos/32 arg/29\nV/34: R/1[%rbx] R/0[%rax] V/37 V/36 V/35 clos/33 clos/32 clos/31 arg/29\nclos/33: R/3[%rsi] R/2[%rdi] R/1[%rbx] R/0[%rax] V/37 V/36 V/35 V/34 clos/32\n  clos/31 clos/30 arg/29\nclos/32: V/35 V/34 clos/33 clos/31 clos/30 arg/29\nclos/31: V/34 clos/33 clos/32 clos/30 arg/29\nclos/30: clos/33 clos/32 clos/31 arg/29\narg/29: R/2[%rdi] R/0[%rax] V/37 V/36 V/35 V/34 clos/33 clos/32 clos/31\n  clos/30 R/1[%rbx]\n\n",
+     "*** Interferences\nI/32: V/31 clos/30 arg/29\nV/31: I/32 clos/30 arg/29\nclos/30: I/32 V/31 R/11[%r11] R/10[%r10] arg/29\narg/29: I/32 V/31 R/11[%r11] R/10[%r10] clos/30 R/1[%rbx]\n\n",
+     "*** Interferences\nV/36: R/4[%rdx] R/3[%rsi] R/2[%rdi] R/1[%rbx] R/0[%rax] V/35 V/34 clos/33\n  arg4/30 arg3/29\nV/35: V/36 V/34 clos/33 arg4/30 arg3/29\nV/34: R/0[%rax] V/36 V/35 clos/33 clos/32 arg4/30 arg3/29\nclos/33: R/3[%rsi] R/2[%rdi] R/1[%rbx] R/0[%rax] V/36 V/35 V/34 clos/32\n  clos/31 arg4/30 arg3/29\nclos/32: V/34 clos/33 clos/31 arg4/30 arg3/29\nclos/31: clos/33 clos/32 arg4/30 arg3/29\narg4/30: R/1[%rbx] R/0[%rax] V/36 V/35 V/34 clos/33 clos/32 clos/31 arg3/29\n  R/2[%rdi]\narg3/29: R/0[%rax] V/36 V/35 V/34 clos/33 clos/32 clos/31 arg4/30 R/2[%rdi]\n  R/1[%rbx]\n\n",
+     "*** Interferences\nI/33: V/31 clos/30 arg/29\nI/32: V/31 clos/30 arg/29\nV/31: I/33 I/32 clos/30 arg/29\nclos/30: I/33 I/32 V/31 R/11[%r11] R/10[%r10] arg/29\narg/29: I/33 I/32 V/31 R/11[%r11] R/10[%r10] clos/30 R/1[%rbx]\n\n",
+     "*** Interferences\nV/35: R/4[%rdx] R/3[%rsi] R/2[%rdi] R/1[%rbx] R/0[%rax] V/34 clos/33 arg4/31\n  arg3/30 arg2/29\nV/34: V/35 clos/33 arg4/31 arg3/30 arg2/29\nclos/33: R/3[%rsi] R/2[%rdi] R/1[%rbx] R/0[%rax] V/35 V/34 clos/32 arg4/31\n  arg3/30 arg2/29\nclos/32: clos/33 arg4/31 arg3/30 arg2/29\narg4/31: R/2[%rdi] R/1[%rbx] R/0[%rax] V/35 V/34 clos/33 clos/32 arg3/30\n  arg2/29 R/3[%rsi]\narg3/30: R/1[%rbx] R/0[%rax] V/35 V/34 clos/33 clos/32 arg4/31 arg2/29\n  R/3[%rsi] R/2[%rdi]\narg2/29: R/0[%rax] V/35 V/34 clos/33 clos/32 arg4/31 arg3/30 R/3[%rsi]\n  R/2[%rdi] R/1[%rbx]\n\n",
+     "*** Interferences\nI/33: V/31 clos/30 arg/29\nI/32: V/31 clos/30 arg/29\nV/31: I/33 I/32 clos/30 arg/29\nclos/30: I/33 I/32 V/31 R/11[%r11] R/10[%r10] arg/29\narg/29: I/33 I/32 V/31 R/11[%r11] R/10[%r10] clos/30 R/1[%rbx]\n\n",
+     "*** Interferences\nI/33:\nI/32:\nI/31:\nI/30:\nI/29:\n\n",
+     "*** Interferences\nI/30:\na/29:\n\n",
+     "*** Interferences\nI/31:\nI/30: kas/29\nkas/29: I/30\n\n"
+    ],
+ "dump_prefer":
+    ["*** Preferences\narg/38:  R/0[%rax] weight 8 spilled-arg/37 weight 2\nspilled-arg/37: \nV/36: \nV/35: \nclos/34:  R/1[%rbx] weight 8\nV/33: \nV/32: \nclos/31:  R/2[%rdi] weight 8 R/2[%rdi] weight 8\narg/30:  spilled-arg/37 weight 2 R/1[%rbx] weight 8 R/1[%rbx] weight 8\narg/29:  R/0[%rax] weight 8 R/0[%rax] weight 8 R/0[%rax] weight 8\n\n",
+     "*** Preferences\narg/43:  R/0[%rax] weight 8 spilled-arg/40 weight 2\narg/42:  R/0[%rax] weight 8 spilled-arg/41 weight 2\nspilled-arg/41: \nspilled-arg/40: \nV/39: \nV/38: \nclos/37:  R/1[%rbx] weight 8\nV/36: \nclos/35:  R/1[%rbx] weight 8\nV/34: \nV/33: \nclos/32:  R/3[%rsi] weight 8 R/3[%rsi] weight 8\narg/31:  spilled-arg/40 weight 2 R/2[%rdi] weight 8 R/2[%rdi] weight 8\narg/30:  spilled-arg/41 weight 2 R/1[%rbx] weight 8 R/1[%rbx] weight 8\narg/29:  R/0[%rax] weight 8 R/0[%rax] weight 8 R/0[%rax] weight 8\n\n",
+     "*** Preferences\nV/33: \nV/32:  R/0[%rax] weight 8\nclos/31:  R/2[%rdi] weight 8\nclos/30:  R/1[%rbx] weight 8\narg/29: \n\n",
+     "*** Preferences\nI/32: \nV/31:  R/0[%rax] weight 8\nclos/30:  R/1[%rbx] weight 8\narg/29:  R/0[%rax] weight 8\n\n",
+     "*** Preferences\nV/35: \nV/34:  R/0[%rax] weight 8\nV/33:  R/1[%rbx] weight 8\nclos/32:  R/3[%rsi] weight 8\nclos/31: \nclos/30:  R/1[%rbx] weight 8\narg/29:  R/2[%rdi] weight 8\n\n",
+     "*** Preferences\nI/32: \nV/31:  R/0[%rax] weight 8\nclos/30:  R/1[%rbx] weight 8\narg/29:  R/0[%rax] weight 8\n\n",
+     "*** Preferences\nV/34: \nV/33:  R/0[%rax] weight 8\nclos/32:  R/3[%rsi] weight 8\nclos/31:  R/2[%rdi] weight 8\narg3/30: \narg2/29: \n\n",
+     "*** Preferences\nI/33: \nI/32: \nV/31:  R/0[%rax] weight 8\nclos/30:  R/1[%rbx] weight 8\narg/29:  R/0[%rax] weight 8\n\n",
+     "*** Preferences\nV/37: \nV/36:  R/0[%rax] weight 8\nV/35:  R/1[%rbx] weight 8\nV/34:  R/2[%rdi] weight 8\nclos/33:  R/4[%rdx] weight 8\nclos/32: \nclos/31: \nclos/30:  R/1[%rbx] weight 8\narg/29:  R/3[%rsi] weight 8\n\n",
+     "*** Preferences\nI/32: \nV/31:  R/0[%rax] weight 8\nclos/30:  R/1[%rbx] weight 8\narg/29:  R/0[%rax] weight 8\n\n",
+     "*** Preferences\nV/36: \nV/35:  R/0[%rax] weight 8\nV/34:  R/1[%rbx] weight 8\nclos/33:  R/4[%rdx] weight 8\nclos/32: \nclos/31:  R/2[%rdi] weight 8\narg4/30:  R/3[%rsi] weight 8\narg3/29: \n\n",
+     "*** Preferences\nI/33: \nI/32: \nV/31:  R/0[%rax] weight 8\nclos/30:  R/1[%rbx] weight 8\narg/29:  R/0[%rax] weight 8\n\n",
+     "*** Preferences\nV/35: \nV/34:  R/0[%rax] weight 8\nclos/33:  R/4[%rdx] weight 8\nclos/32:  R/3[%rsi] weight 8\narg4/31: \narg3/30: \narg2/29: \n\n",
+     "*** Preferences\nI/33: \nI/32: \nV/31:  R/0[%rax] weight 8\nclos/30:  R/1[%rbx] weight 8\narg/29:  R/0[%rax] weight 8\n\n",
+     "*** Preferences\nI/33:  R/0[%rax] weight 8\nI/32: \nI/31: \nI/30: \nI/29: \n\n",
+     "*** Preferences\nI/30:  R/0[%rax] weight 8\na/29: \n\n",
+     "*** Preferences\nI/31:  R/0[%rax] weight 8\nI/30: \nkas/29: \n\n"
+    ],
+ "dump_rawclambda":
+    "\nclambda:\n(seq\n  (let (kas/80 (closure  (fun camlNo_log__kas_80 1  a/82 1a) ))\n    (setfield_ptr(root-init) 0 (read_symbol camlNo_log) kas/80))\n  0a)\n\n",
+ "parsetree":
+    "[\n  structure_item (no_log.ml[6,126+0]..[6,126+34])\n    Pstr_value Nonrec\n    [\n      <def>\n        pattern (no_log.ml[6,126+4]..[6,126+7])\n          Ppat_var \"kas\" (no_log.ml[6,126+4]..[6,126+7])\n        expression (no_log.ml[6,126+8]..[6,126+34]) ghost\n          Pexp_fun\n          Nolabel\n          None\n          pattern (no_log.ml[6,126+8]..[6,126+9])\n            Ppat_var \"a\" (no_log.ml[6,126+8]..[6,126+9])\n          expression (no_log.ml[6,126+12]..[6,126+34])\n            Pexp_match\n            expression (no_log.ml[6,126+18]..[6,126+19])\n              Pexp_ident \"a\" (no_log.ml[6,126+18]..[6,126+19])\n            [\n              <case>\n                pattern (no_log.ml[6,126+25]..[6,126+26])\n                  Ppat_any\n                expression (no_log.ml[6,126+30]..[6,126+34])\n                  Pexp_construct \"true\" (no_log.ml[6,126+30]..[6,126+34])\n                  None\n            ]\n    ]\n]\n\n",
+ "source": "let kas a = match a with | _ -> true\n",
+ "typedtree":
+    "[\n  structure_item (no_log.ml[6,126+0]..no_log.ml[6,126+34])\n    Tstr_value Nonrec\n    [\n      <def>\n        pattern (no_log.ml[6,126+4]..no_log.ml[6,126+7])\n          Tpat_var \"kas/80\"\n        expression (no_log.ml[6,126+8]..no_log.ml[6,126+34]) ghost\n          Texp_function\n          Nolabel\n          [\n            <case>\n              pattern (no_log.ml[6,126+8]..no_log.ml[6,126+9])\n                Tpat_var \"a/82\"\n              expression (no_log.ml[6,126+12]..no_log.ml[6,126+34])\n                Texp_match\n                expression (no_log.ml[6,126+18]..no_log.ml[6,126+19])\n                  Texp_ident \"a/82\"\n                [\n                  <case>\n                    pattern (no_log.ml[6,126+25]..no_log.ml[6,126+26])\n                      Tpat_value\n                      pattern (no_log.ml[6,126+25]..no_log.ml[6,126+26])\n                        Tpat_any\n                    expression (no_log.ml[6,126+30]..no_log.ml[6,126+34])\n                      Texp_construct \"true\"\n                      []\n                ]\n          ]\n    ]\n]\n\n"
+}

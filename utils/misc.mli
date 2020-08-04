@@ -484,7 +484,7 @@ val debug_prefix_map_flags: unit -> string list
     assembler, built from the [BUILD_PATH_PREFIX_MAP] environment variable. *)
 
 val print_if :
-  Format.formatter -> bool ref -> (Format.formatter -> 'a -> unit) -> 'a -> 'a
+  string -> Log.t -> bool ref -> (Format.formatter -> 'a -> unit) -> 'a -> 'a
 (** [print_if ppf flag fmt x] prints [x] with [fmt] on [ppf] if [b] is true. *)
 
 

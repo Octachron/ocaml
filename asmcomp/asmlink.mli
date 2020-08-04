@@ -18,9 +18,9 @@
 open Misc
 open Format
 
-val link: ppf_dump:formatter -> string list -> string -> unit
+val link: ppf_dump:Misc.Log.t -> string list -> string -> unit
 
-val link_shared: ppf_dump:formatter -> string list -> string -> unit
+val link_shared: ppf_dump:Misc.Log.t -> string list -> string -> unit
 
 val call_linker_shared: string list -> string -> unit
 

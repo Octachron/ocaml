@@ -21,8 +21,8 @@ let tool_name = "ocamlc"
 let with_info =
   Compile_common.with_info ~native:false ~tool_name
 
-let interface ~source_file ~output_prefix =
-  with_info ~source_file ~output_prefix ~dump_ext:"cmi" @@ fun info ->
+let interface log ~source_file ~output_prefix =
+  with_info log ~source_file ~output_prefix ~dump_ext:"cmi" @@ fun info ->
   Compile_common.interface info
 
 (** Bytecode compilation backend for .ml files. *)
@@ -34,11 +34,11 @@ let to_bytecode i (typedtree, coercion) =
   |> Profile.(record ~accumulate:true generate)
     (fun { Lambda.code = lambda; required_globals } ->
        lambda
-       |> print_if i.ppf_dump Clflags.dump_rawlambda Printlambda.lambda
+       |> print_if "raw_lambda" i.ppf_dump Clflags.dump_rawlambda Printlambda.lambda
        |> Simplif.simplify_lambda
-       |> print_if i.ppf_dump Clflags.dump_lambda Printlambda.lambda
+       |> print_if "lambda" i.ppf_dump Clflags.dump_lambda Printlambda.lambda
        |> Bytegen.compile_implementation i.module_name
-       |> print_if i.ppf_dump Clflags.dump_instr Printinstr.instrlist
+       |> print_if "instr" i.ppf_dump Clflags.dump_instr Printinstr.instrlist
        |> fun bytecode -> bytecode, required_globals
     )
 
@@ -54,10 +54,10 @@ let emit_bytecode i (bytecode, required_globals) =
          (Emitcode.to_file oc i.module_name cmofile ~required_globals);
     )
 
-let implementation ~source_file ~output_prefix =
+let implementation log ~source_file ~output_prefix =
   let backend info typed =
     let bytecode = to_bytecode info typed in
     emit_bytecode info bytecode
   in
-  with_info ~source_file ~output_prefix ~dump_ext:"cmo" @@ fun info ->
+  with_info log ~source_file ~output_prefix ~dump_ext:"cmo" @@ fun info ->
   Compile_common.implementation info ~backend

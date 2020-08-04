@@ -811,7 +811,7 @@ let apply ~what ~ppf_dump clam =
   let var_info = make_var_info clam in
   let clam = un_anf var_info V.Map.empty clam in
   if !Clflags.dump_clambda then begin
-    Format.fprintf ppf_dump
+    Misc.Log.log_itemf "dump_clambda" ppf_dump
       "@.un-anf (%a):@ %a@."
         Symbol.print what
         Printclambda.clambda clam

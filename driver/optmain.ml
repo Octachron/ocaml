@@ -50,13 +50,12 @@ let process_arguments ppf () =
   Compmisc.read_clflags_from_env ()
 
 let main log =
-  let out = Misc.Log.escape log in
   try
     if !Clflags.plugin then
       fatal "-plugin is only supported up to OCaml 4.08.0";
     begin try
       Compenv.process_deferred_actions
-        (out,
+        (log,
          Optcompile.implementation ~backend,
          Optcompile.interface,
          ".cmx",
@@ -68,6 +67,7 @@ let main log =
         exit 2
       end
     end;
+    let out = Misc.Log.escape log in
     readenv out Before_link;
     if
       List.length (List.filter (fun x -> !x)
@@ -98,7 +98,7 @@ let main log =
     else if !make_package then begin
       Compmisc.init_path ();
       let target = extract_output !output_name in
-      Compmisc.with_ppf_dump ~file_prefix:target (fun ppf_dump ->
+      Compmisc.with_ppf_dump ~file_prefix:target log (fun ppf_dump ->
         Asmpackager.package_files ~ppf_dump (Compmisc.initial_env ())
           (get_objfiles ~with_ocamlparam:false) target ~backend);
       Warnings.check_fatal ();
@@ -106,7 +106,7 @@ let main log =
     else if !shared then begin
       Compmisc.init_path ();
       let target = extract_output !output_name in
-      Compmisc.with_ppf_dump ~file_prefix:target (fun ppf_dump ->
+      Compmisc.with_ppf_dump ~file_prefix:target log (fun ppf_dump ->
         Asmlink.link_shared ~ppf_dump
           (get_objfiles ~with_ocamlparam:false) target);
       Warnings.check_fatal ();
@@ -128,7 +128,7 @@ let main log =
           default_output !output_name
       in
       Compmisc.init_path ();
-      Compmisc.with_ppf_dump ~file_prefix:target (fun ppf_dump ->
+      Compmisc.with_ppf_dump ~file_prefix:target log (fun ppf_dump ->
         Asmlink.link ~ppf_dump (get_objfiles ~with_ocamlparam:true) target);
       Warnings.check_fatal ();
     end;
@@ -143,6 +143,6 @@ let () =
   process_arguments ppf ();
   let log = Location.init_log ppf in
   main log;
-  Profile.print ppf !Clflags.profile_columns;
+  Profile.print log !Clflags.profile_columns;
   Misc.Log.flush_log log;
   exit 0

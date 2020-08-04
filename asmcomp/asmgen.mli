@@ -20,7 +20,7 @@ type middle_end =
      backend:(module Backend_intf.S)
   -> filename:string
   -> prefixname:string
-  -> ppf_dump:Format.formatter
+  -> ppf_dump:Misc.Log.t
   -> Lambda.program
   -> Clambda.with_constants
 
@@ -31,12 +31,12 @@ val compile_implementation
   -> filename:string
   -> prefixname:string
   -> middle_end:middle_end
-  -> ppf_dump:Format.formatter
+  -> ppf_dump:Misc.Log.t
   -> Lambda.program
   -> unit
 
 val compile_phrase :
-    ppf_dump:Format.formatter -> Cmm.phrase -> unit
+    ppf_dump:Misc.Log.t -> Cmm.phrase -> unit
 
 type error = Assembler_error of string
 exception Error of error
