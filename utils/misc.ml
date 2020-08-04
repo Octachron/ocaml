@@ -235,6 +235,98 @@ module Stdlib = struct
   external compare : 'a -> 'a -> int = "%compare"
 end
 
+(* JSON functions *)
+
+module Json = struct
+  let escape_char ppf chr =
+      match chr with
+      | ('\"' | '\\') as c ->
+          Format.fprintf ppf "\\%c" c
+      | '\n' ->
+          Format.fprintf ppf "\\%c" 'n'
+      | '\t' ->
+          Format.fprintf ppf "\\%c" 't'
+      | '\r' ->
+          Format.fprintf ppf "\\%c" 'r'
+      | '\b' ->
+          Format.fprintf ppf "\\%c" 'b'
+      | '\x00' .. '\x1F' | '\x7F' as c ->
+          Format.fprintf ppf "\\u%04X" (Char.code c)
+      | c -> Format.fprintf ppf "%c" c
+
+  let escape_string ppf s = String.iter (escape_char ppf) s
+
+  type t =
+    [
+      | `String of string
+      | `Assoc of (string * t) list
+      | `List of t list
+    ]
+
+  let rec print ppf =
+    let comma ppf () = Format.fprintf ppf ",@ " in
+    function
+    | `String s ->
+        Format.fprintf ppf "\"%a\"" escape_string s
+    | `Assoc obj ->
+        Format.fprintf ppf "@[{@[<hv 0>%a@]@;<0 0>}@]"
+          (Format.pp_print_list ~pp_sep:comma keyed_element) obj
+    | `List l ->
+        Format.fprintf ppf "@[[@[<hv>%a@]@;<0 0>]@]"
+          (Format.pp_print_list ~pp_sep:comma print ) l
+  and keyed_element ppf (key, (element:t)) =
+    Format.fprintf ppf "\"@[<2>%a\":@ %a@]" escape_string key print element
+end
+
+(* Log functions *)
+
+module Log = struct
+  type log =
+    {
+      main_rep : Json.t Stdlib.String.Map.t ref;
+      err_rep : Json.t list ref;
+      out: Format.formatter
+    }
+
+  type t =
+    | Direct of Format.formatter
+    | Json of log
+
+  let logf key log fmt =
+    match log with
+    | Direct ppf -> Format.fprintf ppf fmt
+    | Json json_log->
+        Format.kasprintf (fun s -> json_log.main_rep := Stdlib.String.Map.add key (`String s) !(json_log.main_rep)) fmt
+
+  let log_itemf key log fmt  =
+    match log with 
+    | Direct ppf -> Format.fprintf ppf fmt
+    | Json json_log-> match Stdlib.String.Map.find key !(json_log.main_rep) with
+        | `List x ->
+              Format.kasprintf (fun s -> json_log.main_rep := Stdlib.String.Map.add key (`List ((`String s)::x)) !(json_log.main_rep)) fmt
+        | `String x -> Format.kasprintf (fun s -> json_log.main_rep := Stdlib.String.Map.add key (`List ((`String x)::(`String s)::[])) !(json_log.main_rep)) fmt
+        | exception Not_found | _ ->
+              Format.kasprintf (fun s -> json_log.main_rep := Stdlib.String.Map.add key (`String s) !(json_log.main_rep)) fmt
+
+  let flush_log log =
+    match log with
+    | Json {main_rep;err_rep;out} ->
+      let main_log = ref (Stdlib.String.Map.bindings !main_rep) in
+      if not (!err_rep = []) then main_log := ( ("error_report", `List !err_rep) :: !main_log );
+      Format.fprintf out "%a@." Json.print (`Assoc !main_log)
+    | _ -> ()
+  
+  let is_direct log =
+    match log with
+    | Json _ -> false
+    | Direct _ -> true
+
+  let escape log =
+    match log with
+    | Json json_log -> json_log.out
+    | Direct ppf -> ppf
+end
+
 (* File functions *)
 
 let find_in_path path name =

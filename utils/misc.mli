@@ -178,6 +178,36 @@ module Stdlib : sig
   external compare : 'a -> 'a -> int = "%compare"
 end
 
+module Json : sig
+  type t =
+    [
+      | `String of string
+      | `Assoc of (string * t) list
+      | `List of t list
+    ]
+  val print : Format.formatter -> t -> unit
+end
+
+module Log : sig
+  type log =
+    { 
+      (* main_rep : (string * Json.t) list ref; *)
+      main_rep : Json.t Stdlib.String.Map.t ref;
+      err_rep : Json.t list ref;
+      out: Format.formatter
+    }
+
+  type t =
+    | Direct of Format.formatter
+    | Json of log
+
+  val logf : Stdlib.String.Map.key -> t -> ('a, Format.formatter, unit) format -> 'a 
+  val log_itemf : Stdlib.String.Map.key -> t -> ('a, Format.formatter, unit) format -> 'a 
+  val flush_log : t -> unit
+  val is_direct : t -> bool
+  val escape : t -> Format.formatter
+end
+
 val find_in_path: string list -> string -> string
         (* Search a file in a list of directories. *)
 val find_in_path_rel: string list -> string -> string
