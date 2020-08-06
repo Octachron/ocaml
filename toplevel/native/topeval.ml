@@ -153,7 +153,8 @@ let name_expression ~loc ~attrs exp =
    in
    str, sg
 
-let execute_phrase print_outcome ppf phr =
+let execute_phrase_with_log print_outcome log  phr =
+  let ppf = Misc.Log.formatter log in
   match phr with
   | Ptop_def sstr ->
       let oldenv = !toplevel_env in
@@ -243,7 +244,7 @@ let execute_phrase print_outcome ppf phr =
               in
               Ophr_exception (exn, outv)
         in
-        !print_out_phrase ppf out_phr;
+        Log.log_itemf "phrases" log "%a" !print_out_phrase out_phr;
         begin match out_phr with
         | Ophr_eval (_, _) | Ophr_signature _ -> true
         | Ophr_exception _ -> false
