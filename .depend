@@ -5697,7 +5697,8 @@ driver/compenv.cmx : \
     utils/clflags.cmx \
     utils/ccomp.cmx \
     driver/compenv.cmi
-driver/compenv.cmi :
+driver/compenv.cmi : \
+    utils/misc.cmi
 driver/compile.cmo : \
     lambda/translmod.cmi \
     lambda/simplif.cmi \
@@ -5803,9 +5804,11 @@ driver/compmisc.cmi : \
     typing/env.cmi \
     utils/clflags.cmi
 driver/errors.cmo : \
+    utils/misc.cmi \
     parsing/location.cmi \
     driver/errors.cmi
 driver/errors.cmx : \
+    utils/misc.cmx \
     parsing/location.cmx \
     driver/errors.cmi
 driver/errors.cmi :
@@ -5921,9 +5924,11 @@ driver/optcompile.cmi : \
     driver/compile_common.cmi \
     middle_end/backend_intf.cmi
 driver/opterrors.cmo : \
+    utils/misc.cmi \
     parsing/location.cmi \
     driver/opterrors.cmi
 driver/opterrors.cmx : \
+    utils/misc.cmx \
     parsing/location.cmx \
     driver/opterrors.cmi
 driver/opterrors.cmi :
@@ -6361,6 +6366,7 @@ toplevel/toploop.cmi : \
     typing/path.cmi \
     parsing/parsetree.cmi \
     typing/outcometree.cmi \
+    utils/misc.cmi \
     parsing/longident.cmi \
     parsing/location.cmi \
     typing/env.cmi

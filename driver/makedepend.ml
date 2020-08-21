@@ -245,7 +245,7 @@ let print_raw_dependencies source_file deps =
 (* Process one file *)
 
 let print_exception exn =
-  Location.report_exception Format.err_formatter exn
+  Location.report_exception (Direct Format.err_formatter) exn
 
 let report_err exn =
   Error_occurred.set ();
@@ -405,7 +405,7 @@ let mli_file_dependencies source_file =
   files := (source_file, MLI, extracted_deps, !Depend.pp_deps) :: !files
 
 let process_file_as process_fun def source_file =
-  Compenv.readenv ppf (Before_compile source_file);
+  Compenv.readenv (Direct ppf) (Before_compile source_file);
   load_path := [];
   let cwd = if !nocwd then [] else [Filename.current_dir_name] in
   List.iter add_to_load_path (
@@ -496,7 +496,7 @@ let sort_files_by_dependencies files =
 
   if !worklist <> [] then begin
     Location.error "cycle in dependencies. End of list is not sorted."
-    |> Location.print_report Format.err_formatter;
+    |> Location.print_report (Direct Format.err_formatter);
     let sorted_deps =
       let li = ref [] in
       Hashtbl.iter (fun _ file_deps -> li := file_deps :: !li) h;
@@ -577,7 +577,7 @@ let print_version_num () =
 
 let main () =
   Clflags.classic := false;
-  Compenv.readenv ppf Before_args;
+  Compenv.readenv (Direct ppf) Before_args;
   Clflags.reset_arguments (); (* reset arguments from ocamlc/ocamlopt *)
   Clflags.add_arguments __LOC__ [
      "-absname", Arg.Set Clflags.absname,
@@ -644,7 +644,7 @@ let main () =
                    (Filename.basename Sys.argv.(0))
   in
   Clflags.parse_arguments file_dependencies usage;
-  Compenv.readenv ppf Before_link;
+  Compenv.readenv (Direct ppf) Before_link;
   if !sort_files then sort_files_by_dependencies !files
   else List.iter print_file_dependencies (List.sort compare !files);
   exit (if Error_occurred.get () then 2 else 0)

@@ -190,7 +190,7 @@ module Json : sig
 end
 
 module Log : sig
-  type log =
+  type json =
     { 
       toplevel_keys : Json.t Stdlib.String.Map.t ref;
       error_key : Json.t list ref;
@@ -201,7 +201,7 @@ module Log : sig
     | Direct of Format.formatter
       (** Direct mode: the log is printed directly on the Format's formatter *)
 
-    | Json of log
+    | Json of json
       (** Json mode: we are building a json output, and
        only print to the underlying formatted once the logging session end *)
 

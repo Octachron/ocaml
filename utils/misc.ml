@@ -281,7 +281,7 @@ end
 (* Log functions *)
 
 module Log = struct
-  type log =
+  type json =
     {
       toplevel_keys : Json.t Stdlib.String.Map.t ref;
       error_key : Json.t list ref;
@@ -290,7 +290,7 @@ module Log = struct
 
   type t =
     | Direct of Format.formatter
-    | Json of log
+    | Json of json
 
   let logf key log fmt =
     match log with

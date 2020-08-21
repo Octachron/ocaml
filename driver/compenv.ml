@@ -106,8 +106,8 @@ type readenv_position =
    or ':', '|', ';', ' ' or ',' *)
 exception SyntaxError of string
 
-let print_error ppf msg =
-  Location.print_warning Location.none ppf
+let print_error log msg =
+  Location.print_warning Location.none log
     (Warnings.Bad_env_variable ("OCAMLPARAM", msg))
 
 let parse_args s =
@@ -451,17 +451,17 @@ let read_one_param ppf position name v =
         name
     end
 
-let read_OCAMLPARAM ppf position =
+let read_OCAMLPARAM log position =
   try
     let s = Sys.getenv "OCAMLPARAM" in
     let (before, after) =
       try
         parse_args s
       with SyntaxError s ->
-        print_error ppf s;
+        print_error log s;
         [],[]
     in
-    List.iter (fun (name, v) -> read_one_param ppf position name v)
+    List.iter (fun (name, v) -> read_one_param log position name v)
       (match position with
          Before_args -> before
        | Before_compile _ | Before_link -> after)

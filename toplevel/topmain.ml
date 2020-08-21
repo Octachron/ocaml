@@ -50,7 +50,7 @@ let prepare ppf =
     Toploop.run_hooks Toploop.Startup;
     res
   with x ->
-    try Location.report_exception ppf x; false
+    try Location.report_exception (Direct ppf) x; false
     with x ->
       Format.fprintf ppf "Uncaught exception: %s\n" (Printexc.to_string x);
       false
@@ -73,7 +73,7 @@ let file_argument name =
       let newargs = Array.sub !argv !current
                               (Array.length !argv - !current)
       in
-      Compenv.readenv ppf Before_link;
+      Compenv.readenv (Direct ppf) Before_link;
       Compmisc.read_clflags_from_env ();
       if prepare ppf && Toploop.run_script ppf name newargs
       then exit 0
@@ -105,7 +105,7 @@ let () =
 
 let main () =
   let ppf = Format.err_formatter in
-  Compenv.readenv ppf Before_args;
+  Compenv.readenv (Direct ppf) Before_args;
   let list = ref Options.list in
   begin
     try
@@ -114,7 +114,7 @@ let main () =
     | Arg.Bad msg -> Printf.eprintf "%s" msg; exit 2
     | Arg.Help msg -> Printf.printf "%s" msg; exit 0
   end;
-  Compenv.readenv ppf Before_link;
+  Compenv.readenv (Direct ppf) Before_link;
   Compmisc.read_clflags_from_env ();
   if not (prepare ppf) then exit 2;
   Compmisc.init_path ();

@@ -309,7 +309,7 @@ let directive_table = (Hashtbl.create 13 : (string, directive_fun) Hashtbl.t)
 
 (* Execute a toplevel phrase *)
 
-let execute_phrase print_outcome ppf phr =
+let execute_phrase print_outcome log phr =
   match phr with
   | Ptop_def sstr ->
       let oldenv = !toplevel_env in
@@ -333,7 +333,7 @@ let execute_phrase print_outcome ppf phr =
         | _ -> sstr, false
       in
       let (str, sg, names, newenv) = Typemod.type_toplevel_phrase oldenv sstr in
-      if !Clflags.dump_typedtree then Printtyped.implementation ppf str;
+      if !Clflags.dump_typedtree then Printtyped.implementation (Misc.Log.escape log) str;
       let sg' = Typemod.Signature_names.simplify newenv names sg in
       (* Why is this done? *)
       ignore (Includemod.signatures oldenv sg sg');
@@ -354,7 +354,7 @@ let execute_phrase print_outcome ppf phr =
       Warnings.check_fatal ();
       begin try
         toplevel_env := newenv;
-        let res = load_lambda ppf ~required_globals ~module_ident res size in
+        let res = load_lambda  (Misc.Log.escape log) ~required_globals ~module_ident res size in
         let out_phr =
           match res with
           | Result _ ->
@@ -389,7 +389,7 @@ let execute_phrase print_outcome ppf phr =
               in
               Ophr_exception (exn, outv)
         in
-        !print_out_phrase ppf out_phr;
+          Log.logf "phrase" log "%a" !print_out_phrase out_phr;
         begin match out_phr with
         | Ophr_eval (_, _) | Ophr_signature _ -> true
         | Ophr_exception _ -> false
@@ -404,7 +404,7 @@ let execute_phrase print_outcome ppf phr =
       in
       begin match d with
       | None ->
-          fprintf ppf "Unknown directive `%s'.@." dir_name;
+          fprintf (Misc.Log.escape log) "Unknown directive `%s'.@." dir_name;
           false
       | Some d ->
           match d, pdir_arg with
@@ -414,19 +414,19 @@ let execute_phrase print_outcome ppf phr =
              begin match Int_literal_converter.int n with
              | n -> f n; true
              | exception _ ->
-               fprintf ppf "Integer literal exceeds the range of \
+               fprintf (Misc.Log.escape log) "Integer literal exceeds the range of \
                             representable integers for directive `%s'.@."
                        dir_name;
                false
              end
           | Directive_int _, Some {pdira_desc = Pdir_int (_, Some _)} ->
-              fprintf ppf "Wrong integer literal for directive `%s'.@."
+              fprintf (Misc.Log.escape log) "Wrong integer literal for directive `%s'.@."
                 dir_name;
               false
           | Directive_ident f, Some {pdira_desc = Pdir_ident lid} -> f lid; true
           | Directive_bool f, Some {pdira_desc = Pdir_bool b} -> f b; true
           | _ ->
-              fprintf ppf "Wrong type of argument for directive `%s'.@."
+              fprintf (Misc.Log.escape log) "Wrong type of argument for directive `%s'.@."
                 dir_name;
               false
       end
@@ -435,7 +435,8 @@ let execute_phrase print_outcome ppf phr =
 
 let use_print_results = ref true
 
-let preprocess_phrase ppf phr =
+let preprocess_phrase log phr =
+  let ppf = Misc.Log.escape log in
   let phr =
     match phr with
     | Ptop_def str ->
@@ -456,11 +457,12 @@ let use_channel ppf wrap_mod ic name filename =
   Lexer.skip_hash_bang lb;
   let success =
     protect_refs [ R (Location.input_name, filename) ] (fun () ->
+        let log = Location.init_log ppf in
       try
         List.iter
           (fun ph ->
-            let ph = preprocess_phrase ppf ph in
-            if not (execute_phrase !use_print_results ppf ph) then raise Exit)
+            let ph = preprocess_phrase log ph in
+            if not (execute_phrase !use_print_results log ph) then raise Exit)
           (if wrap_mod then
              parse_mod_use_file name lb
            else
@@ -469,7 +471,7 @@ let use_channel ppf wrap_mod ic name filename =
       with
       | Exit -> false
       | Sys.Break -> fprintf ppf "Interrupted.@."; false
-      | x -> Location.report_exception ppf x; false) in
+      | x -> Location.report_exception (Misc.Log.Direct ppf) x; false) in
   success
 
 let use_output ppf command =
@@ -627,7 +629,7 @@ let initialize_toplevel_env () =
 exception PPerror
 
 let loop ppf =
-  Location.formatter_for_warnings := ppf;
+  let log = Location.init_log ppf in
   if not !Clflags.noversion then
     fprintf ppf "        OCaml version %s - native toplevel@.@." Config.version;
   initialize_toplevel_env ();
@@ -645,16 +647,16 @@ let loop ppf =
       Location.reset();
       first_line := true;
       let phr = try !parse_toplevel_phrase lb with Exit -> raise PPerror in
-      let phr = preprocess_phrase ppf phr  in
+      let phr = preprocess_phrase log phr  in
       Env.reset_cache_toplevel ();
       if !Clflags.dump_parsetree then Printast.top_phrase ppf phr;
       if !Clflags.dump_source then Pprintast.top_phrase ppf phr;
-      ignore(execute_phrase true ppf phr)
+      ignore(execute_phrase true log phr)
     with
     | End_of_file -> exit 0
     | Sys.Break -> fprintf ppf "Interrupted.@."; Btype.backtrack snap
     | PPerror -> ()
-    | x -> Location.report_exception ppf x; Btype.backtrack snap
+    | x -> Location.report_exception log x; Btype.backtrack snap
   done
 
 external caml_sys_modify_argv : string array -> unit =
@@ -680,3 +682,21 @@ let run_script ppf name args =
     else name
   in
   use_silently ppf explicit_name
+
+
+let preprocess_phrase ppf phr =
+  let log = Location.init_log ppf in
+  let ans = preprocess_phrase log phr in
+  Log.flush_log log;
+  ans
+
+let execute_phrase print_outcome ppf phr =
+  let log = Location.init_log ppf in
+  try
+    let ans = execute_phrase print_outcome log phr in
+    Log.flush_log log;
+    ans
+  with exn ->
+    Warnings.reset_fatal ();
+    Log.flush_log log;
+    raise exn

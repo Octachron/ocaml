@@ -421,7 +421,7 @@ let use_channel ppf wrap_mod ic name filename =
     with
     | Exit -> Misc.Log.flush_log log; false
     | Sys.Break -> fprintf ppf "Interrupted.@."; Misc.Log.flush_log log; false
-    | x -> Location.report_exception ppf x; Misc.Log.flush_log log; false)
+    | x -> Location.report_exception log x; Misc.Log.flush_log log; false)
 
 let use_output ppf command =
   let fn = Filename.temp_file "ocaml" "_toploop.ml" in
@@ -586,13 +586,13 @@ exception PPerror
 
 let loop ppf =
   Clflags.debug := true;
-  Location.formatter_for_warnings := ppf;
+  let log = Location.init_log ppf in
   if not !Clflags.noversion then
     fprintf ppf "        OCaml version %s@.@." Config.version;
   begin
     try initialize_toplevel_env ()
     with Env.Error _ | Typetexp.Error _ as exn ->
-      Location.report_exception ppf exn; exit 2
+      Location.report_exception log exn; exit 2
   end;
   let lb = Lexing.from_function refill_lexbuf in
   Location.init lb "//toplevel//";
@@ -602,7 +602,6 @@ let loop ppf =
   Sys.catch_break true;
   run_hooks After_setup;
   load_ocamlinit ppf;
-  let log = Location.init_log ppf in
   while true do
     let snap = Btype.snapshot () in
     try
@@ -622,7 +621,7 @@ let loop ppf =
     | Sys.Break -> fprintf ppf "Interrupted.@."; Misc.Log.flush_log log;
       Btype.backtrack snap
     | PPerror -> Misc.Log.flush_log log; ()
-    | x -> Location.report_exception ppf x; 
+    | x -> Location.report_exception log x;
       Misc.Log.flush_log log; Btype.backtrack snap
   done
 
@@ -642,7 +641,7 @@ let run_script ppf name args =
   begin
     try toplevel_env := Compmisc.initial_env()
     with Env.Error _ | Typetexp.Error _ as exn ->
-      Location.report_exception ppf exn; exit 2
+      Location.report_exception (Direct ppf) exn; exit 2
   end;
   Sys.interactive := false;
   run_hooks After_setup;
