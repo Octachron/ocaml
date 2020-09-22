@@ -104,7 +104,7 @@ $(STR_MLIS:%.mli=%.odoc):%.odoc:%.cmti
 $(ALL_ODOCL):%.odocl:%.odoc barrier
 	$(odoc) link $(DOC_STDLIB_INCLUDES) -I . $<
 
-barrier:$(STDLIB_ODOC)
+barrier:$(ALL_ODOCl:%.odocl:%.odoc)
 	touch barrier
 
 
