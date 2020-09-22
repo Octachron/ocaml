@@ -15,19 +15,52 @@
 ROOTDIR = ..
 SRC = $(ROOTDIR)
 
-
+-include $(SRC)/Makefile.config
 -include $(ROOTDIR)/stdlib/StdlibModules
 
-STDLIB=$(filter-out stdlib__pervasives, $(STDLIB_MODULES))
-STDLIB_MLI0 = $(STDLIB:%=$(SRC)/stdlib/%.cmti)
-ALL_CMTIS=$(STDLIB_MLI0:%.mli=%.cmti)
-T_ODOC=$(STDLIB:%=%.odoc)
-ALL_ODOC=$(T_ODOC) stdlib__pervasives.odoc
-ALL_ODOCL=$(STDLIB_MODULES:%=%.odocl)
 
-ALL_HTML=$(addprefix html/stdlib/, $(STDLIB_MODULES:%=%/index.html))
-ALL_LATEX=$(addprefix latex/package-stdlib-module-, $(STDLIB_MODULES:%=%.tex))
-ALL_MAN=$(addprefix man/, $(STDLIB_MODULES:%=%.3o))
+PARSING_MLIS := $(notdir $(wildcard $(SRC)/parsing/*.mli))
+UTILS_MLIS := $(notdir $(wildcard $(SRC)/utils/*.mli))
+STR_MLIS := str.mli
+UNIX_MLIS := unix.mli unixLabels.mli
+DYNLINK_MLIS := dynlink.mli
+THREAD_MLIS := thread.mli condition.mli mutex.mli event.mli threadUnix.mli
+DRIVER_MLIS := pparse.mli
+
+COMPILERLIBS_MLIS=\
+  $(PARSING_MLIS) \
+  $(UTILS_MLIS) \
+  $(DRIVER_MLIS)
+
+DOC_COMPILERLIBS_DIRS= $(addprefix $(ROOTDIR)/, \
+parsing utils typing bytecomp driver file_formats lambda\
+)
+
+DOC_STDLIB_DIRS = $(addprefix $(ROOTDIR)/, stdlib \
+	otherlibs/str \
+	otherlibs/$(UNIXLIB) otherlibs/dynlink \
+	otherlibs/systhreads\
+)
+
+vpath %.cmti $(ROOTDIR)/stdlib $(DOC_COMPILERLIBS_DIRS)  $(DOC_STDLIB_DIRS)
+vpath %.cmt $(ROOTDIR)/stdlib
+
+STDLIB=$(filter-out stdlib__pervasives, $(STDLIB_MODULES))
+
+STDLIB_CMTIS=$(STDLIB:%.mli=%.cmti)
+STDLIB_ODOC_BASE=$(STDLIB:%=%.odoc)
+STDLIB_ODOC=$(STDLIB_ODOC_BASE) stdlib__pervasives.odoc
+ALL_ODOCL=$(STDLIB_MODULES:%=%.odocl) \
+	$(UNIX_MLIS:%.mli=%.odocl) \
+	$(DYNLINK_MLIS:%.mli=%.odocl) \
+	$(THREAD_MLIS:%.mli=%.odocl) \
+	$(STR_MLIS:%.mli=%.odocl) \
+	$(COMPILERLIBS_MLIS:%.mli=%.odocl)
+
+
+ALL_HTML=$(addprefix html/stdlib/, $(ALL_ODOCL:%.odocl=%/index.html))
+ALL_LATEX=$(addprefix latex/package-stdlib-module-, $(ALL_ODOCL:%.odocl=%.tex))
+ALL_MAN=$(addprefix man/, $(ALL_ODOCL:%.odocl=%.3o))
 
 odoc=odoc
 
@@ -47,16 +80,31 @@ man: $(ALL_MAN)
 html/odoc.css:
 	odoc support-files --output-dir html
 
-stdlib__pervasives.odoc: $(ROOTDIR)/stdlib/stdlib__pervasives.cmt
-	$(odoc) $(DOC_ALL_INCLUDES) compile --package stdlib $< -o $@
+stdlib__pervasives.odoc: stdlib__pervasives.cmt
+	$(odoc) $(DOC_STDLIB_INCLUDES) compile --package stdlib $< -o $@
 
-$(T_ODOC):%.odoc:$(SRC)/stdlib/%.cmti
-	$(odoc) $(DOC_ALL_INCLUDES) compile --package stdlib $< -o $@
+$(STDLIB_ODOC_BASE):%.odoc:%.cmti
+	$(odoc) $(DOC_STDLIB_INCLUDES) compile --package stdlib $< -o $@
+
+$(UNIX_MLIS:%.mli=%.odoc):%.odoc:%.cmti
+	$(odoc) $(DOC_STDLIB_INCLUDES) compile --package unix $< -o $@
+
+$(DYNLINK_MLIS:%.mli=%.odoc):%.odoc:%.cmti
+	$(odoc) $(DOC_STDLIB_INCLUDES) compile --package dynlink $< -o $@
+
+$(THREAD_MLIS:%.mli=%.odoc):%.odoc:%.cmti
+	$(odoc) $(DOC_STDLIB_INCLUDES) compile --package thread $< -o $@
+
+$(COMPILERLIBS_MLIS:%.mli=%.odoc):%.odoc:%.cmti
+	$(odoc) $(DOC_STDLIB_INCLUDES) compile --package compilerlibs $< -o $@
+
+$(STR_MLIS:%.mli=%.odoc):%.odoc:%.cmti
+	$(odoc) $(DOC_STDLIB_INCLUDES) compile --package str $< -o $@
 
 $(ALL_ODOCL):%.odocl:%.odoc barrier
-	$(odoc) link $(DOC_ALL_INCLUDES) -I . $<
+	$(odoc) link $(DOC_STDLIB_INCLUDES) -I . $<
 
-barrier:$(ALL_ODOC)
+barrier:$(STDLIB_ODOC)
 	touch barrier
 
 

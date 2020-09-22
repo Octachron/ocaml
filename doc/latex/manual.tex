@@ -1,4 +1,4 @@
-\documentclass{article}
+\documentclass{book}
 
 \usepackage{changepage}
 \usepackage{longtable}
@@ -57,5 +57,21 @@
 
 \include{output}
 \begin{document}
+\chapter{Stdlib}
 \input{package-stdlib-module-Stdlib.tex}
+\chapter{Dynlinl}
+\input{package-dynlink-module-Dynlink.tex}
+\chapter{Str}
+\input{package-str-module-Str.tex}
+\chapter{Thread}
+\input{package-thread-module-Condition.tex}
+\input{package-thread-module-Event.tex}
+\input{package-thread-module-Mutex.tex}
+\input{package-thread-module-Thread.tex}
+\input{package-thread-module-ThreadUnix.tex}
+\chapter{Unix}
+\input{package-unix-module-UnixLabels.tex}
+\input{package-unix-module-Unix.tex}
+
+
 \end{document}
