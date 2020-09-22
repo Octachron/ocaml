@@ -81,6 +81,7 @@ build-aux                typo.prune
 
 /manual                  typo.prune
 /manual/**               typo.prune
+/doc/latex               typo.prune
 
 # configure is generated so do not check it
 configure                typo.prune
