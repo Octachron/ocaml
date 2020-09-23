@@ -30,6 +30,8 @@ DOC_STDLIB_DIRS = $(addprefix $(ROOTDIR)/, stdlib \
 
 vpath %.cmti $(ROOTDIR)/stdlib $(DOC_COMPILERLIBS_DIRS)  $(DOC_STDLIB_DIRS)
 vpath %.cmt $(ROOTDIR)/stdlib
+vpath %.mld $(ROOTDIR)/stdlib
+
 
 PACKAGES=stdlib unix dynlink str compilerlibs thread
 str_MLIS := str.mli
@@ -45,16 +47,25 @@ compilerlibs_MLIS=\
   $(PARSING_MLIS) \
   $(UTILS_MLIS) \
   $(DRIVER_MLIS)
+compilerlibs_TEXT= page-compiler_libs.odocl
 
 STDLIB=$(filter-out stdlib__pervasives, $(STDLIB_MODULES))
 
 stdlib_MLIS=$(STDLIB:%=%.mli)
 stdlib_EXTRA=stdlib__pervasives.odocl
+stdlib_TEXT=page-ocaml_operators.odocl
 ALL_ODOCL=$(foreach package, $(PACKAGES),\
-$($(package)_MLIS:%.mli=%.odocl) $($(package)_EXTRA))
+$($(package)_MLIS:%.mli=%.odocl) \
+$($(package)_EXTRA)\
+$($(package)_TEXT)\
+)
 
 define compile_package_
 $$($(1)_MLIS:%.mli=%.odoc):%.odoc:%.cmti
+	$$(odoc) $$(DOC_STDLIB_INCLUDES) compile --package $(1) $$< -o $$@
+$$($(1)_TEXT:page-%.odocl=page-%.odoc):page-%.odoc:%.mld
+	$$(odoc) $$(DOC_STDLIB_INCLUDES) compile --package $(1) $$< -o $$@
+$$($(1)_EXTRA:%.odocl=%.odoc):%.odoc:%.cmt
 	$$(odoc) $$(DOC_STDLIB_INCLUDES) compile --package $(1) $$< -o $$@
 endef
 
@@ -83,10 +94,6 @@ man: $(ALL_MAN)
 
 html/odoc.css:
 	odoc support-files --output-dir html
-
-stdlib__pervasives.odoc: stdlib__pervasives.cmt
-	$(odoc) $(DOC_STDLIB_INCLUDES) compile --package stdlib $< -o $@
-
 
 $(ALL_ODOCL):%.odocl:%.odoc barrier
 	$(odoc) link $(DOC_STDLIB_INCLUDES) -I . $<
