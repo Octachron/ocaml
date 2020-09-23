@@ -36,8 +36,8 @@ unix_MLIS := unix.mli unixLabels.mli
 dynlink_MLIS := dynlink.mli
 thread_MLIS := thread.mli condition.mli mutex.mli event.mli threadUnix.mli
 
-PARSING_MLIS := $(notdir $(wildcard $(SRC)/parsing/*.mli))
-UTILS_MLIS := $(notdir $(wildcard $(SRC)/utils/*.mli))
+PARSING_MLIS := $(notdir $(wildcard $(ROOTDIR)/parsing/*.mli))
+UTILS_MLIS := $(notdir $(wildcard $(ROOTDIR)/utils/*.mli))
 DRIVER_MLIS := pparse.mli
 
 compilerlibs_MLIS=\
