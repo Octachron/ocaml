@@ -29,7 +29,6 @@ DOC_STDLIB_DIRS = $(addprefix $(ROOTDIR)/, stdlib \
 
 vpath %.cmti $(ROOTDIR)/stdlib $(DOC_COMPILERLIBS_DIRS)  $(DOC_STDLIB_DIRS)
 vpath %.cmt $(ROOTDIR)/stdlib
-vpath %.mld $(ROOTDIR)/stdlib
 
 PACKAGES=stdlib unix dynlink str compilerlibs thread
 str_MLIS := str.mli
@@ -51,7 +50,7 @@ STDLIB=$(filter-out stdlib__pervasives, $(STDLIB_MODULES))
 
 stdlib_MLIS=$(STDLIB:%=%.mli)
 stdlib_EXTRA=stdlib__pervasives.odocl
-stdlib_TEXT=page-ocaml_operators.odocl
+stdlib_TEXT=page-OCaml_operators.odocl
 ALL_ODOCL=$(foreach package, $(PACKAGES),\
 $($(package)_MLIS:%.mli=%.odocl) \
 $($(package)_EXTRA)\
