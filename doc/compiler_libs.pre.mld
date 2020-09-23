@@ -1,5 +1,3 @@
-{!indexlist}
-
 {1 Warning}
   This library is part of the internal OCaml compiler API, and is
 not the language standard library.

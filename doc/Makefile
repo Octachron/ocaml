@@ -83,14 +83,21 @@ ALL: html latex man
 
 html: $(ALL_HTML) html/odoc.css
 latex: latex/manual.pdf
-
 latex/manual.pdf: $(ALL_LATEX) latex/manual.tex
 	cd latex && pdflatex manual.tex
-
 man: $(ALL_MAN)
 
 html/odoc.css:
 	odoc support-files --output-dir html
+
+define capitalize
+$(shell echo $(1) | sed "s/\<./\U&/g")
+endef
+compilerlibs_MODULES=$(foreach module,\
+$(compilerlibs_MLIS:%.mli=%), $(call capitalize, $(module)))
+compiler_libs.mld: compiler_libs.pre.mld
+	cp $< $@ && echo "{!modules:$(compilerlibs_MODULES)}" >> $@
+
 
 $(ALL_ODOCL):%.odocl:%.odoc barrier
 	$(odoc) link $(DOC_STDLIB_INCLUDES) -I . $<
@@ -108,7 +115,6 @@ $(ALL_HTML):%.html.witness:%.odocl
 $(ALL_LATEX):%.tex.witness:%.odocl
 	$(odoc) latex-generate --output-dir latex  $<
 	touch $@
-
 
 $(ALL_MAN):%.man.witness:%.odocl
 	$(odoc) man-generate --output-dir man  $<
