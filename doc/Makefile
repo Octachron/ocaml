@@ -13,9 +13,8 @@
 #*                                                                        *
 #**************************************************************************
 ROOTDIR = ..
-SRC = $(ROOTDIR)
 
--include $(SRC)/Makefile.config
+-include $(ROOTDIR)/Makefile.config
 -include $(ROOTDIR)/stdlib/StdlibModules
 
 DOC_COMPILERLIBS_DIRS= $(addprefix $(ROOTDIR)/, \
@@ -31,7 +30,6 @@ DOC_STDLIB_DIRS = $(addprefix $(ROOTDIR)/, stdlib \
 vpath %.cmti $(ROOTDIR)/stdlib $(DOC_COMPILERLIBS_DIRS)  $(DOC_STDLIB_DIRS)
 vpath %.cmt $(ROOTDIR)/stdlib
 vpath %.mld $(ROOTDIR)/stdlib
-
 
 PACKAGES=stdlib unix dynlink str compilerlibs thread
 str_MLIS := str.mli
