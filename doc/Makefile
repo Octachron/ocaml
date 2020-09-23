@@ -18,20 +18,6 @@ SRC = $(ROOTDIR)
 -include $(SRC)/Makefile.config
 -include $(ROOTDIR)/stdlib/StdlibModules
 
-
-PARSING_MLIS := $(notdir $(wildcard $(SRC)/parsing/*.mli))
-UTILS_MLIS := $(notdir $(wildcard $(SRC)/utils/*.mli))
-STR_MLIS := str.mli
-UNIX_MLIS := unix.mli unixLabels.mli
-DYNLINK_MLIS := dynlink.mli
-THREAD_MLIS := thread.mli condition.mli mutex.mli event.mli threadUnix.mli
-DRIVER_MLIS := pparse.mli
-
-COMPILERLIBS_MLIS=\
-  $(PARSING_MLIS) \
-  $(UTILS_MLIS) \
-  $(DRIVER_MLIS)
-
 DOC_COMPILERLIBS_DIRS= $(addprefix $(ROOTDIR)/, \
 parsing utils typing bytecomp driver file_formats lambda\
 )
@@ -45,22 +31,40 @@ DOC_STDLIB_DIRS = $(addprefix $(ROOTDIR)/, stdlib \
 vpath %.cmti $(ROOTDIR)/stdlib $(DOC_COMPILERLIBS_DIRS)  $(DOC_STDLIB_DIRS)
 vpath %.cmt $(ROOTDIR)/stdlib
 
+PACKAGES=stdlib unix dynlink str compilerlibs thread
+str_MLIS := str.mli
+unix_MLIS := unix.mli unixLabels.mli
+dynlink_MLIS := dynlink.mli
+thread_MLIS := thread.mli condition.mli mutex.mli event.mli threadUnix.mli
+
+PARSING_MLIS := $(notdir $(wildcard $(SRC)/parsing/*.mli))
+UTILS_MLIS := $(notdir $(wildcard $(SRC)/utils/*.mli))
+DRIVER_MLIS := pparse.mli
+
+compilerlibs_MLIS=\
+  $(PARSING_MLIS) \
+  $(UTILS_MLIS) \
+  $(DRIVER_MLIS)
+
 STDLIB=$(filter-out stdlib__pervasives, $(STDLIB_MODULES))
 
-STDLIB_CMTIS=$(STDLIB:%.mli=%.cmti)
-STDLIB_ODOC_BASE=$(STDLIB:%=%.odoc)
-STDLIB_ODOC=$(STDLIB_ODOC_BASE) stdlib__pervasives.odoc
-ALL_ODOCL=$(STDLIB_MODULES:%=%.odocl) \
-	$(UNIX_MLIS:%.mli=%.odocl) \
-	$(DYNLINK_MLIS:%.mli=%.odocl) \
-	$(THREAD_MLIS:%.mli=%.odocl) \
-	$(STR_MLIS:%.mli=%.odocl) \
-	$(COMPILERLIBS_MLIS:%.mli=%.odocl)
+stdlib_MLIS=$(STDLIB:%=%.mli)
+stdlib_EXTRA=stdlib__pervasives.odocl
+ALL_ODOCL=$(foreach package, $(PACKAGES),\
+$($(package)_MLIS:%.mli=%.odocl) $($(package)_EXTRA))
 
+define compile_package_
+$$($(1)_MLIS:%.mli=%.odoc):%.odoc:%.cmti
+	$$(odoc) $$(DOC_STDLIB_INCLUDES) compile --package $(1) $$< -o $$@
+endef
 
-ALL_HTML=$(addprefix html/stdlib/, $(ALL_ODOCL:%.odocl=%/index.html))
-ALL_LATEX=$(addprefix latex/package-stdlib-module-, $(ALL_ODOCL:%.odocl=%.tex))
-ALL_MAN=$(addprefix man/, $(ALL_ODOCL:%.odocl=%.3o))
+define compile_package
+$(eval $(call compile_package_,$1))
+endef
+
+ALL_HTML=$(ALL_ODOCL:%.odocl=%.html.witness)
+ALL_MAN=$(ALL_ODOCL:%.odocl=%.man.witness)
+ALL_LATEX=$(ALL_ODOCL:%.odocl=%.tex.witness)
 
 odoc=odoc
 
@@ -83,43 +87,32 @@ html/odoc.css:
 stdlib__pervasives.odoc: stdlib__pervasives.cmt
 	$(odoc) $(DOC_STDLIB_INCLUDES) compile --package stdlib $< -o $@
 
-$(STDLIB_ODOC_BASE):%.odoc:%.cmti
-	$(odoc) $(DOC_STDLIB_INCLUDES) compile --package stdlib $< -o $@
-
-$(UNIX_MLIS:%.mli=%.odoc):%.odoc:%.cmti
-	$(odoc) $(DOC_STDLIB_INCLUDES) compile --package unix $< -o $@
-
-$(DYNLINK_MLIS:%.mli=%.odoc):%.odoc:%.cmti
-	$(odoc) $(DOC_STDLIB_INCLUDES) compile --package dynlink $< -o $@
-
-$(THREAD_MLIS:%.mli=%.odoc):%.odoc:%.cmti
-	$(odoc) $(DOC_STDLIB_INCLUDES) compile --package thread $< -o $@
-
-$(COMPILERLIBS_MLIS:%.mli=%.odoc):%.odoc:%.cmti
-	$(odoc) $(DOC_STDLIB_INCLUDES) compile --package compilerlibs $< -o $@
-
-$(STR_MLIS:%.mli=%.odoc):%.odoc:%.cmti
-	$(odoc) $(DOC_STDLIB_INCLUDES) compile --package str $< -o $@
 
 $(ALL_ODOCL):%.odocl:%.odoc barrier
 	$(odoc) link $(DOC_STDLIB_INCLUDES) -I . $<
 
-barrier:$(ALL_ODOCl:%.odocl:%.odoc)
-	touch barrier
+barrier:$(ALL_ODOCl:%.odocl=%.odoc)
+	touch $@
+
+$(foreach package,$(PACKAGES), $(call compile_package,$(package)))
 
 
-$(ALL_HTML):html/stdlib/%/index.html:%.odocl
-	  $(odoc) html-generate --output-dir html  $<
+$(ALL_HTML):%.html.witness:%.odocl
+	$(odoc) html-generate --output-dir html  $<
+	touch $@
 
-$(ALL_LATEX):latex/package-stdlib-module-%.tex:%.odocl
-	  $(odoc) latex-generate --output-dir latex  $<
+$(ALL_LATEX):%.tex.witness:%.odocl
+	$(odoc) latex-generate --output-dir latex  $<
+	touch $@
 
-$(ALL_MAN):man/%.3o:%.odocl
-	  $(odoc) man-generate --output-dir man  $<
 
+$(ALL_MAN):%.man.witness:%.odocl
+	$(odoc) man-generate --output-dir man  $<
+	touch $@
 
 clean:
 	rm barrier *.odoc *.odocl latex/package-*.tex \
+	rm *witness \
 	man/stdlib/*; rm -r html/* ;\
 	rm latex/manual.pdf latex/manual.log latex/manual.out \
 	latex/manual.aux latex/output.aux
