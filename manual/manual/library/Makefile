@@ -39,7 +39,7 @@ BLURB = core.tex builtin.tex stdlib-blurb.tex compilerlibs.tex \
   libunix.tex libstr.tex libnum.tex libgraph.tex \
   libthreads.tex libdynlink.tex libbigarray.tex
 
-FILES = $(BLURB) $(INTF)
+FILES = $(BLURB) # $(INTF)
 
 
 etex-files: $(BLURB)

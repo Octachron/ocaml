@@ -13,6 +13,8 @@
 \usepackage{color}
 
 \usepackage[strings]{underscore}
+\usepackage{changepage}
+\usepackage{longtable}
 
 % Package for code examples:
 \usepackage{listings}
@@ -106,6 +108,45 @@
 \lstset{upquote=true}
 \fi
 }{}
+
+\lstnewenvironment{ocamlcodeblock}{
+  \lstset{
+    backgroundcolor = \color{lightgray},
+    basicstyle=\ttfamily,
+    showstringspaces=false,
+    language=caml,
+    escapeinside={$}{$},
+    columns=fullflexible,
+    stringstyle=\ocamlstring,
+    commentstyle=\ocamlcomment,
+    keepspaces=true,
+    keywordstyle=\ocamlkeyword,
+    moredelim=[is][\ocamlhighlight]{<<}{>>},
+    moredelim=[s][\ocamlstring]{\{|}{|\}},
+    moredelim=[s][\ocamlstring]{\{delimiter|}{|delimiter\}},
+    keywords={[2]{val,initializer,nonrec}}, keywordstyle={[2]\ocamlkeyword},
+    belowskip=0\baselineskip,
+    upquote=true,
+    literate={'"'}{\textquotesingle "\textquotesingle}3
+    {'\\"'}{\textquotesingle \textbackslash"\textquotesingle}4,
+  }
+  }{}
+
+
+\newcommand{\ocamlcodefragment}[1]{{\ttfamily\setlength{\parindent}{0cm}%
+\raggedright#1}}
+\newcommand{\ocamlinlinecode}[1]{{\ttfamily#1}}
+\newenvironment{ocamlexception}{\bfseries}{}
+\newenvironment{ocamlextension}{\bfseries}{}
+\newenvironment{ocamlconstructor}{\bfseries}{}
+\newenvironment{ocamltypevar}{\itshape\ttfamily}{}
+\definecolor{lightgray}{gray}{0.97}
+\definecolor{gray}{gray}{0.5}
+\newenvironment{ocamlindent}{\begin{adjustwidth}{2em}{0pt}}{\end{adjustwidth}}
+\newenvironment{ocamllongtable}[2][l]{\begin{longtable}[#1]{#2}}%
+{\end{longtable}}
+\newcommand{\bold}[1]{{\bfseries#1}}
+
 
 
 

@@ -30,7 +30,7 @@ HTML_FLAGS = -fix -exec xxdate.exe -O
 TEXT_FLAGS = -fix -exec xxdate.exe -text -w 79 -s
 
 
-manual: files
+manual: files latex_files
 	cd texstuff \
 	  && TEXINPUTS=$(TEXINPUTS) pdflatex manual.tex
 
@@ -43,7 +43,7 @@ index:
 
 # libref/style.css and comilerlibref/style.css are used as witness
 # for the generation of the html stdlib and compilerlibs reference.
-html: htmlman/libref/style.css htmlman/compilerlibref/style.css etex-files
+html: html_files
 	cd htmlman \
 	  && $(HEVEA) $(HTML_FLAGS) \
 	    -I .. -I ../cmds -I ../library -I ../refman -I ../tutorials \
@@ -67,19 +67,15 @@ COMPILERLIBS_MODULES=$(shell echo $(basename $(notdir $(COMPILERLIBS_MLIS))) \
 library/compiler_libs.txt: library/compiler_libs.mld
 	cp $< $@ && echo "{!modules:$(COMPILERLIBS_MODULES)}" >> $@
 
+.PHONY: html_files
+html_files:
+	make -C $(SRC)/doc html
+	cp -r $(SRC)/doc/html/* htmlman
 
-htmlman/compilerlibref/style.css: library/compiler_libs.txt style.css \
-  $(COMPILERLIBS_MLIS)
-	mkdir -p htmlman/compilerlibref
-	$(OCAMLDOC) -colorize-code -sort -html \
-	  -charset "UTF-8" \
-	  -d htmlman/compilerlibref \
-	  -I $(SRC)/stdlib \
-	  $(DOC_COMPILERLIBS_INCLUDES) \
-          -intro library/compiler_libs.txt \
-          library/compiler_libs.txt \
-	  $(COMPILERLIBS_MLIS)
-	cp style.css $@
+.PHONY: latex_files
+latex_files:
+	make -C $(SRC)/doc latex
+	cp -r $(SRC)/doc/latex/*.tex library/
 
 
 info: files
