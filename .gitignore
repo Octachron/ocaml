@@ -114,6 +114,27 @@ _build
 /ocamldoc/test_latex
 /ocamldoc/test
 
+# odoc files
+/doc/compiler_libs.mld
+/doc/latex/package-*.tex
+/doc/latex/*_input.tex
+/doc/latex/manual.pdf
+/doc/latex/*.aux
+/doc/latex/*.log
+/doc/html
+/doc/man
+/doc/*.odocl
+/doc/*.odoc
+/doc/*.witness
+/doc/barrier*
+
+manual/manual/library/latex
+manual/manual/library/html
+manual/manual/htmlman/odoc.css
+
+
+
+/ocamldoc/stdlib_html
 /ocamltest/.dep
 /ocamltest/ocamltest
 /ocamltest/ocamltest.opt
