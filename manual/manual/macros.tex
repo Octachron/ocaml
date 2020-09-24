@@ -222,6 +222,15 @@
 %%% References to modules in the standard library
 \newcommand{\stdmoduleref}[1]{\hyperref[#1]{\texttt{#1}}[\ref{#1}]}
 
+% ocamldoc version
+%\newcommand{\docinput}[3]{\input{#1.tex}}
+
+\newcommand{\docitem}[3]{\input{package-#1-module-#2.tex}}
+\newcommand{\stddocitem}[2]{\input{package-stdlib-module-Stdlib-module-#1.tex}}
+\newenvironment{linklist}{\begingroup\ocamldocinputstart}{\endgroup}
+
+
+
 \newenvironment{maintitle}{\begin{center}}{\end{center}}
 
 

@@ -10,8 +10,8 @@ details on the behavior of these functions.
 
 \ifouthtml
 \begin{links}
-\item \ahref{libref/Unix.html}{Module \texttt{Unix}: Unix system calls}
-\item \ahref{libref/UnixLabels.html}{Module \texttt{UnixLabels}: Labeled
+\docitem{unix}{Unix}{Unix system calls}
+\docitem{unix}{UnixLabels}{ Labeled
    Unix system calls}
 \end{links}
 \fi
@@ -41,7 +41,7 @@ more information on the functions that are not supported under Windows.
 \begin{latexonly}
 {
 \ocamldocinputstart
-\input{Unix.tex}
+\docitem{unix}{Unix}
 
 \section{s:Module \texttt{UnixLabels}: labelized version of the interface}
 \label{UnixLabels}
