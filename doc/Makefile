@@ -83,7 +83,8 @@ ALL: html latex man
 
 html: $(ALL_HTML) html/odoc.css
 latex: latex/manual.pdf
-latex/manual.pdf: $(ALL_LATEX) latex/manual.tex
+latex/manual.pdf: $(ALL_LATEX) latex/manual.tex \
+latex/stdlib_input.tex latex/compilerlibs_input.tex
 	cd latex && pdflatex manual.tex
 man: $(ALL_MAN)
 
@@ -93,10 +94,26 @@ html/odoc.css:
 define capitalize
 $(shell echo $(1) | sed "s/\<./\U&/g")
 endef
+
 compilerlibs_MODULES=$(foreach module,\
-$(compilerlibs_MLIS:%.mli=%), $(call capitalize, $(module)))
+$(compilerlibs_MLIS:%.mli=%),$(call capitalize, $(module)))
+
 compiler_libs.mld: compiler_libs.pre.mld
 	cp $< $@ && echo "{!modules:$(compilerlibs_MODULES)}" >> $@
+
+
+stdlib_INPUT=$(foreach module,\
+$(filter-out stdlib.mli camlinternal%, $(stdlib_MLIS:stdlib__%.mli=%)),\
+\\input{package-stdlib-module-Stdlib-module-$(call capitalize,$(module)).tex}\
+)
+latex/stdlib_input.tex:
+	echo $(stdlib_INPUT)> $@
+
+compilerlibs_INPUT=$(foreach module,\
+$(filter-out camlinternal%,$(compilerlibs_MLIS:%.mli=%)),\
+\\input{package-compilerlibs-module-$(call capitalize,$(module)).tex})
+latex/compilerlibs_input.tex:
+	echo $(compilerlibs_INPUT)> $@
 
 
 $(ALL_ODOCL):%.odocl:%.odoc barrier
@@ -113,7 +130,7 @@ $(ALL_HTML):%.html.witness:%.odocl
 	touch $@
 
 $(ALL_LATEX):%.tex.witness:%.odocl
-	$(odoc) latex-generate --output-dir latex  $<
+	$(odoc) latex-generate --with-children=false --output-dir latex  $<
 	touch $@
 
 $(ALL_MAN):%.man.witness:%.odocl
@@ -122,7 +139,7 @@ $(ALL_MAN):%.man.witness:%.odocl
 
 clean:
 	rm barrier *.odoc *.odocl latex/package-*.tex \
-	rm *witness \
+	*witness \
 	man/stdlib/*; rm -r html/* ;\
 	rm latex/manual.pdf latex/manual.log latex/manual.out \
-	latex/manual.aux latex/output.aux
+	latex/*_input.tex latex/manual.aux latex/output.aux

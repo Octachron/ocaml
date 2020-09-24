@@ -1,5 +1,5 @@
 \documentclass{book}
-
+\catcode`_=12
 \usepackage{changepage}
 \usepackage{longtable}
 \usepackage{listings}
@@ -8,6 +8,7 @@
 \usepackage{color}
 \usepackage{lmodern}
 \usepackage[T1]{fontenc}
+
 
 \newcommand{\ocamlcodefragment}[1]{{\ttfamily\setlength{\parindent}{0cm}%
 \raggedright#1}}
@@ -59,6 +60,7 @@
 \begin{document}
 \chapter{Stdlib}
 \input{package-stdlib-module-Stdlib.tex}
+\input{stdlib_input}
 \chapter{Dynlinl}
 \input{package-dynlink-module-Dynlink.tex}
 \chapter{Str}
@@ -72,6 +74,8 @@
 \chapter{Unix}
 \input{package-unix-module-UnixLabels.tex}
 \input{package-unix-module-Unix.tex}
-
+\chapter{Compilerlibs}
+\input{package-compilerlibs-page-compiler_libs.tex}
+\input{compilerlibs_input.tex}
 
 \end{document}
