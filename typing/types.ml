@@ -133,7 +133,7 @@ end
 
 (* Maps of methods and instance variables *)
 
-module Meths = Misc.Stdlib.String.Map
+module Meths = Misc.String.Map
 module Vars = Meths
 
 (* Value descriptions *)
@@ -302,7 +302,7 @@ and type_transparence =
 
 (* Type expressions for the class language *)
 
-module Concr = Misc.Stdlib.String.Set
+module Concr = Misc.String.Set
 
 type class_type =
     Cty_constr of Path.t * type_expr list * class_type
@@ -470,3 +470,9 @@ let signature_item_id = function
   | Sig_class (id, _, _, _)
   | Sig_class_type (id, _, _, _)
     -> id
+
+(* Merlin specific *)
+
+let unpack_functor = function
+  | Mty_functor (fp, mty) -> fp, mty
+  | _ -> invalid_arg "Types.unpack_functor (merlin)"

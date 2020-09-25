@@ -253,3 +253,13 @@ val iter_type_expr_cstr_args: (type_expr -> unit) ->
   (constructor_arguments -> unit)
 val map_type_expr_cstr_args: (type_expr -> type_expr) ->
   (constructor_arguments -> constructor_arguments)
+
+(** merlin: check if a snapshot has been invalidated *)
+val is_valid: snapshot -> bool
+
+(** merlin: also register changes to arbitrary references *)
+val on_backtrack: (unit -> unit) -> unit
+
+(** merlin: Number of unification variables that have been linked so far.
+   Used to estimate the "cost" of unification. *)
+val linked_variables: unit -> int

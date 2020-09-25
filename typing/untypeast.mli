@@ -85,3 +85,7 @@ val untype_expression : ?mapper:mapper -> Typedtree.expression -> expression
 val untype_pattern : ?mapper:mapper -> _ Typedtree.general_pattern -> pattern
 
 val constant : Asttypes.constant -> Parsetree.constant
+
+(* Merlin *)
+val untype_pattern : _ Typedtree.general_pattern -> Parsetree.pattern
+val untype_expression : Typedtree.expression -> Parsetree.expression

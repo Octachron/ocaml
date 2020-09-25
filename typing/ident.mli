@@ -56,6 +56,7 @@ val global: t -> bool
 val is_predef: t -> bool
 
 val scope: t -> int
+val stamp: t -> int
 
 val lowest_scope : int
 val highest_scope: int
@@ -78,3 +79,8 @@ val remove: t -> 'a tbl -> 'a tbl
 (* Idents for sharing keys *)
 
 val make_key_generator : unit -> (t -> t)
+
+(* merlin *)
+
+val rename_no_exn: t -> t
+        (** Like [rename], but does not fail on persistent/predef idents. *)

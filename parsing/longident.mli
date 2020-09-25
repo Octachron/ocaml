@@ -35,8 +35,10 @@ val unflatten: string list -> t option
 
 val last: t -> string
 val parse: string -> t
+  (* (* disabled in merlin. *)
 [@@deprecated "this function may misparse its input,\n\
 use \"Parse.longident\" or \"Longident.unflatten\""]
+     *)
 (**
 
    This function is broken on identifiers that are not just "Word.Word.word";
@@ -58,3 +60,12 @@ use \"Parse.longident\" or \"Longident.unflatten\""]
 
 (** To print a longident, see {!Pprintast.longident}, using
     {!Format.asprintf} to convert to a string. *)
+
+(* Merlin specific. *)
+
+val keep_suffix : t -> t * bool
+(** if [li', b = keep_suffix li] then:
+    - the prefix of [li'] is a module path
+    - [b = false] iff [li' = li].
+    Corollary: [b = true] if [li] is a label access
+               (i.e. [li = X.Y.z.Foo.Bar...]) *)

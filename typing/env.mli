@@ -288,7 +288,7 @@ val add_persistent_structure : Ident.t -> t -> t
 
 (* Returns the set of persistent structures found in the given
    directory. *)
-val persistent_structures_of_dir : Load_path.Dir.t -> Misc.Stdlib.String.Set.t
+val persistent_structures_of_dir : Load_path.Dir.t -> Misc.String.Set.t
 
 (* [filter_non_loaded_persistent f env] removes all the persistent
    structures that are not yet loaded and for which [f] returns
@@ -390,6 +390,12 @@ val summary: t -> summary
 val keep_only_summary : t -> t
 val env_of_only_summary : (summary -> Subst.t -> t) -> t -> t
 
+(* Update the short paths table *)
+val update_short_paths : t -> t
+
+(* Return the short paths table *)
+val short_paths : t -> Short_paths.t
+
 (* Error report *)
 
 type error =
@@ -434,6 +440,9 @@ val print_longident: (Format.formatter -> Longident.t -> unit) ref
 val print_path: (Format.formatter -> Path.t -> unit) ref
 
 
++(* Forward declaration to break mutual recursion with Printtyp *)
++val shorten_module_path : (t -> Path.t -> Path.t) ref
+
 (** Folds *)
 
 val fold_values:
@@ -448,6 +457,11 @@ val fold_constructors:
 val fold_labels:
   (label_description -> 'a -> 'a) ->
   Longident.t option -> t -> 'a -> 'a
+
+val fold_type_decls:
+  (string -> Path.t -> type_declaration -> 'a -> 'a) ->
+  Longident.t option -> t -> 'a -> 'a
+
 
 (** Persistent structures are only traversed if they are already loaded. *)
 val fold_modules:
@@ -470,3 +484,16 @@ val scrape_alias: t -> module_type -> module_type
 val check_value_name: string -> Location.t -> unit
 
 val print_address : Format.formatter -> address -> unit
+
+
+val unbound_class : Path.t
+
+(** merlin: manage internal state *)
+
+val check_state_consistency: unit -> bool
+
+val with_cmis : (unit -> 'a) -> 'a
+
+(* helper for merlin *)
+
+val add_merlin_extension_module: Ident.t -> module_type -> t -> t

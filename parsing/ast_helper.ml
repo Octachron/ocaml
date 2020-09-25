@@ -29,6 +29,8 @@ type attrs = attribute list
 
 let default_loc = ref Location.none
 
+let const_string s = Pconst_string (s, !default_loc, None)
+
 let with_default_loc l f =
   Misc.protect_refs [Misc.R (default_loc, l)] f
 
@@ -49,6 +51,8 @@ module Attr = struct
     { attr_name = name;
       attr_payload = payload;
       attr_loc = loc }
+
+  let as_tuple { attr_name; attr_payload; _ } = (attr_name, attr_payload)
 end
 
 module Typ = struct
@@ -201,6 +205,9 @@ module Exp = struct
   let setinstvar ?loc ?attrs a b = mk ?loc ?attrs (Pexp_setinstvar (a, b))
   let override ?loc ?attrs a = mk ?loc ?attrs (Pexp_override a)
   let letmodule ?loc ?attrs a b c= mk ?loc ?attrs (Pexp_letmodule (a, b, c))
+  let letmodule_no_opt ?loc ?attrs s b c=
+    let a = Location.mknoloc (Some s) in
+    mk ?loc ?attrs (Pexp_letmodule (a, b, c))
   let letexception ?loc ?attrs a b = mk ?loc ?attrs (Pexp_letexception (a, b))
   let assert_ ?loc ?attrs a = mk ?loc ?attrs (Pexp_assert a)
   let lazy_ ?loc ?attrs a = mk ?loc ?attrs (Pexp_lazy a)
@@ -640,3 +647,34 @@ module Of = struct
   let inherit_ ?loc ty =
     mk ?loc (Oinherit ty)
 end
+
+(** merlin: refactored out of Parser *)
+
+type let_binding =
+  { lb_pattern: pattern;
+    lb_expression: expression;
+    lb_attributes: attributes;
+    lb_docs: docs Lazy.t;
+    lb_text: text Lazy.t;
+    lb_loc: Location.t; }
+
+type let_bindings =
+  { lbs_bindings: let_binding list;
+    lbs_rec: rec_flag;
+    lbs_extension: string Asttypes.loc option;
+    lbs_loc: Location.t }
+
+
+(* merlin specific *)
+
+let no_label = Nolabel
+
+(* Can't be put in Raw_compat because that module depends on library "parsing",
+   but we need that function in this library *)
+let extract_str_payload = function
+  | PStr [{ pstr_desc = Pstr_eval (
+      {Parsetree. pexp_loc; pexp_desc =
+         Parsetree.Pexp_constant (Parsetree.Pconst_string (msg, _, _)) ; _ }, _
+    ); _ }] ->
+    Some (msg, pexp_loc)
+  | _ -> None
