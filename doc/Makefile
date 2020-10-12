@@ -116,11 +116,8 @@ latex/compilerlibs_input.tex:
 	echo $(compilerlibs_INPUT)> $@
 
 
-$(ALL_ODOCL):%.odocl:%.odoc barrier
+$(ALL_ODOCL):%.odocl:%.odoc | $(ALL_ODOCl:%.odocl=%.odoc)
 	$(odoc) link $(DOC_STDLIB_INCLUDES) -I . $<
-
-barrier:$(ALL_ODOCl:%.odocl=%.odoc)
-	touch $@
 
 $(foreach package,$(PACKAGES), $(call compile_package,$(package)))
 
@@ -138,7 +135,7 @@ $(ALL_MAN):%.man.witness:%.odocl
 	touch $@
 
 clean:
-	rm barrier *.odoc *.odocl latex/package-*.tex \
+	rm *.odoc *.odocl latex/package-*.tex \
 	*witness \
 	man/stdlib/*; rm -r html/* ;\
 	rm latex/manual.pdf latex/manual.log latex/manual.out \
