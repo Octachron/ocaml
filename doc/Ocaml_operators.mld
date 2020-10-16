@@ -14,7 +14,7 @@ are also listed as references.
 Operator class                                       & Associativity \\
 \hline
 $!\ldots$ $\tilde{}\ldots$                                    &  --   \\
-$.\cdots()$ $.\cdots[]$ $.\cdots\\{\\}$                       &  --   \\
+$.\cdots()$ $.\cdots[]$ $.\cdots\{\}$                         &  --   \\
 \#\ldots                                                      & left  \\
 function application                                          & left  \\
 - -.                                                          &  --   \\

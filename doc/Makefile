@@ -16,6 +16,8 @@ ROOTDIR = ..
 
 -include $(ROOTDIR)/Makefile.config
 -include $(ROOTDIR)/stdlib/StdlibModules
+include $(ROOTDIR)/Makefile.common
+include $(ROOTDIR)/Makefile.best_binaries
 
 DOC_COMPILERLIBS_DIRS= $(addprefix $(ROOTDIR)/, \
 parsing utils typing bytecomp driver file_formats lambda\
@@ -27,10 +29,15 @@ DOC_STDLIB_DIRS = $(addprefix $(ROOTDIR)/, stdlib \
 	otherlibs/systhreads\
 )
 
+
+DOC_STDLIB_INCLUDES=-I .
+
 vpath %.cmti $(ROOTDIR)/stdlib $(DOC_COMPILERLIBS_DIRS)  $(DOC_STDLIB_DIRS)
 vpath %.cmt $(ROOTDIR)/stdlib
 
-PACKAGES=stdlib unix dynlink str compilerlibs thread
+EXTRA_PACKAGES= unix dynlink str compilerlibs thread
+PACKAGES=stdlib $(EXTRA_PACKAGES)
+
 str_MLIS := str.mli
 unix_MLIS := unix.mli unixLabels.mli
 dynlink_MLIS := dynlink.mli
@@ -50,7 +57,7 @@ STDLIB=$(filter-out stdlib__pervasives, $(STDLIB_MODULES))
 
 stdlib_MLIS=$(STDLIB:%=%.mli)
 stdlib_EXTRA=stdlib__pervasives.odocl
-stdlib_TEXT=page-OCaml_operators.odocl
+stdlib_TEXT=page-Ocaml_operators.odocl
 ALL_ODOCL=$(foreach package, $(PACKAGES),\
 $($(package)_MLIS:%.mli=%.odocl) \
 $($(package)_EXTRA)\
@@ -59,11 +66,11 @@ $($(package)_TEXT)\
 
 define compile_package_
 $$($(1)_MLIS:%.mli=%.odoc):%.odoc:%.cmti
-	$$(odoc) $$(DOC_STDLIB_INCLUDES) compile --package $(1) $$< -o $$@
+	$$(odoc) compile $$(DOC_STDLIB_INCLUDES)  --package $(1) $$< -o $$@
 $$($(1)_TEXT:page-%.odocl=page-%.odoc):page-%.odoc:%.mld
-	$$(odoc) $$(DOC_STDLIB_INCLUDES) compile --package $(1) $$< -o $$@
+	$$(odoc) compile $$(DOC_STDLIB_INCLUDES) --package $(1) $$< -o $$@
 $$($(1)_EXTRA:%.odocl=%.odoc):%.odoc:%.cmt
-	$$(odoc) $$(DOC_STDLIB_INCLUDES) compile --package $(1) $$< -o $$@
+	$$(odoc) compile $$(DOC_STDLIB_INCLUDES) --package $(1) $$< -o $$@
 endef
 
 define compile_package
@@ -76,20 +83,27 @@ ALL_LATEX=$(ALL_ODOCL:%.odocl=%.tex.witness)
 
 odoc=odoc
 
+DOC_MODE=OCAMLDOC
+
+
 ALL: html latex man
 .PHONY:ALL
 
 .SUFFIXES:
 
-html: $(ALL_HTML) html/odoc.css
 latex: latex/manual.pdf
+
+
+ifeq ($(DOC_MODE),ODOC)
+
+html: $(ALL_HTML) html/odoc.css
 latex/manual.pdf: $(ALL_LATEX) latex/manual.tex \
 latex/stdlib_input.tex latex/compilerlibs_input.tex
 	cd latex && pdflatex manual.tex
 man: $(ALL_MAN)
 
 html/odoc.css:
-	odoc support-files --output-dir html
+	$(odoc) support-files --output-dir html
 
 define capitalize
 $(shell echo $(1) | sed "s/\<./\U&/g")
@@ -104,14 +118,14 @@ compiler_libs.mld: compiler_libs.pre.mld
 
 stdlib_INPUT=$(foreach module,\
 $(filter-out stdlib.mli camlinternal%, $(stdlib_MLIS:stdlib__%.mli=%)),\
-\\input{package-stdlib-module-Stdlib-module-$(call capitalize,$(module)).tex}\
+\\input{stdlib/Stdlib.$(call capitalize,$(module)).tex}\
 )
 latex/stdlib_input.tex:
 	echo $(stdlib_INPUT)> $@
 
 compilerlibs_INPUT=$(foreach module,\
 $(filter-out camlinternal%,$(compilerlibs_MLIS:%.mli=%)),\
-\\input{package-compilerlibs-module-$(call capitalize,$(module)).tex})
+\\input{compilerlibs/$(call capitalize,$(module)).tex})
 latex/compilerlibs_input.tex:
 	echo $(compilerlibs_INPUT)> $@
 
@@ -133,10 +147,104 @@ $(ALL_LATEX):%.tex.witness:%.odocl
 $(ALL_MAN):%.man.witness:%.odocl
 	$(odoc) man-generate --output-dir man  $<
 	touch $@
+else
+
+vpath %.mli $(ROOTDIR)/stdlib $(DOC_COMPILERLIBS_DIRS)  $(DOC_STDLIB_DIRS)
+
+man: man/Stdlib.3o
+html: html/Stdlib.html
+
+
+OCAMLRUN ?= $(ROOTDIR)/boot/ocamlrun$(EXE)
+OCAMLDOC=$(ROOTDIR)/ocamldoc/ocamldoc$(EXE)
+OCAMLDOC_OPT=$(ROOTDIR)/ocamldoc/ocamldoc.opt$(EXE)
+LOCAL_OCAMLDOC=
+ifeq "$(UNIX_OR_WIN32)" "unix"
+  ifeq "$(TARGET)" "$(HOST)"
+    ifeq "$(SUPPORTS_SHARED_LIBRARIES)" "true"
+      OCAMLDOC_RUN_BYTE=$(OCAMLRUN) -I $(ROOTDIR)/otherlibs/$(UNIXLIB) \
+	-I $(ROOTDIR)/otherlibs/str $(OCAMLDOC)
+    else
+# if shared-libraries are not supported, unix.cma and str.cma
+# are compiled with -custom, so ocamldoc also uses -custom,
+# and (ocamlrun ocamldoc) does not work.
+      OCAMLDOC_RUN_BYTE=$(OCAMLDOC)
+    endif
+  else
+    OCAMLDOC_RUN_BYTE=$(OCAMLRUN) $(OCAMLDOC)
+  endif
+else # Windows
+  OCAMLDOC_RUN_BYTE = \
+   CAML_LD_LIBRARY_PATH=\
+	"$(ROOTDIR)/otherlibs/win32unix;$(ROOTDIR)/otherlibs/str" \
+	$(OCAMLRUN) $(OCAMLDOC)
+endif
+
+OCAMLDOC_RUN_OPT=$(OCAMLDOC_OPT)
+
+ifeq "$(wildcard $(OCAMLDOC_OPT))" ""
+  OCAMLDOC_RUN=$(OCAMLDOC_RUN_BYTE)
+else
+  OCAMLDOC_RUN=$(OCAMLDOC_RUN_OPT)
+endif
+
+DOC_ALL_MLIS= $(stdlib_MLIS:stdlib__%=%) \
+	$(foreach package,$(EXTRA_PACKAGES), $($(package)_MLIS))
+DOC_ALL_TEXT= $(foreach package,$(PACKAGES), $($(package)_TEXT))
+
+DOC_ALL = $(DOC_ALL_MLIS:%.mli=%.odoc) $(DOC_ALL_TEXT:page-%.odocl=%.odoc)
+DOC_ALL_INCLUDES = $(addprefix -I , $(DOC_STDLIB_DIRS) $(DOC_COMPILERLIBS_DIRS))
+
+
+$(DOC_ALL_MLIS:%.mli=%.odoc):%.odoc:%.mli
+	$(OCAMLDOC_RUN) -nostdlib -hide Stdlib -lib Stdlib \
+	-pp \
+    "$(AWK) -v ocamldoc=true -f $(ROOTDIR)/stdlib/expand_module_aliases.awk" \
+	$(DOC_ALL_INCLUDES) $< -dump  $@
+
+$(DOC_ALL_TEXT:page-%.odocl=%.odoc):%.odoc:%.mld
+	$(OCAMLDOC_RUN) $(DOC_ALL_INCLUDES) -text $< -dump  $@
+
+
+man/Stdlib.3o: $(DOC_ALL)
+	$(MKDIR) man
+	$(OCAMLDOC_RUN) -man -d man -nostdlib -man-mini \
+	-nostdlib -hide Stdlib -lib Stdlib -t "OCaml library" \
+	$(addprefix -load , $(DOC_ALL))
+
+html/Stdlib.html: $(DOC_ALL)
+	$(MKDIR) html
+	$(OCAMLDOC_RUN) -html -d html \
+	-nostdlib -hide Stdlib -lib Stdlib -t "OCaml library" \
+	$(addprefix -load , $(DOC_ALL))
+
+texi/stdlib.texi: $(DOC_ALL)
+	$(MKDIR) texi
+	$(OCAMLDOC_RUN) -texi -o $@ -nostdlib \
+	-nostdlib -hide Stdlib -lib Stdlib -t "OCaml library" \
+	$(addprefix -load , $(DOC_ALL))
+
+latex/stdlib.tex: $(DOC_ALL)
+	$(MKDIR) latex
+	$(OCAMLDOC_RUN) -latex -o $@ -nostdlib \
+	-hide Stdlib -lib Stdlib $(DOC_ALL_INCLUDES) \
+	-nostdlib -hide Stdlib -lib Stdlib -t "OCaml library" \
+	$(addprefix -load , $(DOC_ALL))
+
+latex/stdlib.pdf: latex/stdlib.tex
+	cd latex && TEXINPUTS=$${TEXINPUTS}:$(ROOTDIR)/ocamldoc pdflatex stdlib
+	cd latex && TEXINPUTS=$${TEXINPUTS}:$(ROOTDIR)/ocamldoc pdflatex stdlib
+
+latex/manual.pdf: latex/stdlib.pdf
+	cp $< $@
+
+
+endif
+
 
 clean:
-	rm *.odoc *.odocl latex/package-*.tex \
+	rm *.odoc *.odocl latex/*/*.tex \
 	*witness \
-	man/stdlib/*; rm -r html/* ;\
-	rm latex/manual.pdf latex/manual.log latex/manual.out \
-	latex/*_input.tex latex/manual.aux latex/output.aux
+	rm -r man/*; rm -r html/* ;\
+	rm latex/*.pdf latex/*.log latex/*.out \
+	latex/*_input.tex latex/*.aux
