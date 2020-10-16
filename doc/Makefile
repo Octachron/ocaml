@@ -12,7 +12,7 @@
 #*   special exception on linking described in the file LICENSE.          *
 #*                                                                        *
 #**************************************************************************
-ROOTDIR = ..
+ROOTDIR = $(abspath ..)
 
 -include $(ROOTDIR)/Makefile.config
 -include $(ROOTDIR)/stdlib/StdlibModules
@@ -93,28 +93,13 @@ ALL: html latex man
 
 latex: latex/manual.pdf
 
-
-ifeq ($(DOC_MODE),ODOC)
-
-html: $(ALL_HTML) html/odoc.css
-latex/manual.pdf: $(ALL_LATEX) latex/manual.tex \
-latex/stdlib_input.tex latex/compilerlibs_input.tex
-	cd latex && pdflatex manual.tex
-man: $(ALL_MAN)
-
-html/odoc.css:
-	$(odoc) support-files --output-dir html
+latex/manual.pdf: latex/stdlib_input.tex latex/compilerlibs_input.tex
 
 define capitalize
 $(shell echo $(1) | sed "s/\<./\U&/g")
 endef
 
-compilerlibs_MODULES=$(foreach module,\
-$(compilerlibs_MLIS:%.mli=%),$(call capitalize, $(module)))
-
-compiler_libs.mld: compiler_libs.pre.mld
-	cp $< $@ && echo "{!modules:$(compilerlibs_MODULES)}" >> $@
-
+ifeq ($(DOC_MODE),ODOC)
 
 stdlib_INPUT=$(foreach module,\
 $(filter-out stdlib.mli camlinternal%, $(stdlib_MLIS:stdlib__%.mli=%)),\
@@ -128,6 +113,23 @@ $(filter-out camlinternal%,$(compilerlibs_MLIS:%.mli=%)),\
 \\input{compilerlibs/$(call capitalize,$(module)).tex})
 latex/compilerlibs_input.tex:
 	echo $(compilerlibs_INPUT)> $@
+
+
+html: $(ALL_HTML) html/odoc.css
+latex/manual.pdf: $(ALL_LATEX) latex/manual.tex \
+latex/stdlib_input.tex latex/compilerlibs_input.tex
+	cd latex && pdflatex manual.tex
+man: $(ALL_MAN)
+
+html/odoc.css:
+	$(odoc) support-files --output-dir html
+
+
+compilerlibs_MODULES=$(foreach module,\
+$(compilerlibs_MLIS:%.mli=%),$(call capitalize, $(module)))
+
+compiler_libs.mld: compiler_libs.pre.mld
+	cp $< $@ && echo "{!modules:$(compilerlibs_MODULES)}" >> $@
 
 
 $(ALL_ODOCL):%.odocl:%.odoc | $(ALL_ODOCl:%.odocl=%.odoc)
@@ -208,7 +210,7 @@ $(DOC_ALL_TEXT:page-%.odocl=%.odoc):%.odoc:%.mld
 
 man/Stdlib.3o: $(DOC_ALL)
 	$(MKDIR) man
-	$(OCAMLDOC_RUN) -man -d man -nostdlib -man-mini \
+	$(OCAMLDOC_RUN) -man -d man -man-mini \
 	-nostdlib -hide Stdlib -lib Stdlib -t "OCaml library" \
 	$(addprefix -load , $(DOC_ALL))
 
@@ -220,23 +222,41 @@ html/Stdlib.html: $(DOC_ALL)
 
 texi/stdlib.texi: $(DOC_ALL)
 	$(MKDIR) texi
-	$(OCAMLDOC_RUN) -texi -o $@ -nostdlib \
+	$(OCAMLDOC_RUN) -texi -o $@ \
 	-nostdlib -hide Stdlib -lib Stdlib -t "OCaml library" \
 	$(addprefix -load , $(DOC_ALL))
 
-latex/stdlib.tex: $(DOC_ALL)
+latex/Stdlib.tex: $(DOC_ALL)
 	$(MKDIR) latex
-	$(OCAMLDOC_RUN) -latex -o $@ -nostdlib \
+	cd latex && $(OCAMLDOC_RUN) -latex \
 	-hide Stdlib -lib Stdlib $(DOC_ALL_INCLUDES) \
+	-sepfiles \
+	-latextitle "1,subsection*" \
+	-latextitle "2,subsubsection*" \
+	-latex-type-prefix "TYP" \
+	-latex-module-prefix "" \
+	-latex-module-type-prefix "" \
+	-latex-value-prefix "" \
 	-nostdlib -hide Stdlib -lib Stdlib -t "OCaml library" \
-	$(addprefix -load , $(DOC_ALL))
+	$(addprefix -load ../, $(DOC_ALL))
 
-latex/stdlib.pdf: latex/stdlib.tex
-	cd latex && TEXINPUTS=$${TEXINPUTS}:$(ROOTDIR)/ocamldoc pdflatex stdlib
-	cd latex && TEXINPUTS=$${TEXINPUTS}:$(ROOTDIR)/ocamldoc pdflatex stdlib
+latex/manual.pdf: latex/Stdlib.tex
+	cd latex && TEXINPUTS=$${TEXINPUTS}:$(ROOTDIR)/ocamldoc pdflatex manual
+	cd latex && TEXINPUTS=$${TEXINPUTS}:$(ROOTDIR)/ocamldoc pdflatex manual
 
-latex/manual.pdf: latex/stdlib.pdf
-	cp $< $@
+stdlib_INPUT=$(foreach module,\
+$(filter-out stdlib.mli camlinternal%, $(stdlib_MLIS:stdlib__%.mli=%)),\
+\\input{$(call capitalize,$(module)).tex}\
+)
+latex/stdlib_input.tex:
+	echo $(stdlib_INPUT)> $@
+
+compilerlibs_INPUT=$(foreach module,\
+$(filter-out camlinternal%,$(compilerlibs_MLIS:%.mli=%)),\
+\\input{$(call capitalize,$(module)).tex})
+latex/compilerlibs_input.tex:
+	echo $(compilerlibs_INPUT)> $@
+
 
 
 endif

@@ -1,15 +1,18 @@
 \documentclass{book}
 \catcode`_=12
-\usepackage{changepage}
-\usepackage{longtable}
-\usepackage{listings}
 
 \usepackage[colorlinks=true]{hyperref}
 \usepackage{color}
 \usepackage{lmodern}
 \usepackage[T1]{fontenc}
+\newif\ifocamldoc\ocamldoctrue
 
-
+\ifocamldoc
+\usepackage{ocamldoc}
+\else
+\usepackage{changepage}
+\usepackage{longtable}
+\usepackage{listings}
 \newcommand{\ocamlcodefragment}[1]{{\ttfamily\setlength{\parindent}{0cm}%
 \raggedright#1}}
 \newcommand{\ocamlinlinecode}[1]{{\ttfamily#1}}
@@ -54,28 +57,29 @@
     literate={'"'}{\textquotesingle "\textquotesingle}3
     {'\\"'}{\textquotesingle \textbackslash"\textquotesingle}4,
   }
-  }{}
+}{}
+\fi
 
 \include{output}
 \begin{document}
 \chapter{Stdlib}
-\input{package-stdlib-module-Stdlib.tex}
+\input{Stdlib.tex}
 \input{stdlib_input}
 \chapter{Dynlinl}
-\input{package-dynlink-module-Dynlink.tex}
+\input{Dynlink.tex}
 \chapter{Str}
-\input{package-str-module-Str.tex}
+\input{Str.tex}
 \chapter{Thread}
-\input{package-thread-module-Condition.tex}
-\input{package-thread-module-Event.tex}
-\input{package-thread-module-Mutex.tex}
-\input{package-thread-module-Thread.tex}
-\input{package-thread-module-ThreadUnix.tex}
+\input{Condition.tex}
+\input{Event.tex}
+\input{Mutex.tex}
+\input{Thread.tex}
+\input{ThreadUnix.tex}
 \chapter{Unix}
-\input{package-unix-module-UnixLabels.tex}
-\input{package-unix-module-Unix.tex}
+\input{UnixLabels.tex}
+\input{Unix.tex}
 \chapter{Compilerlibs}
-\input{package-compilerlibs-page-compiler_libs.tex}
+\input{compiler_libs.tex}
 \input{compilerlibs_input.tex}
 
 \end{document}

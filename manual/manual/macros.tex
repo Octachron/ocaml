@@ -222,17 +222,17 @@
 %%% References to modules in the standard library
 \newcommand{\stdmoduleref}[1]{\hyperref[#1]{\texttt{#1}}[\ref{#1}]}
 
-% ocamldoc version
-%\newcommand{\docinput}[3]{\input{#1.tex}}
-
-\newcommand{\docitem}[3]{\input{#2.tex}}
-\newcommand{\stddocitem}[2]{\input{Stdlib.#1.tex}}
+% Linking to module: ocaml and ocamldoc version
 \newenvironment{linklist}{\begingroup\ocamldocinputstart}{\endgroup}
 
-
+\newcommand{\docitem}[3]{\input{#2.tex}}
+\ifocamldoc
+\newcommand{\stddocitem}[2]{\input{#1.tex}}
+\else
+\newcommand{\stddocitem}[2]{\input{Stdlib.#1.tex}}
+\fi
 
 \newenvironment{maintitle}{\begin{center}}{\end{center}}
-
 
 
 % Caml-example related command

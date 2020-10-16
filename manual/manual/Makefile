@@ -73,10 +73,16 @@ html_files:
 	cp -r $(SRC)/doc/html/* htmlman
 
 .PHONY: latex_files
+DOC_MODE_OCAMLDOC=true
+ifeq ($(DOC_MODE_OCAMLDOC),true)
+latex_files:
+	make -C $(SRC)/doc latex
+	cp $(SRC)/doc/latex/*.tex library
+else
 latex_files:
 	make -C $(SRC)/doc latex
 	cp $(SRC)/doc/latex/**/*.tex library
-
+endif
 
 info: files
 	cd infoman \
