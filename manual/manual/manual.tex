@@ -132,14 +132,14 @@
   }
   }{}
 
-
+\newcommand{\ocamltag}[2]{\begin{ocaml#1}#2\end{ocaml#1}}
 \newcommand{\ocamlcodefragment}[1]{{\ttfamily\setlength{\parindent}{0cm}%
 \raggedright#1}}
 \newcommand{\ocamlinlinecode}[1]{{\ttfamily#1}}
 \newenvironment{ocamlexception}{\bfseries}{}
 \newenvironment{ocamlextension}{\bfseries}{}
 \newenvironment{ocamlconstructor}{\bfseries}{}
-\newenvironment{ocamltypevar}{\itshape\ttfamily}{}
+\newenvironment{ocamltype-var}{\itshape\ttfamily}{}
 \definecolor{lightgray}{gray}{0.97}
 \definecolor{gray}{gray}{0.5}
 \newenvironment{ocamlindent}{\begin{adjustwidth}{2em}{0pt}}{\end{adjustwidth}}

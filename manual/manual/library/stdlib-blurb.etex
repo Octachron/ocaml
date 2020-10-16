@@ -163,6 +163,6 @@ be called from C \\
 \stddocitem{Weak}{arrays of weak pointers}
 \ifouthtml
 \else
-\input{package-stdlib-page-Ocaml_operators.tex}
+\input{Ocaml_operators.tex}
 \fi
 \end{linklist}

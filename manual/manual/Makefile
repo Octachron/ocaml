@@ -75,7 +75,7 @@ html_files:
 .PHONY: latex_files
 latex_files:
 	make -C $(SRC)/doc latex
-	cp -r $(SRC)/doc/latex/*.tex library/
+	cp $(SRC)/doc/latex/**/*.tex library
 
 
 info: files
