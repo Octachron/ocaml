@@ -35,8 +35,9 @@ DOC_STDLIB_INCLUDES=-I .
 vpath %.cmti $(ROOTDIR)/stdlib $(DOC_COMPILERLIBS_DIRS)  $(DOC_STDLIB_DIRS)
 vpath %.cmt $(ROOTDIR)/stdlib
 
-EXTRA_PACKAGES= unix dynlink str compilerlibs thread
-PACKAGES=stdlib $(EXTRA_PACKAGES)
+OTHERLIBS_PACKAGES= unix dynlink str thread
+LIBS_PACKAGES=stdlib $(OTHETLIBS_PACKAGES)
+PACKAGES=$(LIBS_PACKAGES) compilerlibs
 
 str_MLIS := str.mli
 unix_MLIS := unix.mli unixLabels.mli
@@ -154,7 +155,7 @@ else
 vpath %.mli $(ROOTDIR)/stdlib $(DOC_COMPILERLIBS_DIRS)  $(DOC_STDLIB_DIRS)
 
 man: man/Stdlib.3o
-html: html/Stdlib.html
+html: html/stdlib/Stdlib.html html/compilerlibs/Compiler_libs.html
 
 
 OCAMLRUN ?= $(ROOTDIR)/boot/ocamlrun$(EXE)
@@ -190,11 +191,15 @@ else
   OCAMLDOC_RUN=$(OCAMLDOC_RUN_OPT)
 endif
 
-DOC_ALL_MLIS= $(stdlib_MLIS:stdlib__%=%) \
-	$(foreach package,$(EXTRA_PACKAGES), $($(package)_MLIS))
-DOC_ALL_TEXT= $(foreach package,$(PACKAGES), $($(package)_TEXT))
+DOC_LIBS_MLIS= $(stdlib_MLIS:stdlib__%=%) \
+	$(foreach package,$(OTHERLIBS_PACKAGES), $($(package)_MLIS))
+DOC_LIBS_TEXT= $(foreach package,$(LIBS_PACKAGES), $($(package)_TEXT))
+DOC_ALL_MLIS = $(DOC_LIBS_MLIS) $(compilerlibs_MLIS)
+DOC_ALL_TEXT = $(DOC_LIBS_TEXT) $(compilerlibs_TEXT)
 
-DOC_ALL = $(DOC_ALL_MLIS:%.mli=%.odoc) $(DOC_ALL_TEXT:page-%.odocl=%.odoc)
+DOC_LIBS = $(DOC_LIBS_MLIS:%.mli=%.odoc) $(DOC_ALL_TEXT:page-%.odocl=%.odoc)
+DOC_COMPILERLIBS= $(compilerlibs_MLIS:%.mli=%.odoc) \
+	$(compilerlibs_TEXT:page-%.odocl=%.odoc)
 DOC_ALL_INCLUDES = $(addprefix -I , $(DOC_STDLIB_DIRS) $(DOC_COMPILERLIBS_DIRS))
 
 
@@ -214,11 +219,18 @@ man/Stdlib.3o: $(DOC_ALL)
 	-nostdlib -hide Stdlib -lib Stdlib -t "OCaml library" \
 	$(addprefix -load , $(DOC_ALL))
 
-html/Stdlib.html: $(DOC_ALL)
-	$(MKDIR) html
-	$(OCAMLDOC_RUN) -html -d html \
+html/stdlib/Stdlib.html: $(DOC_LIBS)
+	$(MKDIR) -p html/stdlib
+	$(OCAMLDOC_RUN) -html -d html/stdlib \
 	-nostdlib -hide Stdlib -lib Stdlib -t "OCaml library" \
-	$(addprefix -load , $(DOC_ALL))
+	$(addprefix -load , $(DOC_LIBS))
+
+html/compilerlibs/Compiler_libs.html: $(DOC_COMPILERLIBS)
+	$(MKDIR) -p html/compilerlibs
+	$(OCAMLDOC_RUN) -html -d html/compilerlibs \
+	-nostdlib -hide Stdlib -lib Stdlib -t "OCaml compiler library" \
+	-intro compiler_libs.mld \
+	$(addprefix -load , $(DOC_COMPILERLIBS))
 
 texi/stdlib.texi: $(DOC_ALL)
 	$(MKDIR) texi

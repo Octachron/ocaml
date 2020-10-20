@@ -116,7 +116,7 @@ _build
 
 # odoc files
 /doc/compiler_libs.mld
-/doc/latex/package-*.tex
+/doc/latex/*.tex
 /doc/latex/*_input.tex
 /doc/latex/manual.pdf
 /doc/latex/*.aux

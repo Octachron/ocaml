@@ -43,7 +43,7 @@ index:
 
 # libref/style.css and comilerlibref/style.css are used as witness
 # for the generation of the html stdlib and compilerlibs reference.
-html: html_files
+html: etex-files html_files htmlman/libref/style.css htmlman/compilerlibref/style.css etex-files
 	cd htmlman \
 	  && $(HEVEA) $(HTML_FLAGS) \
 	    -I .. -I ../cmds -I ../library -I ../refman -I ../tutorials \
@@ -68,20 +68,28 @@ library/compiler_libs.txt: library/compiler_libs.mld
 	cp $< $@ && echo "{!modules:$(COMPILERLIBS_MODULES)}" >> $@
 
 .PHONY: html_files
-html_files:
-	make -C $(SRC)/doc html
-	cp -r $(SRC)/doc/html/* htmlman
-
 .PHONY: latex_files
 DOC_MODE_OCAMLDOC=true
 ifeq ($(DOC_MODE_OCAMLDOC),true)
 latex_files:
 	make -C $(SRC)/doc latex
 	cp $(SRC)/doc/latex/*.tex library
+html_files:
+	make -C $(SRC)/doc html
+	mkdir -p htmlman/libref
+	cp -r $(SRC)/doc/html/stdlib/*.html htmlman/libref
+	mkdir -p htmlman/compilerlibref
+	cp -r $(SRC)/doc/html/compilerlibs/*.html htmlman/compilerlibref
+	cp style.css htmlman/libref
+	cp style.css htmlman/compilerlibref
+
 else
 latex_files:
 	make -C $(SRC)/doc latex
 	cp $(SRC)/doc/latex/**/*.tex library
+html_files:
+	make -C $(SRC)/doc html
+	cp -r $(SRC)/doc/html/*.html htmlman/libref
 endif
 
 info: files

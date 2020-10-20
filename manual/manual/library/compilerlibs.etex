@@ -33,15 +33,15 @@ type\\*"#load \"compiler-libs/ocamlcommon.cma\";;".
 % It is over 20 pages long and does not have doc-comments. It is expected
 % that Ast_helper will be only useful in the HTML manual (to look up signatures).
 % \input{Asthelper.tex}
-\docitem{compilerlibs}{Ast_helper}{helper functions for AST construction}
+\compilerdocitem{Ast_helper}{helper functions for AST construction}
 \fi%
-\docitem{compilerlibs}{Ast_mapper}{-ppx rewriter interface}
-\docitem{compilerlibs}{Asttypes}{auxiliary types used by Parsetree}
+\compilerdocitem{Ast_mapper}{-ppx rewriter interface}
+\compilerdocitem{Asttypes}{auxiliary types used by Parsetree}
 % \item \ahref{compilerlibref/Lexer.html}{Module \texttt{Lexer}: OCaml syntax lexing}
-\docitem{compilerlibs}{Location}{source code locations}
-\docitem{compilerlibs}{Longident}{long identifiers}
-\docitem{compilerlibs}{Parse}{OCaml syntax parsing}
-\docitem{compilerlibs}{Parsetree}{OCaml syntax tree}
-\docitem{compilerlibs}{Pprintast}{OCaml syntax printing}
+\compilerdocitem{Location}{source code locations}
+\compilerdocitem{Longident}{long identifiers}
+\compilerdocitem{Parse}{OCaml syntax parsing}
+\compilerdocitem{Parsetree}{OCaml syntax tree}
+\compilerdocitem{Pprintast}{OCaml syntax printing}
 % \item \ahref{compilerlibref/Printast.html}{Module \texttt{Printast}: AST printing}
 \end{linklist}
