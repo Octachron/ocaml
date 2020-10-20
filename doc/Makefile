@@ -29,14 +29,16 @@ DOC_STDLIB_DIRS = $(addprefix $(ROOTDIR)/, stdlib \
 	otherlibs/systhreads\
 )
 
-
-DOC_STDLIB_INCLUDES=-I .
+DOC_ALL_INCLUDES = \
+	$(addprefix -I , $(DOC_STDLIB_DIRS) \
+	$(DOC_COMPILERLIBS_DIRS)) \
+	-I .
 
 vpath %.cmti $(ROOTDIR)/stdlib $(DOC_COMPILERLIBS_DIRS)  $(DOC_STDLIB_DIRS)
 vpath %.cmt $(ROOTDIR)/stdlib
 
 OTHERLIBS_PACKAGES= unix dynlink str thread
-LIBS_PACKAGES=stdlib $(OTHETLIBS_PACKAGES)
+LIBS_PACKAGES=stdlib $(OTHERLIBS_PACKAGES)
 PACKAGES=$(LIBS_PACKAGES) compilerlibs
 
 str_MLIS := str.mli
@@ -44,7 +46,9 @@ unix_MLIS := unix.mli unixLabels.mli
 dynlink_MLIS := dynlink.mli
 thread_MLIS := thread.mli condition.mli mutex.mli event.mli threadUnix.mli
 
-PARSING_MLIS := $(notdir $(wildcard $(ROOTDIR)/parsing/*.mli))
+PARSING_MLIS := $(filter-out camlinternal%, \
+	$(notdir $(wildcard $(ROOTDIR)/parsing/*.mli))\
+)
 UTILS_MLIS := $(notdir $(wildcard $(ROOTDIR)/utils/*.mli))
 DRIVER_MLIS := pparse.mli
 
@@ -54,7 +58,7 @@ compilerlibs_MLIS=\
   $(DRIVER_MLIS)
 compilerlibs_TEXT= page-compiler_libs.odocl
 
-STDLIB=$(filter-out stdlib__pervasives, $(STDLIB_MODULES))
+STDLIB=$(filter-out stdlib__pervasives camlinternal%, $(STDLIB_MODULES))
 
 stdlib_MLIS=$(STDLIB:%=%.mli)
 stdlib_EXTRA=stdlib__pervasives.odocl
@@ -67,11 +71,11 @@ $($(package)_TEXT)\
 
 define compile_package_
 $$($(1)_MLIS:%.mli=%.odoc):%.odoc:%.cmti
-	$$(odoc) compile $$(DOC_STDLIB_INCLUDES)  --package $(1) $$< -o $$@
+	$$(odoc) compile $$(DOC_ALL_INCLUDES)  --package $(1) $$< -o $$@
 $$($(1)_TEXT:page-%.odocl=page-%.odoc):page-%.odoc:%.mld
-	$$(odoc) compile $$(DOC_STDLIB_INCLUDES) --package $(1) $$< -o $$@
+	$$(odoc) compile $$(DOC_ALL_INCLUDES) --package $(1) $$< -o $$@
 $$($(1)_EXTRA:%.odocl=%.odoc):%.odoc:%.cmt
-	$$(odoc) compile $$(DOC_STDLIB_INCLUDES) --package $(1) $$< -o $$@
+	$$(odoc) compile $$(DOC_ALL_INCLUDES) --package $(1) $$< -o $$@
 endef
 
 define compile_package
@@ -94,13 +98,23 @@ ALL: html latex man
 
 latex: latex/manual.pdf
 
-latex/manual.pdf: latex/stdlib_input.tex latex/compilerlibs_input.tex
+latex/manual.pdf: latex/stdlib_input.tex latex/compilerlibs_input.tex \
+	latex/ifocamldoc.tex
+
+.PHONY: latex/ifocamldoc.tex
 
 define capitalize
 $(shell echo $(1) | sed "s/\<./\U&/g")
 endef
 
-ifeq ($(DOC_MODE),ODOC)
+compiler_libs.mld: compiler_libs.pre.mld
+	cp $< $@ && echo "{!modules:$(compilerlibs_MODULES)}" >> $@
+
+
+ifeq ($(DOCUMENTATION_MODE),odoc)
+
+latex/ifocamldoc.tex:
+	echo '\\newif\ifocamldoc\ocamldocfalse' > $@
 
 stdlib_INPUT=$(foreach module,\
 $(filter-out stdlib.mli camlinternal%, $(stdlib_MLIS:stdlib__%.mli=%)),\
@@ -110,7 +124,7 @@ latex/stdlib_input.tex:
 	echo $(stdlib_INPUT)> $@
 
 compilerlibs_INPUT=$(foreach module,\
-$(filter-out camlinternal%,$(compilerlibs_MLIS:%.mli=%)),\
+$(compilerlibs_MLIS:%.mli=%),\
 \\input{compilerlibs/$(call capitalize,$(module)).tex})
 latex/compilerlibs_input.tex:
 	echo $(compilerlibs_INPUT)> $@
@@ -129,12 +143,9 @@ html/odoc.css:
 compilerlibs_MODULES=$(foreach module,\
 $(compilerlibs_MLIS:%.mli=%),$(call capitalize, $(module)))
 
-compiler_libs.mld: compiler_libs.pre.mld
-	cp $< $@ && echo "{!modules:$(compilerlibs_MODULES)}" >> $@
-
 
 $(ALL_ODOCL):%.odocl:%.odoc | $(ALL_ODOCl:%.odocl=%.odoc)
-	$(odoc) link $(DOC_STDLIB_INCLUDES) -I . $<
+	$(odoc) link $(DOC_ALL_INCLUDES) $<
 
 $(foreach package,$(PACKAGES), $(call compile_package,$(package)))
 
@@ -156,6 +167,9 @@ vpath %.mli $(ROOTDIR)/stdlib $(DOC_COMPILERLIBS_DIRS)  $(DOC_STDLIB_DIRS)
 
 man: man/Stdlib.3o
 html: html/stdlib/Stdlib.html html/compilerlibs/Compiler_libs.html
+
+latex/ifocamldoc.tex:
+	echo '\\newif\ifocamldoc\ocamldoctrue' > $@
 
 
 OCAMLRUN ?= $(ROOTDIR)/boot/ocamlrun$(EXE)
@@ -200,7 +214,6 @@ DOC_ALL_TEXT = $(DOC_LIBS_TEXT) $(compilerlibs_TEXT)
 DOC_LIBS = $(DOC_LIBS_MLIS:%.mli=%.odoc) $(DOC_ALL_TEXT:page-%.odocl=%.odoc)
 DOC_COMPILERLIBS= $(compilerlibs_MLIS:%.mli=%.odoc) \
 	$(compilerlibs_TEXT:page-%.odocl=%.odoc)
-DOC_ALL_INCLUDES = $(addprefix -I , $(DOC_STDLIB_DIRS) $(DOC_COMPILERLIBS_DIRS))
 
 
 $(DOC_ALL_MLIS:%.mli=%.odoc):%.odoc:%.mli

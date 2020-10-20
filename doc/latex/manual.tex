@@ -1,11 +1,11 @@
 \documentclass{book}
-\catcode`_=12
 
 \usepackage[colorlinks=true]{hyperref}
 \usepackage{color}
 \usepackage{lmodern}
 \usepackage[T1]{fontenc}
-\newif\ifocamldoc\ocamldoctrue
+\usepackage[strings]{underscore}
+\input{ifocamldoc}
 
 \ifocamldoc
 \usepackage{ocamldoc}
@@ -20,9 +20,10 @@
 \newenvironment{ocamlexception}{\bfseries}{}
 \newenvironment{ocamlextension}{\bfseries}{}
 
+\newcommand{\ocamltag}[2]{\begin{ocaml#1}#2\end{ocaml#1}}
 \newenvironment{ocamlkeyword}{\bfseries}{}
 \newenvironment{ocamlconstructor}{\bfseries}{}
-\newenvironment{ocamltypevar}{\itshape\ttfamily}{}
+\newenvironment{ocamltype-var}{\itshape\ttfamily}{}
 
 \newcommand{\ocamlhighlight}{\bfseries\uline}
 \newcommand{\ocamlerror}{\bfseries}
@@ -60,26 +61,29 @@
 }{}
 \fi
 
-\include{output}
+\ifocamldoc
+\newcommand{\docitem}[2]{\input{#2}}
+\else
+\newcommand{\docitem}[2]{\input{#1/#2}}
+\fi
 \begin{document}
 \chapter{Stdlib}
-\input{Stdlib.tex}
+\docitem{stdlib}{Stdlib.tex}
 \input{stdlib_input}
-\chapter{Dynlinl}
-\input{Dynlink.tex}
+\chapter{Dynlink}
+\docitem{dynlink}{Dynlink.tex}
 \chapter{Str}
-\input{Str.tex}
+\docitem{str}{Str.tex}
 \chapter{Thread}
-\input{Condition.tex}
-\input{Event.tex}
-\input{Mutex.tex}
-\input{Thread.tex}
-\input{ThreadUnix.tex}
+\docitem{thread}{Condition.tex}
+\docitem{thread}{Event.tex}
+\docitem{thread}{Mutex.tex}
+\docitem{thread}{Thread.tex}
+\docitem{thread}{ThreadUnix.tex}
 \chapter{Unix}
-\input{UnixLabels.tex}
-\input{Unix.tex}
+\docitem{unix}{UnixLabels.tex}
+\docitem{unix}{Unix.tex}
 \chapter{Compilerlibs}
-\input{compiler_libs.tex}
+\docitem{compilerlibs}{compiler_libs.tex}
 \input{compilerlibs_input.tex}
-
 \end{document}

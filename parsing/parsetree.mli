@@ -24,21 +24,21 @@ open Asttypes
 
 type constant =
     Pconst_integer of string * char option
-  (* 3 3l 3L 3n
+  (** 3 3l 3L 3n
 
      Suffixes [g-z][G-Z] are accepted by the parser.
      Suffixes except 'l', 'L' and 'n' are rejected by the typechecker
   *)
   | Pconst_char of char
-  (* 'c' *)
+  (** 'c' *)
   | Pconst_string of string * Location.t * string option
-  (* "constant"
-     {delim|other constant|delim}
+  (** ["constant"]
+     [{delim|other constant|delim}]
 
      The location span the content of the string, without the delimiters.
   *)
   | Pconst_float of string * char option
-  (* 3.4 2e5 1.4e-4
+  (** [3.4] [2e5] [1.4e-4]
 
      Suffixes [g-z][G-Z] are accepted by the parser.
      Suffixes are rejected by the typechecker.
@@ -53,16 +53,16 @@ type attribute = {
     attr_payload : payload;
     attr_loc : Location.t;
   }
-       (* [@id ARG]
-          [@@id ARG]
+       (** [[\@id ARG]]
+          [[\@\@id ARG]]
 
           Metadata containers passed around within the AST.
           The compiler ignores unknown attributes.
        *)
 
 and extension = string loc * payload
-      (* [%id ARG]
-         [%%id ARG]
+      (** [[%id ARG]]
+         [[%%id ARG]]
 
          Sub-language placeholder -- rejected by the typechecker.
       *)
@@ -71,67 +71,67 @@ and attributes = attribute list
 
 and payload =
   | PStr of structure
-  | PSig of signature (* : SIG *)
-  | PTyp of core_type  (* : T *)
-  | PPat of pattern * expression option  (* ? P  or  ? P when E *)
+  | PSig of signature (** [: SIG] *)
+  | PTyp of core_type  (** [: T] *)
+  | PPat of pattern * expression option  (** [? P]  or  [? P when E] *)
 
 (** {1 Core language} *)
 
-(* Type expressions *)
+(** {2 Type expressions} *)
 
 and core_type =
     {
      ptyp_desc: core_type_desc;
      ptyp_loc: Location.t;
      ptyp_loc_stack: location_stack;
-     ptyp_attributes: attributes; (* ... [@id1] [@id2] *)
+     ptyp_attributes: attributes; (** [... [\@id1] [\@id2]] *)
     }
 
 and core_type_desc =
   | Ptyp_any
-        (*  _ *)
+        (** [_] *)
   | Ptyp_var of string
-        (* 'a *)
+        (** ['a] *)
   | Ptyp_arrow of arg_label * core_type * core_type
-        (* T1 -> T2       Simple
-           ~l:T1 -> T2    Labelled
-           ?l:T1 -> T2    Optional
+        (** [T1 -> T2]       Simple
+           [~l:T1 -> T2]    Labelled
+           [?l:T1 -> T2]    Optional
          *)
   | Ptyp_tuple of core_type list
-        (* T1 * ... * Tn
+        (** [ T1 * ... * Tn ]
 
            Invariant: n >= 2
         *)
   | Ptyp_constr of Longident.t loc * core_type list
-        (* tconstr
-           T tconstr
-           (T1, ..., Tn) tconstr
+        (** [ tconstr ]
+           [ T tconstr ]
+           [(T1, ..., Tn) tconstr]
          *)
   | Ptyp_object of object_field list * closed_flag
-        (* < l1:T1; ...; ln:Tn >     (flag = Closed)
-           < l1:T1; ...; ln:Tn; .. > (flag = Open)
+        (** [< l1:T1; ...; ln:Tn >]     (flag = [Closed])
+           [< l1:T1; ...; ln:Tn; .. >] (flag = [Open])
          *)
   | Ptyp_class of Longident.t loc * core_type list
-        (* #tconstr
-           T #tconstr
-           (T1, ..., Tn) #tconstr
+        (** [#tconstr]
+           [T #tconstr]
+           [(T1, ..., Tn) #tconstr]
          *)
   | Ptyp_alias of core_type * string
-        (* T as 'a *)
+        (**  [T as 'a] *)
   | Ptyp_variant of row_field list * closed_flag * label list option
-        (* [ `A|`B ]         (flag = Closed; labels = None)
-           [> `A|`B ]        (flag = Open;   labels = None)
-           [< `A|`B ]        (flag = Closed; labels = Some [])
-           [< `A|`B > `X `Y ](flag = Closed; labels = Some ["X";"Y"])
+        (** [[ `A|`B ]]         (flag = [Closed]; labels = [None])
+           [[> `A|`B ]]        (flag = [Open];   labels = [None])
+           [[< `A|`B ]]        (flag = [Closed]; labels = [Some []])
+           [[< `A|`B > `X `Y ]](flag = [Closed]; labels = [Some ["X";"Y"]])
          *)
   | Ptyp_poly of string loc list * core_type
-        (* 'a1 ... 'an. T
+        (** ['a1 ... 'an. T]
 
            Can only appear in the following context:
 
            - As the core_type of a Ppat_constraint node corresponding
-             to a constraint on a let-binding: let x : 'a1 ... 'an. T
-             = e ...
+             to a constraint on a let-binding: [let x : 'a1 ... 'an. T
+             = e ...]
 
            - Under Cfk_virtual for methods (not values).
 
@@ -145,14 +145,14 @@ and core_type_desc =
          *)
 
   | Ptyp_package of package_type
-        (* (module S) *)
+        (** [(module S)] *)
   | Ptyp_extension of extension
-        (* [%id] *)
+        (** [[%id]] *)
 
 and package_type = Longident.t loc * (Longident.t loc * core_type) list
-      (*
-        (module S)
-        (module S with type t1 = T1 and ... and tn = Tn)
+      (**
+        [(module S)]
+        [(module S with type t1 = T1 and ... and tn = Tn)]
        *)
 
 and row_field = {
@@ -163,18 +163,18 @@ and row_field = {
 
 and row_field_desc =
   | Rtag of label loc * bool * core_type list
-        (* [`A]                   ( true,  [] )
-           [`A of T]              ( false, [T] )
-           [`A of T1 & .. & Tn]   ( false, [T1;...Tn] )
-           [`A of & T1 & .. & Tn] ( true,  [T1;...Tn] )
+        (** [[`A]]                   ( [true],  [[]] )
+           [[`A of T]]              ( [false], [[T]] )
+           [[`A of T1 & .. & Tn]]   ( [false], [[T1;...Tn]] )
+           [[`A of & T1 & .. & Tn]] ( [true],  [[T1;...Tn]] )
 
-          - The 'bool' field is true if the tag contains a
+          - The [bool] field is true if the tag contains a
             constant (empty) constructor.
-          - '&' occurs when several types are used for the same constructor
+          - [&] occurs when several types are used for the same constructor
             (see 4.2 in the manual)
         *)
   | Rinherit of core_type
-        (* [ | t ] *)
+        (** [[ | t ]] *)
 
 and object_field = {
   pof_desc : object_field_desc;
@@ -186,207 +186,208 @@ and object_field_desc =
   | Otag of label loc * core_type
   | Oinherit of core_type
 
-(* Patterns *)
+(** {2 Patterns } *)
 
 and pattern =
     {
      ppat_desc: pattern_desc;
      ppat_loc: Location.t;
      ppat_loc_stack: location_stack;
-     ppat_attributes: attributes; (* ... [@id1] [@id2] *)
+     ppat_attributes: attributes; (** [... [\@id1] [\@id2]] *)
     }
 
 and pattern_desc =
   | Ppat_any
-        (* _ *)
+        (** [_] *)
   | Ppat_var of string loc
-        (* x *)
+        (** [x] *)
   | Ppat_alias of pattern * string loc
-        (* P as 'a *)
+        (** [P as 'a] *)
   | Ppat_constant of constant
-        (* 1, 'a', "true", 1.0, 1l, 1L, 1n *)
+        (** [1], ['a'], ["true"], [1.0], [1l], [1L], [1n] *)
   | Ppat_interval of constant * constant
-        (* 'a'..'z'
+        (** ['a'..'z']
 
            Other forms of interval are recognized by the parser
            but rejected by the type-checker. *)
   | Ppat_tuple of pattern list
-        (* (P1, ..., Pn)
+        (** [(P1, ..., Pn)]
 
            Invariant: n >= 2
         *)
   | Ppat_construct of Longident.t loc * pattern option
-        (* C                None
-           C P              Some P
-           C (P1, ..., Pn)  Some (Ppat_tuple [P1; ...; Pn])
+        (** [C]                [None]
+           [C P]              [Some P]
+           [C (P1, ..., Pn)]  [Some (Ppat_tuple [P1; ...; Pn]])
          *)
   | Ppat_variant of label * pattern option
-        (* `A             (None)
-           `A P           (Some P)
+        (** [`A]             [None]
+           [`A P]           [Some P]
          *)
   | Ppat_record of (Longident.t loc * pattern) list * closed_flag
-        (* { l1=P1; ...; ln=Pn }     (flag = Closed)
-           { l1=P1; ...; ln=Pn; _}   (flag = Open)
+        (** [{ l1=P1; ...; ln=Pn }]     (flag = [Closed])
+           [{ l1=P1; ...; ln=Pn; _}]   (flag = [Open])
 
            Invariant: n > 0
          *)
   | Ppat_array of pattern list
-        (* [| P1; ...; Pn |] *)
+        (** [[| P1; ...; Pn |]] *)
   | Ppat_or of pattern * pattern
-        (* P1 | P2 *)
+        (** [P1 | P2] *)
   | Ppat_constraint of pattern * core_type
-        (* (P : T) *)
+        (** [(P : T)] *)
   | Ppat_type of Longident.t loc
-        (* #tconst *)
+        (** [#tconst] *)
   | Ppat_lazy of pattern
-        (* lazy P *)
+        (** [lazy P] *)
   | Ppat_unpack of string option loc
-        (* (module P)        Some "P"
-           (module _)        None
+        (** [(module P)]        [Some "P"]
+           [(module _)]        [None]
 
-           Note: (module P : S) is represented as
-           Ppat_constraint(Ppat_unpack, Ptyp_package)
+           Note: [(module P : S)] is represented as
+           [Ppat_constraint(Ppat_unpack, Ptyp_package)]
          *)
   | Ppat_exception of pattern
-        (* exception P *)
+        (** [exception P] *)
   | Ppat_extension of extension
-        (* [%id] *)
+        (** [[%id]] *)
   | Ppat_open of Longident.t loc * pattern
-        (* M.(P) *)
+        (** [M.(P)] *)
 
-(* Value expressions *)
+(** {2 Value expressions} *)
 
 and expression =
     {
      pexp_desc: expression_desc;
      pexp_loc: Location.t;
      pexp_loc_stack: location_stack;
-     pexp_attributes: attributes; (* ... [@id1] [@id2] *)
+     pexp_attributes: attributes; (** [... [\@id1] [\@id2]] *)
     }
 
 and expression_desc =
   | Pexp_ident of Longident.t loc
-        (* x
-           M.x
+        (** [x]
+           [M.x]
          *)
   | Pexp_constant of constant
-        (* 1, 'a', "true", 1.0, 1l, 1L, 1n *)
+        (** [1], ['a'], ["true"], [1.0], [1l], [1L], [1n] *)
   | Pexp_let of rec_flag * value_binding list * expression
-        (* let P1 = E1 and ... and Pn = EN in E       (flag = Nonrecursive)
-           let rec P1 = E1 and ... and Pn = EN in E   (flag = Recursive)
+        (** [let P1 = E1 and ... and Pn = EN in E]       (flag = [Nonrecursive])
+           [let rec P1 = E1 and ... and Pn = EN in E]   (flag = [Recursive])
          *)
   | Pexp_function of case list
-        (* function P1 -> E1 | ... | Pn -> En *)
+        (** [function P1 -> E1 | ... | Pn -> En] *)
   | Pexp_fun of arg_label * expression option * pattern * expression
-        (* fun P -> E1                          (Simple, None)
-           fun ~l:P -> E1                       (Labelled l, None)
-           fun ?l:P -> E1                       (Optional l, None)
-           fun ?l:(P = E0) -> E1                (Optional l, Some E0)
+        (** [fun P -> E1]                          ([Simple],     [None])
+            [fun ~l:P -> E1]                       ([Labelled l], [None])
+            [fun ?l:P -> E1]                       ([Optional l], [None])
+            [fun ?l:(P = E0) -> E1]                ([Optional l], [Some E0])
 
            Notes:
-           - If E0 is provided, only Optional is allowed.
-           - "fun P1 P2 .. Pn -> E1" is represented as nested Pexp_fun.
-           - "let f P = E" is represented using Pexp_fun.
+           - If [E0] is provided, only Optional is allowed.
+           - [fun P1 P2 .. Pn -> E1] is represented as nested [Pexp_fun].
+           - [let f P = E] is represented using Pexp_fun.
          *)
   | Pexp_apply of expression * (arg_label * expression) list
-        (* E0 ~l1:E1 ... ~ln:En
+        (** [E0 ~l1:E1 ... ~ln:En]
            li can be empty (non labeled argument) or start with '?'
            (optional argument).
 
            Invariant: n > 0
          *)
   | Pexp_match of expression * case list
-        (* match E0 with P1 -> E1 | ... | Pn -> En *)
+        (** [match E0 with P1 -> E1 | ... | Pn -> En] *)
   | Pexp_try of expression * case list
-        (* try E0 with P1 -> E1 | ... | Pn -> En *)
+        (** [try E0 with P1 -> E1 | ... | Pn -> En] *)
   | Pexp_tuple of expression list
-        (* (E1, ..., En)
+        (** [(E1, ..., En)]
 
            Invariant: n >= 2
         *)
   | Pexp_construct of Longident.t loc * expression option
-        (* C                None
-           C E              Some E
-           C (E1, ..., En)  Some (Pexp_tuple[E1;...;En])
+        (** [C]                [None]
+            [C E]              [Some E]
+            [C (E1, ..., En)]  [Some (Pexp_tuple[E1;...;En])]
         *)
   | Pexp_variant of label * expression option
-        (* `A             (None)
-           `A E           (Some E)
+        (** [`A]             ([None])
+            [`A E]           ([Some E])
          *)
   | Pexp_record of (Longident.t loc * expression) list * expression option
-        (* { l1=P1; ...; ln=Pn }     (None)
-           { E0 with l1=P1; ...; ln=Pn }   (Some E0)
+        (** [{ l1=P1; ...; ln=Pn }]     ([None])
+            [{ E0 with l1=P1; ...; ln=Pn }]   ([Some E0])
 
            Invariant: n > 0
          *)
   | Pexp_field of expression * Longident.t loc
-        (* E.l *)
+        (** [E.l] *)
   | Pexp_setfield of expression * Longident.t loc * expression
-        (* E1.l <- E2 *)
+        (** [E1.l <- E2] *)
   | Pexp_array of expression list
-        (* [| E1; ...; En |] *)
+        (** [[| E1; ...; En |]] *)
   | Pexp_ifthenelse of expression * expression * expression option
-        (* if E1 then E2 else E3 *)
+        (** [if E1 then E2 else E3] *)
   | Pexp_sequence of expression * expression
-        (* E1; E2 *)
+        (** [E1; E2] *)
   | Pexp_while of expression * expression
-        (* while E1 do E2 done *)
+        (** [while E1 do E2 done] *)
   | Pexp_for of
       pattern *  expression * expression * direction_flag * expression
-        (* for i = E1 to E2 do E3 done      (flag = Upto)
-           for i = E1 downto E2 do E3 done  (flag = Downto)
+        (** [for i = E1 to E2 do E3 done]      (flag = [Upto])
+            [for i = E1 downto E2 do E3 done]  (flag =[Downto])
          *)
   | Pexp_constraint of expression * core_type
-        (* (E : T) *)
+        (** [(E : T)] *)
   | Pexp_coerce of expression * core_type option * core_type
-        (* (E :> T)        (None, T)
-           (E : T0 :> T)   (Some T0, T)
+        (** [(E :> T)]        ([None], [T])
+           [(E : T0 :> T)]   ([Some T0], [T])
          *)
   | Pexp_send of expression * label loc
-        (*  E # m *)
+        (**  [E # m] *)
   | Pexp_new of Longident.t loc
-        (* new M.c *)
+        (** [new M.c] *)
   | Pexp_setinstvar of label loc * expression
-        (* x <- 2 *)
+        (** [x <- 2 ]*)
   | Pexp_override of (label loc * expression) list
-        (* {< x1 = E1; ...; Xn = En >} *)
+        (** [{< x1 = E1; ...; Xn = En >}] *)
   | Pexp_letmodule of string option loc * module_expr * expression
-        (* let module M = ME in E *)
+        (** [let module M = ME in E] *)
   | Pexp_letexception of extension_constructor * expression
-        (* let exception C in E *)
+        (** [let exception C in E] *)
   | Pexp_assert of expression
-        (* assert E
+        (** [assert E]
            Note: "assert false" is treated in a special way by the
            type-checker. *)
   | Pexp_lazy of expression
-        (* lazy E *)
+        (** [lazy E] *)
   | Pexp_poly of expression * core_type option
-        (* Used for method bodies.
+        (** Used for method bodies.
 
            Can only be used as the expression under Cfk_concrete
            for methods (not values). *)
   | Pexp_object of class_structure
-        (* object ... end *)
+        (** [object ... end] *)
   | Pexp_newtype of string loc * expression
-        (* fun (type t) -> E *)
+        (** [fun (type t) -> E] *)
   | Pexp_pack of module_expr
-        (* (module ME)
+        (** [(module ME)]
 
-           (module ME : S) is represented as
-           Pexp_constraint(Pexp_pack, Ptyp_package S) *)
+            [(module ME : S)] is represented as
+            Pexp_constraint(Pexp_pack, Ptyp_package S) *)
   | Pexp_open of open_declaration * expression
-        (* M.(E)
-           let open M in E
-           let! open M in E *)
+        (** [M.(E)]
+            [let open M in E]
+            [let! open M in E] *)
   | Pexp_letop of letop
-        (* let* P = E in E
-           let* P = E and* P = E in E *)
+        (** [let* P = E in E]
+            [let* P = E and* P = E in E] *)
   | Pexp_extension of extension
-        (* [%id] *)
+        (** [[%id]] *)
   | Pexp_unreachable
-        (* . *)
+  (** [.] *)
 
-and case =   (* (P -> E) or (P when E0 -> E) *)
+(** [P -> E] or [P when E0 -> E] *)
+and case =
     {
      pc_lhs: pattern;
      pc_guard: expression option;
@@ -408,20 +409,19 @@ and binding_op =
     pbop_loc : Location.t;
   }
 
-(* Value descriptions *)
+(** {2 Value descriptions } *)
 
 and value_description =
     {
      pval_name: string loc;
      pval_type: core_type;
      pval_prim: string list;
-     pval_attributes: attributes;  (* ... [@@id1] [@@id2] *)
+     pval_attributes: attributes;  (** [... [\@\@id1] [\@\@id2]] *)
      pval_loc: Location.t;
     }
-
-(*
-  val x: T                            (prim = [])
-  external x: T = "s1" ... "sn"       (prim = ["s1";..."sn"])
+(**
+  [val x: T]                            (prim = [[]])
+   [external x: T = "s1" ... "sn"]       (prim = [["s1";..."sn"]])
 *)
 
 (* Type declarations *)
@@ -430,31 +430,30 @@ and type_declaration =
     {
      ptype_name: string loc;
      ptype_params: (core_type * (variance * injectivity)) list;
-           (* ('a1,...'an) t; None represents  _*)
+           (** [('a1,...'an) t]; [None] represents  [_]*)
      ptype_cstrs: (core_type * core_type * Location.t) list;
-           (* ... constraint T1=T1'  ... constraint Tn=Tn' *)
+           (** [... constraint T1=T1'] [ ... constraint Tn=Tn'] *)
      ptype_kind: type_kind;
-     ptype_private: private_flag;   (* = private ... *)
-     ptype_manifest: core_type option;  (* = T *)
-     ptype_attributes: attributes;   (* ... [@@id1] [@@id2] *)
+     ptype_private: private_flag;   (** [= private ...] *)
+     ptype_manifest: core_type option;  (** [= T] *)
+     ptype_attributes: attributes;   (** [... [\@\@id1] [\@\@id2]] *)
      ptype_loc: Location.t;
     }
-
-(*
-  type t                     (abstract, no manifest)
-  type t = T0                (abstract, manifest=T0)
-  type t = C of T | ...      (variant,  no manifest)
-  type t = T0 = C of T | ... (variant,  manifest=T0)
-  type t = {l: T; ...}       (record,   no manifest)
-  type t = T0 = {l : T; ...} (record,   manifest=T0)
-  type t = ..                (open,     no manifest)
+(**
+  [type t]                     (abstract, no manifest)
+  [type t = T0]                (abstract, manifest=[T0])
+  [type t = C of T | ...]      (variant,  no manifest)
+  [type t = T0 = C of T | ...] (variant,  manifest=[T0])
+  [type t = {l: T; ...}]       (record,   no manifest)
+  [type t = T0 = {l : T; ...}] (record,   manifest=[T0])
+  [type t = ..]                (open,     no manifest)
 *)
 
 and type_kind =
   | Ptype_abstract
   | Ptype_variant of constructor_declaration list
   | Ptype_record of label_declaration list
-        (* Invariant: non-empty list *)
+        (** Invariant: non-empty list *)
   | Ptype_open
 
 and label_declaration =
@@ -463,13 +462,12 @@ and label_declaration =
      pld_mutable: mutable_flag;
      pld_type: core_type;
      pld_loc: Location.t;
-     pld_attributes: attributes; (* l : T [@id1] [@id2] *)
+     pld_attributes: attributes; (** [l : T [\@id1] [\@id2]] *)
     }
+(**  [{ ...; l: T; ... }]            (mutable=[Immutable])
+     [{ ...; mutable l: T; ... }]    (mutable=[Mutable])
 
-(*  { ...; l: T; ... }            (mutable=Immutable)
-    { ...; mutable l: T; ... }    (mutable=Mutable)
-
-    Note: T can be a Ptyp_poly.
+    Note: [T] can be a [Ptyp_poly].
 *)
 
 and constructor_declaration =
@@ -478,20 +476,19 @@ and constructor_declaration =
      pcd_args: constructor_arguments;
      pcd_res: core_type option;
      pcd_loc: Location.t;
-     pcd_attributes: attributes; (* C of ... [@id1] [@id2] *)
+     pcd_attributes: attributes; (** [C of ... [\@id1] [\@id2]] *)
     }
 
 and constructor_arguments =
   | Pcstr_tuple of core_type list
   | Pcstr_record of label_declaration list
-
-(*
-  | C of T1 * ... * Tn     (res = None,    args = Pcstr_tuple [])
-  | C: T0                  (res = Some T0, args = [])
-  | C: T1 * ... * Tn -> T0 (res = Some T0, args = Pcstr_tuple)
-  | C of {...}             (res = None,    args = Pcstr_record)
-  | C: {...} -> T0         (res = Some T0, args = Pcstr_record)
-  | C of {...} as t        (res = None,    args = Pcstr_record)
+(**
+  [| C of T1 * ... * Tn]     (res = [None],    args = [Pcstr_tuple []])
+  [| C: T0]                  (res = [Some T0], args = [[]])
+  [| C: T1 * ... * Tn -> T0] (res = [Some T0], args = [Pcstr_tuple])
+  [| C of {...}]             (res = [None],    args = [Pcstr_record])
+  [| C: {...} -> T0]         (res = [Some T0], args = [Pcstr_record])
+  [| C of {...} as t]        (res = [None],    args = [Pcstr_record])
 *)
 
 and type_extension =
@@ -501,10 +498,10 @@ and type_extension =
      ptyext_constructors: extension_constructor list;
      ptyext_private: private_flag;
      ptyext_loc: Location.t;
-     ptyext_attributes: attributes;   (* ... [@@id1] [@@id2] *)
+     ptyext_attributes: attributes;   (** [... [\@\@id1] [\@\@id2]] *)
     }
-(*
-  type t += ...
+(**
+  [type t += ...]
 *)
 
 and extension_constructor =
@@ -512,55 +509,55 @@ and extension_constructor =
      pext_name: string loc;
      pext_kind : extension_constructor_kind;
      pext_loc : Location.t;
-     pext_attributes: attributes; (* C of ... [@id1] [@id2] *)
+     pext_attributes: attributes; (** [C of ... [\@id1] [\@id2]] *)
    }
 
-(* exception E *)
+(** [exception E] *)
 and type_exception =
   {
     ptyexn_constructor: extension_constructor;
     ptyexn_loc: Location.t;
-    ptyexn_attributes: attributes; (* ... [@@id1] [@@id2] *)
+    ptyexn_attributes: attributes; (* ... [\@\@id1] [\@\@id2] *)
   }
 
 and extension_constructor_kind =
     Pext_decl of constructor_arguments * core_type option
-      (*
-         | C of T1 * ... * Tn     ([T1; ...; Tn], None)
-         | C: T0                  ([], Some T0)
-         | C: T1 * ... * Tn -> T0 ([T1; ...; Tn], Some T0)
+      (**
+         [| C of T1 * ... * Tn]     ([[T1; ...; Tn]], [None])
+         [| C: T0]                  ([[]], [Some T0])
+         [| C: T1 * ... * Tn -> T0] ([[T1; ...; Tn]], [Some T0])
        *)
   | Pext_rebind of Longident.t loc
-      (*
-         | C = D
+      (**
+         [| C = D]
        *)
 
 (** {1 Class language} *)
 
-(* Type expressions for the class language *)
+(** {2 Type expressions for the class language } *)
 
 and class_type =
     {
      pcty_desc: class_type_desc;
      pcty_loc: Location.t;
-     pcty_attributes: attributes; (* ... [@id1] [@id2] *)
+     pcty_attributes: attributes; (** [... [\@id1] [\@id2]] *)
     }
 
 and class_type_desc =
   | Pcty_constr of Longident.t loc * core_type list
-        (* c
-           ['a1, ..., 'an] c *)
+        (** [c]
+            [['a1, ..., 'an] c] *)
   | Pcty_signature of class_signature
-        (* object ... end *)
+        (** [object ... end] *)
   | Pcty_arrow of arg_label * core_type * class_type
-        (* T -> CT       Simple
-           ~l:T -> CT    Labelled l
-           ?l:T -> CT    Optional l
+        (** [T -> CT]       [Simple]
+            [~l:T -> CT]    [Labelled l]
+            [?l:T -> CT]    [Optional l]
          *)
   | Pcty_extension of extension
-        (* [%id] *)
+        (** [[%id]] *)
   | Pcty_open of open_description * class_type
-        (* let open M in CT *)
+        (** [let open M in CT] *)
 
 and class_signature =
     {
@@ -575,7 +572,7 @@ and class_type_field =
     {
      pctf_desc: class_type_field_desc;
      pctf_loc: Location.t;
-     pctf_attributes: attributes; (* ... [@@id1] [@@id2] *)
+     pctf_attributes: attributes; (* ... [\@\@id1] [\@\@id2] *)
     }
 
 and class_type_field_desc =
@@ -591,7 +588,7 @@ and class_type_field_desc =
   | Pctf_constraint  of (core_type * core_type)
         (* constraint T1 = T2 *)
   | Pctf_attribute of attribute
-        (* [@@@id] *)
+        (* [\@\@\@id] *)
   | Pctf_extension of extension
         (* [%%id] *)
 
@@ -602,7 +599,7 @@ and 'a class_infos =
      pci_name: string loc;
      pci_expr: 'a;
      pci_loc: Location.t;
-     pci_attributes: attributes;  (* ... [@@id1] [@@id2] *)
+     pci_attributes: attributes;  (* ... [\@\@id1] [\@\@id2] *)
     }
 (* class c = ...
    class ['a1,...,'an] c = ...
@@ -621,7 +618,7 @@ and class_expr =
     {
      pcl_desc: class_expr_desc;
      pcl_loc: Location.t;
-     pcl_attributes: attributes; (* ... [@id1] [@id2] *)
+     pcl_attributes: attributes; (* ... [\@id1] [\@id2] *)
     }
 
 and class_expr_desc =
@@ -668,7 +665,7 @@ and class_field =
     {
      pcf_desc: class_field_desc;
      pcf_loc: Location.t;
-     pcf_attributes: attributes; (* ... [@@id1] [@@id2] *)
+     pcf_attributes: attributes; (* ... [\@\@id1] [\@\@id2] *)
     }
 
 and class_field_desc =
@@ -691,7 +688,7 @@ and class_field_desc =
   | Pcf_initializer of expression
         (* initializer E *)
   | Pcf_attribute of attribute
-        (* [@@@id] *)
+        (* [\@\@\@id] *)
   | Pcf_extension of extension
         (* [%%id] *)
 
@@ -709,7 +706,7 @@ and module_type =
     {
      pmty_desc: module_type_desc;
      pmty_loc: Location.t;
-     pmty_attributes: attributes; (* ... [@id1] [@id2] *)
+     pmty_attributes: attributes; (* ... [\@id1] [\@id2] *)
     }
 
 and module_type_desc =
@@ -776,7 +773,7 @@ and signature_item_desc =
   | Psig_class_type of class_type_declaration list
         (* class type ct1 = ... and ... and ctn = ... *)
   | Psig_attribute of attribute
-        (* [@@@id] *)
+        (* [\@\@\@id] *)
   | Psig_extension of extension * attributes
         (* [%%id] *)
 
@@ -784,7 +781,7 @@ and module_declaration =
     {
      pmd_name: string option loc;
      pmd_type: module_type;
-     pmd_attributes: attributes; (* ... [@@id1] [@@id2] *)
+     pmd_attributes: attributes; (* ... [\@\@id1] [\@\@id2] *)
      pmd_loc: Location.t;
     }
 (* S : MT *)
@@ -793,7 +790,7 @@ and module_substitution =
     {
      pms_name: string loc;
      pms_manifest: Longident.t loc;
-     pms_attributes: attributes; (* ... [@@id1] [@@id2] *)
+     pms_attributes: attributes; (* ... [\@\@id1] [\@\@id2] *)
      pms_loc: Location.t;
     }
 
@@ -801,7 +798,7 @@ and module_type_declaration =
     {
      pmtd_name: string loc;
      pmtd_type: module_type option;
-     pmtd_attributes: attributes; (* ... [@@id1] [@@id2] *)
+     pmtd_attributes: attributes; (* ... [\@\@id1] [\@\@id2] *)
      pmtd_loc: Location.t;
     }
 (* S = MT
@@ -861,7 +858,7 @@ and module_expr =
     {
      pmod_desc: module_expr_desc;
      pmod_loc: Location.t;
-     pmod_attributes: attributes; (* ... [@id1] [@id2] *)
+     pmod_attributes: attributes; (* ... [\@id1] [\@id2] *)
     }
 
 and module_expr_desc =
@@ -920,7 +917,7 @@ and structure_item_desc =
   | Pstr_include of include_declaration
         (* include ME *)
   | Pstr_attribute of attribute
-        (* [@@@id] *)
+        (* [\@\@\@id] *)
   | Pstr_extension of extension * attributes
         (* [%%id] *)
 
