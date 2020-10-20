@@ -60,7 +60,7 @@ compilerlibs_MLIS=\
   $(DRIVER_MLIS)
 compilerlibs_TEXT= page-compiler_libs.odocl
 
-STDLIB=$(filter-out stdlib__pervasives camlinternal%, $(STDLIB_MODULES))
+STDLIB=$(filter-out stdlib__pervasives, $(STDLIB_MODULES))
 
 stdlib_MLIS=$(STDLIB:%=%.mli)
 stdlib_EXTRA=stdlib__pervasives.odocl
@@ -156,9 +156,13 @@ $(ALL_HTML):%.html.witness:%.odocl
 	$(odoc) html-generate --output-dir html  $<
 	touch $@
 
-$(ALL_LATEX):%.tex.witness:%.odocl
+stdlib.tex.witness: stdlib.odocl
 	$(odoc) latex-generate --with-children=false --output-dir latex  $<
-	touch $@
+	@touch $@
+
+$(filter-out stdlib.tex.witness, $(ALL_LATEX)):%.tex.witness:%.odocl
+	$(odoc) latex-generate --with-children=true --output-dir latex  $<
+	@touch $@
 
 $(ALL_MAN):%.man.witness:%.odocl
 	$(odoc) man-generate --output-dir man  $<
@@ -293,7 +297,7 @@ endif
 
 clean:
 	rm *.odoc *.odocl latex/*/*.tex \
-	*witness \
+	*witness ;\
 	rm -r man/*; rm -r html/* ;\
 	rm latex/*.pdf latex/*.log latex/*.out \
 	latex/*_input.tex latex/*.aux
