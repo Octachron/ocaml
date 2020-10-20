@@ -222,6 +222,7 @@ man/Stdlib.3o: $(DOC_ALL)
 html/stdlib/Stdlib.html: $(DOC_LIBS)
 	$(MKDIR) -p html/stdlib
 	$(OCAMLDOC_RUN) -html -d html/stdlib \
+	-charset="utf8" \
 	-nostdlib -hide Stdlib -lib Stdlib -t "OCaml library" \
 	$(addprefix -load , $(DOC_LIBS))
 
@@ -229,6 +230,7 @@ html/compilerlibs/Compiler_libs.html: $(DOC_COMPILERLIBS)
 	$(MKDIR) -p html/compilerlibs
 	$(OCAMLDOC_RUN) -html -d html/compilerlibs \
 	-nostdlib -hide Stdlib -lib Stdlib -t "OCaml compiler library" \
+	-charset="utf8" \
 	-intro compiler_libs.mld \
 	$(addprefix -load , $(DOC_COMPILERLIBS))
 
