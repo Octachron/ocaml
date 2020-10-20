@@ -213,10 +213,10 @@ DOC_LIBS_TEXT= $(foreach package,$(LIBS_PACKAGES), $($(package)_TEXT))
 DOC_ALL_MLIS = $(DOC_LIBS_MLIS) $(compilerlibs_MLIS)
 DOC_ALL_TEXT = $(DOC_LIBS_TEXT) $(compilerlibs_TEXT)
 
-DOC_LIBS = $(DOC_LIBS_MLIS:%.mli=%.odoc) $(DOC_ALL_TEXT:page-%.odocl=%.odoc)
+DOC_LIBS = $(DOC_LIBS_MLIS:%.mli=%.odoc) $(DOC_LIBS_TEXT:page-%.odocl=%.odoc)
 DOC_COMPILERLIBS= $(compilerlibs_MLIS:%.mli=%.odoc) \
 	$(compilerlibs_TEXT:page-%.odocl=%.odoc)
-
+DOC_ALL=$(DOC_LIBS) $(DOC_COMPILERLIBS)
 
 $(DOC_ALL_MLIS:%.mli=%.odoc):%.odoc:%.mli
 	$(OCAMLDOC_RUN) -nostdlib -hide Stdlib -lib Stdlib \

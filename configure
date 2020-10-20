@@ -16740,10 +16740,10 @@ else
   ocamldoc=ocamldoc
 fi
 
-if test x"$enable_odoc-documentation" = "xno"; then :
-  documentation_mode="ocamldoc"
-else
+if test x"$enable_odoc_documentation" = "xyes"; then :
   documentation_mode="odoc"
+else
+  documentation_mode="ocamldoc"
 fi
 
 case $enable_ocamltest,4.13.0+dev0-2020-10-19 in #(
