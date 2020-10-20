@@ -151,7 +151,6 @@ be called from C \\
 \stddocitem{Scanf}{formatted input functions}
 \stddocitem{Seq}{functional iterators}
 \stddocitem{Set}{sets over ordered types}
-\stddocitem{Spacetime}{memory profiler}
 \stddocitem{Stack}{last-in first-out stacks}
 \stddocitem{StdLabels}{Include modules \texttt{Array}, \texttt{List} and \texttt{String} with labels}
 \stddocitem{Stream}{streams and parsers}

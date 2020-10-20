@@ -1,4 +1,5 @@
 SRC = $(abspath ../..)
+-include $(SRC)/Makefile.config
 
 export LD_LIBRARY_PATH   ?= "$(SRC)/otherlibs/unix/:$(SRC)/otherlibs/str/"
 export DYLD_LIBRARY_PATH ?= "$(SRC)/otherlibs/unix/:$(SRC)/otherlibs/str/"
@@ -17,7 +18,7 @@ include $(SRC)/ocamldoc/Makefile.docfiles
 TEXQUOTE = $(SRC)/runtime/ocamlrun ../tools/texquote2
 
 
-FILES = allfiles.tex biblio.tex foreword.tex version.tex warnings-help.etex
+FILES = allfiles.tex biblio.tex foreword.tex version.tex warnings-help.etex ifocamldoc.tex
 
 TEXINPUTS = ".:..:../refman:../library:../cmds:../tutorials:../../styles:"
 RELEASE = $$HOME/release/$${RELEASENAME}
@@ -43,23 +44,13 @@ index:
 
 # libref/style.css and comilerlibref/style.css are used as witness
 # for the generation of the html stdlib and compilerlibs reference.
-html: etex-files html_files htmlman/libref/style.css htmlman/compilerlibref/style.css etex-files
+html: etex-files html_files etex-files
 	cd htmlman \
 	  && $(HEVEA) $(HTML_FLAGS) \
 	    -I .. -I ../cmds -I ../library -I ../refman -I ../tutorials \
 	    -I ../../styles -I ../texstuff \
 	    manual.hva -e macros.tex ../manual.tex \
 	  && $(HACHA) -tocter manual.html
-
-htmlman/libref/style.css: style.css $(STDLIB_MLIS) $(DOC_STDLIB_TEXT)
-	mkdir -p htmlman/libref
-	$(OCAMLDOC) -colorize-code -sort -html \
-	  -charset "UTF-8" \
-	  -d htmlman/libref \
-	  $(DOC_STDLIB_INCLUDES) \
-          $(DOC_STDLIB_TEXT:%=-text %) \
-          $(STDLIB_MLIS)
-	cp style.css $@
 
 COMPILERLIBS_MODULES=$(shell echo $(basename $(notdir $(COMPILERLIBS_MLIS))) \
 | sed "s/\<./\U&/g")
@@ -70,7 +61,15 @@ library/compiler_libs.txt: library/compiler_libs.mld
 .PHONY: html_files
 .PHONY: latex_files
 DOC_MODE_OCAMLDOC=true
-ifeq ($(DOC_MODE_OCAMLDOC),true)
+ifeq ($(DOCUMENTATION_MODE),odoc)
+latex_files:
+	make -C $(SRC)/doc latex
+	cp $(SRC)/doc/latex/*/*.tex library
+html_files:
+	make -C $(SRC)/doc html
+	mkdir -p htmlman/libref
+	cp -r $(SRC)/doc/html/* htmlman/libref
+else
 latex_files:
 	make -C $(SRC)/doc latex
 	cp $(SRC)/doc/latex/*.tex library
@@ -82,14 +81,6 @@ html_files:
 	cp -r $(SRC)/doc/html/compilerlibs/*.html htmlman/compilerlibref
 	cp style.css htmlman/libref
 	cp style.css htmlman/compilerlibref
-
-else
-latex_files:
-	make -C $(SRC)/doc latex
-	cp $(SRC)/doc/latex/**/*.tex library
-html_files:
-	make -C $(SRC)/doc html
-	cp -r $(SRC)/doc/html/*.html htmlman/libref
 endif
 
 info: files
@@ -170,6 +161,9 @@ warnings-help.etex: $(SRC)/utils/warnings.ml $(SRC)/ocamlc
 	  mv $@.tmp $@;\
 	done
 
+ifocamldoc.tex:
+	$(MAKE) -C $(SRC)/doc latex/ifocamldoc.tex
+	cp $(SRC)/doc/latex/ifocamldoc.tex $@
 
 .PHONY: clean
 clean:

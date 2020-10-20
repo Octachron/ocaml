@@ -44,7 +44,9 @@ PACKAGES=$(LIBS_PACKAGES) compilerlibs
 str_MLIS := str.mli
 unix_MLIS := unix.mli unixLabels.mli
 dynlink_MLIS := dynlink.mli
-thread_MLIS := thread.mli condition.mli mutex.mli event.mli threadUnix.mli
+thread_MLIS := \
+	thread.mli condition.mli mutex.mli event.mli \
+	threadUnix.mli semaphore.mli
 
 PARSING_MLIS := $(filter-out camlinternal%, \
 	$(notdir $(wildcard $(ROOTDIR)/parsing/*.mli))\

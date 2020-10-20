@@ -7,12 +7,14 @@
 \newcommand{\?}{\black\#\blue }
 \renewcommand{\:}{\maroon}
 
+\newcommand{\ocamltag}[2]{\begin{ocaml#1}#2\end{ocaml#1}}
 \newcommand{\ocamlkeyword}{\bfseries}
 \newcommand{\ocamlhighlight}{\bfseries\underline}
 \newcommand{\ocamlerror}{\bfseries}
 \newcommand{\ocamlwarning}{\bfseries}
 \newcommand{\ocamlcomment}{\normalfont\small}
 \newcommand{\ocamlstring}{\bfseries}
+\newenvironment{ocamllongtable}[2][]{\begin{tabular}{#2}}{\end{tabular}}
 
 \newenvironment{caml}{\begin{alltt}}{\\\end{alltt}}
 \newenvironment{camlexample}[1]{}{}
