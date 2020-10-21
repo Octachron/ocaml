@@ -41,6 +41,12 @@ OTHERLIBS_PACKAGES= unix dynlink str thread
 LIBS_PACKAGES=stdlib $(OTHERLIBS_PACKAGES)
 PACKAGES=$(LIBS_PACKAGES) compilerlibs
 
+
+define sort
+$(shell $(BEST_OCAMLDEP) -sort $(1))
+endef
+
+
 str_MLIS := str.mli
 unix_MLIS := unix.mli unixLabels.mli
 dynlink_MLIS := dynlink.mli
@@ -49,9 +55,9 @@ thread_MLIS := \
 	threadUnix.mli semaphore.mli
 
 PARSING_MLIS := $(filter-out camlinternal%, \
-	$(notdir $(wildcard $(ROOTDIR)/parsing/*.mli))\
+	$(call sort, $(notdir $(wildcard $(ROOTDIR)/parsing/*.mli)))\
 )
-UTILS_MLIS := $(notdir $(wildcard $(ROOTDIR)/utils/*.mli))
+UTILS_MLIS := $(call sort, $(notdir $(wildcard $(ROOTDIR)/utils/*.mli)))
 DRIVER_MLIS := pparse.mli
 
 compilerlibs_MLIS=\
@@ -73,11 +79,11 @@ $($(package)_TEXT)\
 
 define compile_package_
 $$($(1)_MLIS:%.mli=%.odoc):%.odoc:%.cmti
-	$$(odoc) compile $$(DOC_ALL_INCLUDES)  --package $(1) $$< -o $$@
+	$$(odoc) compile -I .  --package $(1) $$< -o $$@
 $$($(1)_TEXT:page-%.odocl=page-%.odoc):page-%.odoc:%.mld
-	$$(odoc) compile $$(DOC_ALL_INCLUDES) --package $(1) $$< -o $$@
+	$$(odoc) compile -I . --package $(1) $$< -o $$@
 $$($(1)_EXTRA:%.odocl=%.odoc):%.odoc:%.cmt
-	$$(odoc) compile $$(DOC_ALL_INCLUDES) --package $(1) $$< -o $$@
+	$$(odoc) compile -I . --package $(1) $$< -o $$@
 endef
 
 define compile_package
@@ -147,7 +153,7 @@ $(compilerlibs_MLIS:%.mli=%),$(call capitalize, $(module)))
 
 
 $(ALL_ODOCL):%.odocl:%.odoc | $(ALL_ODOCl:%.odocl=%.odoc)
-	$(odoc) link $(DOC_ALL_INCLUDES) $<
+	$(odoc) link -I . $<
 
 $(foreach package,$(PACKAGES), $(call compile_package,$(package)))
 
@@ -218,8 +224,9 @@ DOC_ALL_MLIS = $(DOC_LIBS_MLIS) $(compilerlibs_MLIS)
 DOC_ALL_TEXT = $(DOC_LIBS_TEXT) $(compilerlibs_TEXT)
 
 DOC_LIBS = $(DOC_LIBS_MLIS:%.mli=%.odoc) $(DOC_LIBS_TEXT:page-%.odocl=%.odoc)
-DOC_COMPILERLIBS= $(compilerlibs_MLIS:%.mli=%.odoc) \
-	$(compilerlibs_TEXT:page-%.odocl=%.odoc)
+DOC_COMPILERLIBS= \
+	$(compilerlibs_TEXT:page-%.odocl=%.odoc) \
+	$(compilerlibs_MLIS:%.mli=%.odoc)
 DOC_ALL=$(DOC_LIBS) $(DOC_COMPILERLIBS)
 
 $(DOC_ALL_MLIS:%.mli=%.odoc):%.odoc:%.mli
@@ -296,8 +303,8 @@ endif
 
 
 clean:
-	rm *.odoc *.odocl latex/*/*.tex \
+	rm -f *.odoc *.odocl latex/*/*.tex \
 	*witness ;\
-	rm -r man/*; rm -r html/* ;\
-	rm latex/*.pdf latex/*.log latex/*.out \
+	rm -rf man/*; rm -rf html/* ;\
+	rm -f latex/*.pdf latex/*.log latex/*.out \
 	latex/*_input.tex latex/*.aux
