@@ -298,14 +298,16 @@
 \ifocamldoc
 \newcommand{\moduleref}[3]{\ahref{#1/#2.html}{#3}}
 \newcommand{\stdmoduleref}[1]{\moduleref{libref}{#1}{\texttt{#1}}}
+\else
+\newcommand{\moduleref}[3]{\ahref{#1/#2/index.html}{#3}}
+\newcommand{\stdmoduleref}[1]{\moduleref{libref}{Stdlib/#1}{\texttt{#1}}}
+\fi
+\newcommand{\stdmoduleref}[1]{\moduleref{libref}{#1}{\texttt{#1}}}
 \newcommand{\gendocitem}[3]{\item \moduleref{#1}{#2}{Module \texttt{#2}}: #3}
 \newcommand{\docitem}[3]{\gendocitem{libref}{#2}{#3}}
-\newcommand{\stddocitem}[2]{\docitem{libref}{#1}{#2}}
-\newcommand{\compilerdocitem}[2]{\gendocitem{compilerlibref}{#1}{#2}}
+\ifocamldoc
+\newcommand{\stddocitem}[2]{\gendocitem{libref}{#1}{#2}}
 \else
-\newcommand{\moduleref}[3]{\ahref{libref/#1/#2/index.html}{#3}}
-\newcommand{\stdmoduleref}[1]{\moduleref{stdlib}{#1}{\texttt{#1}}}
-\newcommand{\docitem}[3]{\item \moduleref{#1}{#2}{Module \texttt{#2}}: #3}
-\newcommand{\stddocitem}[2]{\item \moduleref{stdlib}{Stdlib/#1}{Module \texttt{#1}}: #2}
-\newcommand{\compilerdocitem}[2]{\docitem{compilerlibs}{#1}{#2}}
+\newcommand{\stddocitem}[2]{\gendocitem{libref/Stdlib}{#1}{#2}}
 \fi
+\newcommand{\compilerdocitem}[2]{\gendocitem{compilerlibref}{#1}{#2}}

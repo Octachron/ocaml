@@ -67,8 +67,7 @@ latex_files:
 	cp $(SRC)/doc/latex/*/*.tex library
 html_files:
 	make -C $(SRC)/doc html
-	mkdir -p htmlman/libref
-	cp -r $(SRC)/doc/html/* htmlman/libref
+	cp -r $(SRC)/doc/html/libref $(SRC)/doc/html/compilerlibref  htmlman
 else
 latex_files:
 	make -C $(SRC)/doc latex
@@ -76,9 +75,7 @@ latex_files:
 html_files:
 	make -C $(SRC)/doc html
 	mkdir -p htmlman/libref
-	cp -r $(SRC)/doc/html/stdlib/*.html htmlman/libref
-	mkdir -p htmlman/compilerlibref
-	cp -r $(SRC)/doc/html/compilerlibs/*.html htmlman/compilerlibref
+	cp -r $(SRC)/doc/html/libref $(SRC)/doc/html/compilerlibref htmlman
 	cp style.css htmlman/libref
 	cp style.css htmlman/compilerlibref
 endif
