@@ -136,6 +136,7 @@ AC_SUBST([as_has_debug_prefix_map])
 AC_SUBST([with_debugger]) # TODO: rename this variable
 AC_SUBST([with_camltex])
 AC_SUBST([ocamldoc])
+AC_SUBST([documentation_mode])
 AC_SUBST([ocamltest])
 AC_SUBST([pthread_link])
 AC_SUBST([x_includes])
@@ -263,6 +264,11 @@ AC_ARG_ENABLE([ocamldoc],
     [do not build the ocamldoc documentation system])],
   [],
   [ocamldoc=auto])
+
+AC_ARG_ENABLE([odoc-documentation],
+  [AS_HELP_STRING([--enable-odoc-documentation],
+    [build documentation with odoc])])
+
 
 AC_ARG_ENABLE([ocamltest],
   [AS_HELP_STRING([--disable-ocamltest],
@@ -1720,6 +1726,10 @@ AS_IF([test x"$enable_installing_source_artifacts" = "xno"],
 AS_IF([test x"$enable_ocamldoc" = "xno"],
   [ocamldoc=""],
   [ocamldoc=ocamldoc])
+
+AS_IF([test x"$enable_odoc_documentation" = "xyes"],
+  [documentation_mode="odoc"],
+  [documentation_mode="ocamldoc"])
 
 AS_CASE([$enable_ocamltest,AC_PACKAGE_VERSION],
   [yes,*|,*+dev*],[ocamltest='ocamltest'],
