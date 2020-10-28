@@ -1,4 +1,5 @@
 SRC = $(abspath ../..)
+-include $(SRC)/Makefile.config
 
 export LD_LIBRARY_PATH   ?= "$(SRC)/otherlibs/unix/:$(SRC)/otherlibs/str/"
 export DYLD_LIBRARY_PATH ?= "$(SRC)/otherlibs/unix/:$(SRC)/otherlibs/str/"
@@ -14,7 +15,8 @@ OCAMLDOC = $(if $(wildcard $(SRC)/ocamldoc/ocamldoc.opt),\
 TEXQUOTE = $(SRC)/runtime/ocamlrun ../tools/texquote2
 
 
-FILES = allfiles.tex biblio.tex foreword.tex version.tex warnings-help.etex
+FILES = allfiles.tex biblio.tex foreword.tex version.tex warnings-help.etex ifocamldoc.tex
+
 
 TEXINPUTS = ".:..:../refman:../library:../cmds:../tutorials:../../styles:"
 RELEASE = $$HOME/release/$${RELEASENAME}
@@ -29,6 +31,14 @@ TEXT_FLAGS = -fix -exec xxdate.exe -text -w 79 -s
 # Copy the documentation files from SRC/doc
 .PHONY: html_files
 .PHONY: latex_files
+ifeq ($(DOCUMENTATION_MODE),odoc)
+latex_files:
+	make -C $(SRC)/doc latex
+	cp $(SRC)/doc/latex/*/*.tex library
+html_files:
+	make -C $(SRC)/doc html
+	cp -r $(SRC)/doc/html/*  htmlman
+else
 latex_files:
 	$(MAKE) -C $(SRC)/doc latex
 	cp $(SRC)/doc/latex/*.tex library
@@ -38,7 +48,7 @@ html_files:
 	cp -r $(SRC)/doc/html/libref $(SRC)/doc/html/compilerlibref htmlman
 	cp style.css htmlman/libref
 	cp style.css htmlman/compilerlibref
-
+endif
 
 manual: files latex_files
 	cd texstuff \
@@ -138,6 +148,9 @@ warnings-help.etex: $(SRC)/utils/warnings.ml $(SRC)/ocamlc
 	  mv $@.tmp $@;\
 	done
 
+ifocamldoc.tex:
+	$(MAKE) -C $(SRC)/doc latex/ifocamldoc.tex
+	cp $(SRC)/doc/latex/ifocamldoc.tex $@
 
 .PHONY: clean
 clean:

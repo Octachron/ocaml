@@ -779,6 +779,7 @@ x_libraries
 x_includes
 pthread_link
 ocamltest
+documentation_mode
 ocamldoc
 with_camltex
 with_debugger
@@ -887,6 +888,7 @@ enable_str_lib
 enable_unix_lib
 enable_bigarray_lib
 enable_ocamldoc
+enable_odoc_documentation
 enable_ocamltest
 enable_frame_pointers
 enable_naked_pointers
@@ -1556,6 +1558,7 @@ Optional Features:
   --disable-unix-lib      do not build the unix library
   --disable-bigarray-lib  do not build the legacy separate bigarray library
   --disable-ocamldoc      do not build the ocamldoc documentation system
+  --enable-ocamltest      build documentation with odoc
   --disable-ocamltest     do not build the ocamltest driver
   --enable-frame-pointers use frame pointers in runtime and generated code
   --disable-naked-pointers
@@ -2924,6 +2927,7 @@ VERSION=4.13.0+dev0-2020-10-19
 
 
 
+
 ## Generated files
 
 ac_config_files="$ac_config_files Makefile.build_config"
@@ -3151,6 +3155,13 @@ if test "${enable_ocamldoc+set}" = set; then :
 else
   ocamldoc=auto
 fi
+
+
+# Check whether --enable-odoc-documentation was given.
+if test "${enable_odoc_documentation+set}" = set; then :
+  enableval=$enable_odoc_documentation;
+fi
+
 
 
 # Check whether --enable-ocamltest was given.
@@ -16727,6 +16738,12 @@ if test x"$enable_ocamldoc" = "xno"; then :
   ocamldoc=""
 else
   ocamldoc=ocamldoc
+fi
+
+if test x"$enable_odoc_documentation" = "xyes"; then :
+  documentation_mode="odoc"
+else
+  documentation_mode="ocamldoc"
 fi
 
 case $enable_ocamltest,4.13.0+dev0-2020-10-19 in #(

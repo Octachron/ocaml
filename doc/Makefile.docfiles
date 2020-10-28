@@ -17,6 +17,10 @@ define capitalize
 $(shell echo $(1) | sed "s/\<./\U&/g")
 endef
 
+define sort
+$(shell $(BEST_OCAMLDEP) -sort $(1))
+endef
+
 
 str_MLIS := str.mli
 unix_MLIS := unix.mli unixLabels.mli
@@ -28,23 +32,29 @@ thread_MLIS := \
 STDLIB=$(filter-out stdlib__pervasives, $(STDLIB_MODULES))
 
 stdlib_UNPREFIXED=$(STDLIB:stdlib__%=%)
-libref= \
-	$(stdlib_UNPREFIXED) \
+
+
+otherlibref= \
 	$(str_MLIS:%.mli=%) \
 	$(unix_MLIS:%.mli=%) \
 	$(dynlink_MLIS:%.mli=%) \
 	$(thread_MLIS:%.mli=%)
+ifeq ($(DOCUMENTATION_MODE),odoc)
+libref=$(STDLIB) $(otherlibref)
+else
+libref=$(stdlib_UNPREFIXED) $(otherlibref)
+endif
 libref_EXTRA=stdlib__pervasives
 libref_TEXT=Ocaml_operators
 libref_C=$(call capitalize,$(libref) $(libref_EXTRA))
 
-PARSING_MLIS := $(filter-out camlinternal%, \
+PARSING_MLIS := $(call sort, \
 	$(notdir $(wildcard $(ROOTDIR)/parsing/*.mli))\
 )
-UTILS_MLIS := $(notdir $(wildcard $(ROOTDIR)/utils/*.mli))
+UTILS_MLIS := $(call sort,$(notdir $(wildcard $(ROOTDIR)/utils/*.mli)))
 DRIVER_MLIS := pparse.mli
 
-compilerlibref_MLIS=\
+compilerlibref_MLIS= \
   $(PARSING_MLIS) \
   $(UTILS_MLIS) \
   $(DRIVER_MLIS)
