@@ -12,7 +12,7 @@
 #*   special exception on linking described in the file LICENSE.          *
 #*                                                                        *
 #**************************************************************************
-ROOTDIR = $(abspath ..)
+ROOTDIR = ..
 
 include $(ROOTDIR)/stdlib/StdlibModules
 include $(ROOTDIR)/Makefile.common
@@ -107,7 +107,7 @@ html/libref/Stdlib.html: $(ALL_LIBREF:%=build/%.odoc)
 html/compilerlibref/Compiler_libs.html: $(ALL_COMPILERLIBREF:%=build/%.odoc)
 	$(MKDIR) -p html/compilerlibref
 	$(OCAMLDOC) -html -d html/compilerlibref \
-	-nostdlib -hide Stdlib -lib Stdlib -t "OCaml compiler library" \
+	-nostdlib -hide Stdlib -t "OCaml compiler library" \
 	-charset="utf8" \
 	-intro Compiler_libs.mld \
 	$(addprefix -load , $(ALL_COMPILERLIBREF:%=build/%.odoc))
@@ -152,4 +152,4 @@ latex/compilerlibs_input.tex:
 	echo $(compilerlibs_INPUT)> $@
 
 clean:
-	rm -rf build man html latex texi
+	rm -rf build man html latex texi Compiler_libs.mld
