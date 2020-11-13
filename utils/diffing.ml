@@ -45,14 +45,14 @@ module Matrix : sig
 
   val make : shape -> ('st,'l,'r,'e,'d) t
   val reshape : shape -> ('st,'l,'r,'e,'d) t -> ('st,'l,'r,'e,'d) t
-  
+
   val diff : (_,'l,'r,'e,'d) t -> int -> int -> ('l,'r,'e,'d) change option
   val state : ('st,'l,'r,'e,'d) t -> int -> int -> ('st, 'l, 'r) full_state option
   val weight : _ t -> int -> int -> int
 
   val line : (_,'l,_,_,_) t -> int -> int -> 'l option
   val column : (_,_,'r,_,_) t -> int -> int -> 'r option
-  
+
   val update :
     ('st,'l,'r,'e,'d) t -> int -> int ->
     diff:('l,'r,'e,'d) change option ->
@@ -65,7 +65,7 @@ module Matrix : sig
   val real_shape : _ t -> shape
 
   val[@warning "-32"] pp : Format.formatter -> _ t -> unit
-  
+
 end = struct
 
   type shape = { l : int ; c : int }
@@ -97,11 +97,11 @@ end = struct
     let l = Array.length st.line in
     let c = Array.length st.column in
     { l ; c }
-  
+
   let real_shape tbl =
     let lines = ref tbl.lines in
     let columns = ref tbl.columns in
-    for i = 0 to tbl.lines do 
+    for i = 0 to tbl.lines do
       for j = 0 to tbl.columns do
         let*! {l; c} = shape_at tbl i j in
         if l > !lines then lines := l;
@@ -152,7 +152,7 @@ end = struct
       done;
       Format.pp_print_newline ppf ()
     done
- 
+
 end
 
 let select_best_proposition l =
@@ -297,7 +297,7 @@ let variadic_diff ~weight ~test ~(update:_ update) state line column =
         fun d fs ->
           let state, a = up d fs.state in
           { fs with state ; line = Array.append fs.line a }
-    | Right up -> 
+    | Right up ->
         fun d fs ->
           let state, a = up d fs.state in
           { fs with state ; column = Array.append fs.column a }
