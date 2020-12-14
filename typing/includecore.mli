@@ -53,6 +53,16 @@ type extension_constructor_mismatch =
                             * extension_constructor
                             * constructor_mismatch
 
+type variant_patch =
+  (Types.constructor_declaration, Types.constructor_declaration, string,
+   [ `Constructor_mismatch of
+       Types.constructor_declaration * Types.constructor_declaration *
+       constructor_mismatch
+   | `Constructor_names of Ident.t * Ident.t ]
+  )
+    Diffing.change
+
+
 type type_mismatch =
   | Arity
   | Privacy
@@ -61,7 +71,7 @@ type type_mismatch =
   | Manifest
   | Variance
   | Record_mismatch of record_mismatch
-  | Variant_mismatch of variant_mismatch
+  | Variant_mismatch of variant_patch list
   | Unboxed_representation of position
   | Immediate of Type_immediacy.Violation.t
 
