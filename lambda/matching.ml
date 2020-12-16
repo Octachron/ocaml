@@ -2752,7 +2752,7 @@ let split_extension_cases tag_lambda_list =
   split_rec tag_lambda_list
 
 let combine_constructor loc arg pat_env cstr partial ctx def
-    (descr_lambda_list, total1, pats) =
+    (descr_lambda_list, total1, discrs) =
   let tag_lambda (cstr, act) = (cstr.cstr_tag, act) in
   match cstr.cstr_tag with
   | Cstr_extension _ ->
@@ -2803,8 +2803,10 @@ let combine_constructor loc arg pat_env cstr partial ctx def
           (None, [], Jumps.empty)
         else
           let constrs =
-            List.map2 (fun (constr, _act) p -> { p with pat_desc = constr })
-              descr_lambda_list pats in
+            List.map2 (fun (constr, _act) head ->
+                {  Patterns.Head.((head:expanded:>t)) with pat_desc = constr }
+              )
+              descr_lambda_list discrs in
           mk_failaction_pos partial constrs ctx def
       in
       let descr_lambda_list = fails @ descr_lambda_list in
@@ -3001,7 +3003,7 @@ let compile_list compile_fun division =
             in
             ( (key, lambda1) :: c_rem,
               total,
-              Patterns.Head.(to_omega_pattern (cell.discr:>t)) :: new_discrs )
+              cell.discr :: new_discrs )
         end
       )
   in
