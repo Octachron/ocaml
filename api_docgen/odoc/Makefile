@@ -31,7 +31,7 @@ define stdlib_prefix
 	$(call capitalize, $1))
 endef
 latex/ifocamldoc.tex:
-	echo '\newif\ifocamldoc\ocamldocfalse' > $@
+	printf '\\newif\ifocamldoc\ocamldocfalse\n' > $@
 
 stdlib_INPUT=$(foreach module,\
 $(filter-out stdlib camlinternal%, $(STDLIB:stdlib__%=%)),\

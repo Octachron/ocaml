@@ -33,7 +33,7 @@ ALL_MAN= $(ALL_DOC:%=man/%.3o)
 ALL_LATEX= $(ALL_DOC:%=latex/%.tex)
 
 latex/ifocamldoc.tex:
-	echo '\newif\ifocamldoc\ocamldoctrue' > $@
+	printf '\\newif\ifocamldoc\ocamldoctrue\n' > $@
 
 $(libref:%=build/libref/%.odoc):build/libref/%.odoc:%.mli
 	$(OCAMLDOC_RUN) -nostdlib -hide Stdlib -lib Stdlib \

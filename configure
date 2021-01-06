@@ -1559,7 +1559,8 @@ Optional Features:
   --disable-unix-lib      do not build the unix library
   --disable-bigarray-lib  do not build the legacy separate bigarray library
   --disable-ocamldoc      do not build the ocamldoc documentation system
-  --enable-ocamltest      build documentation with odoc
+  --enable-odoc-documentation
+                          build documentation with odoc
   --disable-ocamltest     do not build the ocamltest driver
   --enable-frame-pointers use frame pointers in runtime and generated code
   --disable-naked-pointers
