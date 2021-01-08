@@ -102,6 +102,7 @@ Checks () {
   $MAKE -C manual clean
   # check that the `distclean` target definitely cleans the tree
   $MAKE distclean
+  $MAKE -C manual distclean
   # Check the working tree is clean
   test -z "$(git status --porcelain)"
   # Check that there are no ignored files
