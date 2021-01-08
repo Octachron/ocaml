@@ -38,6 +38,9 @@
 #ifndef SO_REUSEADDR
 #define SO_REUSEADDR (-1)
 #endif
+#ifndef SO_REUSEPORT
+#define SO_REUSEPORT (-1)
+#endif
 #ifndef SO_KEEPALIVE
 #define SO_KEEPALIVE (-1)
 #endif
@@ -114,7 +117,8 @@ static struct socket_option sockopt_bool[] = {
   { SOL_SOCKET, SO_OOBINLINE },
   { SOL_SOCKET, SO_ACCEPTCONN },
   { IPPROTO_TCP, TCP_NODELAY },
-  { IPPROTO_IPV6, IPV6_V6ONLY}
+  { IPPROTO_IPV6, IPV6_V6ONLY},
+  { SOL_SOCKET, SO_REUSEPORT }
 };
 
 static struct socket_option sockopt_int[] = {

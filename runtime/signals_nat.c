@@ -34,7 +34,6 @@
 #include "caml/signals_machdep.h"
 #include "signals_osdep.h"
 #include "caml/stack.h"
-#include "caml/spacetime.h"
 #include "caml/memprof.h"
 #include "caml/finalise.h"
 
@@ -99,19 +98,7 @@ DECLARE_SIGNAL_HANDLER(handle_signal)
   signal(sig, handle_signal);
 #endif
   if (sig < 0 || sig >= NSIG) return;
-  if (caml_try_leave_blocking_section_hook ()) {
-    caml_raise_if_exception(caml_execute_signal_exn(sig, 1));
-    caml_enter_blocking_section_hook();
-  } else {
-    caml_record_signal(sig);
-  /* Some ports cache [Caml_state->young_limit] in a register.
-     Use the signal context to modify that register too, but only if
-     we are inside OCaml code (not inside C code). */
-#if defined(CONTEXT_PC) && defined(CONTEXT_YOUNG_LIMIT)
-    if (caml_find_code_fragment_by_pc((char *) CONTEXT_PC) != NULL)
-      CONTEXT_YOUNG_LIMIT = (context_reg) Caml_state->young_limit;
-#endif
-  }
+  caml_record_signal(sig);
   errno = saved_errno;
 }
 
@@ -236,6 +223,14 @@ DECLARE_SIGNAL_HANDLER(segv_handler)
 #endif
     caml_raise_stack_overflow();
 #endif
+#ifdef NAKED_POINTERS_CHECKER
+  } else if (Caml_state->checking_pointer_pc) {
+#ifdef CONTEXT_PC
+    CONTEXT_PC = (context_reg)Caml_state->checking_pointer_pc;
+#else
+#error "CONTEXT_PC must be defined if RETURN_AFTER_STACK_OVERFLOW is"
+#endif /* CONTEXT_PC */
+#endif /* NAKED_POINTERS_CHECKER */
   } else {
     /* Otherwise, deactivate our exception handler and return,
        causing fatal signal to be generated at point of error. */
@@ -288,7 +283,7 @@ void caml_init_signals(void)
 #endif
 }
 
-void caml_setup_stack_overflow_detection(void)
+CAMLexport void caml_setup_stack_overflow_detection(void)
 {
 #ifdef HAS_STACK_OVERFLOW_DETECTION
   stack_t stk;

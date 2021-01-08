@@ -12,7 +12,7 @@ caml_tex.cmo : \
     ../parsing/ast_iterator.cmi \
     ../parsing/ast_helper.cmi
 caml_tex.cmx : \
-    ../toplevel/toploop.cmx \
+    ../toplevel/toploop.cmi \
     ../parsing/syntaxerr.cmx \
     ../parsing/parsetree.cmi \
     ../parsing/parse.cmx \
@@ -92,14 +92,14 @@ objinfo.cmo : \
     ../middle_end/linkage_name.cmi \
     ../typing/ident.cmi \
     ../middle_end/flambda/export_info.cmi \
-    ../utils/config.cmi \
     ../middle_end/compilation_unit.cmi \
     ../file_formats/cmxs_format.cmi \
     ../file_formats/cmx_format.cmi \
     ../file_formats/cmt_format.cmi \
     ../file_formats/cmo_format.cmi \
     ../file_formats/cmi_format.cmi \
-    ../bytecomp/bytesections.cmi
+    ../bytecomp/bytesections.cmi \
+    ../utils/binutils.cmi
 objinfo.cmx : \
     ../bytecomp/symtable.cmx \
     ../middle_end/symbol.cmx \
@@ -108,14 +108,14 @@ objinfo.cmx : \
     ../middle_end/linkage_name.cmx \
     ../typing/ident.cmx \
     ../middle_end/flambda/export_info.cmx \
-    ../utils/config.cmx \
     ../middle_end/compilation_unit.cmx \
     ../file_formats/cmxs_format.cmi \
     ../file_formats/cmx_format.cmi \
     ../file_formats/cmt_format.cmx \
     ../file_formats/cmo_format.cmi \
     ../file_formats/cmi_format.cmx \
-    ../bytecomp/bytesections.cmx
+    ../bytecomp/bytesections.cmx \
+    ../utils/binutils.cmx
 ocamlcmt.cmo : \
     ../typing/untypeast.cmi \
     ../typing/stypes.cmi \
@@ -141,9 +141,11 @@ ocamlcmt.cmx : \
     ../utils/clflags.cmx \
     ../typing/annot.cmi
 ocamlcp.cmo : \
-    ../driver/main_args.cmi
+    ../driver/main_args.cmi \
+    ../driver/compenv.cmi
 ocamlcp.cmx : \
-    ../driver/main_args.cmx
+    ../driver/main_args.cmx \
+    ../driver/compenv.cmx
 ocamldep.cmo : \
     ../driver/makedepend.cmi
 ocamldep.cmx : \
@@ -165,9 +167,11 @@ ocamlmktop.cmx : \
     ../utils/config.cmx \
     ../utils/ccomp.cmx
 ocamloptp.cmo : \
-    ../driver/main_args.cmi
+    ../driver/main_args.cmi \
+    ../driver/compenv.cmi
 ocamloptp.cmx : \
-    ../driver/main_args.cmx
+    ../driver/main_args.cmx \
+    ../driver/compenv.cmx
 ocamlprof.cmo : \
     ../utils/warnings.cmi \
     ../parsing/parsetree.cmi \

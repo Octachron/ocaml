@@ -31,9 +31,6 @@
 #include "caml/signals.h"
 #include "caml/weak.h"
 #include "caml/memprof.h"
-#ifdef WITH_SPACETIME
-#include "caml/spacetime.h"
-#endif
 #include "caml/eventlog.h"
 
 /* Pointers into the minor heap.
@@ -173,8 +170,8 @@ void caml_set_minor_heap_size (asize_t bsz)
   Caml_state->young_alloc_mid =
     Caml_state->young_alloc_start + Wsize_bsize (bsz) / 2;
   Caml_state->young_alloc_end = Caml_state->young_end;
+  /* caml_update_young_limit called by caml_memprof_renew_minor_sample */
   Caml_state->young_trigger = Caml_state->young_alloc_start;
-  caml_update_young_limit();
   Caml_state->young_ptr = Caml_state->young_alloc_end;
   Caml_state->minor_heap_wsz = Wsize_bsize (bsz);
   caml_memprof_renew_minor_sample();
@@ -284,9 +281,9 @@ Caml_inline int ephe_check_alive_data(struct caml_ephe_ref_elt *re){
   for (i = CAML_EPHE_FIRST_KEY; i < Wosize_val(re->ephe); i++){
     child = Field (re->ephe, i);
     if(child != caml_ephe_none
-       && Is_block (child) && Is_young (child)
-       && Hd_val (child) != 0){ /* Value not copied to major heap */
-      return 0;
+       && Is_block (child) && Is_young (child)) {
+      if(Tag_val(child) == Infix_tag) child -= Infix_offset_val(child);
+      if(Hd_val (child) != 0) return 0; /* Value not copied to major heap */
     }
   }
   return 1;
@@ -301,7 +298,10 @@ void caml_oldify_mopup (void)
   value v, new_v, f;
   mlsize_t i;
   struct caml_ephe_ref_elt *re;
-  int redo = 0;
+  int redo;
+
+  again:
+  redo = 0;
 
   while (oldify_todo_list != 0){
     v = oldify_todo_list;                /* Get the head. */
@@ -329,10 +329,12 @@ void caml_oldify_mopup (void)
        re < Caml_state->ephe_ref_table->ptr; re++){
     /* look only at ephemeron with data in the minor heap */
     if (re->offset == 1){
-      value *data = &Field(re->ephe,1);
-      if (*data != caml_ephe_none && Is_block (*data) && Is_young (*data)){
-        if (Hd_val (*data) == 0){ /* Value copied to major heap */
-          *data = Field (*data, 0);
+      value *data = &Field(re->ephe,1), v = *data;
+      if (v != caml_ephe_none && Is_block (v) && Is_young (v)){
+        mlsize_t offs = Tag_val(v) == Infix_tag ? Infix_offset_val(v) : 0;
+        v -= offs;
+        if (Hd_val (v) == 0){ /* Value copied to major heap */
+          *data = Field (v, 0) + offs;
         } else {
           if (ephe_check_alive_data(re)){
             caml_oldify_one(*data,data);
@@ -343,7 +345,7 @@ void caml_oldify_mopup (void)
     }
   }
 
-  if (redo) caml_oldify_mopup ();
+  if (redo) goto again;
 }
 
 /* Make sure the minor heap is empty by performing a minor collection
@@ -379,10 +381,12 @@ void caml_empty_minor_heap (void)
          re < Caml_state->ephe_ref_table->ptr; re++){
       if(re->offset < Wosize_val(re->ephe)){
         /* If it is not the case, the ephemeron has been truncated */
-        value *key = &Field(re->ephe,re->offset);
-        if (*key != caml_ephe_none && Is_block (*key) && Is_young (*key)){
-          if (Hd_val (*key) == 0){ /* Value copied to major heap */
-            *key = Field (*key, 0);
+        value *key = &Field(re->ephe,re->offset), v = *key;
+        if (v != caml_ephe_none && Is_block (v) && Is_young (v)){
+          mlsize_t offs = Tag_val (v) == Infix_tag ? Infix_offset_val (v) : 0;
+          v -= offs;
+          if (Hd_val (v) == 0){ /* Value copied to major heap */
+            *key = Field (v, 0) + offs;
           }else{ /* Value not copied so it's dead */
             CAMLassert(!ephe_check_alive_data(re));
             *key = caml_ephe_none;
@@ -450,41 +454,45 @@ void caml_empty_minor_heap (void)
 extern uintnat caml_instr_alloc_jump;
 #endif /*CAML_INSTR*/
 
-/* Do a minor collection or a slice of major collection, call finalisation
-   functions, etc.
+/* Do a minor collection or a slice of major collection, etc.
    Leave enough room in the minor heap to allocate at least one object.
    Guaranteed not to call any OCaml callback.
 */
-CAMLexport void caml_gc_dispatch (void)
+void caml_gc_dispatch (void)
 {
-  value *trigger = Caml_state->young_trigger; /* save old value of trigger */
-
   CAML_EVENTLOG_DO({
     CAML_EV_COUNTER(EV_C_ALLOC_JUMP, caml_instr_alloc_jump);
     caml_instr_alloc_jump =  0;
   });
 
-  if (trigger == Caml_state->young_alloc_start
-      || Caml_state->requested_minor_gc) {
+  if (Caml_state->young_trigger == Caml_state->young_alloc_start){
     /* The minor heap is full, we must do a minor collection. */
+    Caml_state->requested_minor_gc = 1;
+  }else{
+    /* The minor heap is half-full, do a major GC slice. */
+    Caml_state->requested_major_slice = 1;
+  }
+  if (caml_gc_phase == Phase_idle){
+    /* The major GC needs an empty minor heap in order to start a new cycle.
+       If a major slice was requested, we need to do a minor collection
+       before we can do the major slice that starts a new major GC cycle.
+       If a minor collection was requested, we take the opportunity to start
+       a new major GC cycle.
+       In either case, we have to do a minor cycle followed by a major slice.
+    */
+    Caml_state->requested_minor_gc = 1;
+    Caml_state->requested_major_slice = 1;
+  }
+  if (Caml_state->requested_minor_gc) {
     /* reset the pointers first because the end hooks might allocate */
     CAML_EV_BEGIN(EV_MINOR);
     Caml_state->requested_minor_gc = 0;
     Caml_state->young_trigger = Caml_state->young_alloc_mid;
     caml_update_young_limit();
     caml_empty_minor_heap ();
-    /* The minor heap is empty, we can start a major collection. */
     CAML_EV_END(EV_MINOR);
-    if (caml_gc_phase == Phase_idle)
-    {
-      CAML_EV_BEGIN(EV_MAJOR);
-      caml_major_collection_slice (-1);
-      CAML_EV_END(EV_MAJOR);
-    }
   }
-  if (trigger != Caml_state->young_alloc_start
-      || Caml_state->requested_major_slice) {
-    /* The minor heap is half-full, do a major GC slice. */
+  if (Caml_state->requested_major_slice) {
     Caml_state->requested_major_slice = 0;
     Caml_state->young_trigger = Caml_state->young_alloc_start;
     caml_update_young_limit();
@@ -529,11 +537,6 @@ void caml_alloc_small_dispatch (intnat wosize, int flags,
        callbacks. */
     CAML_EV_COUNTER (EV_C_FORCE_MINOR_ALLOC_SMALL, 1);
     caml_gc_dispatch ();
-#if defined(NATIVE_CODE) && defined(WITH_SPACETIME)
-    if (caml_young_ptr == caml_young_alloc_end) {
-      caml_spacetime_automatic_snapshot();
-    }
-#endif
   }
 
   /* Re-do the allocation: we now have enough space in the minor heap. */

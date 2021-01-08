@@ -20,13 +20,12 @@ open Actions
 
 (* Extracting information from environment *)
 
-let native_support = Ocamltest_config.arch <> "none"
-
 let no_native_compilers _log env =
   (Result.skip_with_reason "native compilers disabled", env)
 
 let native_action a =
-  if native_support then a else (Actions.update a no_native_compilers)
+  if Ocamltest_config.native_compiler then a
+  else (Actions.update a no_native_compilers)
 
 let get_backend_value_from_env env bytecode_var native_var =
   Ocaml_backends.make_backend_function
@@ -977,83 +976,80 @@ let run_test_program_in_toplevel (toplevel : Ocaml_toplevels.toplevel) log env =
   (* This is a sub-optimal check - skip the test if any libraries requiring
      C stubs are loaded. It would be better at this point to build a custom
      toplevel. *)
-  let toplevel_can_run =
+  let toplevel_supports_dynamic_loading =
     Config.supports_shared_libraries || backend <> Ocaml_backends.Bytecode
   in
-  if not toplevel_can_run then
-    (Result.skip, env)
-  else
-    match cmas_need_dynamic_loading (directories env) libraries with
-      | Some (Error reason) ->
-        (Result.fail_with_reason reason, env)
-      | Some (Ok ()) ->
-        (Result.skip, env)
-      | None ->
-        let testfile = Actions_helpers.testfile env in
-        let expected_exit_status =
-          Ocaml_tools.expected_exit_status env (toplevel :> Ocaml_tools.tool) in
-        let compiler_output_variable = toplevel#output_variable in
-        let compiler = toplevel#compiler in
-        let compiler_name = compiler#name in
-        let modules_with_filetypes =
-          List.map Ocaml_filetypes.filetype (modules env) in
-        let (result, env) = compile_modules
-          compiler compiler_name compiler_output_variable
-          modules_with_filetypes log env in
-        if Result.is_pass result then begin
-          let what =
-            Printf.sprintf "Running %s in %s toplevel \
-                            (expected exit status: %d)"
-            testfile
-            (Ocaml_backends.string_of_backend backend)
-            expected_exit_status in
-          Printf.fprintf log "%s\n%!" what;
-          let toplevel_name = toplevel#name in
-          let ocaml_script_as_argument =
-            match
-              Environments.lookup_as_bool
-                Ocaml_variables.ocaml_script_as_argument env
-            with
-            | None -> false
-            | Some b -> b
-          in
-          let commandline =
-          [
-            toplevel_name;
-            Ocaml_flags.toplevel_default_flags;
-            toplevel#flags;
-            Ocaml_flags.stdlib;
-            directory_flags env;
-            Ocaml_flags.include_toplevel_directory;
-            flags env;
-            libraries;
-            binary_modules backend env;
-            if ocaml_script_as_argument then testfile else "";
-            Environments.safe_lookup Builtin_variables.arguments env
-          ] in
-          let exit_status =
-            if ocaml_script_as_argument
-            then Actions_helpers.run_cmd
-              ~environment:default_ocaml_env
-              ~stdout_variable:compiler_output_variable
-              ~stderr_variable:compiler_output_variable
-              log env commandline
-            else Actions_helpers.run_cmd
-              ~environment:default_ocaml_env
-              ~stdin_variable:Builtin_variables.test_file
-              ~stdout_variable:compiler_output_variable
-              ~stderr_variable:compiler_output_variable
-              log env commandline
-          in
-          if exit_status=expected_exit_status
-          then (Result.pass, env)
-          else begin
-            let reason =
-              (Actions_helpers.mkreason
-                what (String.concat " " commandline) exit_status) in
-            (Result.fail_with_reason reason, env)
-          end
-        end else (result, env)
+  match cmas_need_dynamic_loading (directories env) libraries with
+    | Some (Error reason) ->
+      (Result.fail_with_reason reason, env)
+    | Some (Ok ()) when not toplevel_supports_dynamic_loading ->
+      (Result.skip, env)
+    | _ ->
+      let testfile = Actions_helpers.testfile env in
+      let expected_exit_status =
+        Ocaml_tools.expected_exit_status env (toplevel :> Ocaml_tools.tool) in
+      let compiler_output_variable = toplevel#output_variable in
+      let compiler = toplevel#compiler in
+      let compiler_name = compiler#name in
+      let modules_with_filetypes =
+        List.map Ocaml_filetypes.filetype (modules env) in
+      let (result, env) = compile_modules
+        compiler compiler_name compiler_output_variable
+        modules_with_filetypes log env in
+      if Result.is_pass result then begin
+        let what =
+          Printf.sprintf "Running %s in %s toplevel \
+                          (expected exit status: %d)"
+          testfile
+          (Ocaml_backends.string_of_backend backend)
+          expected_exit_status in
+        Printf.fprintf log "%s\n%!" what;
+        let toplevel_name = toplevel#name in
+        let ocaml_script_as_argument =
+          match
+            Environments.lookup_as_bool
+              Ocaml_variables.ocaml_script_as_argument env
+          with
+          | None -> false
+          | Some b -> b
+        in
+        let commandline =
+        [
+          toplevel_name;
+          Ocaml_flags.toplevel_default_flags;
+          toplevel#flags;
+          Ocaml_flags.stdlib;
+          directory_flags env;
+          Ocaml_flags.include_toplevel_directory;
+          flags env;
+          libraries;
+          binary_modules backend env;
+          if ocaml_script_as_argument then testfile else "";
+          Environments.safe_lookup Builtin_variables.arguments env
+        ] in
+        let exit_status =
+          if ocaml_script_as_argument
+          then Actions_helpers.run_cmd
+            ~environment:default_ocaml_env
+            ~stdout_variable:compiler_output_variable
+            ~stderr_variable:compiler_output_variable
+            log env commandline
+          else Actions_helpers.run_cmd
+            ~environment:default_ocaml_env
+            ~stdin_variable:Builtin_variables.test_file
+            ~stdout_variable:compiler_output_variable
+            ~stderr_variable:compiler_output_variable
+            log env commandline
+        in
+        if exit_status=expected_exit_status
+        then (Result.pass, env)
+        else begin
+          let reason =
+            (Actions_helpers.mkreason
+              what (String.concat " " commandline) exit_status) in
+          (Result.fail_with_reason reason, env)
+        end
+      end else (result, env)
 
 let ocaml = Actions.make
   "ocaml"
@@ -1086,6 +1082,7 @@ let config_variables _log env =
       Sys.getenv_with_default_value "MKDLL" Ocamltest_config.mkdll;
     Ocaml_variables.mkexe, Ocamltest_config.mkexe;
     Ocaml_variables.c_preprocessor, Ocamltest_config.c_preprocessor;
+    Ocaml_variables.cc, Ocamltest_config.cc;
     Ocaml_variables.csc, Ocamltest_config.csc;
     Ocaml_variables.csc_flags, Ocamltest_config.csc_flags;
     Ocaml_variables.shared_library_cflags,
@@ -1126,18 +1123,6 @@ let no_flambda = make
     "support for flambda disabled"
     "support for flambda enabled")
 
-let spacetime = Actions.make
-  "spacetime"
-  (Actions_helpers.pass_or_skip Ocamltest_config.spacetime
-    "support for spacetime enabled"
-    "support for spacetime disabled")
-
-let no_spacetime = make
-  "no-spacetime"
-  (Actions_helpers.pass_or_skip (not Ocamltest_config.spacetime)
-    "support for spacetime disabled"
-    "support for spacetime enabled")
-
 let shared_libraries = Actions.make
   "shared-libraries"
   (Actions_helpers.pass_or_skip Ocamltest_config.shared_libraries
@@ -1152,7 +1137,7 @@ let no_shared_libraries = Actions.make
 
 let native_compiler = Actions.make
   "native-compiler"
-  (Actions_helpers.pass_or_skip (Ocamltest_config.arch <> "none")
+  (Actions_helpers.pass_or_skip Ocamltest_config.native_compiler
     "native compiler available"
     "native compiler not available")
 
@@ -1377,8 +1362,6 @@ let _ =
     no_flat_float_array;
     flambda;
     no_flambda;
-    spacetime;
-    no_spacetime;
     shared_libraries;
     no_shared_libraries;
     native_compiler;

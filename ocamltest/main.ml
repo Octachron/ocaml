@@ -152,9 +152,9 @@ let test_file test_filename =
   let test_build_directory_prefix =
     get_test_build_directory_prefix test_directory in
   let clean_test_build_directory () =
-    ignore
-      (Sys.command
-         (Filename.quote_command "rm" ["-rf"; test_build_directory_prefix]))
+    try
+      Sys.rm_rf test_build_directory_prefix
+    with Sys_error _ -> ()
   in
   clean_test_build_directory ();
   Sys.make_directory test_build_directory_prefix;
@@ -167,6 +167,7 @@ let test_file test_filename =
   let summary = Sys.with_chdir test_build_directory_prefix
     (fun () ->
        let promote = string_of_bool Options.promote in
+       let default_timeout = string_of_int Options.default_timeout in
        let install_hook name =
          let hook_name = Filename.make_filename hookname_prefix name in
          if Sys.file_exists hook_name then begin
@@ -187,6 +188,7 @@ let test_file test_filename =
              Builtin_variables.test_build_directory_prefix,
                test_build_directory_prefix;
              Builtin_variables.promote, promote;
+             Builtin_variables.timeout, default_timeout;
            ] in
        let rootenv =
          Environments.initialize Environments.Pre log initial_environment in
@@ -221,6 +223,8 @@ let is_test s =
 let ignored s =
   s = "" || s.[0] = '_' || s.[0] = '.'
 
+let sort_strings = List.sort String.compare
+
 let find_test_dirs dir =
   let res = ref [] in
   let rec loop dir =
@@ -236,7 +240,7 @@ let find_test_dirs dir =
     if !contains_tests then res := dir :: !res
   in
   loop dir;
-  List.rev !res
+  sort_strings !res
 
 let list_tests dir =
   let res = ref [] in
@@ -250,7 +254,7 @@ let list_tests dir =
         end
       ) (Sys.readdir dir)
   end;
-  List.rev !res
+  sort_strings !res
 
 let () =
   init_tests_to_skip()

@@ -47,8 +47,6 @@ let ocamlsrcdir = "%%ocamlsrcdir%%"
 
 let flambda = %%FLAMBDA%%
 
-let spacetime = %%WITH_SPACETIME%%
-
 let ocamlc_default_flags = "%%ocamlcdefaultflags%%"
 let ocamlopt_default_flags = "%%ocamloptdefaultflags%%"
 
@@ -59,6 +57,8 @@ let flat_float_array = %%FLAT_FLOAT_ARRAY%%
 let ocamldoc = %%WITH_OCAMLDOC%%
 
 let ocamldebug = %%WITH_OCAMLDEBUG%%
+
+let native_compiler = %%NATIVE_COMPILER%%
 
 let native_dynlink = %%NATDYNLINK%%
 

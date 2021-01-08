@@ -19,3 +19,28 @@ Error: This functor has type
        The parameter cannot be eliminated in the result type.
        Please bind the argument to a module identifier.
 |}]
+
+module M (X : sig type 'a t constraint 'a = float end) = struct
+  module type S = sig
+    type t = float
+    val foo : t X.t
+  end
+end
+
+module N = M (struct type 'a t = int constraint 'a = float end)
+
+[%%expect{|
+module M :
+  functor (X : sig type 'a t constraint 'a = float end) ->
+    sig module type S = sig type t = float val foo : t X.t end end
+module N : sig module type S = sig type t = float val foo : int end end
+|}]
+
+type 'a always_int = int
+module F (X : sig type t end) = struct type s = X.t always_int end
+module M = F (struct type t = T end)
+[%%expect{|
+type 'a always_int = int
+module F : functor (X : sig type t end) -> sig type s = X.t always_int end
+module M : sig type s = int end
+|}]

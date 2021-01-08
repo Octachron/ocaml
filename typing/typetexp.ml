@@ -423,14 +423,7 @@ and transl_type_aux env policy styp =
                 {desc=Tconstr(p, tl, _)} -> Some(p, tl)
               | _                        -> None
             in
-            begin try
-              (* Set name if there are no fields yet *)
-              Hashtbl.iter (fun _ _ -> raise Exit) hfields;
-              name := nm
-            with Exit ->
-              (* Unset it otherwise *)
-              name := None
-            end;
+            name := if Hashtbl.length hfields <> 0 then None else nm;
             let fl = match expand_head env cty.ctyp_type, nm with
               {desc=Tvariant row}, _ when Btype.static_row row ->
                 let row = Btype.row_repr row in
@@ -499,7 +492,7 @@ and transl_type_aux env policy styp =
             if deep_occur v ty then begin
               match v.desc with
                 Tvar name when v.level = Btype.generic_level ->
-                  v.desc <- Tunivar name;
+                  Btype.set_type_desc v (Tunivar name);
                   v :: tyl
               | _ ->
                 raise (Error (styp.ptyp_loc, env, Cannot_quantify (name, v)))
@@ -600,24 +593,24 @@ and transl_fields env policy o fields =
 (* Make the rows "fixed" in this type, to make universal check easier *)
 let rec make_fixed_univars ty =
   let ty = repr ty in
-  if ty.level >= Btype.lowest_level then begin
-    Btype.mark_type_node ty;
-    match ty.desc with
+  if Btype.try_mark_node ty then
+    begin match ty.desc with
     | Tvariant row ->
         let row = Btype.row_repr row in
         let more = Btype.row_more row in
         if Btype.is_Tunivar more then
-          ty.desc <- Tvariant
-              {row with row_fixed=Some(Univar more);
-               row_fields = List.map
+          Btype.set_type_desc ty
+            (Tvariant
+               {row with row_fixed=Some(Univar more);
+                row_fields = List.map
                  (fun (s,f as p) -> match Btype.row_field_repr f with
                    Reither (c, tl, _m, r) -> s, Reither (c, tl, true, r)
                  | _ -> p)
-                 row.row_fields};
+                 row.row_fields});
         Btype.iter_row make_fixed_univars row
     | _ ->
         Btype.iter_type_expr make_fixed_univars ty
-  end
+    end
 
 let make_fixed_univars ty =
   make_fixed_univars ty;
@@ -677,7 +670,7 @@ let transl_simple_type_univars env styp =
         let v = repr v in
         match v.desc with
           Tvar name when v.level = Btype.generic_level ->
-            v.desc <- Tunivar name; v :: acc
+            Btype.set_type_desc v (Tunivar name); v :: acc
         | _ -> acc)
       [] !pre_univars
   in
@@ -687,9 +680,17 @@ let transl_simple_type_univars env styp =
 
 let transl_simple_type_delayed env styp =
   univars := []; used_variables := TyVarMap.empty;
+  begin_def ();
   let typ = transl_type env Extensible styp in
+  end_def ();
   make_fixed_univars typ.ctyp_type;
-  (typ, globalize_used_variables env false)
+  (* This brings the used variables to the global level, but doesn't link them
+     to their other occurrences just yet. This will be done when [force] is
+     called. *)
+  let force = globalize_used_variables env false in
+  (* Generalizes everything except the variables that were just globalized. *)
+  generalize typ.ctyp_type;
+  (typ, instance typ.ctyp_type, force)
 
 let transl_type_scheme env styp =
   reset_type_variables();

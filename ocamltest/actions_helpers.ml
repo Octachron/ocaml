@@ -62,13 +62,25 @@ let files env = words_of_variable env Builtin_variables.files
 
 let setup_symlinks test_source_directory build_directory files =
   let symlink filename =
+    (* Emulate ln -sfT *)
     let src = Filename.concat test_source_directory filename in
-    Sys.run_system_command "ln" ["-sf"; src; build_directory] in
+    let dst = Filename.concat build_directory filename in
+    let () =
+      if Sys.file_exists dst then
+        if Sys.win32 && Sys.is_directory dst then
+          (* Native symbolic links to directories don't disappear with unlink;
+             doing rmdir here is technically slightly more than ln -sfT would
+             do *)
+          Sys.rmdir dst
+        else
+          Sys.remove dst
+    in
+      Unix.symlink src dst in
   let copy filename =
     let src = Filename.concat test_source_directory filename in
     let dst = Filename.concat build_directory filename in
     Sys.copy_file src dst in
-  let f = if Sys.win32 then copy else symlink in
+  let f = if Unix.has_symlink () then symlink else copy in
   Sys.make_directory build_directory;
   List.iter f files
 
@@ -95,7 +107,7 @@ let run_cmd
     ?(stdout_variable=Builtin_variables.stdout)
     ?(stderr_variable=Builtin_variables.stderr)
     ?(append=false)
-    ?(timeout=0)
+    ?timeout
     log env original_cmd
   =
   let log_redirection std filename =
@@ -138,6 +150,13 @@ let run_cmd
     Array.append
       environment
       (Environments.to_system_env env)
+  in
+  let timeout =
+    match timeout with
+    | Some timeout -> timeout
+    | None ->
+        Option.value ~default:0
+          (Environments.lookup_as_int Builtin_variables.timeout env)
   in
   let n =
     Run_command.run {
@@ -261,6 +280,9 @@ let run_hook hook_name log input_env =
     Builtin_variables.ocamltest_response response_file input_env in
   let systemenv =
     Environments.to_system_env hookenv in
+  let timeout =
+    Option.value ~default:0
+      (Environments.lookup_as_int Builtin_variables.timeout input_env) in
   let open Run_command in
   let settings = {
     progname = "sh";
@@ -270,7 +292,7 @@ let run_hook hook_name log input_env =
     stdout_filename = "";
     stderr_filename = "";
     append = false;
-    timeout = 0;
+    timeout = timeout;
     log = log;
   } in let exit_status = run settings in
   let final_value = match exit_status with

@@ -20,6 +20,8 @@ open Path
 open Types
 open Btype
 
+open Local_store
+
 type type_replacement =
   | Path of Path.t
   | Type_function of { params : type_expr list; body : type_expr }
@@ -124,12 +126,13 @@ let to_subst_by_type_function s p =
 
 (* Special type ids for saved signatures *)
 
-let new_id = ref (-1)
+let new_id = s_ref (-1)
 let reset_for_saving () = new_id := -1
 
 let newpersty desc =
   decr new_id;
-  { desc; level = generic_level; scope = Btype.lowest_level; id = !new_id }
+  Private_type_expr.create
+    desc ~level:generic_level ~scope:Btype.lowest_level ~id:!new_id
 
 (* ensure that all occurrences of 'Tvar None' are physically shared *)
 let tvar_none = Tvar None
@@ -152,7 +155,9 @@ let rec typexp copy_scope s ty =
           else newty2 ty.level desc
         in
         For_copy.save_desc copy_scope ty desc;
-        ty.desc <- Tsubst ty';
+        Private_type_expr.set_desc ty (Tsubst ty');
+        (* TODO: move this line to btype.ml
+           there is a similar problem also in ctype.ml *)
         ty'
       else ty
   | Tsubst ty ->
@@ -173,9 +178,10 @@ let rec typexp copy_scope s ty =
       not (is_Tconstr ty) && is_constr_row ~allow_ident:false tm in
     (* Make a stub *)
     let ty' = if s.for_saving then newpersty (Tvar None) else newgenvar () in
-    ty'.scope <- ty.scope;
-    ty.desc <- Tsubst ty';
-    ty'.desc <-
+    Private_type_expr.set_scope ty' ty.scope;
+    (* TODO: figure out why not use set_scope *)
+    Private_type_expr.set_desc ty (Tsubst ty');
+    Private_type_expr.set_desc ty'
       begin if has_fixed_row then
         match tm.desc with (* PR#7348 *)
           Tconstr (Pdot(m,i), tl, _abbrev) ->
@@ -212,7 +218,8 @@ let rec typexp copy_scope s ty =
           begin match more.desc with
             Tsubst {desc = Ttuple [_;ty2]} ->
               (* This variant type has been already copied *)
-              ty.desc <- Tsubst ty2; (* avoid Tlink in the new type *)
+              Private_type_expr.set_desc ty (Tsubst ty2);
+              (* avoid Tlink in the new type *)
               Tlink ty2
           | _ ->
               let dup =
@@ -230,7 +237,9 @@ let rec typexp copy_scope s ty =
                 | _ -> assert false
               in
               (* Register new type first for recursion *)
-              more.desc <- Tsubst(newgenty(Ttuple[more';ty']));
+              Private_type_expr.set_desc more
+                (Tsubst(newgenty(Ttuple[more';ty'])));
+              (* TODO: check if more' can be eliminated *)
               (* Return a new copy *)
               let row =
                 copy_row (typexp copy_scope s) true row (not dup) more' in

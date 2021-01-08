@@ -613,6 +613,13 @@ and 'a class_infos =
     ci_attributes: attribute list;
    }
 
+type implementation = {
+  structure: structure;
+  coercion: module_coercion;
+  signature: Types.signature
+}
+
+
 (* Auxiliary functions over the a.s.t. *)
 
 let as_computation_pattern (p : pattern) : computation general_pattern =
@@ -713,15 +720,6 @@ let iter_pattern (f : pattern -> unit) =
           match classify_pattern p with
           | Value -> f p
           | Computation -> () }
-
-let rec map_general_pattern
-  : type k . pattern_transformation -> k general_pattern -> k general_pattern
-  = fun f p ->
-  let pat_desc =
-    shallow_map_pattern_desc
-      { f = fun p -> map_general_pattern f p }
-      p.pat_desc in
-  f.f { p with pat_desc }
 
 type pattern_predicate = { f : 'k . 'k general_pattern -> bool }
 let exists_general_pattern (f : pattern_predicate) p =

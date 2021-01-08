@@ -490,8 +490,8 @@ let rec raw_type ppf ty =
   let ty = safe_repr [] ty in
   if List.memq ty !visited then fprintf ppf "{id=%d}" ty.id else begin
     visited := ty :: !visited;
-    fprintf ppf "@[<1>{id=%d;level=%d;desc=@,%a}@]" ty.id ty.level
-      raw_type_desc ty.desc
+    fprintf ppf "@[<1>{id=%d;level=%d;scope=%d;desc=@,%a}@]" ty.id ty.level
+      ty.scope raw_type_desc ty.desc
   end
 and raw_type_list tl = raw_list raw_type tl
 and raw_type_desc ppf = function
@@ -591,11 +591,25 @@ let apply_subst s1 tyl =
 
 type best_path = Paths of Path.t list | Best of Path.t
 
-let printing_depth = ref 0
-let printing_cont = ref ([] : Env.iter_cont list)
+(** Short-paths cache: the five mutable variables below implement a one-slot
+    cache for short-paths
+ *)
 let printing_old = ref Env.empty
 let printing_pers = ref Concr.empty
+(** {!printing_old} and  {!printing_pers} are the keys of the one-slot cache *)
+
+let printing_depth = ref 0
+let printing_cont = ref ([] : Env.iter_cont list)
 let printing_map = ref Path.Map.empty
+(**
+   - {!printing_map} is the main value stored in the cache.
+   Note that it is evaluated lazily and its value is updated during printing.
+   - {!printing_dep} is the current exploration depth of the environment,
+   it is used to determine whenever the {!printing_map} should be evaluated
+   further before completing a request.
+   - {!printing_cont} is the list of continuations needed to evaluate
+   the {!printing_map} one level further (see also {!Env.run_iter_cont})
+*)
 
 let same_type t t' = repr t == repr t'
 
@@ -909,7 +923,7 @@ let rec mark_loops_rec visited ty =
     | Tunivar _ -> add_named_var ty
 
 let mark_loops ty =
-  normalize_type Env.empty ty;
+  normalize_type ty;
   mark_loops_rec [] ty;;
 
 let reset_loop_marks () =
@@ -1168,7 +1182,7 @@ let rec tree_of_type_decl id decl =
       let vars = free_variables ty in
       List.iter
         (function {desc = Tvar (Some "_")} as ty ->
-            if List.memq ty vars then ty.desc <- Tvar None
+            if List.memq ty vars then set_type_desc ty (Tvar None)
           | _ -> ())
         params
   | None -> ()
@@ -1583,9 +1597,28 @@ let cltype_declaration id ppf cl =
 (* Print a module type *)
 
 let wrap_env fenv ftree arg =
+  (* We save the current value of the short-path cache *)
+  (* From keys *)
   let env = !printing_env in
+  let old_pers = !printing_pers in
+  (* to data *)
+  let old_map = !printing_map in
+  let old_depth = !printing_depth in
+  let old_cont = !printing_cont in
   set_printing_env (fenv env);
   let tree = ftree arg in
+  if !Clflags.real_paths
+     || same_printing_env env then ()
+   (* our cached key is still live in the cache, and we want to keep all
+      progress made on the computation of the [printing_map] *)
+  else begin
+    (* we restore the snapshotted cache before calling set_printing_env *)
+    printing_old := env;
+    printing_pers := old_pers;
+    printing_depth := old_depth;
+    printing_cont := old_cont;
+    printing_map := old_map
+  end;
   set_printing_env env;
   tree
 
@@ -2058,8 +2091,19 @@ let explanation intro prev env = function
   | Trace.Obj o -> explain_object o
   | Trace.Rec_occur(x,y) ->
       reset_and_mark_loops y;
-      Some(dprintf "@,@[<hov>The type variable %a occurs inside@ %a@]"
-            marked_type_expr x marked_type_expr y)
+      begin match x.desc with
+      | Tvar _ | Tunivar _  ->
+          Some(dprintf "@,@[<hov>The type variable %a occurs inside@ %a@]"
+                 marked_type_expr x marked_type_expr y)
+      | _ ->
+          (* We had a delayed unification of the type variable with
+             a non-variable after the occur check. *)
+          Some ignore
+           (* There is no need to search further for an explanation, but
+              we don't want to print a message of the form:
+                {[ The type int occurs inside int list -> 'a |}
+           *)
+      end
 
 let mismatch intro env trace =
   Trace.explain trace (fun ~prev h -> explanation intro prev env h)

@@ -45,7 +45,7 @@ void caml_debugger(enum event_kind event, value param)
 {
 }
 
-void caml_debugger_cleanup_fork(void)
+CAMLexport void caml_debugger_cleanup_fork(void)
 {
 }
 
@@ -141,6 +141,12 @@ static void open_connection(void)
 #endif
   dbg_in = caml_open_descriptor_in(dbg_socket);
   dbg_out = caml_open_descriptor_out(dbg_socket);
+  /* The code in this file does not bracket channel I/O operations with
+     Lock and Unlock, so fail if those are not no-ops. */
+  if (caml_channel_mutex_lock != NULL ||
+      caml_channel_mutex_unlock != NULL ||
+      caml_channel_mutex_unlock_exn != NULL)
+    caml_fatal_error("debugger does not support channel locks");
   if (!caml_debugger_in_use) caml_putword(dbg_out, -1); /* first connection */
 #ifdef _WIN32
   caml_putword(dbg_out, _getpid());
@@ -556,7 +562,7 @@ void caml_debugger(enum event_kind event, value param)
   }
 }
 
-void caml_debugger_cleanup_fork(void)
+CAMLexport void caml_debugger_cleanup_fork(void)
 {
   /* We could remove all of the event points, but closing the connection
    * means that they'll just be skipped anyway. */

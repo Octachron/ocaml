@@ -565,6 +565,11 @@ let exit retcode =
 
 let _ = register_named_value "Pervasives.do_at_exit" do_at_exit
 
+external major : unit -> unit = "caml_gc_major"
+external naked_pointers_checked : unit -> bool
+  = "caml_sys_const_naked_pointers_checked"
+let () = if naked_pointers_checked () then at_exit major
+
 (*MODULE_ALIASES*)
 module Arg          = Arg
 module Array        = Array
@@ -579,6 +584,7 @@ module Callback     = Callback
 module Char         = Char
 module Complex      = Complex
 module Digest       = Digest
+module Either       = Either
 module Ephemeron    = Ephemeron
 module Filename     = Filename
 module Float        = Float
@@ -611,7 +617,6 @@ module Result       = Result
 module Scanf        = Scanf
 module Seq          = Seq
 module Set          = Set
-module Spacetime    = Spacetime
 module Stack        = Stack
 module StdLabels    = StdLabels
 module Stream       = Stream

@@ -616,18 +616,18 @@ value caml_interprete(code_t prog, asize_t prog_size)
     Instruct(OFFSETCLOSURE):
       accu = env + *pc++ * sizeof(value); Next;
 
-    Instruct(PUSHOFFSETCLOSUREM2):
+    Instruct(PUSHOFFSETCLOSUREM3):
       *--sp = accu; /* fallthrough */
-    Instruct(OFFSETCLOSUREM2):
-      accu = env - 2 * sizeof(value); Next;
+    Instruct(OFFSETCLOSUREM3):
+      accu = env - 3 * sizeof(value); Next;
     Instruct(PUSHOFFSETCLOSURE0):
       *--sp = accu; /* fallthrough */
     Instruct(OFFSETCLOSURE0):
       accu = env; Next;
-    Instruct(PUSHOFFSETCLOSURE2):
+    Instruct(PUSHOFFSETCLOSURE3):
       *--sp = accu; /* fallthrough */
-    Instruct(OFFSETCLOSURE2):
-      accu = env + 2 * sizeof(value); Next;
+    Instruct(OFFSETCLOSURE3):
+      accu = env + 3 * sizeof(value); Next;
 
 
 /* Access to global variables */
@@ -1082,10 +1082,6 @@ value caml_interprete(code_t prog, asize_t prog_size)
 
 #define Lookup(obj, lab) Field (Field (obj, 0), Int_val(lab))
 
-      /* please don't forget to keep below code in sync with the
-         functions caml_cache_public_method and
-         caml_cache_public_method2 in obj.c */
-
     Instruct(GETMETHOD):
       accu = Lookup(sp[0], accu);
       Next;
@@ -1181,21 +1177,4 @@ value caml_interprete(code_t prog, asize_t prog_size)
     }
   }
 #endif
-}
-
-void caml_prepare_bytecode(code_t prog, asize_t prog_size) {
-  /* other implementations of the interpreter (such as an hypothetical
-     JIT translator) might want to do something with a bytecode before
-     running it */
-  CAMLassert(prog);
-  CAMLassert(prog_size>0);
-  /* actually, the threading of the bytecode might be done here */
-}
-
-void caml_release_bytecode(code_t prog, asize_t prog_size) {
-  /* other implementations of the interpreter (such as an hypothetical
-     JIT translator) might want to know when a bytecode is removed */
-  /* check that we have a program */
-  CAMLassert(prog);
-  CAMLassert(prog_size>0);
 }

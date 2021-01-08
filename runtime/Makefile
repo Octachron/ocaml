@@ -25,7 +25,7 @@ BYTECODE_C_SOURCES := $(addsuffix .c, \
   signals_byt printexc backtrace_byt backtrace compare ints eventlog \
   floats str array io extern intern hash sys meta parsing gc_ctrl md5 obj \
   lexing callback debugger weak compact finalise custom dynlink \
-  spacetime_byt afl $(UNIX_OR_WIN32) bigarray main memprof domain \
+  afl $(UNIX_OR_WIN32) bigarray main memprof domain \
   skiplist codefrag)
 
 NATIVE_C_SOURCES := $(addsuffix .c, \
@@ -34,7 +34,7 @@ NATIVE_C_SOURCES := $(addsuffix .c, \
   floats str array io extern intern hash sys parsing gc_ctrl eventlog md5 obj \
   lexing $(UNIX_OR_WIN32) printexc callback weak compact finalise custom \
   globroots backtrace_nat backtrace dynlink_nat debugger meta \
-  dynlink clambda_checks spacetime_nat spacetime_snapshot afl bigarray \
+  dynlink clambda_checks afl bigarray \
   memprof domain skiplist codefrag)
 
 GENERATED_HEADERS := caml/opnames.h caml/version.h caml/jumptbl.h
@@ -130,22 +130,21 @@ ifneq "$(CCOMPTYPE)" "msvc"
 OC_CFLAGS += -g
 endif
 
+OC_CPPFLAGS += -DCAMLDLLIMPORT=
+
 OC_NATIVE_CPPFLAGS = -DNATIVE_CODE -DTARGET_$(ARCH)
 
 ifeq "$(UNIX_OR_WIN32)" "unix"
 OC_NATIVE_CPPFLAGS += -DMODEL_$(MODEL)
 endif
 
-OC_NATIVE_CPPFLAGS += -DSYS_$(SYSTEM) $(IFLEXDIR) $(LIBUNWIND_INCLUDE_FLAGS)
+OC_NATIVE_CPPFLAGS += -DSYS_$(SYSTEM) $(IFLEXDIR)
 
 OC_DEBUG_CPPFLAGS=-DDEBUG
 OC_INSTR_CPPFLAGS=-DCAML_INSTR
 
 ifeq "$(TOOLCHAIN)" "msvc"
 ASMFLAGS=
-ifeq ($(WITH_SPACETIME),true)
-ASMFLAGS=/DWITH_SPACETIME
-endif
 endif
 
 ASPPFLAGS = -DSYS_$(SYSTEM) -I$(ROOTDIR)/runtime
@@ -349,13 +348,15 @@ ifneq "$(1)" "%"
 # don't use -MG and instead include $(GENERATED_HEADERS) in the order only
 # dependencies to ensure that they exist before dependencies are computed.
 $(DEPDIR)/$(1).$(D): %.c | $(DEPDIR) $(GENERATED_HEADERS)
-	$$(DEP_CC) $$(OC_CPPFLAGS) $$< -MT '$$*$(subst %,,$(1)).$(O)' -MF $$@
+	$$(DEP_CC) $$(OC_CPPFLAGS) $$(CPPFLAGS) $$< -MT \
+	  '$$*$(subst %,,$(1)).$(O)' -MF $$@
 endif
 $(1).$(O): %.c
 else
 $(1).$(O): %.c $(CONFIG_HEADERS) $(GENERATED_HEADERS) $(RUNTIME_HEADERS)
 endif
-	$$(CC) -c $$(OC_CFLAGS) $$(OC_CPPFLAGS) $$(OUTPUTOBJ)$$@ $$<
+	$$(CC) -c $$(OC_CFLAGS) $$(CFLAGS) $$(OC_CPPFLAGS) $$(CPPFLAGS) \
+	  $$(OUTPUTOBJ)$$@ $$<
 endef
 
 object_types := % %.b %.bd %.bi %.bpic
@@ -367,6 +368,8 @@ $(foreach object_type, $(object_types), \
   $(eval $(call COMPILE_C_FILE,$(object_type))))
 
 dynlink.%.$(O): OC_CPPFLAGS += $(STDLIB_CPP_FLAG)
+
+startup_byt.%.$(O): OC_CPPFLAGS += $(STDLIB_CPP_FLAG) -DHOST='"$(HOST)"'
 
 $(foreach object_type,$(subst %,,$(object_types)), \
   $(eval dynlink$(object_type).$(O): $(ROOTDIR)/Makefile.config))
@@ -412,3 +415,8 @@ DEP_FILES := $(addsuffix .$(D), $(DEP_FILES))
 ifeq "$(COMPUTE_DEPS)" "true"
 include $(addprefix $(DEPDIR)/, $(DEP_FILES))
 endif
+
+# This empty target is here for AppVeyor to allow dependencies to be built
+# without doing anything else.
+.PHONY: setup-depend
+setup-depend:

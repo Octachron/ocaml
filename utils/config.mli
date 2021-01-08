@@ -118,6 +118,9 @@ val cmxs_magic_number: string
 val cmt_magic_number: string
 (** Magic number for compiled interface files *)
 
+val linear_magic_number: string
+(** Magic number for Linear internal representation files *)
+
 val max_tag: int
 (** Biggest tag that can be stored in the header of a regular block. *)
 
@@ -197,24 +200,12 @@ val flambda : bool
 val with_flambda_invariants : bool
 (** Whether the invariants checks for flambda are enabled *)
 
-val spacetime : bool
-(** Whether the compiler was configured for Spacetime profiling *)
-
-val enable_call_counts : bool
-(** Whether call counts are to be available when Spacetime profiling *)
-
 val profinfo : bool
 (** Whether the compiler was configured for profiling *)
 
 val profinfo_width : int
 (** How many bits are to be used in values' headers for profiling
     information *)
-
-val libunwind_available : bool
-(** Whether the libunwind library is available on the target *)
-
-val libunwind_link_flags : string
-(** Linker flags to use libunwind *)
 
 val safe_string: bool
 (** Whether the compiler was configured with -force-safe-string;
@@ -253,3 +244,9 @@ val print_config : out_channel -> unit
 
 val config_var : string -> string option
 (** the configuration value of a variable, if it exists *)
+
+(**/**)
+
+val merlin : bool
+
+(**/**)

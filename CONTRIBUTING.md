@@ -66,10 +66,7 @@ contribution.
 You should not leave trailing whitespace; not have line longer than 80
 columns, not use tab characters (spaces only), and not use non-ASCII
 characters. These typographical rules can be checked with the script
-`tools/check-typo`.
-
-If you are working from a Git clone, you can automate this process by
-copying the file `tools/pre-commit-githook` to `.git/hooks/pre-commit`.
+`tools/check-typo`, see [HACKING.adoc: check-typo](HACKING.adoc#check-typo).
 
 Otherwise, there are no strongly enforced guidelines specific to the
 compiler -- and, as a result, the style may differ in the different
@@ -224,15 +221,19 @@ better than adding redundant explanations.)
 ### User documentation
 
 Changes affecting the compiler libraries should be reflected in the
-documentation comments of the relevant `.mli` files.
+documentation comments of the relevant `.mli` files. After running
+`make html_doc`, you can find the HTML Standard Library documentation
+at `./api_docgen/html/libref/index.html`.
 
-It is recommended to included changes to the OCaml Reference Manual
+It is recommended to include changes to the OCaml Reference Manual
 (in particular for any change in the surface language), which is now
-part of the main repository (under `manual/`).
+part of the main repository (under `manual/`). To build the full manual,
+see the instructions in `manual/README.md`.
 
 Finally, changes in command-line options should be integrated in the
 manual, but also in the man pages present in the `man/` sub-directory
 of the OCaml distribution.
+
 
 ### Changelog
 

@@ -752,6 +752,21 @@ and 'a class_infos =
     ci_attributes: attributes;
    }
 
+type implementation = {
+  structure: structure;
+  coercion: module_coercion;
+  signature: Types.signature
+}
+(** A typechecked implementation including its module structure, its exported
+    signature, and a coercion of the module against that signature.
+
+    If an .mli file is present, the signature will come from that file and be
+    the exported signature of the module.
+
+    If there isn't one, the signature will be inferred from the module
+    structure.
+*)
+
 (* Auxiliary functions over the a.s.t. *)
 
 (** [as_computation_pattern p] is a computation pattern with description
@@ -779,11 +794,6 @@ val iter_pattern: (pattern -> unit) -> pattern -> unit
 type pattern_predicate = { f : 'k . 'k general_pattern -> bool }
 val exists_general_pattern: pattern_predicate -> 'k general_pattern -> bool
 val exists_pattern: (pattern -> bool) -> pattern -> bool
-
-(** bottom-up mapping of patterns: the transformation function is
-    called on the children before being called on the parent *)
-val map_general_pattern:
-  pattern_transformation -> 'k general_pattern -> 'k general_pattern
 
 val let_bound_idents: value_binding list -> Ident.t list
 val let_bound_idents_full:

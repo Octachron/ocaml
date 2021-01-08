@@ -147,6 +147,8 @@ static void update_environment(array local_env)
       memcpy(value, pos_eq + 1, value_length);
       value[value_length] = '\0';
       setenv(name, value, 1); /* 1 means overwrite */
+      free(name);
+      free(value);
     }
   }
 }
@@ -312,7 +314,7 @@ static int run_command_parent(const command_settings *settings, pid_t child_pid)
           if ((settings->timeout > 0) && (timeout_expired))
           {
             timeout_expired = 0;
-            fprintf(stderr, "Timeout expired, killing all child processes");
+            fprintf(stderr, "Timeout expired, killing all child processes\n");
             if (kill(-child_pid, SIGKILL) == -1) myperror("kill");
           };
           break;

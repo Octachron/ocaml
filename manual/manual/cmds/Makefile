@@ -11,14 +11,14 @@ TEXQUOTE = $(OCAMLRUN) $(TOOLS)/texquote2
 TRANSF = $(SET_LD_PATH) $(OCAMLRUN) $(TOOLS)/transf
 
 FILES = comp.tex top.tex runtime.tex native.tex lexyacc.tex intf-c.tex \
-  ocamldep.tex profil.tex debugger.tex browser.tex ocamldoc.tex \
-  warnings-help.tex ocamlbuild.tex flambda.tex spacetime-chapter.tex \
-  afl-fuzz.tex unified-options.tex
+  ocamldep.tex profil.tex debugger.tex ocamldoc.tex \
+  warnings-help.tex flambda.tex \
+  afl-fuzz.tex instrumented-runtime.tex unified-options.tex
 
-WITH_TRANSF = top.tex intf-c.tex flambda.tex spacetime-chapter.tex \
+WITH_TRANSF = top.tex intf-c.tex flambda.tex \
   afl-fuzz.tex lexyacc.tex debugger.tex
 
-WITH_CAMLEXAMPLE = ocamldoc.tex
+WITH_CAMLEXAMPLE = instrumented-runtime.tex ocamldoc.tex
 
 
 etex-files: $(FILES)

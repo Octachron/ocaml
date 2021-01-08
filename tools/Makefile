@@ -113,7 +113,7 @@ $(call byte_and_opt,ocamlprof,$(CSLPROF_IMPORTS) profiling.cmo $(CSLPROF),)
 
 ocamlcp_cmos = config.cmo build_path_prefix_map.cmo misc.cmo profile.cmo \
                warnings.cmo identifiable.cmo numbers.cmo arg_helper.cmo \
-               clflags.cmo \
+               clflags.cmo local_store.cmo \
                terminfo.cmo location.cmo load_path.cmo ccomp.cmo compenv.cmo \
                main_args.cmo
 
@@ -161,7 +161,7 @@ clean::
 OCAMLMKTOP=ocamlmktop.cmo
 OCAMLMKTOP_IMPORTS=config.cmo build_path_prefix_map.cmo misc.cmo \
        identifiable.cmo numbers.cmo arg_helper.cmo clflags.cmo \
-       load_path.cmo profile.cmo ccomp.cmo
+       local_store.cmo load_path.cmo profile.cmo ccomp.cmo
 
 $(call byte_and_opt,ocamlmktop,$(OCAMLMKTOP_IMPORTS) $(OCAMLMKTOP),)
 
@@ -267,23 +267,12 @@ ifeq "$(SYSTEM)" "cygwin"
 DEF_SYMBOL_PREFIX = '-Dsymbol_prefix="_"'
 endif
 
-objinfo_helper$(EXE): objinfo_helper.$(O)
-	$(CC) $(BFD_LDFLAGS) $(OC_CFLAGS) $(OUTPUTEXE)$@ $< $(BFD_LDLIBS)
-
-objinfo_helper.$(O): $(ROOTDIR)/runtime/caml/s.h
-
-objinfo_helper.$(O): \
-  OC_CPPFLAGS += -I$(ROOTDIR)/runtime $(DEF_SYMBOL_PREFIX) $(BFD_CPPFLAGS)
-
 OBJINFO=$(ROOTDIR)/compilerlibs/ocamlcommon.cma \
         $(ROOTDIR)/compilerlibs/ocamlbytecomp.cma \
         $(ROOTDIR)/compilerlibs/ocamlmiddleend.cma \
         objinfo.cmo
 
-$(call byte_and_opt,ocamlobjinfo,$(OBJINFO),objinfo_helper$(EXE))
-
-install::
-	$(INSTALL_PROG) objinfo_helper$(EXE) "$(INSTALL_LIBDIR)"
+$(call byte_and_opt,ocamlobjinfo,$(OBJINFO),)
 
 primreq=$(ROOTDIR)/compilerlibs/ocamlcommon.cma \
         $(ROOTDIR)/compilerlibs/ocamlbytecomp.cma \
@@ -304,11 +293,6 @@ lintapidiff.opt$(EXE): $(LINTAPIDIFF)
 clean::
 	rm -f -- lintapidiff.opt lintapidiff.opt.exe
 	rm -f lintapidiff.cm? lintapidiff.o lintapidiff.obj
-
-
-clean::
-	rm -f "objinfo_helper" "objinfo_helper.manifest"
-	rm -f "objinfo_helper.exe" "objinfo_helper.exe.manifest"
 
 # Eventlog metadata file
 

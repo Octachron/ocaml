@@ -39,15 +39,11 @@
 #include "caml/stack.h"
 #include "caml/startup_aux.h"
 #include "caml/sys.h"
-#ifdef WITH_SPACETIME
-#include "caml/spacetime.h"
-#endif
 #ifdef HAS_UI
 #include "caml/ui.h"
 #endif
 
 extern int caml_parser_trace;
-char * caml_code_area_start, * caml_code_area_end;
 extern char caml_system__code_begin, caml_system__code_end;
 
 /* Initialize the atom table and the static data and code area limits. */
@@ -57,6 +53,8 @@ struct segment { char * begin; char * end; };
 static void init_static(void)
 {
   extern struct segment caml_data_segments[], caml_code_segments[];
+
+  char * caml_code_area_start, * caml_code_area_end;
   int i;
 
   caml_init_atom_table ();
@@ -126,9 +124,6 @@ value caml_startup_common(char_os **argv, int pooling)
   if (!caml_startup_aux(pooling))
     return Val_unit;
 
-#ifdef WITH_SPACETIME
-  caml_spacetime_initialize();
-#endif
   caml_init_frame_descriptors();
   caml_init_locale();
 #if defined(_MSC_VER) && __STDC_SECURE_LIB__ >= 200411L

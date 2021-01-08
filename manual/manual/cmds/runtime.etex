@@ -57,6 +57,9 @@ back trace is printed only if the bytecode executable contains
 debugging information, i.e. was compiled and linked with the "-g"
 option to "ocamlc" set.  This is equivalent to setting the "b" flag
 in the "OCAMLRUNPARAM" environment variable (see below).
+\item["-config"]
+Print the version number of "ocamlrun" and a detailed summary of its
+configuration, then exit.
 \item["-I" \var{dir}]
 Search the directory \var{dir} for dynamically-loaded libraries,
 in addition to the standard search path (see
@@ -69,9 +72,11 @@ Print the magic number expected by this version of the runtime and exit.
 \item["-p"]
 Print the names of the primitives known to this version of
 "ocamlrun" and exit.
+\item["-t"]
+Increments the trace level for the debug runtime (ignored otherwise).
 \item["-v"]
 Direct the memory manager to print some progress messages on
-standard error.  This is equivalent to setting "v=63" in the
+standard error.  This is equivalent to setting "v=61" in the
 "OCAMLRUNPARAM" environment variable (see below).
 \item["-version"]
 Print version string and exit.
@@ -112,8 +117,13 @@ The following environment variables are also consulted:
 \fi
   \begin{options}
   \item[b] (backtrace) Trigger the printing of a stack backtrace
-        when an uncaught exception aborts the program.
-        This option takes no argument.
+        when an uncaught exception aborts the program. An optional argument can
+        be provided: "b=0" turns backtrace printing off; "b=1" is equivalent to
+        "b" and turns backtrace printing on; "b=2" turns backtrace printing on
+        and forces the runtime system to load debugging information at program
+        startup time instead of at backtrace printing time. "b=2" can be used if
+        the runtime is unable to load debugging information at backtrace
+        printing time, for example if there are no file descriptors available.
   \item[p] (parser trace) Turn on debugging support for
         "ocamlyacc"-generated parsers.  When this option is on,
         the pushdown automaton that executes the parsers prints a
@@ -145,7 +155,7 @@ The following environment variables are also consulted:
   \item[v] ("verbose")  What GC messages to print to stderr.  This
   is a sum of values selected from the following:
   \begin{options}
-        \item[1   (= 0x001)] Start of major GC cycle.
+        \item[1   (= 0x001)] Start and end of major GC cycle.
         \item[2   (= 0x002)] Minor collection and major GC slice.
         \item[4   (= 0x004)] Growing and shrinking of the heap.
         \item[8   (= 0x008)] Resizing of stacks and memory manager tables.

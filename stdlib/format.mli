@@ -807,7 +807,7 @@ type formatter_out_functions = {
   out_flush : unit -> unit;
   out_newline : unit -> unit;
   out_spaces : int -> unit;
-  out_indent : int -> unit;
+  out_indent : int -> unit;(** @since 4.06.0 *)
 }
 (** The set of output functions specific to a formatter:
 - the [out_string] function performs all the pretty-printer string output.
@@ -1082,6 +1082,19 @@ val pp_print_list:
   Does nothing on empty lists.
 
   @since 4.02.0
+*)
+
+val pp_print_seq:
+  ?pp_sep:(formatter -> unit -> unit) ->
+  (formatter -> 'a -> unit) -> (formatter -> 'a Seq.t -> unit)
+(** [pp_print_seq ?pp_sep pp_v ppf s] prints items of sequence [s],
+  using [pp_v] to print each item, and calling [pp_sep]
+  between items ([pp_sep] defaults to {!pp_print_cut}.
+  Does nothing on empty sequences.
+
+  This function does not terminate on infinite sequences.
+
+  @since 4.12
 *)
 
 val pp_print_text : formatter -> string -> unit

@@ -33,6 +33,9 @@ OCAMLOPT=$(BEST_OCAMLOPT) -g -nostdlib -I $(ROOTDIR)/stdlib
 COMPFLAGS=-strict-sequence -principal -absname -w +a-4-9-40-41-42-44-45-48-66 \
 	  -warn-error A \
           -bin-annot -safe-string -strict-formats
+ifeq "$(FLAMBDA)" "true"
+OPTCOMPFLAGS += -O3
+endif
 
 COMPFLAGS += -I byte
 OPTCOMPFLAGS += -I native
@@ -70,6 +73,7 @@ COMPILERLIBS_INTFS=\
 
 # .ml files from compilerlibs that have corresponding .mli files.
 COMPILERLIBS_SOURCES=\
+  utils/binutils.ml \
   utils/config.ml \
   utils/build_path_prefix_map.ml \
   utils/misc.ml \
@@ -81,6 +85,7 @@ COMPILERLIBS_SOURCES=\
   utils/consistbl.ml \
   utils/terminfo.ml \
   utils/warnings.ml \
+  utils/local_store.ml \
   utils/load_path.ml \
   utils/int_replace_polymorphic_compare.ml \
   parsing/location.ml \

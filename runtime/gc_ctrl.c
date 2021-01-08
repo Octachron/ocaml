@@ -173,7 +173,7 @@ static value heap_stats (int returnstats)
           }
         }
         break;
-      case Caml_gray: case Caml_black:
+      case Caml_black:
         CAMLassert (Wosize_hd (cur_hd) > 0);
         ++ live_blocks;
         live_words += Whsize_hd (cur_hd);
@@ -475,21 +475,21 @@ CAMLprim value caml_gc_set(value v)
 
   /* These fields were added in 4.08.0. */
   if (Wosize_val (v) >= 11){
-    new_custom_maj = norm_custom_maj (Field (v, 8));
+    new_custom_maj = norm_custom_maj (Long_val (Field (v, 8)));
     if (new_custom_maj != caml_custom_major_ratio){
       caml_custom_major_ratio = new_custom_maj;
       caml_gc_message (0x20, "New custom major ratio: %"
                        ARCH_INTNAT_PRINTF_FORMAT "u%%\n",
                        caml_custom_major_ratio);
     }
-    new_custom_min = norm_custom_min (Field (v, 9));
+    new_custom_min = norm_custom_min (Long_val (Field (v, 9)));
     if (new_custom_min != caml_custom_minor_ratio){
       caml_custom_minor_ratio = new_custom_min;
       caml_gc_message (0x20, "New custom minor ratio: %"
                        ARCH_INTNAT_PRINTF_FORMAT "u%%\n",
                        caml_custom_minor_ratio);
     }
-    new_custom_sz = Field (v, 10);
+    new_custom_sz = Long_val (Field (v, 10));
     if (new_custom_sz != caml_custom_minor_max_bsz){
       caml_custom_minor_max_bsz = new_custom_sz;
       caml_gc_message (0x20, "New custom minor size limit: %"
@@ -506,6 +506,7 @@ CAMLprim value caml_gc_set(value v)
   newpolicy = Long_val (Field (v, 6));
   if (newpolicy != caml_allocation_policy){
     caml_empty_minor_heap ();
+    caml_gc_message (0x1, "Full major GC cycle (changing allocation policy)\n");
     caml_finish_major_cycle ();
     caml_finish_major_cycle ();
     ++ Caml_state->stat_forced_major_collections;
@@ -563,7 +564,7 @@ CAMLprim value caml_gc_major(value v)
 
   CAML_EV_BEGIN(EV_EXPLICIT_GC_MAJOR);
   CAMLassert (v == Val_unit);
-  caml_gc_message (0x1, "Major GC cycle requested\n");
+  caml_gc_message (0x1, "Finishing major GC cycle (requested by user)\n");
   caml_empty_minor_heap ();
   caml_finish_major_cycle ();
   test_and_compact ();
@@ -580,7 +581,7 @@ CAMLprim value caml_gc_full_major(value v)
 
   CAML_EV_BEGIN(EV_EXPLICIT_GC_FULL_MAJOR);
   CAMLassert (v == Val_unit);
-  caml_gc_message (0x1, "Full major GC cycle requested\n");
+  caml_gc_message (0x1, "Full major GC cycle (requested by user)\n");
   caml_empty_minor_heap ();
   caml_finish_major_cycle ();
   // call finalisers
@@ -602,10 +603,21 @@ cleanup:
 
 CAMLprim value caml_gc_major_slice (value v)
 {
+  value exn = Val_unit;
   CAML_EV_BEGIN(EV_EXPLICIT_GC_MAJOR_SLICE);
   CAMLassert (Is_long (v));
-  caml_major_collection_slice (Long_val (v));
+  if (caml_gc_phase == Phase_idle){
+    /* We need to start a new major GC cycle. Go through the pending_action
+       machinery. */
+    caml_request_major_slice ();
+    exn = caml_process_pending_actions_exn ();
+      /* Calls the major GC without passing [v] but the initial slice
+         ignores this parameter anyway. */
+  }else{
+    caml_major_collection_slice (Long_val (v));
+  }
   CAML_EV_END(EV_EXPLICIT_GC_MAJOR_SLICE);
+  caml_raise_if_exception (exn);
   return Val_long (0);
 }
 
@@ -617,6 +629,7 @@ CAMLprim value caml_gc_compaction(value v)
   CAMLassert (v == Val_unit);
   caml_gc_message (0x10, "Heap compaction requested\n");
   caml_empty_minor_heap ();
+  caml_gc_message (0x1, "Full major GC cycle (compaction)\n");
   caml_finish_major_cycle ();
   // call finalisers
   exn = caml_process_pending_actions_exn();
