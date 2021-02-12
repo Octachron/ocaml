@@ -20,6 +20,7 @@ vpath %.mli $(ROOTDIR)/stdlib $(DOC_COMPILERLIBS_DIRS)  $(DOC_STDLIB_DIRS)
 man: man/Stdlib.3o
 latex: latex/Stdlib.tex
 html: html/libref/Stdlib.html html/compilerlibref/Compiler_libs.html
+texi:texi/stdlib.texi
 
 DOC_STDLIB_INCLUDES=$(addprefix -I , $(DOC_STDLIB_DIRS))
 
