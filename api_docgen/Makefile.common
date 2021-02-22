@@ -31,7 +31,7 @@ DOC_STDLIB_DIRS = $(addprefix $(ROOTDIR)/, stdlib \
 all: html pdf man
 
 DIRS = $(addprefix build/,libref compilerlibref man latex texi \
-  html/ html/libref html/compilerlibref)
+  html html/libref html/compilerlibref)
 
 $(DIRS):
 	$(MKDIR) $@
