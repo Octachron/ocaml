@@ -38,7 +38,7 @@ html_files:
 	$(MAKE) -C $(APIDOC) html
 	mkdir -p htmlman/libref
 	cp -r $(APIDOC)/build/html/libref htmlman
-        cp -r $(APIDOC)/build/html/compilerlibref htmlman
+	cp -r $(APIDOC)/build/html/compilerlibref htmlman
 	cp style.css htmlman/libref
 	cp style.css htmlman/compilerlibref
 endif
