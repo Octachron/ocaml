@@ -24,7 +24,7 @@ html: \
   build/html/compilerlibref/Compiler_libs.html
 texi: build/texi/stdlib.texi
 
-DOC_STDLIB_INCLUDES=$(addprefix -I , $(DOC_STDLIB_DIRS))
+DOC_STDLIB_INCLUDES= $(addprefix -I , $(DOC_STDLIB_DIRS))
 
 DOC_ALL_INCLUDES = \
 	$(DOC_STDLIB_INCLUDES) \
