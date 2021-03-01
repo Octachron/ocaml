@@ -137,6 +137,10 @@ Working version
 
 ### Compiler user-interface and warnings:
 
+- #8732, improved error messages for invalid private row type definitions.
+  For instance, [ type t = private [< `A > `A ] ] .
+  (Florian Angeletti, review by Jacques Garrigue and Thomas Refis)
+
 - #9960: extend ocamlc/ocamlopt's -o option to work when compiling C files
   (Sébastien Hinderer, reported by Daniel Bünzli, review by Florian
   Angeletti and Gabriel Scherer)
