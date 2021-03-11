@@ -17,7 +17,9 @@
  (wrapped false)
  (flags (:standard -principal -nostdlib))
  (libraries stdlib ocamlcommon ocamlbytecomp)
- (modules genprintval toploop trace topdirs topmain))
+ (modules genprintval toploop trace topdirs topmain)
+(modules_without_implementation topdirs toploop topmain trace)
+)
 
 (executable
  (name topstart)
