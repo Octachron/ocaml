@@ -17,8 +17,9 @@ include $(ROOTDIR)/api_docgen/Makefile.common
 vpath %.cmti $(ROOTDIR)/stdlib $(DOC_COMPILERLIBS_DIRS) $(DOC_STDLIB_DIRS)
 vpath %.cmt $(ROOTDIR)/stdlib
 
-odoc=odoc
-libref=$(STDLIB) $(otherlibref)
+odoc ?= odoc
+
+libref = $(STDLIB) $(otherlibref)
 
 # odoc needs a "page-" prefix for a mld documentation file
 define page_name
