@@ -110,10 +110,10 @@ let private_flags decl1 decl2 =
 (* Inclusion between manifest types (particularly for private row types) *)
 
 let is_absrow env ty =
-  match ty.desc with
-  | Tconstr(Pident _, _, _) -> begin
-      match Ctype.expand_head env ty with
-      | {desc=Tobject _|Tvariant _} -> true
+  match get_desc ty with
+    Tconstr(Pident _, _, _) ->
+      begin match get_desc (Ctype.expand_head env ty) with
+        Tobject _ | Tvariant _ -> true
       | _ -> false
       end
   | _ -> false
@@ -518,7 +518,7 @@ let private_object env fields1 params1 fields2 params2 =
 
 let type_manifest env ty1 params1 ty2 params2 priv2 =
   let ty1' = Ctype.expand_head env ty1 and ty2' = Ctype.expand_head env ty2 in
-  match ty1'.desc, ty2'.desc with
+  match get_desc ty1', get_desc ty2' with
   | Tvariant row1, Tvariant row2
     when is_absrow env (Btype.row_more row2) -> begin
       let row1 = Btype.row_repr row1 and row2 = Btype.row_repr row2 in
@@ -635,7 +635,7 @@ let type_declarations ?(equality = false) ~loc env ~mark name
   if not need_variance then None else
   let abstr = abstr || decl2.type_private = Private in
   let opn = decl2.type_kind = Type_open && decl2.type_manifest = None in
-  let constrained ty = not (Btype.(is_Tvar (repr ty))) in
+  let constrained ty = not (Btype.is_Tvar ty) in
   if List.for_all2
       (fun ty (v1,v2) ->
         let open Variance in
