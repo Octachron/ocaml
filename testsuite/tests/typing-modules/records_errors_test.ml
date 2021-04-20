@@ -40,10 +40,15 @@ Error: Signature mismatch:
            f0 : unit * unit * unit * int * unit * unit * unit;
            f1 : unit * unit * unit * int * unit * unit * unit;
          }
-       Fields do not match:
+       1. Fields do not match:
          f0 : unit * unit * unit * float * unit * unit * unit;
        is not compatible with:
          f0 : unit * unit * unit * int * unit * unit * unit;
+       The types are not equal.
+       2. Fields do not match:
+         f1 : unit * unit * unit * string * unit * unit * unit;
+       is not compatible with:
+         f1 : unit * unit * unit * int * unit * unit * unit;
        The types are not equal.
 |}];;
 
@@ -86,11 +91,16 @@ Error: Signature mismatch:
            mutable f0 : unit * unit * unit * int * unit * unit * unit;
            f1 : unit * unit * unit * int * unit * unit * unit;
          }
-       Fields do not match:
+       1. Fields do not match:
          f0 : unit * unit * unit * float * unit * unit * unit;
        is not compatible with:
          mutable f0 : unit * unit * unit * int * unit * unit * unit;
        The second is mutable and the first is not.
+       2. Fields do not match:
+         f1 : unit * unit * unit * string * unit * unit * unit;
+       is not compatible with:
+         f1 : unit * unit * unit * int * unit * unit * unit;
+       The types are not equal.
 |}];;
 
 module M3 : sig
@@ -112,7 +122,7 @@ Error: Signature mismatch:
          type t = { f1 : unit; }
        is not included in
          type t = { f0 : unit; }
-       Fields number 1 have different names, f1 and f0.
+       Fields have different names, f1 and f0.
 |}];;
 
 module M4 : sig
@@ -134,5 +144,5 @@ Error: Signature mismatch:
          type t = { f0 : unit; }
        is not included in
          type t = { f0 : unit; f1 : unit; }
-       The field f1 is only present in the second declaration.
+       A field, f1, is missing in the first declaration.
 |}];;
