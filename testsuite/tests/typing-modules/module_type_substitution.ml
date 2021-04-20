@@ -147,10 +147,15 @@ Error: In this `with' constraint, the new definition of t
          type t = X of x | Y of y
        is not included in
          type t = X of int | Y of float
-       Constructors do not match:
+       1. Constructors do not match:
          X of x
        is not compatible with:
          X of int
+       The types are not equal.
+       2. Constructors do not match:
+         Y of y
+       is not compatible with:
+         Y of float
        The types are not equal.
 |}]
 

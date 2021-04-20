@@ -87,7 +87,7 @@ Line 3, characters 0-27:
 3 | type missing = d = X of int
     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: This variant or record definition does not match that of type d
-       The constructor Y is only present in the original definition.
+       An extra constructor, Y, is provided in the original definition.
 |}]
 
 type wrong_type = d = X of float
@@ -96,11 +96,8 @@ Line 1, characters 0-32:
 1 | type wrong_type = d = X of float
     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: This variant or record definition does not match that of type d
-       Constructors do not match:
-         X of int
-       is not compatible with:
-         X of float
-       The types are not equal.
+       1. An extra constructor, X, is provided in the original definition.
+       2. Constructors have different names, Y and X.
 |}]
 
 type unboxed = d = X of float [@@unboxed]
@@ -119,7 +116,8 @@ Line 1, characters 0-35:
 1 | type perm = d = Y of int | X of int
     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: This variant or record definition does not match that of type d
-       Constructors number 1 have different names, X and Y.
+       1. Constructors have different names, X and Y.
+       2. Constructors have different names, Y and X.
 |}]
 
 module M : sig
