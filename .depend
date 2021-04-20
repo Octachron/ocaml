@@ -59,10 +59,13 @@ utils/consistbl.cmx : \
 utils/consistbl.cmi : \
     utils/misc.cmi
 utils/diffing.cmo : \
+    utils/misc.cmi \
     utils/diffing.cmi
 utils/diffing.cmx : \
+    utils/misc.cmx \
     utils/diffing.cmi
-utils/diffing.cmi :
+utils/diffing.cmi : \
+    utils/misc.cmi
 utils/domainstate.cmo : \
     utils/domainstate.cmi
 utils/domainstate.cmx : \
@@ -673,6 +676,7 @@ typing/includecore.cmo : \
     typing/path.cmi \
     typing/ident.cmi \
     typing/env.cmi \
+    utils/diffing.cmi \
     typing/ctype.cmi \
     parsing/builtin_attributes.cmi \
     typing/btype.cmi \
@@ -686,6 +690,7 @@ typing/includecore.cmx : \
     typing/path.cmx \
     typing/ident.cmx \
     typing/env.cmx \
+    utils/diffing.cmx \
     typing/ctype.cmx \
     parsing/builtin_attributes.cmx \
     typing/btype.cmx \
@@ -699,7 +704,9 @@ typing/includecore.cmi : \
     parsing/location.cmi \
     typing/ident.cmi \
     typing/env.cmi \
-    typing/ctype.cmi
+    utils/diffing.cmi \
+    typing/ctype.cmi \
+    parsing/asttypes.cmi
 typing/includemod.cmo : \
     typing/types.cmi \
     typing/typedtree.cmi \
