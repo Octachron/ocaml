@@ -1014,6 +1014,7 @@ typing/printtyp.cmo : \
     utils/warnings.cmi \
     typing/types.cmi \
     typing/type_immediacy.cmi \
+    typing/syntactic_signature_traversal.cmi \
     typing/primitive.cmi \
     typing/predef.cmi \
     typing/path.cmi \
@@ -1034,6 +1035,7 @@ typing/printtyp.cmx : \
     utils/warnings.cmx \
     typing/types.cmx \
     typing/type_immediacy.cmx \
+    typing/syntactic_signature_traversal.cmx \
     typing/primitive.cmx \
     typing/predef.cmx \
     typing/path.cmx \
@@ -1156,6 +1158,19 @@ typing/subst.cmx : \
 typing/subst.cmi : \
     typing/types.cmi \
     typing/path.cmi \
+    typing/ident.cmi
+typing/syntactic_signature_traversal.cmo : \
+    typing/types.cmi \
+    typing/ident.cmi \
+    typing/btype.cmi \
+    typing/syntactic_signature_traversal.cmi
+typing/syntactic_signature_traversal.cmx : \
+    typing/types.cmx \
+    typing/ident.cmx \
+    typing/btype.cmx \
+    typing/syntactic_signature_traversal.cmi
+typing/syntactic_signature_traversal.cmi : \
+    typing/types.cmi \
     typing/ident.cmi
 typing/tast_iterator.cmo : \
     typing/typedtree.cmi \
