@@ -968,10 +968,16 @@ module Signature_names : sig
   val simplify: Env.t -> t -> Types.signature -> Types.signature
 end = struct
 
-  type bound_info = [
+  type shadowable = [
     | `Exported
     | `Shadowable of Ident.t * Location.t
   ]
+
+  type bound_info = {
+    shadowable: shadowable;
+    group: Ident.t list;
+    (* 'group' includes the name itself and its "ghost items" if any (See TODO) *)
+  }
 
   type info = [
     | `From_open
