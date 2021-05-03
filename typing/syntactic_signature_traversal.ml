@@ -40,36 +40,34 @@ type bound_ident = { hide:bool; ident:Ident.t }
 type rec_group = bound_ident gen_rec_group
 
 
-let item_fold f acc x  =
-  let rec group ~acc  = function
-    | Types.Sig_class _ as src :: rem ->
-       let ctydecl, tydecl1, tydecl2, rem =
-         match rem with
-         | cty :: tydecl1 :: tydecl2 :: rem -> cty, tydecl1, tydecl2, rem
-         | _ ->  (* a class declaration for [c] is followed by the ghost
-                    declarations of class type [c], and types [c] and [#c] *)
-            assert false
-       in
-        let s_elt =
-          { src; post_ghosts= [ctydecl; tydecl1; tydecl2]}
-        in
-        group ~acc:(f acc s_elt) rem
-    | Types.Sig_class_type _ as src :: rem ->
-       let tydecl1, tydecl2, rem =
-         match rem with
-         | tydecl1 :: tydecl2 :: rem -> tydecl1, tydecl2, rem
-         | _ ->  (* a class type declaration for [ct] is followed by the ghost
-                    declarations of types [ct] and [#ct] *)
-            assert false
-       in
-       group
-         ~acc:(f acc {src; post_ghosts = [tydecl1; tydecl2]})
-         rem
+let take n seq =
+  let rec aux l n seq =
+    if n = 0 then List.rev l, seq else
+      match seq () with
+      | Seq.Nil -> assert false
+      | Seq.Cons(x,next) ->
+          aux (x::l) (n-1) next
+  in
+  aux [] n seq
+
+let rec item_seq seq () =
+  match seq () with
+  | Seq.Nil -> Seq.Nil
+  | Seq.Cons(x, seq) ->
+    match x with
+    | Types.Sig_class _ as src ->
+        let ghosts, seq = take 3 seq in
+        (* a class declaration for [c] is followed by the ghost
+           declarations of class type [c], and types [c] and [#c] *)
+        Seq.Cons({ src; post_ghosts=ghosts}, item_seq seq)
+    | Types.Sig_class_type _ as src ->
+        let ghosts, seq = take 2 seq in
+        (* a class type declaration for [ct] is followed by the ghost
+           declarations of types [ct] and [#ct] *)
+        Seq.Cons({src; post_ghosts = ghosts}, item_seq seq)
     | Types.(Sig_module _ | Sig_value _ | Sig_type _ | Sig_typext _
-            | Sig_modtype _ as src)  :: rem ->
-        group ~acc:(f acc {src; post_ghosts=[]}) rem
-    | [] -> acc in
-  group ~acc x
+            | Sig_modtype _ as src) ->
+        Seq.Cons({src; post_ghosts=[]}, item_seq seq)
 
 
 let recursive_sigitem = function
@@ -79,52 +77,37 @@ let recursive_sigitem = function
   | Types.Sig_module(ident, _, _, rs, _) -> Some ({hide=false;ident},rs)
   | Types.(Sig_value _ | Sig_modtype _ | Sig_typext _ )  -> None
 
-type 'a state =
-  | In_group of {
-      pre:Types.signature_item list;
-      ids:bound_ident list;
-      group:sig_item list;
-      acc:'a
-    }
-  | Not_in_group of {
-      pre:Types.signature_item list;
-      acc:'a
-    }
-
-let fold f acc x =
-  let cons_group pre ids group acc =
+let group_seq x =
+  let cons_group pre ids group seq =
     let group = Rec_group(List.rev ids, List.rev group) in
-    f acc { pre_ghosts=List.rev pre; group }
+    Seq.Cons({ pre_ghosts=List.rev pre; group }, seq)
   in
-  let not_in_group pre acc elt = function
-    | Some (id, _) when Btype.is_row_name (Ident.name id.ident) ->
-        Not_in_group { pre = elt.src::pre;  acc }
-    | None | Some (_, Types.Trec_not) ->
-        let sgroup = { pre_ghosts=List.rev pre; group=Not_rec elt } in
-        Not_in_group {pre=[]; acc = f acc sgroup }
-    | Some (id, Types.(Trec_first | Trec_next) )  ->
-        In_group {pre; ids = [id]; group=[elt]; acc }
+  let rec not_in_group pre seq () = match seq () with
+    | Seq.Nil ->
+        assert (pre=[]);
+        Seq.Nil
+    | Seq.Cons(elt, seq) ->
+        match recursive_sigitem elt.src with
+        | Some (id, _) when Btype.is_row_name (Ident.name id.ident) ->
+            not_in_group (elt.src::pre) seq ()
+        | None | Some (_, Types.Trec_not) ->
+            let sgroup = { pre_ghosts=List.rev pre; group=Not_rec elt } in
+            Seq.Cons(sgroup, not_in_group [] seq)
+        | Some (id, Types.(Trec_first | Trec_next) )  ->
+            in_group ~pre ~ids:[id] ~group:[elt] seq ()
+  and in_group ~pre ~ids ~group seq () = match seq () with
+    | Seq.Nil ->
+        cons_group pre ids group (fun () -> Seq.Nil)
+    | Seq.Cons(elt,next) ->
+        match recursive_sigitem elt.src with
+        | Some (id, Types.Trec_next) ->
+            in_group ~pre ~ids:(id::ids) ~group:(elt::group) next ()
+        | None | Some (_, Types.(Trec_not|Trec_first)) ->
+            cons_group pre ids group (not_in_group [] seq)
   in
-  let in_group pre ids group acc elt = function
-    | Some (id, Types.Trec_next) ->
-        In_group {pre; ids=id::ids; group= elt::group; acc}
-    | None | Some (_, Types.(Trec_not|Trec_first)) as rec_status ->
-        let acc = cons_group pre ids group acc in
-        not_in_group [] acc elt rec_status
-  in
-  let add_item state elt =
-      let rec_status = recursive_sigitem elt.src in
-      match state with
-      | Not_in_group {pre;acc} ->
-          not_in_group pre acc elt rec_status
-      | In_group { pre; ids; group; acc } ->
-          in_group pre ids group acc elt rec_status
-  in
-  let init = Not_in_group { pre=[]; acc } in
-  match item_fold add_item init x with
-  | Not_in_group e -> e.acc
-  | In_group { pre; group; ids; acc; _ } ->
-      cons_group pre ids group acc
+  not_in_group [] x
 
 
-let iter f = fold (fun () x -> f x) ()
+
+let group l = l |> List.to_seq |> item_seq |> group_seq
+let iter f l = Seq.iter f (group l)
