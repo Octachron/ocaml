@@ -31,11 +31,18 @@ type 'ident core_rec_group =
 (** Private row types are manifested as a sequence of definitions
     preceding a recursive group, we collect them and separate them from the
     syntatic recursive group. *)
-type 'ident rec_group =
+type 'ident gen_rec_group =
   { pre_ghosts: Types.signature_item list; group:'ident core_rec_group }
 
 (** Some identifiers may require hiding when printing *)
 type bound_ident = { hide:bool; ident:Ident.t }
 
+type rec_group = bound_ident gen_rec_group
+
+
 val fold:
-  ('acc -> bound_ident rec_group -> 'acc) -> 'acc -> Types.signature -> 'acc
+  ('acc -> rec_group -> 'acc) -> 'acc -> Types.signature -> 'acc
+
+
+val iter:
+  (rec_group -> unit) ->  Types.signature -> unit

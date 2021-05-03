@@ -1741,7 +1741,7 @@ and tree_of_signature_rec env' sg =
   List.map collect_trees_of_rec_group structured
 
 and trees_of_recursive_sigitem_group env
-    (syntactic_group: _ Synt_sig.rec_group) =
+    (syntactic_group: Synt_sig.rec_group) =
   let display (x:Synt_sig.sig_item) = x.src, tree_of_sigitem x.src in
   let env = Env.add_signature syntactic_group.pre_ghosts env in
   match syntactic_group.group with

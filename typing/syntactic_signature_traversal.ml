@@ -31,14 +31,17 @@ type 'ident core_rec_group =
 (** Private row types are manifested as a sequence of definitions
     preceding a recursive group, we collect them and separate them from the
     syntatic recursive group. *)
-type 'ident rec_group =
+type 'ident gen_rec_group =
   { pre_ghosts: Types.signature_item list; group:'ident core_rec_group }
 
 (** Some identifiers may require hiding when printing *)
 type bound_ident = { hide:bool; ident:Ident.t }
 
-let item_fold f acc x =
-  let rec group ~acc = function
+type rec_group = bound_ident gen_rec_group
+
+
+let item_fold f acc x  =
+  let rec group ~acc  = function
     | Types.Sig_class _ as src :: rem ->
        let ctydecl, tydecl1, tydecl2, rem =
          match rem with
@@ -122,3 +125,6 @@ let fold f acc x =
   | Not_in_group e -> e.acc
   | In_group { pre; group; ids; acc; _ } ->
       cons_group pre ids group acc
+
+
+let iter f = fold (fun () x -> f x) ()
