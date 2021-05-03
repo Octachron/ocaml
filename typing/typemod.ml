@@ -1112,8 +1112,6 @@ end = struct
   let check_class_type ?(info=`Exported) t loc id =
     check Sig_component_kind.Class_type t loc id info
 
-
-
   let classify =
     let open Sig_component_kind in
     function
@@ -1125,7 +1123,6 @@ end = struct
     | Sig_class (id, _, _, _) -> Class, id
     | Sig_class_type (id, _, _, _) -> Class_type, id
 
-
   let check_item ?info names loc kind id ids =
     let info =
       match info with
@@ -1134,37 +1131,21 @@ end = struct
     in
     check kind names loc id info
 
-
-
-  let check_synt_sig_item ?info names loc item =
+  let check_syntactic_sig_item ?info names loc item =
     let open Sig_group in
     let all = classify item.src :: List.map classify item.post_ghosts in
     let group = List.map snd all in
     List.iter (fun (kind,id) -> check_item ?info names loc kind id group)
       all
 
-
-  let check_rec_group ?info names loc =
+  let check_sig_item ?info names loc x =
     let open Sig_group in
-    function
-    | Not_rec x -> check_synt_sig_item ?info names loc x
+    (* we can ignore x.pre_ghosts: they are eliminated by strengthening, andh
+       thus never appear in includes *)
+    match x.group with
+    | Not_rec x -> check_syntactic_sig_item ?info names loc x
     | Rec_group (_,x) ->
-        List.iter (check_synt_sig_item ?info names loc) x
-
-  let pair_private_ghost ?info names loc _ghost group =
-    (*let open Sig_group in*)
-    check_rec_group ?info names loc group
-
-  let check_group ?info names loc component =
-      let open Sig_group in
-      match component.pre_ghosts with
-      | [] ->
-          check_rec_group ?info names loc component.group
-      | x ->
-          pair_private_ghost  ?info names loc x component.group
-
-
-  let check_sig_item = check_group
+        List.iter (check_syntactic_sig_item ?info names loc) x
 
   (*
     Before applying local module type substitutions where the
