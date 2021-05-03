@@ -40,5 +40,5 @@ type bound_ident = { hide:bool; ident:Ident.t }
 type rec_group = bound_ident gen_rec_group
 
 
-val group: Types.signature -> rec_group Seq.t
+val group: Types.signature -> (rec_group * Types.signature) Seq.t
 val iter: (rec_group -> unit) -> Types.signature -> unit

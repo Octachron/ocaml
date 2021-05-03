@@ -1729,7 +1729,7 @@ and tree_of_signature sg =
 
 and tree_of_signature_rec env' sg =
   let structured =
-    List.rev @@ Seq.fold_left (fun l x -> x :: l) [] @@ Synt_sig.group sg in
+    List.rev @@ Seq.fold_left (fun l (x,_) -> x :: l) [] @@ Synt_sig.group sg in
   let collect_trees_of_rec_group group =
     let env = !printing_env in
     let env', group_trees =
