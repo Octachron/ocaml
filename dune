@@ -26,7 +26,6 @@
 (copy_files# bytecomp/*.ml{,i})
 (copy_files# driver/*.ml{,i})
 (copy_files# asmcomp/*.ml{,i})
-(copy_files# asmcomp/debug/*.ml{,i})
 (copy_files# file_formats/*.ml{,i})
 (copy_files# lambda/*.ml{,i})
 (copy_files# middle_end/*.ml{,i})
@@ -59,7 +58,7 @@
    ident path primitive types btype oprint subst predef datarepr
    cmi_format persistent_env env type_immediacy
    typedtree printtyped ctype printtyp includeclass mtype envaux includecore
-   tast_iterator tast_mapper synctatic_type_traversal cmt_format untypeast
+   tast_iterator tast_mapper signature_group cmt_format untypeast
    includemod includemod_errorprinter
    typetexp patterns printpat parmatch stypes typedecl typeopt rec_check
    typecore
