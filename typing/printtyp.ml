@@ -26,7 +26,6 @@ open Btype
 open Outcometree
 
 module String = Misc.Stdlib.String
-module Synt_sig = Signature_group
 
 (* Print a long identifier *)
 
@@ -206,6 +205,9 @@ module Conflicts = struct
   let exists () = M.cardinal !explanations >0
 end
 
+(** Some identifiers may require hiding when printing *)
+type bound_ident = { hide:bool; ident:Ident.t }
+
 module Naming_context = struct
 
 module M = String.Map
@@ -261,9 +263,8 @@ let with_arg id f =
   protect_refs [ R(fuzzy, S.add (Ident.name id) !fuzzy) ] f
 let fuzzy_id namespace id = namespace = Module && S.mem (Ident.name id) !fuzzy
 
-
 let with_hidden ids f =
-  let update m id = S.add (Ident.name id.Synt_sig.ident) m in
+  let update m id = S.add (Ident.name id.ident) m in
   protect_refs [ R(protected, List.fold_left update !protected ids)] f
 
 let pervasives_name namespace name =
@@ -1672,10 +1673,20 @@ let dummy =
 (** we hide items being defined from short-path to avoid shortening
     [type t = Path.To.t] into [type t = t].
 *)
+
+let ident_sigitem = function
+  | Types.Sig_type(ident,_,_,_) ->  {hide=true;ident}
+  | Types.Sig_class(ident,_,_,_)
+  | Types.Sig_class_type (ident,_,_,_)
+  | Types.Sig_module(ident,_, _,_,_)
+  | Types.Sig_value (ident,_,_)
+  | Types.Sig_modtype (ident,_,_)
+  | Types.Sig_typext (ident,_,_,_)   ->  {hide=false; ident }
+
 let hide ids env =
     let hide_id id env =
-       if id.Synt_sig.hide then
-         Env.add_type ~check:false (Ident.rename id.Synt_sig.ident) dummy env
+       if id.hide then
+         Env.add_type ~check:false (Ident.rename id.ident) dummy env
        else env
     in
     List.fold_right hide_id ids env
@@ -1691,7 +1702,7 @@ let with_hidden_items ids f =
 
 
 let add_sigitem env x =
-  Env.add_signature Synt_sig.(x.src :: x.post_ghosts) env
+  Env.add_signature Signature_group.(x.src :: x.post_ghosts) env
 
 let rec tree_of_modtype ?(ellipsis=false) = function
   | Mty_ident p ->
@@ -1729,7 +1740,7 @@ and tree_of_signature sg =
 
 and tree_of_signature_rec env' sg =
   let structured =
-    List.rev @@ Seq.fold_left (fun l (x,_) -> x :: l) [] @@ Synt_sig.group sg in
+    List.rev @@ Signature_group.fold  (fun l x -> x :: l) [] sg in
   let collect_trees_of_rec_group group =
     let env = !printing_env in
     let env', group_trees =
@@ -1742,12 +1753,13 @@ and tree_of_signature_rec env' sg =
   List.map collect_trees_of_rec_group structured
 
 and trees_of_recursive_sigitem_group env
-    (syntactic_group: Synt_sig.rec_group) =
-  let display (x:Synt_sig.sig_item) = x.src, tree_of_sigitem x.src in
+    (syntactic_group: Signature_group.rec_group) =
+  let display (x:Signature_group.sig_item) = x.src, tree_of_sigitem x.src in
   let env = Env.add_signature syntactic_group.pre_ghosts env in
   match syntactic_group.group with
   | Not_rec x -> add_sigitem env x, [display x]
-  | Rec_group (ids,items) ->
+  | Rec_group items ->
+      let ids = List.map (fun x -> ident_sigitem x.Signature_group.src) items in
       List.fold_left add_sigitem env items,
       with_hidden_items ids (fun () -> List.map display items)
 

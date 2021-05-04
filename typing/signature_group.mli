@@ -24,21 +24,16 @@ type sig_item =
     (** ghost classes types are post-declared *);
   }
 
-type 'ident core_rec_group =
+type core_rec_group =
   | Not_rec of sig_item
-  | Rec_group of ('ident list * sig_item list)
+  | Rec_group of sig_item list
 
 (** Private row types are manifested as a sequence of definitions
     preceding a recursive group, we collect them and separate them from the
     syntatic recursive group. *)
-type 'ident gen_rec_group =
-  { pre_ghosts: Types.signature_item list; group:'ident core_rec_group }
-
-(** Some identifiers may require hiding when printing *)
-type bound_ident = { hide:bool; ident:Ident.t }
-
-type rec_group = bound_ident gen_rec_group
-
+type rec_group =
+  { pre_ghosts: Types.signature_item list; group:core_rec_group }
 
 val group: Types.signature -> (rec_group * Types.signature) Seq.t
 val iter: (rec_group -> unit) -> Types.signature -> unit
+val fold: ('acc -> rec_group -> 'acc) -> 'acc -> Types.signature -> 'acc

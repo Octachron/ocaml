@@ -527,7 +527,7 @@ let merge_constraint initial_env loc sg lid constr =
         let row_id = List.find_map row_id elt.pre_ghosts in
         match elt.group with
         | Not_rec x -> merge_sig_items sig_env namelist row_id next rem [x]
-        | Rec_group (_,x) -> merge_sig_items sig_env namelist row_id next rem x
+        | Rec_group x -> merge_sig_items sig_env namelist row_id next rem x
   and merge_sig_items sig_env namelist row_id up rem = function
     | [] -> merge sig_env namelist up
     | a :: q ->
@@ -1159,7 +1159,7 @@ end = struct
        thus never appear in includes *)
     match x.group with
     | Not_rec x -> check_syntactic_sig_item ?info names loc x
-    | Rec_group (_,x) ->
+    | Rec_group x ->
         List.iter (check_syntactic_sig_item ?info names loc) x
 
   (*
