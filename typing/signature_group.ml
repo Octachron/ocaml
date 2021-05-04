@@ -131,6 +131,8 @@ type 'a in_place_patch = {
   info: 'a;
 }
 
+let flatten x = x.src :: x.post_ghosts
+
 let replace_in_place f sg =
   let rec next_group f before (seq: (rec_group * Types.signature) Seq.t) =
     match seq () with
@@ -139,26 +141,22 @@ let replace_in_place f sg =
         core_group f ~before ~ghosts:item.pre_ghosts ~before_group:[]
           (rec_items item.group) ~rem ~next
   and core_group f ~before ~ghosts ~before_group current ~rem ~next =
+    let commit ghosts = before_group @ List.rev_append ghosts before in
     match current with
-    | [] -> next_group f (before_group @ List.rev_append ghosts before) next
+    | [] -> next_group f (commit ghosts) next
     | a :: q ->
         match f ~rec_group:q ~ghosts a.src with
-        | Some {info; ghosts; replace_by } ->
-            let current =
-              List.concat_map (fun x -> x.src :: x.post_ghosts) q
+        | Some { info; ghosts; replace_by } ->
+            let after = List.concat_map flatten q @ rem in
+            let after = match recursive_sigitem a.src, replace_by with
+              | None, _ | _, _ :: _ -> after
+              | Some (_,rs), [] -> update_rec_next rs after
             in
-            let current = match recursive_sigitem a.src, replace_by with
-              | None, _ | _, _ :: _ -> current
-              | Some (_,rs), [] -> update_rec_next rs current
-            in
-            let before =
-              List.rev_append current @@
-              replace_by @ before_group @ List.rev_append ghosts before
-            in
-            Some(info, List.rev_append before rem)
+            let sg = List.rev_append (replace_by @ commit ghosts) after in
+            Some(info, sg)
         | None ->
             let before_group =
-              List.rev_append (a.post_ghosts) (a.src :: before_group)
+              List.rev_append a.post_ghosts (a.src :: before_group)
             in
             core_group f ~before ~ghosts ~before_group q ~rem ~next
   in
