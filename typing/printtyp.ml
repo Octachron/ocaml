@@ -26,7 +26,7 @@ open Btype
 open Outcometree
 
 module String = Misc.Stdlib.String
-module Synt_sig = Syntactic_signature_traversal
+module Synt_sig = Signature_group
 
 (* Print a long identifier *)
 

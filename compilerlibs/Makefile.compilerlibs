@@ -54,7 +54,7 @@ TYPING=typing/ident.cmo typing/path.cmo \
   typing/datarepr.cmo file_formats/cmi_format.cmo \
   typing/persistent_env.cmo typing/env.cmo \
   typing/typedtree.cmo typing/printtyped.cmo typing/ctype.cmo \
-  typing/syntactic_signature_traversal.cmo \
+  typing/signature_group.cmo \
   typing/printtyp.cmo typing/includeclass.cmo \
   typing/mtype.cmo typing/envaux.cmo typing/includecore.cmo \
   typing/tast_iterator.cmo typing/tast_mapper.cmo  typing/stypes.cmo \

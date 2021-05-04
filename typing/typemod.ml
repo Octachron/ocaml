@@ -23,7 +23,7 @@ open Format
 
 let () = Includemod_errorprinter.register ()
 
-module Sig_group = Syntactic_signature_traversal
+module Sig_group = Signature_group
 
 module String = Misc.Stdlib.String
 
