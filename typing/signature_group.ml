@@ -105,8 +105,61 @@ let group_seq x =
   in
   not_in_group [] x
 
-
-
 let group l = l |> partial_lists |> item_seq |> group_seq
 let iter f l = Seq.iter (fun (x,_q) -> f x) (group l)
 let fold f acc l = Seq.fold_left (fun acc (x,_) -> f acc x) acc @@ group l
+
+let update_rec_next rs rem =
+  match rs with
+  | Types.Trec_next -> rem
+  | Types.(Trec_first | Trec_not) ->
+      match rem with
+      | Types.Sig_type (id, decl, Trec_next, priv) :: rem ->
+          Types.Sig_type (id, decl, rs, priv) :: rem
+      | Types.Sig_module (id, pres, mty, Trec_next, priv) :: rem ->
+          Types.Sig_module (id, pres, mty, rs, priv) :: rem
+      | _ -> rem
+
+let rec_items = function
+  | Not_rec x -> [x]
+  | Rec_group x -> x
+
+
+type 'a in_place_patch = {
+  ghosts: Types.signature;
+  replace_by: Types.signature;
+  info: 'a;
+}
+
+let replace_in_place f sg =
+  let rec next_group f before (seq: (rec_group * Types.signature) Seq.t) =
+    match seq () with
+    | Seq.Nil -> None
+    | Seq.Cons((item,rem), next) ->
+        core_group f ~before ~ghosts:item.pre_ghosts ~before_group:[]
+          (rec_items item.group) ~rem ~next
+  and core_group f ~before ~ghosts ~before_group current ~rem ~next =
+    match current with
+    | [] -> next_group f (before_group @ List.rev_append ghosts before) next
+    | a :: q ->
+        match f ~rec_group:q ~ghosts a.src with
+        | Some {info; ghosts; replace_by } ->
+            let current =
+              List.concat_map (fun x -> x.src :: x.post_ghosts) q
+            in
+            let current = match recursive_sigitem a.src, replace_by with
+              | None, _ | _, _ :: _ -> current
+              | Some (_,rs), [] -> update_rec_next rs current
+            in
+            let before =
+              List.rev_append current @@
+              replace_by @ before_group @ List.rev_append ghosts before
+            in
+            Some(info, List.rev_append before rem)
+        | None ->
+            let before_group =
+              List.rev_append (a.post_ghosts) (a.src :: before_group)
+            in
+            core_group f ~before ~ghosts ~before_group q ~rem ~next
+  in
+  next_group f [] (group sg)
