@@ -823,7 +823,7 @@ let name_of_type name_generator t =
   (* We've already been through repr at this stage, so t is our representative
      of the union-find class. *)
   try List.assq t !names with Not_found ->
-    try TTypeMap.find t !weak_var_map with Not_found ->
+    try TransientTypeMap.find t !weak_var_map with Not_found ->
     let name =
       match t.desc with
         Tvar (Some name) | Tunivar (Some name) ->
