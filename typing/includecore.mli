@@ -26,14 +26,16 @@ type label_mismatch =
   | Type
   | Mutability of position
 
-type field_mismatch =
-  | Kind_mismatch of
-      Types.label_declaration * Types.label_declaration * label_mismatch
-  | Name_mismatch of Ident.t * Ident.t
 
-type record_change =
-  (Types.label_declaration, Types.label_declaration,
-   unit,field_mismatch) Diffing.change
+type ('a,'b) change =
+  | Name_mismatch of {pos:int; got:string; expected:string }
+  | Type_mismatch of {pos:int; got:'a; expected:'a; reason:'b}
+  | Swap of { got: int * string; expected:int * string }
+  | Displacement of {name:string; got:int; expected:int}
+  | Insert of {pos:int; insert:'a}
+  | Delete of {pos:int; delete:'a}
+
+type record_change = (Types.label_declaration, label_mismatch) change
 
 type record_mismatch =
   | Label_mismatch of record_change list
@@ -46,21 +48,13 @@ type constructor_mismatch =
   | Kind of position
   | Explicit_return_type of position
 
-type variant_mismatch =
-  | Constructor_mismatch of Types.constructor_declaration
-                            * Types.constructor_declaration
-                            * constructor_mismatch
-  | Constructor_names of Ident.t * Ident.t
-
 type extension_constructor_mismatch =
   | Constructor_privacy
   | Constructor_mismatch of Ident.t
                             * extension_constructor
                             * extension_constructor
                             * constructor_mismatch
-type variant_change =
-  (Types.constructor_declaration, Types.constructor_declaration,
-   Asttypes.label, variant_mismatch) Diffing.change
+type variant_change = (Types.constructor_declaration, constructor_mismatch) change
 
 type type_mismatch =
   | Arity
