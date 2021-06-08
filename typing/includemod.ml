@@ -797,6 +797,21 @@ let compunit env ~mark impl_name impl_sig intf_name intf_sig =
  *)
 
 module Functor_inclusion_diff = struct
+
+  module Defs = struct
+    type left = Types.functor_parameter
+    type right = left
+    type eq = Typedtree.module_coercion
+    type diff = (Types.functor_parameter, unit) Error.functor_param_symptom
+    type state = {
+      res: module_type option;
+      env: Env.t;
+      subst: Subst.t;
+    }
+  end
+  open Defs
+
+  module Diff = Diffing.Make(Defs)
   open Diffing
 
   let param_name = function
@@ -818,11 +833,7 @@ module Functor_inclusion_diff = struct
         | Some _,  None | None, Some _ -> 1
       end
 
-  type state = {
-    res: module_type option;
-    env: Env.t;
-    subst: Subst.t;
-  }
+
 
   let keep_expansible_param = function
     | Mty_ident _ | Mty_alias _ as mty -> Some mty
@@ -874,7 +885,7 @@ module Functor_inclusion_diff = struct
       end
 
   let diff env (l1,res1) (l2,_) =
-    let update = Diffing.With_left_extensions update in
+    let update = Diff.With_left_extensions update in
     let test st mty1 mty2 =
       let loc = Location.none in
       let res, _, _ =
@@ -887,12 +898,20 @@ module Functor_inclusion_diff = struct
     let state =
       { env; subst = Subst.identity; res = keep_expansible_param res1}
     in
-    Diffing.variadic_diff ~weight ~test ~update state param1 param2
+    Diff.variadic_diff ~weight ~test ~update state param1 param2
 
 end
 
 module Functor_app_diff = struct
   module I = Functor_inclusion_diff
+  module Defs= struct
+    type left = Error.functor_arg_descr * Types.module_type
+    type right = Types.functor_parameter
+    type eq = Typedtree.module_coercion
+    type diff = (Error.functor_arg_descr, unit) Error.functor_param_symptom
+    type state = I.Defs.state
+  end
+  module Diff = Diffing.Make(Defs)
   open Diffing
 
   let weight = function
@@ -914,7 +933,7 @@ module Functor_app_diff = struct
           | Named _,  None | (Unit | Anonymous), Some _ -> 1
         end
 
-  let update (d: (_,Types.functor_parameter,_,_) change) (st:I.state) =
+  let update (d: Diff.change) (st:Defs.state) =
     let open Error in
     match d with
     | Insert _
@@ -958,8 +977,8 @@ module Functor_app_diff = struct
 
   let diff env ~f ~args =
     let params, res = retrieve_functor_params env f in
-    let update = Diffing.With_right_extensions update in
-    let test (state:I.state) (arg,arg_mty) param =
+    let update = Diff.With_right_extensions update in
+    let test (state:Defs.state) (arg,arg_mty) param =
       let loc = Location.none in
       let res = match (arg:Error.functor_arg_descr), param with
         | Unit, Unit -> Ok Tcoerce_none
@@ -977,10 +996,10 @@ module Functor_app_diff = struct
     in
     let args = Array.of_list args in
     let params = Array.of_list params in
-    let state : I.state =
+    let state : Defs.state =
       { env; subst = Subst.identity; res = I.keep_expansible_param res }
     in
-    Diffing.variadic_diff ~weight ~test ~update state args params
+    Diff.variadic_diff ~weight ~test ~update state args params
 
 end
 

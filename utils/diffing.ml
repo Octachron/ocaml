@@ -38,8 +38,6 @@ type ('left, 'right, 'eq, 'diff) change =
   | Keep of 'left * 'right * 'eq
   | Change of 'left * 'right * 'diff
 
-type ('l, 'r, 'eq, 'diff) patch = ('l, 'r, 'eq, 'diff) change list
-
 let map f g = function
   | Delete x -> Delete (f x)
   | Insert x -> Insert (g x)
@@ -334,20 +332,31 @@ let construct_patch m0 =
   in
   aux [] (select_final_state m0)
 
-let diff ~weight ~test ~update state line column =
-  let update d fs = { fs with state = update d fs.state } in
-  let fullstate = { line; column; state } in
-  compute_matrix ~weight ~test ~update fullstate
-  |> construct_patch
+module type Defs = sig
+  type left
+  type right
+  type eq
+  type diff
+  type state
+end
+module Make(Def:Defs) = struct
+  open Def
 
-type ('l, 'r, 'e, 'd, 'state) update =
-  | Without_extensions of (('l,'r,'e,'d) change -> 'state -> 'state)
-  | With_left_extensions of
-      (('l,'r,'e,'d) change -> 'state -> 'state * 'l array)
-  | With_right_extensions of
-      (('l,'r,'e,'d) change -> 'state -> 'state * 'r array)
+  type nonrec change = (left,right,eq,diff) change
+  type patch = change list
 
-let variadic_diff ~weight ~test ~(update:_ update) state line column =
+  let diff ~weight ~test ~update state line column =
+    let update d fs = { fs with state = update d fs.state } in
+    let fullstate = { line; column; state } in
+    compute_matrix ~weight ~test ~update fullstate
+    |> construct_patch
+
+  type update =
+    | Without_extensions of (change -> state -> state)
+    | With_left_extensions of (change -> state -> state * left array)
+    | With_right_extensions of (change -> state -> state * right array)
+
+let variadic_diff ~weight ~test ~update state line column =
   let may_append x = function
     | [||] -> x
     | y -> Array.append x y in
@@ -368,7 +377,7 @@ let variadic_diff ~weight ~test ~(update:_ update) state line column =
   let fullstate = { line; column; state } in
   compute_matrix ~weight ~test ~update fullstate
   |> construct_patch
-
+end
 
 type change_kind =
   | Deletion
@@ -394,8 +403,8 @@ let prefix ppf (pos, p) =
   Format.fprintf ppf "%i. " pos;
   Format.pp_close_stag ppf ()
 
-  let default_weight = function
-    | Insert _ -> 10
-    | Delete _ -> 10
-    | Change _ -> 10
-    | Keep _ -> 0
+let default_weight = function
+  | Insert _ -> 10
+  | Delete _ -> 10
+  | Change _ -> 10
+  | Keep _ -> 0
