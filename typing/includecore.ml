@@ -135,7 +135,8 @@ type label_mismatch =
   | Mutability of position
 
 type record_change =
-  (Types.label_declaration, label_mismatch) Diffing_with_keys.change
+  (Types.label_declaration, Types.label_declaration, label_mismatch)
+    Diffing_with_keys.change
 
 type record_mismatch =
   | Label_mismatch of record_change list
@@ -167,7 +168,7 @@ type private_object_mismatch =
   | Types of Env.t * Errortrace.comparison Errortrace.t
 
 type variant_change =
-  (Types.constructor_declaration, constructor_mismatch)
+  (Types.constructor_declaration as 'l, 'l, constructor_mismatch)
     Diffing_with_keys.change
 
 type type_mismatch =
@@ -379,6 +380,7 @@ module Record_diffing = struct
 
   module Defs = struct
     type left = Types.label_declaration
+    type right = left
     type diff = label_mismatch
     type state = type_expr list * type_expr list
   end
@@ -428,7 +430,8 @@ module Record_diffing = struct
   let key (x: Defs.left) = Ident.name x.ld_id
   let diffing loc env params1 params2 cstrs_1 cstrs_2 =
     let module Diff = D.Simple(struct
-        let key = key
+        let key_left = key
+        let key_right = key
         let update = update
         let test = test loc env
         let weight = weight
@@ -525,6 +528,7 @@ module Variant_diffing = struct
 
   module Defs = struct
     type left = Types.constructor_declaration
+    type right = left
     type diff = constructor_mismatch
     type state = type_expr list * type_expr list
   end
@@ -564,7 +568,8 @@ module Variant_diffing = struct
   let diffing loc env params1 params2 cstrs_1 cstrs_2 =
     let key (x:Types.constructor_declaration) = Ident.name x.cd_id in
     let module Diff = D.Simple(struct
-        let key = key
+        let key_left = key
+        let key_right = key
         let test = test loc env
         let update = update
         let weight = weight

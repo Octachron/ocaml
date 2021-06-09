@@ -20,16 +20,17 @@ let pos (x,_) = x
 let data (_,x) = x
 let mk_pos pos data = pos, data
 
-type ('a,'b) mismatch =
-  | Name of {pos:int; got:string; expected:string; types_match:bool}
-  | Type of {pos:int; got:'a; expected:'a; reason:'b}
 
-type ('a,'b) change =
-  | Change of ('a,'b) mismatch
+type ('l,'r,'diff) mismatch =
+  | Name of {pos:int; got:string; expected:string; types_match:bool}
+  | Type of {pos:int; got:'l; expected:'r; reason:'diff}
+
+type ('l,'r,'diff) change =
+  | Change of ('l,'r,'diff) mismatch
   | Swap of { pos: int * int; first: string; last: string }
   | Move of {name:string; got:int; expected:int}
-  | Insert of {pos:int; insert:'a}
-  | Delete of {pos:int; delete:'a}
+  | Insert of {pos:int; insert:'r}
+  | Delete of {pos:int; delete:'l}
 
 let prefix ppf x =
   let kind = match x with
@@ -60,6 +61,7 @@ module Move = Misc.Stdlib.String.Map
 
 module type Defs = sig
   type left
+  type right
   type diff
   type state
 end
@@ -67,34 +69,35 @@ end
 module Define(D:Defs) = struct
   module Extended_defs = struct
     type left = D.left with_pos
-    type right = D.left with_pos
-    type diff =  (D.left, D.diff) mismatch
+    type right = D.right with_pos
+    type diff =  (D.left, D.right, D.diff) mismatch
     type eq = unit
     type state = D.state
   end
   open Extended_defs
   module Diff = Diffing.Define(Extended_defs)
   type extended_change = Diffing.Define(Extended_defs).change
-  type nonrec change = (D.left,D.diff) change
+  type nonrec change = (D.left,D.right,D.diff) change
   type patch = change list
 
 
   module type Arg = sig
     include Diff.Core with type update_result := state
-    val key: D.left -> string
+    val key_left: D.left -> string
+    val key_right: D.right -> string
   end
 
-  type 'a partial_edge =
-    | Left of int * state * 'a
-    | Right of int * state * 'a
-    | Both of state * 'a * 'a
+  type ('l,'r) partial_edge =
+    | Left of int * state * 'l
+    | Right of int * state * 'r
+    | Both of state * 'l * 'r
 
 
  module Simple(Impl:Arg) = struct
    open Impl
 
-   let edge state x y =
-     let kx, ky = key (data x), key (data y) in
+   let edge state (x:left) (y:right) =
+     let kx, ky = key_left (data x), key_right (data y) in
      if kx <= ky then
        (kx,ky), Left (pos x, state, (x,y))
      else
@@ -117,11 +120,11 @@ let exchanges state changes =
         let k, edge = edge state x y in
         Swap.update k (add_edge edge) swaps, moves
     | Diff.Insert nx ->
-        let k = key (data nx) in
+        let k = key_right (data nx) in
         let edge = Right (pos nx, state,nx) in
         swaps, Move.update k (add_edge edge) moves
     | Diff.Delete nx ->
-        let k, edge = key (data nx), Left (pos nx, state, nx) in
+        let k, edge = key_left (data nx), Left (pos nx, state, nx) in
         swaps, Move.update k (add_edge edge) moves
     | _ -> swaps, moves
   in
@@ -129,18 +132,22 @@ let exchanges state changes =
 
 
 let swap swaps x y =
-  let kx, ky = key (data x), key (data y) in
+  let kx, ky = key_left (data x), key_right (data y) in
   let key = if kx <= ky then kx, ky else ky, kx in
   match Swap.find_opt key swaps with
   | None | Some (Left _ | Right _)-> None
   | Some Both (state, (ll,lr),(rl,rr)) ->
-      match test state ll rr,  test state lr rl with
+      match test state ll rr,  test state rl lr with
       | Ok _, Ok _ ->
           Some (mk_pos (pos ll) kx, mk_pos (pos rl) ky)
       | Error _, _ | _, Error _ -> None
 
 let move moves x =
-  let name = key (data x) in
+  let name =
+    match x with
+    | Either.Left x -> key_left (data x)
+    | Either.Right x -> key_right (data x)
+  in
   match Move.find_opt name moves with
   | None | Some (Left _ | Right _)-> None
   | Some Both (state,got,expected) ->
@@ -154,12 +161,12 @@ let refine state patch =
   let filter = function
     | Diff.Keep _ -> None
     | Diff.Insert x ->
-        begin match move moves x with
+        begin match move moves (Either.Right x) with
         | Some _ as move -> move
         | None -> Some (Insert {pos=pos x;insert=data x})
         end
     | Diff.Delete x ->
-        begin match move moves x with
+        begin match move moves (Either.Left x) with
         | Some _ -> None
         | None -> Some (Delete {pos=pos x;delete=data x})
         end

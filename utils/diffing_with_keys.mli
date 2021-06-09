@@ -32,18 +32,18 @@
 type 'a with_pos = int * 'a
 val with_pos: 'a list -> 'a with_pos list
 
-type ('a,'b) mismatch =
+type ('l,'r,'diff) mismatch =
   | Name of {pos:int; got:string; expected:string; types_match:bool}
-  | Type of {pos:int; got:'a; expected:'a; reason:'b}
+  | Type of {pos:int; got:'l; expected:'r; reason:'diff}
 
-type ('a,'b) change =
-  | Change of ('a,'b) mismatch
+type ('l,'r,'diff) change =
+  | Change of ('l,'r,'diff) mismatch
   | Swap of { pos: int * int; first: string; last: string }
   | Move of {name:string; got:int; expected:int}
-  | Insert of {pos:int; insert:'a}
-  | Delete of {pos:int; delete:'a}
+  | Insert of {pos:int; insert:'r}
+  | Delete of {pos:int; delete:'l}
 
-val prefix: Format.formatter -> ('a,'b) change -> unit
+val prefix: Format.formatter -> ('l,'r,'diff) change -> unit
 
 
 module type Defs = sig
@@ -57,21 +57,22 @@ module Define(D:Defs): sig
   module Extended_defs: sig
     type left = D.left with_pos
     type right = D.right with_pos
-    type diff =  (D.left, D.diff) mismatch
+    type diff =  (D.left, D.right, D.diff) mismatch
     type eq = unit
     type state = D.state
   end
   open Extended_defs
   type extended_change = Diffing.Define(Extended_defs).change
-  type nonrec change = (D.left,D.diff) change
+  type nonrec change = (D.left,D.right,D.diff) change
   type patch = change list
 
   module type Arg = sig
     include Diffing.Define(Extended_defs).Core with type update_result := state
-    val key: D.left -> string
+    val key_left: D.left -> string
+    val key_right: D.right -> string
   end
 
   module Simple:  Arg -> sig
-      val diff: state -> D.left list -> D.left list -> patch
+      val diff: state -> D.left list -> D.right list -> patch
     end
 end
