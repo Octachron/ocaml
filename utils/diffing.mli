@@ -59,19 +59,7 @@
 
 *)
 
-(** The type of potential changes on a list. *)
-type ('left, 'right, 'eq, 'diff) change =
-  | Delete of 'left
-  | Insert of 'right
-  | Keep of 'left * 'right * 'eq
-  | Change of 'left * 'right * 'diff
-
-
-val map :
-  ('l1 -> 'l2) -> ('r1 -> 'r2) ->
-  ('l1, 'r1, 'eq, 'diff) change ->
-  ('l2, 'r2, 'eq, 'diff) change
-
+(** The core types of a diffing implementation *)
 module type Defs = sig
   type left
   type right
@@ -80,13 +68,40 @@ module type Defs = sig
   type state
 end
 
-module Make(Defs:Defs): sig
-  open Defs
+(** The kind of changes which is used to share printing and styling
+    across implementation*)
+type change_kind =
+  | Deletion
+  | Insertion
+  | Modification
+  | Preservation
+val prefix: Format.formatter -> (int * change_kind) -> unit
+val style: change_kind -> Misc.Color.style list
 
-  type nonrec change = (left,right,eq,diff) change
+
+
+module Define(D:Defs): sig
+  open D
+
+  (** The type of potential changes on a list. *)
+  type change =
+    | Delete of left
+    | Insert of right
+    | Keep of left * right * eq
+    | Change of left * right * diff
+  val classify: change -> change_kind
+
 
   type patch = change list
   (** A patch is an ordered list of changes. *)
+
+
+  module type Core = sig
+    type update_result
+    val weight: change -> int
+    val test: state -> left -> right -> (eq, diff) result
+    val update: change -> state -> update_result
+  end
 
   (** [diff ~weight ~test ~update state l r] computes
       the diff between [l] and [r], using the initial state [state].
@@ -96,43 +111,33 @@ module Make(Defs:Defs): sig
         Used to find the smallest patch.
       - [update ch st] returns the new state after applying a change.
   *)
-  val diff :
-    weight:(change -> int) ->
-    test:(state -> left -> right -> (eq, diff) result) ->
-    update:(change -> state -> state) ->
-    state -> left array -> right array -> patch
+  module Simple: (Core with type update_result := state) -> sig
+    val diff : state -> left array -> right array -> patch
+  end
+
 
   (** {1 Variadic diffing}
 
       Variadic diffing allows to expand the lists being diffed during diffing.
   *)
 
-  type  update =
-    | Without_extensions of (change -> state -> state)
-    | With_left_extensions of (change -> state -> state * left array)
-    | With_right_extensions of (change -> state -> state * right array)
+  module Left_variadic: (Core with type update_result := state * left array) -> sig
+      (** [diff  state l r] behaves as [diff]
+          with the following difference:
+          - [update] must now be an {!update} which indicates in which direction
+          the expansion takes place.
+      *)
+    val diff : state -> left array -> right array -> patch
+  end
 
-  (** [variadic_diff ~weight ~test ~update state l r] behaves as [diff]
-      with the following difference:
-      - [update] must now be an {!update} which indicates in which direction
-        the expansion takes place.
-  *)
-  val variadic_diff :
-    weight:(change -> int) ->
-    test:(state -> left -> right -> (eq, diff) result) ->
-    update:update ->
-    state -> left array -> right array -> patch
+  module Right_variadic: (Core with type update_result := state * right array) -> sig
+      (** [diff  state l r] behaves as [diff]
+          with the following difference:
+          - [update] must now be an {!update} which indicates in which direction
+          the expansion takes place.
+      *)
+    val diff : state -> left array -> right array -> patch
+  end
+
+
 end
-
-val default_weight : _ change -> int
-
-(** Printing default function *)
-type change_kind =
-  | Deletion
-  | Insertion
-  | Modification
-  | Preservation
-
-val classify: _ change -> change_kind
-val prefix: Format.formatter -> (int * change_kind) -> unit
-val style: change_kind -> Misc.Color.style list

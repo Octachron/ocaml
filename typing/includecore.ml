@@ -416,30 +416,23 @@ module Record_diffing = struct
     | Diffing.Change _ -> 10
 
   module Defs = struct
-    type uleft = Types.label_declaration
-    type left =  uleft Diffing_with_keys.with_pos
-    type right = left
-    type eq = unit
-    type diff = (uleft,label_mismatch) Diffing_with_keys.mismatch
+    type left = Types.label_declaration
+    type diff = label_mismatch
     type state = type_expr list * type_expr list
   end
-  open Defs
+  module D = Diffing_with_keys.Define(Defs)
 
-  module D = Diffing.Make(Defs)
 
-  let key (x: uleft) = Ident.name x.ld_id
+  let key (x: Defs.left) = Ident.name x.ld_id
   let diffing loc env params1 params2 cstrs_1 cstrs_2 =
-    let test = test loc env in
-    let cstrs_1 = Diffing_with_keys.with_pos cstrs_1 in
-    let cstrs_2 = Diffing_with_keys.with_pos cstrs_2 in
-    let raw = D.diff
-        ~weight
-        ~test
-        ~update (params1,params2)
-        (Array.of_list cstrs_1)
-        (Array.of_list cstrs_2)
+    let module Diff = D.Simple(struct
+        let key = key
+        let update = update
+        let test = test loc env
+        let weight = weight
+      end)
     in
-    Diffing_with_keys.refine ~key ~update ~test (params1,params2) raw
+    Diff.diff (params1,params2) cstrs_1 cstrs_2
 
   let compare ~loc env params1 params2 l r =
     if equal ~loc env params1 params2 l r then
@@ -529,15 +522,13 @@ module Variant_diffing = struct
       end) cstrs1 cstrs2
 
   module Defs = struct
-    type uleft = Types.constructor_declaration
-    type left =  uleft Diffing_with_keys.with_pos
-    type right = left
-    type eq = unit
-    type diff = (uleft,constructor_mismatch) Diffing_with_keys.mismatch
-    type state = unit
+    type left = Types.constructor_declaration
+    type diff = constructor_mismatch
+    type state = type_expr list * type_expr list
   end
+  module D = Diffing_with_keys.Define(Defs)
 
-  let update _ () = ()
+  let update _ st = st
 
   let weight = function
     | Diffing.Insert _ -> 10
@@ -548,7 +539,7 @@ module Variant_diffing = struct
     | Diffing.Change _ -> 10
 
 
-  let test loc env params1 params2 ()
+  let test loc env (params1,params2)
       (pos,cd1: _ * Types.constructor_declaration)
       (_,cd2: _ * Types.constructor_declaration) =
     let name1, name2 = Ident.name cd1.cd_id, Ident.name cd2.cd_id in
@@ -568,20 +559,16 @@ module Variant_diffing = struct
           Error (Diffing_with_keys.Type {pos; got=cd1; expected=cd2; reason})
       | None -> Ok ()
 
-  module D = Diffing.Make(Defs)
   let diffing loc env params1 params2 cstrs_1 cstrs_2 =
-    let test = test loc env params1 params2 in
-    let cstrs_1 = Diffing_with_keys.with_pos cstrs_1 in
-    let cstrs_2 = Diffing_with_keys.with_pos cstrs_2 in
-    let raw = D.diff
-      ~weight
-      ~test
-      ~update ()
-      (Array.of_list cstrs_1)
-      (Array.of_list cstrs_2)
-    in
     let key (x:Types.constructor_declaration) = Ident.name x.cd_id in
-    Diffing_with_keys.refine ~key ~update ~test () raw
+    let module Diff = D.Simple(struct
+        let key = key
+        let test = test loc env
+        let update = update
+        let weight = weight
+      end)
+    in
+    Diff.diff (params1,params2) cstrs_1 cstrs_2
 
   let compare ~loc env params1 params2 l r =
     if equal ~loc env params1 params2 l r then

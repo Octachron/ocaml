@@ -339,44 +339,61 @@ module type Defs = sig
   type diff
   type state
 end
-module Make(Def:Defs) = struct
+module Define(Def:Defs) = struct
   open Def
 
   type nonrec change = (left,right,eq,diff) change
   type patch = change list
 
-  let diff ~weight ~test ~update state line column =
-    let update d fs = { fs with state = update d fs.state } in
-    let fullstate = { line; column; state } in
-    compute_matrix ~weight ~test ~update fullstate
-    |> construct_patch
 
-  type update =
-    | Without_extensions of (change -> state -> state)
-    | With_left_extensions of (change -> state -> state * left array)
-    | With_right_extensions of (change -> state -> state * right array)
+  module type Core = sig
+    type update_result
+    val weight: change -> int
+    val test: state -> left -> right -> (eq, diff) result
+    val update: change -> state -> update_result
+  end
 
-let variadic_diff ~weight ~test ~update state line column =
+  module Simple(X:Core with type update_result := state) = struct
+    open X
+    let diff state line column =
+      let update d fs = { fs with state = update d fs.state } in
+      let fullstate = { line; column; state } in
+      compute_matrix ~weight ~test ~update fullstate
+      |> construct_patch
+  end
+
+
   let may_append x = function
     | [||] -> x
-    | y -> Array.append x y in
-  let update = match update with
-    | Without_extensions up ->
-        fun d fs ->
-          let state = up d fs.state in
-          { fs with state }
-    | With_left_extensions up ->
-        fun d fs ->
-          let state, a = up d fs.state in
-          { fs with state ; line = may_append fs.line a }
-    | With_right_extensions up ->
-        fun d fs ->
-          let state, a = up d fs.state in
-          { fs with state ; column = may_append fs.column a }
-  in
-  let fullstate = { line; column; state } in
-  compute_matrix ~weight ~test ~update fullstate
-  |> construct_patch
+    | y -> Array.append x y
+
+
+  module Left_variadic(X:Core with type update_result := state * left array) = struct
+    open X
+
+    let diff state line column =
+      let update d fs =
+        let state, a = update d fs.state in
+        { fs with state ; line = may_append fs.line a }
+      in
+      let fullstate = { line; column; state } in
+      compute_matrix ~weight ~test ~update fullstate
+      |> construct_patch
+  end
+
+  module Right_variadic(X:Core with type update_result := state * right array) = struct
+
+    open X
+    let diff state line column =
+      let update d fs =
+        let state, a = update d fs.state in
+        { fs with state ; column = may_append fs.column a }
+      in
+      let fullstate = { line; column; state } in
+      compute_matrix ~weight ~test ~update fullstate
+      |> construct_patch
+  end
+
 end
 
 type change_kind =

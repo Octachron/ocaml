@@ -141,3 +141,41 @@ let refine ~key ~update ~test state patch =
         | None -> Some (Change reason)
   in
   List.filter_map filter patch
+
+
+
+module type Defs = sig
+  type left
+  type diff
+  type state
+end
+
+module Define(D:Defs) = struct
+  module Extended_defs = struct
+    type left = D.left with_pos
+    type right = D.left with_pos
+    type diff =  (D.left, D.diff) mismatch
+    type eq = unit
+    type state = D.state
+  end
+  open Extended_defs
+  type extended_change = Diffing.Define(Extended_defs).change
+  type nonrec change = (D.left,D.diff) change
+  type patch = change list
+
+  module type Arg = sig
+    val key: D.left -> string
+    include Diffing.Define(Extended_defs).Core with type update_result := state
+  end
+
+  module Simple(X:Arg) = struct
+    let diff state left right =
+      let left = with_pos left in
+      let right = with_pos right in
+      let module Raw_defs = Diffing.Define(Extended_defs) in
+      let module Raw = Raw_defs.Simple(X) in
+      let raw = Raw.diff state (Array.of_list left) (Array.of_list right) in
+      refine ~key:X.key ~update:X.update ~test:X.test state raw
+  end
+
+end

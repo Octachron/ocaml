@@ -811,7 +811,7 @@ module Functor_inclusion_diff = struct
   end
   open Defs
 
-  module Diff = Diffing.Make(Defs)
+  module Defined = Diffing.Define(Defs)
   open Diffing
 
   let param_name = function
@@ -885,20 +885,23 @@ module Functor_inclusion_diff = struct
       end
 
   let diff env (l1,res1) (l2,_) =
-    let update = Diff.With_left_extensions update in
-    let test st mty1 mty2 =
-      let loc = Location.none in
-      let res, _, _ =
-        functor_param ~loc st.env ~mark:Mark_neither st.subst mty1 mty2
-      in
-      res
+    let module Diff = Defined.Left_variadic(struct
+        let test st mty1 mty2 =
+          let loc = Location.none in
+          let res, _, _ =
+            functor_param ~loc st.env ~mark:Mark_neither st.subst mty1 mty2
+          in
+          res
+        let update = update
+        let weight = weight
+      end)
     in
     let param1 = Array.of_list l1 in
     let param2 = Array.of_list l2 in
     let state =
       { env; subst = Subst.identity; res = keep_expansible_param res1}
     in
-    Diff.variadic_diff ~weight ~test ~update state param1 param2
+    Diff.diff state param1 param2
 
 end
 
@@ -911,7 +914,7 @@ module Functor_app_diff = struct
     type diff = (Error.functor_arg_descr, unit) Error.functor_param_symptom
     type state = I.Defs.state
   end
-  module Diff = Diffing.Make(Defs)
+  module Diff_defs = Diffing.Define(Defs)
   open Diffing
 
   let weight = function
@@ -933,7 +936,7 @@ module Functor_app_diff = struct
           | Named _,  None | (Unit | Anonymous), Some _ -> 1
         end
 
-  let update (d: Diff.change) (st:Defs.state) =
+  let update (d: Diff_defs.change) (st:Defs.state) =
     let open Error in
     match d with
     | Insert _
@@ -977,29 +980,32 @@ module Functor_app_diff = struct
 
   let diff env ~f ~args =
     let params, res = retrieve_functor_params env f in
-    let update = Diff.With_right_extensions update in
-    let test (state:Defs.state) (arg,arg_mty) param =
-      let loc = Location.none in
-      let res = match (arg:Error.functor_arg_descr), param with
-        | Unit, Unit -> Ok Tcoerce_none
-        | Unit, Named _ | (Anonymous | Named _), Unit ->
-            Result.Error (Error.Incompatible_params(arg,param))
-        | ( Anonymous | Named _ ) , Named (_, param) ->
-            match
-              modtypes ~loc state.env ~mark:Mark_neither state.subst
-                arg_mty param
-            with
-            | Error mty -> Result.Error (Error.Mismatch mty)
-            | Ok _ as x -> x
-      in
-      res
+    let module Diff = Diff_defs.Right_variadic(struct
+        let update = update
+        let test (state:Defs.state) (arg,arg_mty) param =
+          let loc = Location.none in
+          let res = match (arg:Error.functor_arg_descr), param with
+            | Unit, Unit -> Ok Tcoerce_none
+            | Unit, Named _ | (Anonymous | Named _), Unit ->
+                Result.Error (Error.Incompatible_params(arg,param))
+            | ( Anonymous | Named _ ) , Named (_, param) ->
+                match
+                  modtypes ~loc state.env ~mark:Mark_neither state.subst
+                    arg_mty param
+                with
+                | Error mty -> Result.Error (Error.Mismatch mty)
+                | Ok _ as x -> x
+          in
+          res
+        let weight = weight
+      end)
     in
     let args = Array.of_list args in
     let params = Array.of_list params in
     let state : Defs.state =
       { env; subst = Subst.identity; res = I.keep_expansible_param res }
     in
-    Diff.variadic_diff ~weight ~test ~update state args params
+    Diff.diff state args params
 
 end
 

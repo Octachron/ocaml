@@ -226,7 +226,7 @@ module Functor_inclusion_diff: sig
   val diff: Env.t ->
     Types.functor_parameter list * Types.module_type ->
     Types.functor_parameter list * Types.module_type ->
-    Diffing.Make(Defs).patch
+    Diffing.Define(Defs).patch
 end
 
 module Functor_app_diff: sig
@@ -241,5 +241,5 @@ module Functor_app_diff: sig
     Env.t ->
     f:Types.module_type ->
     args:(Error.functor_arg_descr * Types.module_type) list ->
-    Diffing.Make(Defs).patch
+    Diffing.Define(Defs).patch
 end
