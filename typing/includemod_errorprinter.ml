@@ -264,6 +264,7 @@ module With_shorthand = struct
     | Unneeded -> "..."
 
   (** Add shorthands to a patch *)
+  open Diffing.Generic
   let patch ctx p =
     let add_shorthand side pos mty =
       {name = (make side pos); item = mty }
@@ -271,16 +272,16 @@ module With_shorthand = struct
     let aux i d =
       let pos = i + 1 in
       let d = match d with
-        | Diffing.Insert mty ->
-            Diffing.Insert (add_shorthand Expected pos mty)
-        | Diffing.Delete mty ->
-            Diffing.Delete (add_shorthand (elide_if_app ctx Got) pos mty)
-        | Diffing.Change (g, e, p) ->
-            Diffing.Change
+        | Insert mty ->
+            Insert (add_shorthand Expected pos mty)
+        | Delete mty ->
+            Delete (add_shorthand (elide_if_app ctx Got) pos mty)
+        | Change (g, e, p) ->
+            Change
               (add_shorthand Got pos g,
                add_shorthand Expected pos e, p)
-        | Diffing.Keep (g, e, p) ->
-            Diffing.Keep (add_shorthand Got pos g,
+        | Keep (g, e, p) ->
+            Keep (add_shorthand Got pos g,
                           add_shorthand (elide_if_app ctx Expected) pos e, p)
       in
       pos, d
@@ -373,7 +374,7 @@ module Functor_suberror = struct
   (** Print the list of params with style *)
   let pretty_params sep proj printer patch =
     let elt (x,param) =
-      let sty = Diffing.(style @@ classify x) in
+      let sty = Diffing.(style @@ Generic.classify x) in
       Format.dprintf "%a%t%a"
         Format.pp_open_stag (Misc.Color.Style sty)
         (printer param)
@@ -383,18 +384,18 @@ module Functor_suberror = struct
     Printtyp.functor_parameters ~sep elt params
 
   let expected d =
-    let extract = function
-      | Diffing.Insert mty
-      | Diffing.Keep(_,mty,_)
-      | Diffing.Change (_,mty,_) as x ->
+    let extract: _ Diffing.Generic.change -> _ = function
+      | Insert mty
+      | Keep(_,mty,_)
+      | Change (_,mty,_) as x ->
           Some (param_id mty,(x, mty))
-      | Diffing.Delete _ -> None
+      | Delete _ -> None
     in
     pretty_params space extract With_shorthand.qualified_param d
 
   let drop_inserted_suffix patch =
     let rec drop = function
-      | Diffing.Insert _ :: q -> drop q
+      | Diffing.Generic.Insert _ :: q -> drop q
       | rest -> List.rev rest in
     drop (List.rev patch)
 
@@ -405,13 +406,16 @@ module Functor_suberror = struct
 
   module Inclusion = struct
 
+    module Inclusion_defs =
+      Diffing.Define(Includemod.Functor_inclusion_diff.Defs)
+
     let got d =
-      let extract = function
-      | Diffing.Delete mty
-      | Diffing.Keep (mty,_,_)
-      | Diffing.Change (mty,_,_) as x ->
+      let extract: _ Diffing.Generic.change -> _ = function
+      | Delete mty
+      | Keep (mty,_,_)
+      | Change (mty,_,_) as x ->
           Some (param_id mty,(x,mty))
-      | Diffing.Insert _ -> None
+      | Insert _ -> None
       in
       pretty_params space extract With_shorthand.qualified_param d
 
@@ -449,23 +453,26 @@ module Functor_suberror = struct
 
       let patch env got expected =
         Includemod.Functor_inclusion_diff.diff env got expected
+        |> List.map Inclusion_defs.generalize
         |> prepare_patch ~drop:false ~ctx:Inclusion
 
     end
 
   module App = struct
 
+    module App_defs = Diffing.Define(Includemod.Functor_app_diff.Defs)
+
     let patch env ~f ~args =
       Includemod.Functor_app_diff.diff env ~f ~args
-      |> prepare_patch ~drop:true ~ctx:App
+       |> List.map App_defs.generalize |> prepare_patch ~drop:true ~ctx:App
 
     let got d =
-      let extract = function
-        | Diffing.Delete mty
-        | Diffing.Keep (mty,_,_)
-        | Diffing.Change (mty,_,_) as x ->
+      let extract: _ Diffing.Generic.change -> _ = function
+        | Delete mty
+        | Keep (mty,_,_)
+        | Change (mty,_,_) as x ->
             Some (None,(x,mty))
-        | Diffing.Insert _ -> None
+        | Insert _ -> None
       in
       pretty_params space extract With_shorthand.arg d
 
@@ -524,7 +531,7 @@ module Functor_suberror = struct
     Location.msg "%a%a%a%a@[<hv 2>%t@]%a"
       Format.pp_print_tab ()
       Format.pp_open_tbox ()
-      Diffing.prefix (pos, Diffing.classify diff)
+      Diffing.prefix (pos, Diffing.Generic.classify diff)
       Format.pp_set_tab ()
       (Printtyp.wrap_printing_env env ~error:true
          (fun () -> sub ~expansion_token env diff)
@@ -541,7 +548,7 @@ module Functor_suberror = struct
   let params sub ~expansion_token env l =
     let rec aux subcases = function
       | [] -> subcases
-      | (_, Diffing.Keep _) as a :: q ->
+      | (_, Diffing.Generic.Keep _) as a :: q ->
           aux (subcase sub ~expansion_token env a :: subcases) q
       | a :: q ->
           List.fold_left (fun acc x ->
@@ -801,13 +808,14 @@ and module_type_decl ~expansion_token ~env ~before ~ctx id diff =
           :: before
       end
 
-and functor_arg_diff ~expansion_token env = function
-  | Diffing.Insert mty -> Functor_suberror.Inclusion.insert mty
-  | Diffing.Delete mty -> Functor_suberror.Inclusion.delete mty
-  | Diffing.Keep (x, y, _) ->  Functor_suberror.Inclusion.ok x y
-  | Diffing.Change (_, _, Err.Incompatible_params (i,_)) ->
+and functor_arg_diff ~expansion_token env (patch: _ Diffing.Generic.change) =
+  match patch with
+  | Insert mty -> Functor_suberror.Inclusion.insert mty
+  | Delete mty -> Functor_suberror.Inclusion.delete mty
+  | Keep (x, y, _) ->  Functor_suberror.Inclusion.ok x y
+  | Change (_, _, Err.Incompatible_params (i,_)) ->
       Functor_suberror.Inclusion.incompatible i
-  | Diffing.Change (g, e,  Err.Mismatch mty_diff) ->
+  | Change (g, e,  Err.Mismatch mty_diff) ->
       let more () =
         subcase_list @@
         module_type_symptom ~eqmode:false ~expansion_token ~env ~before:[]
@@ -815,13 +823,14 @@ and functor_arg_diff ~expansion_token env = function
       in
       Functor_suberror.Inclusion.diff g e more
 
-let functor_app_diff ~expansion_token env = function
-  | Diffing.Insert mty ->  Functor_suberror.App.insert mty
-  | Diffing.Delete mty ->  Functor_suberror.App.delete mty
-  | Diffing.Keep (x, y, _) ->  Functor_suberror.App.ok x y
-  | Diffing.Change (_, _, Err.Incompatible_params (i,_)) ->
+let functor_app_diff ~expansion_token env  (patch: _ Diffing.Generic.change) =
+  match patch with
+  | Insert mty ->  Functor_suberror.App.insert mty
+  | Delete mty ->  Functor_suberror.App.delete mty
+  | Keep (x, y, _) ->  Functor_suberror.App.ok x y
+  | Change (_, _, Err.Incompatible_params (i,_)) ->
       Functor_suberror.App.incompatible i
-  | Diffing.Change (g, e,  Err.Mismatch mty_diff) ->
+  | Change (g, e,  Err.Mismatch mty_diff) ->
       let more () =
         subcase_list @@
         module_type_symptom ~eqmode:false ~expansion_token ~env ~before:[]
@@ -885,9 +894,9 @@ let report_apply_error ~loc env (lid_app, mty_f, args) =
   match d with
   (* We specialize the one change and one argument case to remove the
      presentation of the functor arguments *)
-  | [ _,  Diffing.Change (_, _, Err.Incompatible_params (i,_)) ] ->
+  | [ _,  Change (_, _, Err.Incompatible_params (i,_)) ] ->
       Location.errorf ~loc "%t" (Functor_suberror.App.incompatible i)
-  | [ _, Diffing.Change (g, e,  Err.Mismatch mty_diff) ] ->
+  | [ _, Change (g, e,  Err.Mismatch mty_diff) ] ->
       let more () =
         subcase_list @@
         module_type_symptom ~eqmode:false ~expansion_token:true ~env ~before:[]

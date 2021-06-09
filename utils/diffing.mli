@@ -79,6 +79,15 @@ val prefix: Format.formatter -> (int * change_kind) -> unit
 val style: change_kind -> Misc.Color.style list
 
 
+module Generic: sig
+  type ('left,'right,'eq,'diff) change =
+    | Delete of 'left
+    | Insert of 'right
+    | Keep of 'left * 'right *' eq
+    | Change of 'left * 'right * 'diff
+   val classify: _ change -> change_kind
+end
+
 
 module Define(D:Defs): sig
   open D
@@ -89,7 +98,7 @@ module Define(D:Defs): sig
     | Insert of right
     | Keep of left * right * eq
     | Change of left * right * diff
-  val classify: change -> change_kind
+  val generalize: change -> (left,right,eq,diff) Generic.change
 
 
   type patch = change list
@@ -121,23 +130,26 @@ module Define(D:Defs): sig
       Variadic diffing allows to expand the lists being diffed during diffing.
   *)
 
-  module Left_variadic: (Core with type update_result := state * left array) -> sig
+  module Left_variadic:
+    (Core with type update_result := state * left array) ->
+    sig
       (** [diff  state l r] behaves as [diff]
           with the following difference:
           - [update] must now be an {!update} which indicates in which direction
-          the expansion takes place.
+            the expansion takes place.
       *)
-    val diff : state -> left array -> right array -> patch
-  end
+      val diff : state -> left array -> right array -> patch
+    end
 
-  module Right_variadic: (Core with type update_result := state * right array) -> sig
+  module Right_variadic:
+    (Core with type update_result := state * right array) ->
+    sig
       (** [diff  state l r] behaves as [diff]
           with the following difference:
           - [update] must now be an {!update} which indicates in which direction
-          the expansion takes place.
+            the expansion takes place.
       *)
-    val diff : state -> left array -> right array -> patch
-  end
-
+      val diff : state -> left array -> right array -> patch
+    end
 
 end

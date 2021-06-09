@@ -57,92 +57,6 @@ module Swap = Map.Make(struct
   end)
 module Move = Misc.Stdlib.String.Map
 
-type ('a,'state) partial_edge =
-  | Left of int * 'state * 'a
-  | Right of int * 'state * 'a
-  | Both of 'state * 'a * 'a
-
-let edge key state x y =
-  let kx, ky = key (data x), key (data y) in
-  if kx <= ky then
-    (kx,ky), Left (pos x, state, (x,y))
-  else
-    (ky,kx), Right(pos x,state, (x,y))
-
-let add_edge ex ey = match ex, ey with
-  | ex, None -> Some ex
-  | Left (lpos, lstate, l), Some Right (rpos, rstate,r)
-  | Right (rpos, rstate,r), Some Left (lpos, lstate, l) ->
-      let state = if lpos < rpos then rstate else lstate in
-      Some (Both (state,l,r))
-  | Both _ as b, _ | _, Some (Both _ as b)  -> Some b
-  | l, _ -> Some l
-
-let exchanges ~update ~key state changes =
-  let add (state,(swaps,moves)) d =
-    update d state,
-    match d with
-    | Diffing.Change (x,y,_) ->
-        let k, edge = edge key state x y in
-        Swap.update k (add_edge edge) swaps, moves
-    | Diffing.Insert nx ->
-        let k = key (data nx) in
-        let edge = Right (pos nx, state,nx) in
-        swaps, Move.update k (add_edge edge) moves
-    | Diffing.Delete nx ->
-        let k, edge = key (data nx), Left (pos nx, state, nx) in
-        swaps, Move.update k (add_edge edge) moves
-    | _ -> swaps, moves
-  in
-  List.fold_left add (state,(Swap.empty,Move.empty)) changes
-
-
-let swap key test swaps x y =
-  let kx, ky = key (data x), key (data y) in
-  let key = if kx <= ky then kx, ky else ky, kx in
-  match Swap.find_opt key swaps with
-  | None | Some (Left _ | Right _)-> None
-  | Some Both (state, (ll,lr),(rl,rr)) ->
-      match test state ll rr,  test state lr rl with
-      | Ok _, Ok _ ->
-          Some (mk_pos (pos ll) kx, mk_pos (pos rl) ky)
-      | Error _, _ | _, Error _ -> None
-
-let move key test moves x =
-  let name = key (data x) in
-  match Move.find_opt name moves with
-  | None | Some (Left _ | Right _)-> None
-  | Some Both (state,got,expected) ->
-      match test state got expected with
-      | Ok _ ->
-          Some (Move {name; got=pos got; expected=pos expected})
-      | Error _ -> None
-
-let refine ~key ~update ~test state patch =
-  let _, (swaps, moves) = exchanges ~key ~update state patch in
-  let filter = function
-    | Diffing.Keep _ -> None
-    | Diffing.Insert x ->
-        begin match move key test moves x with
-        | Some _ as move -> move
-        | None -> Some (Insert {pos=pos x;insert=data x})
-        end
-    | Diffing.Delete x ->
-        begin match move key test moves x with
-        | Some _ -> None
-        | None -> Some (Delete {pos=pos x;delete=data x})
-        end
-    | Diffing.Change(x,y, reason) ->
-        match swap key test swaps x y with
-        | Some ((pos1,first),(pos2,last)) ->
-            if pos x = pos1 then
-              Some (Swap { pos = pos1, pos2; first; last})
-            else None
-        | None -> Some (Change reason)
-  in
-  List.filter_map filter patch
-
-
 
 module type Defs = sig
   type left
@@ -159,23 +73,112 @@ module Define(D:Defs) = struct
     type state = D.state
   end
   open Extended_defs
+  module Diff = Diffing.Define(Extended_defs)
   type extended_change = Diffing.Define(Extended_defs).change
   type nonrec change = (D.left,D.diff) change
   type patch = change list
 
+
   module type Arg = sig
+    include Diff.Core with type update_result := state
     val key: D.left -> string
-    include Diffing.Define(Extended_defs).Core with type update_result := state
   end
 
-  module Simple(X:Arg) = struct
-    let diff state left right =
-      let left = with_pos left in
-      let right = with_pos right in
-      let module Raw_defs = Diffing.Define(Extended_defs) in
-      let module Raw = Raw_defs.Simple(X) in
-      let raw = Raw.diff state (Array.of_list left) (Array.of_list right) in
-      refine ~key:X.key ~update:X.update ~test:X.test state raw
-  end
+  type 'a partial_edge =
+    | Left of int * state * 'a
+    | Right of int * state * 'a
+    | Both of state * 'a * 'a
 
+
+ module Simple(Impl:Arg) = struct
+   open Impl
+
+   let edge state x y =
+     let kx, ky = key (data x), key (data y) in
+     if kx <= ky then
+       (kx,ky), Left (pos x, state, (x,y))
+     else
+       (ky,kx), Right(pos x,state, (x,y))
+
+   let add_edge ex ey = match ex, ey with
+     | ex, None -> Some ex
+     | Left (lpos, lstate, l), Some Right (rpos, rstate,r)
+     | Right (rpos, rstate,r), Some Left (lpos, lstate, l) ->
+         let state = if lpos < rpos then rstate else lstate in
+         Some (Both (state,l,r))
+     | Both _ as b, _ | _, Some (Both _ as b)  -> Some b
+     | l, _ -> Some l
+
+let exchanges state changes =
+  let add (state,(swaps,moves)) d =
+    update d state,
+    match d with
+    | Diff.Change (x,y,_) ->
+        let k, edge = edge state x y in
+        Swap.update k (add_edge edge) swaps, moves
+    | Diff.Insert nx ->
+        let k = key (data nx) in
+        let edge = Right (pos nx, state,nx) in
+        swaps, Move.update k (add_edge edge) moves
+    | Diff.Delete nx ->
+        let k, edge = key (data nx), Left (pos nx, state, nx) in
+        swaps, Move.update k (add_edge edge) moves
+    | _ -> swaps, moves
+  in
+  List.fold_left add (state,(Swap.empty,Move.empty)) changes
+
+
+let swap swaps x y =
+  let kx, ky = key (data x), key (data y) in
+  let key = if kx <= ky then kx, ky else ky, kx in
+  match Swap.find_opt key swaps with
+  | None | Some (Left _ | Right _)-> None
+  | Some Both (state, (ll,lr),(rl,rr)) ->
+      match test state ll rr,  test state lr rl with
+      | Ok _, Ok _ ->
+          Some (mk_pos (pos ll) kx, mk_pos (pos rl) ky)
+      | Error _, _ | _, Error _ -> None
+
+let move moves x =
+  let name = key (data x) in
+  match Move.find_opt name moves with
+  | None | Some (Left _ | Right _)-> None
+  | Some Both (state,got,expected) ->
+      match test state got expected with
+      | Ok _ ->
+          Some (Move {name; got=pos got; expected=pos expected})
+      | Error _ -> None
+
+let refine state patch =
+  let _, (swaps, moves) = exchanges state patch in
+  let filter = function
+    | Diff.Keep _ -> None
+    | Diff.Insert x ->
+        begin match move moves x with
+        | Some _ as move -> move
+        | None -> Some (Insert {pos=pos x;insert=data x})
+        end
+    | Diff.Delete x ->
+        begin match move moves x with
+        | Some _ -> None
+        | None -> Some (Delete {pos=pos x;delete=data x})
+        end
+    | Diff.Change(x,y, reason) ->
+        match swap swaps x y with
+        | Some ((pos1,first),(pos2,last)) ->
+            if pos x = pos1 then
+              Some (Swap { pos = pos1, pos2; first; last})
+            else None
+        | None -> Some (Change reason)
+  in
+  List.filter_map filter patch
+
+let diff state left right =
+  let left = with_pos left in
+  let right = with_pos right in
+  let module Raw = Diff.Simple(Impl) in
+  let raw = Raw.diff state (Array.of_list left) (Array.of_list right) in
+  refine state raw
+
+end
 end

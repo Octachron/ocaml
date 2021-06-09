@@ -43,9 +43,12 @@ type ('a,'b) change =
   | Insert of {pos:int; insert:'a}
   | Delete of {pos:int; delete:'a}
 
+val prefix: Format.formatter -> ('a,'b) change -> unit
+
 
 module type Defs = sig
   type left
+  type right
   type diff
   type state
 end
@@ -53,7 +56,7 @@ end
 module Define(D:Defs): sig
   module Extended_defs: sig
     type left = D.left with_pos
-    type right = D.left with_pos
+    type right = D.right with_pos
     type diff =  (D.left, D.diff) mismatch
     type eq = unit
     type state = D.state
@@ -64,15 +67,11 @@ module Define(D:Defs): sig
   type patch = change list
 
   module type Arg = sig
-    val key: D.left -> string
     include Diffing.Define(Extended_defs).Core with type update_result := state
+    val key: D.left -> string
   end
 
   module Simple:  Arg -> sig
       val diff: state -> D.left list -> D.left list -> patch
     end
-
 end
-
-
-val prefix: Format.formatter -> ('a,'b) change -> unit

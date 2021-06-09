@@ -812,7 +812,7 @@ module Functor_inclusion_diff = struct
   open Defs
 
   module Defined = Diffing.Define(Defs)
-  open Diffing
+  open Defined
 
   let param_name = function
       | Named(x,_) -> x
@@ -915,7 +915,7 @@ module Functor_app_diff = struct
     type state = I.Defs.state
   end
   module Diff_defs = Diffing.Define(Defs)
-  open Diffing
+  open Diff_defs
 
   let weight = function
     | Insert _ -> 10

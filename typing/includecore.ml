@@ -376,8 +376,16 @@ module Record_diffing = struct
                 rem1 rem2
         end
 
+
+  module Defs = struct
+    type left = Types.label_declaration
+    type diff = label_mismatch
+    type state = type_expr list * type_expr list
+  end
+  module D = Diffing_with_keys.Define(Defs)
+
   let update
-      (d:(int * Types.label_declaration as 'a,'a,_,_) Diffing.change)
+      (d:D.extended_change)
       (params1,params2 as st) =
     match d with
     | Insert _ | Change _ | Delete _ -> st
@@ -407,20 +415,14 @@ module Record_diffing = struct
           )
       | None -> Ok ()
 
-  let weight = function
-    | Diffing.Insert _ -> 10
-    | Diffing.Delete _ -> 10
-    | Diffing.Keep _ -> 0
-    | Diffing.Change (_,_,Diffing_with_keys.Name t ) ->
+  let weight: D.extended_change -> _ = function
+    | Insert _ -> 10
+    | Delete _ -> 10
+    | Keep _ -> 0
+    | Change (_,_,Diffing_with_keys.Name t ) ->
         if t.types_match then 10 else 15
-    | Diffing.Change _ -> 10
+    | Change _ -> 10
 
-  module Defs = struct
-    type left = Types.label_declaration
-    type diff = label_mismatch
-    type state = type_expr list * type_expr list
-  end
-  module D = Diffing_with_keys.Define(Defs)
 
 
   let key (x: Defs.left) = Ident.name x.ld_id
@@ -530,13 +532,13 @@ module Variant_diffing = struct
 
   let update _ st = st
 
-  let weight = function
-    | Diffing.Insert _ -> 10
-    | Diffing.Delete _ -> 10
-    | Diffing.Keep _ -> 0
-    | Diffing.Change (_,_,Diffing_with_keys.Name t) ->
+  let weight: D.extended_change -> _ = function
+    | Insert _ -> 10
+    | Delete _ -> 10
+    | Keep _ -> 0
+    | Change (_,_,Diffing_with_keys.Name t) ->
         if t.types_match then 10 else 15
-    | Diffing.Change _ -> 10
+    | Change _ -> 10
 
 
   let test loc env (params1,params2)
