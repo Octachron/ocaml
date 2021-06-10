@@ -811,8 +811,8 @@ module Functor_inclusion_diff = struct
   end
   open Defs
 
-  module Defined = Diffing.Define(Defs)
-  open Defined
+  module Diff = Diffing.Define(Defs)
+  open Diff
 
   let param_name = function
       | Named(x,_) -> x
@@ -885,7 +885,7 @@ module Functor_inclusion_diff = struct
       end
 
   let diff env (l1,res1) (l2,_) =
-    let module Diff = Defined.Left_variadic(struct
+    let module Compute = Diff.Left_variadic(struct
         let test st mty1 mty2 =
           let loc = Location.none in
           let res, _, _ =
@@ -901,7 +901,7 @@ module Functor_inclusion_diff = struct
     let state =
       { env; subst = Subst.identity; res = keep_expansible_param res1}
     in
-    Diff.diff state param1 param2
+    Compute.diff state param1 param2
 
 end
 
@@ -914,8 +914,8 @@ module Functor_app_diff = struct
     type diff = (Error.functor_arg_descr, unit) Error.functor_param_symptom
     type state = I.Defs.state
   end
-  module Diff_defs = Diffing.Define(Defs)
-  open Diff_defs
+  module Diff = Diffing.Define(Defs)
+  open Diff
 
   let weight = function
     | Insert _ -> 10
@@ -936,7 +936,7 @@ module Functor_app_diff = struct
           | Named _,  None | (Unit | Anonymous), Some _ -> 1
         end
 
-  let update (d: Diff_defs.change) (st:Defs.state) =
+  let update (d: Diff.change) (st:Defs.state) =
     let open Error in
     match d with
     | Insert _
@@ -980,7 +980,7 @@ module Functor_app_diff = struct
 
   let diff env ~f ~args =
     let params, res = retrieve_functor_params env f in
-    let module Diff = Diff_defs.Right_variadic(struct
+    let module Compute = Diff.Right_variadic(struct
         let update = update
         let test (state:Defs.state) (arg,arg_mty) param =
           let loc = Location.none in
@@ -1005,7 +1005,7 @@ module Functor_app_diff = struct
     let state : Defs.state =
       { env; subst = Subst.identity; res = I.keep_expansible_param res }
     in
-    Diff.diff state args params
+    Compute.diff state args params
 
 end
 

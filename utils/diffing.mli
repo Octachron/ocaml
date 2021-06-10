@@ -107,49 +107,42 @@ module Define(D:Defs): sig
 
   module type Core = sig
     type update_result
+
     val weight: change -> int
+    (** [weight ch] returns the weight of the change [ch].
+        Used to find the smallest patch. *)
+
     val test: state -> left -> right -> (eq, diff) result
+    (**
+       [test st xl xr] tests if the elements [xl] and [xr] are
+        co  mpatible ([Ok]) or not ([Error]).
+    *)
+
     val update: change -> state -> update_result
+    (**  [update ch st] returns the new state after applying a change.
+         The [update_result] type also contains expansions in the variadic
+         case.
+     *)
   end
 
-  (** [diff ~weight ~test ~update state l r] computes
-      the diff between [l] and [r], using the initial state [state].
-      - [test st xl xr] tests if the elements [xl] and [xr] are
-        compatible ([Ok]) or not ([Error]).
-      - [weight ch] returns the weight of the change [ch].
-        Used to find the smallest patch.
-      - [update ch st] returns the new state after applying a change.
-  *)
-  module Simple: (Core with type update_result := state) -> sig
-    val diff : state -> left array -> right array -> patch
+  module type S = sig
+    val diff: state -> left array -> right array -> patch
+    (** [diff state l r] computes the optimal patch between [l] and [r],
+        using the initial state [state].
+    *)
   end
 
+  module Simple: (Core with type update_result := state) -> S
 
   (** {1 Variadic diffing}
 
       Variadic diffing allows to expand the lists being diffed during diffing.
+      in one specific direction.
   *)
-
   module Left_variadic:
-    (Core with type update_result := state * left array) ->
-    sig
-      (** [diff  state l r] behaves as [diff]
-          with the following difference:
-          - [update] must now be an {!update} which indicates in which direction
-            the expansion takes place.
-      *)
-      val diff : state -> left array -> right array -> patch
-    end
+    (Core with type update_result := state * left array) -> S
 
   module Right_variadic:
-    (Core with type update_result := state * right array) ->
-    sig
-      (** [diff  state l r] behaves as [diff]
-          with the following difference:
-          - [update] must now be an {!update} which indicates in which direction
-            the expansion takes place.
-      *)
-      val diff : state -> left array -> right array -> patch
-    end
+    (Core with type update_result := state * right array) -> S
 
 end

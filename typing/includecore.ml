@@ -377,18 +377,15 @@ module Record_diffing = struct
                 rem1 rem2
         end
 
-
   module Defs = struct
     type left = Types.label_declaration
     type right = left
     type diff = label_mismatch
     type state = type_expr list * type_expr list
   end
-  module D = Diffing_with_keys.Define(Defs)
+  module Diff = Diffing_with_keys.Define(Defs)
 
-  let update
-      (d:D.extended_change)
-      (params1,params2 as st) =
+  let update (d:Diff.change) (params1,params2 as st) =
     match d with
     | Insert _ | Change _ | Delete _ -> st
     | Keep (x,y,_) ->
@@ -397,8 +394,8 @@ module Record_diffing = struct
         (snd x).ld_type::params1, (snd y).ld_type::params2
 
   let test _loc env (params1,params2)
-      (pos, lbl1: _ * Types.label_declaration)
-      (_, lbl2: _ * Types.label_declaration)
+      (pos, lbl1: Diff.left)
+      (_, lbl2: Diff.right)
     =
     let name1, name2 = Ident.name lbl1.ld_id, Ident.name lbl2.ld_id in
     if  name1 <> name2 then
@@ -417,7 +414,7 @@ module Record_diffing = struct
           )
       | None -> Ok ()
 
-  let weight: D.extended_change -> _ = function
+  let weight: Diff.change -> _ = function
     | Insert _ -> 10
     | Delete _ -> 10
     | Keep _ -> 0
@@ -429,7 +426,7 @@ module Record_diffing = struct
 
   let key (x: Defs.left) = Ident.name x.ld_id
   let diffing loc env params1 params2 cstrs_1 cstrs_2 =
-    let module Diff = D.Simple(struct
+    let module Compute = Diff.Simple(struct
         let key_left = key
         let key_right = key
         let update = update
@@ -437,7 +434,7 @@ module Record_diffing = struct
         let weight = weight
       end)
     in
-    Diff.diff (params1,params2) cstrs_1 cstrs_2
+    Compute.diff (params1,params2) cstrs_1 cstrs_2
 
   let compare ~loc env params1 params2 l r =
     if equal ~loc env params1 params2 l r then
@@ -536,7 +533,7 @@ module Variant_diffing = struct
 
   let update _ st = st
 
-  let weight: D.extended_change -> _ = function
+  let weight: D.change -> _ = function
     | Insert _ -> 10
     | Delete _ -> 10
     | Keep _ -> 0
@@ -545,9 +542,7 @@ module Variant_diffing = struct
     | Change _ -> 10
 
 
-  let test loc env (params1,params2)
-      (pos,cd1: _ * Types.constructor_declaration)
-      (_,cd2: _ * Types.constructor_declaration) =
+  let test loc env (params1,params2) (pos,cd1: D.left) (_,cd2: D.right) =
     let name1, name2 = Ident.name cd1.cd_id, Ident.name cd2.cd_id in
     if  name1 <> name2 then
       let types_match =
@@ -566,8 +561,8 @@ module Variant_diffing = struct
       | None -> Ok ()
 
   let diffing loc env params1 params2 cstrs_1 cstrs_2 =
-    let key (x:Types.constructor_declaration) = Ident.name x.cd_id in
-    let module Diff = D.Simple(struct
+    let key (x:Defs.left) = Ident.name x.cd_id in
+    let module Compute = D.Simple(struct
         let key_left = key
         let key_right = key
         let test = test loc env
@@ -575,7 +570,7 @@ module Variant_diffing = struct
         let weight = weight
       end)
     in
-    Diff.diff (params1,params2) cstrs_1 cstrs_2
+    Compute.diff (params1,params2) cstrs_1 cstrs_2
 
   let compare ~loc env params1 params2 l r =
     if equal ~loc env params1 params2 l r then

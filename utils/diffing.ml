@@ -91,6 +91,9 @@ let generalize = function
   | Change (left, right, diff) -> Generic.Change (left,right,diff)
 
 type patch = change list
+module type S = sig
+  val diff: state -> left array -> right array -> patch
+end
 
 
 

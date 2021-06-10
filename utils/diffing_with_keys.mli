@@ -54,25 +54,27 @@ module type Defs = sig
 end
 
 module Define(D:Defs): sig
-  module Extended_defs: sig
+  module Internal_defs: sig
     type left = D.left with_pos
     type right = D.right with_pos
     type diff =  (D.left, D.right, D.diff) mismatch
     type eq = unit
     type state = D.state
   end
-  open Extended_defs
-  type extended_change = Diffing.Define(Extended_defs).change
-  type nonrec change = (D.left,D.right,D.diff) change
-  type patch = change list
+  type left = Internal_defs.left
+  type right = Internal_defs.right
+  type composite_change = (D.left,D.right,D.diff) change
+  type change = Diffing.Define(Internal_defs).change
+  type patch = composite_change list
 
   module type Arg = sig
-    include Diffing.Define(Extended_defs).Core with type update_result := state
+    include Diffing.Define(Internal_defs).Core
+      with type update_result := D.state
     val key_left: D.left -> string
     val key_right: D.right -> string
   end
 
   module Simple:  Arg -> sig
-      val diff: state -> D.left list -> D.right list -> patch
+      val diff: D.state -> D.left list -> D.right list -> patch
     end
 end
