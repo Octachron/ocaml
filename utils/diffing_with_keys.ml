@@ -20,7 +20,7 @@ let pos (x,_) = x
 let data (_,x) = x
 let mk_pos pos data = pos, data
 
-
+(** Composite change and mismatches *)
 type ('l,'r,'diff) mismatch =
   | Name of {pos:int; got:string; expected:string; types_match:bool}
   | Type of {pos:int; got:'l; expected:'r; reason:'diff}
@@ -52,21 +52,35 @@ let prefix ppf x =
   | Move { got; expected; _ } ->
       style kind ppf "%i->%i. " expected got
 
+
+
+(** To detect [move] and [swaps], we are using the fact that
+    there are 2-cycles in the graph of name renaming.
+    - [Change (x,y,_) is then an edge from
+      [key_left x] to [key_right y].
+    - [Insert x] is an edge between the special node epsilon and
+      [key_left x]
+    - [Delete x] is an edge between [key_right] and the epsilon node
+      Since for 2-cycle, knowing one edge is enough to identify the cycle
+      it might belong to, we are using maps of partial 2-cycles.
+*)
+module Two_cycle: sig
+  type t = private (string * string)
+  val create: string -> string -> t
+end = struct
+  type t = string * string
+  let create kx ky =
+    if kx <= ky then kx, ky else ky, kx
+end
 module Swap = Map.Make(struct
-    type t = string * string
+    type t = Two_cycle.t
     let compare: t -> t -> int = Stdlib.compare
   end)
 module Move = Misc.Stdlib.String.Map
 
 
-module type Defs = sig
-  type left
-  type right
-  type diff
-  type state
-end
+module Define(D:Diffing.Defs with type eq := unit) = struct
 
-module Define(D:Defs) = struct
   module Internal_defs = struct
     type left = D.left with_pos
     type right = D.right with_pos
@@ -74,120 +88,128 @@ module Define(D:Defs) = struct
     type eq = unit
     type state = D.state
   end
-  open Internal_defs
   module Diff = Diffing.Define(Internal_defs)
-  type nonrec left = left
-  type nonrec right = right
+
+  type left = Internal_defs.left
+  type right = Internal_defs.right
+  type diff = (D.left, D.right, D.diff) mismatch
   type composite_change = (D.left,D.right,D.diff) change
-  type change = Diffing.Define(Internal_defs).change
+  type change = Diff.change =
+    | Delete of left
+    | Insert of right
+    | Keep of left * right * unit
+    | Change of left * right * diff
   type patch = composite_change list
 
-
-  module type Arg = sig
-    include Diff.Core with type update_result := D.state
+  module type Parameters = sig
+    include Diff.Parameters with type update_result := D.state
     val key_left: D.left -> string
     val key_right: D.right -> string
   end
 
-  type ('l,'r) partial_edge =
-    | Left of int * state * 'l
-    | Right of int * state * 'r
-    | Both of state * 'l * 'r
+  module Simple(Impl:Parameters) = struct
+    open Impl
 
+    (** Partial 2-cycles *)
+    type ('l,'r) partial_cycle =
+      | Left of int * D.state * 'l
+      | Right of int * D.state * 'r
+      | Both of D.state * 'l * 'r
 
- module Simple(Impl:Arg) = struct
-   open Impl
+    (** Compute the partial cycle and edge associated to an edge *)
+    let edge state (x:left) (y:right) =
+      let kx, ky = key_left (data x), key_right (data y) in
+      let edge =
+        if kx <= ky then
+          Left (pos x, state, (x,y))
+        else
+          Right (pos x,state, (x,y))
+      in
+      Two_cycle.create kx ky, edge
 
-   let edge state (x:left) (y:right) =
-     let kx, ky = key_left (data x), key_right (data y) in
-     if kx <= ky then
-       (kx,ky), Left (pos x, state, (x,y))
-     else
-       (ky,kx), Right(pos x,state, (x,y))
+    let merge_edge ex ey = match ex, ey with
+      | ex, None -> Some ex
+      | Left (lpos, lstate, l), Some Right (rpos, rstate,r)
+      | Right (rpos, rstate,r), Some Left (lpos, lstate, l) ->
+          let state = if lpos < rpos then rstate else lstate in
+          Some (Both (state,l,r))
+      | Both _ as b, _ | _, Some (Both _ as b)  -> Some b
+      | l, _ -> Some l
 
-   let add_edge ex ey = match ex, ey with
-     | ex, None -> Some ex
-     | Left (lpos, lstate, l), Some Right (rpos, rstate,r)
-     | Right (rpos, rstate,r), Some Left (lpos, lstate, l) ->
-         let state = if lpos < rpos then rstate else lstate in
-         Some (Both (state,l,r))
-     | Both _ as b, _ | _, Some (Both _ as b)  -> Some b
-     | l, _ -> Some l
+    let two_cycles state changes =
+      let add (state,(swaps,moves)) d =
+        update d state,
+        match d with
+        | Diff.Change (x,y,_) ->
+            let k, edge = edge state x y in
+            Swap.update k (merge_edge edge) swaps, moves
+        | Diff.Insert nx ->
+            let k = key_right (data nx) in
+            let edge = Right (pos nx, state,nx) in
+            swaps, Move.update k (merge_edge edge) moves
+        | Diff.Delete nx ->
+            let k, edge = key_left (data nx), Left (pos nx, state, nx) in
+            swaps, Move.update k (merge_edge edge) moves
+        | _ -> swaps, moves
+      in
+      List.fold_left add (state,(Swap.empty,Move.empty)) changes
 
-let exchanges state changes =
-  let add (state,(swaps,moves)) d =
-    update d state,
-    match d with
-    | Diff.Change (x,y,_) ->
-        let k, edge = edge state x y in
-        Swap.update k (add_edge edge) swaps, moves
-    | Diff.Insert nx ->
-        let k = key_right (data nx) in
-        let edge = Right (pos nx, state,nx) in
-        swaps, Move.update k (add_edge edge) moves
-    | Diff.Delete nx ->
-        let k, edge = key_left (data nx), Left (pos nx, state, nx) in
-        swaps, Move.update k (add_edge edge) moves
-    | _ -> swaps, moves
-  in
-  List.fold_left add (state,(Swap.empty,Move.empty)) changes
+    (** Check if an edge belongs to a known 2-cycle *)
+    let swap swaps x y =
+      let kx, ky = key_left (data x), key_right (data y) in
+      let key = Two_cycle.create kx ky in
+      match Swap.find_opt key swaps with
+      | None | Some (Left _ | Right _)-> None
+      | Some Both (state, (ll,lr),(rl,rr)) ->
+          match test state ll rr,  test state rl lr with
+          | Ok _, Ok _ ->
+              Some (mk_pos (pos ll) kx, mk_pos (pos rl) ky)
+          | Error _, _ | _, Error _ -> None
 
+    let move moves x =
+      let name =
+        match x with
+        | Either.Left x -> key_left (data x)
+        | Either.Right x -> key_right (data x)
+      in
+      match Move.find_opt name moves with
+      | None | Some (Left _ | Right _)-> None
+      | Some Both (state,got,expected) ->
+          match test state got expected with
+          | Ok _ ->
+              Some (Move {name; got=pos got; expected=pos expected})
+          | Error _ -> None
 
-let swap swaps x y =
-  let kx, ky = key_left (data x), key_right (data y) in
-  let key = if kx <= ky then kx, ky else ky, kx in
-  match Swap.find_opt key swaps with
-  | None | Some (Left _ | Right _)-> None
-  | Some Both (state, (ll,lr),(rl,rr)) ->
-      match test state ll rr,  test state rl lr with
-      | Ok _, Ok _ ->
-          Some (mk_pos (pos ll) kx, mk_pos (pos rl) ky)
-      | Error _, _ | _, Error _ -> None
+    let refine state patch =
+      let _, (swaps, moves) = two_cycles state patch in
+      let filter: change -> composite_change option = function
+        | Diff.Keep _ -> None
+        | Diff.Insert x ->
+            begin match move moves (Either.Right x) with
+            | Some _ as move -> move
+            | None -> Some (Insert {pos=pos x;insert=data x})
+            end
+        | Diff.Delete x ->
+            begin match move moves (Either.Left x) with
+            | Some _ -> None
+            | None -> Some (Delete {pos=pos x;delete=data x})
+            end
+        | Diff.Change(x,y, reason) ->
+            match swap swaps x y with
+            | Some ((pos1,first),(pos2,last)) ->
+                if pos x = pos1 then
+                  Some (Swap { pos = pos1, pos2; first; last})
+                else None
+            | None -> Some (Change reason)
+      in
+      List.filter_map filter patch
 
-let move moves x =
-  let name =
-    match x with
-    | Either.Left x -> key_left (data x)
-    | Either.Right x -> key_right (data x)
-  in
-  match Move.find_opt name moves with
-  | None | Some (Left _ | Right _)-> None
-  | Some Both (state,got,expected) ->
-      match test state got expected with
-      | Ok _ ->
-          Some (Move {name; got=pos got; expected=pos expected})
-      | Error _ -> None
+    let diff state left right =
+      let left = with_pos left in
+      let right = with_pos right in
+      let module Raw = Diff.Simple(Impl) in
+      let raw = Raw.diff state (Array.of_list left) (Array.of_list right) in
+      refine state raw
 
-let refine state patch =
-  let _, (swaps, moves) = exchanges state patch in
-  let filter = function
-    | Diff.Keep _ -> None
-    | Diff.Insert x ->
-        begin match move moves (Either.Right x) with
-        | Some _ as move -> move
-        | None -> Some (Insert {pos=pos x;insert=data x})
-        end
-    | Diff.Delete x ->
-        begin match move moves (Either.Left x) with
-        | Some _ -> None
-        | None -> Some (Delete {pos=pos x;delete=data x})
-        end
-    | Diff.Change(x,y, reason) ->
-        match swap swaps x y with
-        | Some ((pos1,first),(pos2,last)) ->
-            if pos x = pos1 then
-              Some (Swap { pos = pos1, pos2; first; last})
-            else None
-        | None -> Some (Change reason)
-  in
-  List.filter_map filter patch
-
-let diff state left right =
-  let left = with_pos left in
-  let right = with_pos right in
-  let module Raw = Diff.Simple(Impl) in
-  let raw = Raw.diff state (Array.of_list left) (Array.of_list right) in
-  refine state raw
-
-end
+  end
 end

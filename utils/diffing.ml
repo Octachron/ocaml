@@ -96,7 +96,6 @@ module type S = sig
 end
 
 
-
 type full_state = {
   line: left array;
   column: right array;
@@ -401,9 +400,9 @@ let compute_matrix state0 =
  end
 
 
-  module type Core = Full_core with type update_state := state
+  module type Parameters = Full_core with type update_state := state
 
-  module Simple(X:Core with type update_result := state) = struct
+  module Simple(X:Parameters with type update_result := state) = struct
     module Internal = Generic(struct
         let test = X.test
         let weight = X.weight
@@ -423,7 +422,7 @@ let compute_matrix state0 =
 
 
   module Left_variadic
-      (X:Core with type update_result := state * left array) = struct
+      (X:Parameters with type update_result := state * left array) = struct
     open X
 
     module Internal = Generic(struct
@@ -441,7 +440,7 @@ let compute_matrix state0 =
   end
 
   module Right_variadic
-      (X:Core with type update_result := state * right array) = struct
+      (X:Parameters with type update_result := state * right array) = struct
     open X
 
     module Internal = Generic(struct

@@ -64,8 +64,13 @@ module type Defs = sig
   type left
   type right
   type eq
+  (** Detailled equality trace *)
+
   type diff
+  (** Detailled difference trace *)
+
   type state
+  (** environment of a partial patch *)
 end
 
 (** The kind of changes which is used to share printing and styling
@@ -88,7 +93,10 @@ module Generic: sig
    val classify: _ change -> change_kind
 end
 
-
+(** [Define(Defs)] creates the diffing types from the types
+    defined in [Defs] and the functors that need to be instantatied
+    with the diffing algorithm parameters
+*)
 module Define(D:Defs): sig
   open D
 
@@ -100,12 +108,10 @@ module Define(D:Defs): sig
     | Change of left * right * diff
   val generalize: change -> (left,right,eq,diff) Generic.change
 
-
   type patch = change list
   (** A patch is an ordered list of changes. *)
 
-
-  module type Core = sig
+  module type Parameters = sig
     type update_result
 
     val weight: change -> int
@@ -132,7 +138,8 @@ module Define(D:Defs): sig
     *)
   end
 
-  module Simple: (Core with type update_result := state) -> S
+
+  module Simple: (Parameters with type update_result := state) -> S
 
   (** {1 Variadic diffing}
 
@@ -140,9 +147,9 @@ module Define(D:Defs): sig
       in one specific direction.
   *)
   module Left_variadic:
-    (Core with type update_result := state * left array) -> S
+    (Parameters with type update_result := state * left array) -> S
 
   module Right_variadic:
-    (Core with type update_result := state * right array) -> S
+    (Parameters with type update_result := state * right array) -> S
 
 end

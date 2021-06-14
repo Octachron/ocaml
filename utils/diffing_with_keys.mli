@@ -36,6 +36,9 @@ type ('l,'r,'diff) mismatch =
   | Name of {pos:int; got:string; expected:string; types_match:bool}
   | Type of {pos:int; got:'l; expected:'r; reason:'diff}
 
+(** This specialized version of changes introduces two composite
+    changes: [Move] and [Swap]
+*)
 type ('l,'r,'diff) change =
   | Change of ('l,'r,'diff) mismatch
   | Swap of { pos: int * int; first: string; last: string }
@@ -45,36 +48,35 @@ type ('l,'r,'diff) change =
 
 val prefix: Format.formatter -> ('l,'r,'diff) change -> unit
 
+module Define(D:Diffing.Defs with type eq := unit): sig
 
-module type Defs = sig
-  type left
-  type right
-  type diff
-  type state
-end
+  type diff = (D.left, D.right, D.diff) mismatch
+  type left = D.left with_pos
+  type right = D.right with_pos
 
-module Define(D:Defs): sig
-  module Internal_defs: sig
-    type left = D.left with_pos
-    type right = D.right with_pos
-    type diff =  (D.left, D.right, D.diff) mismatch
-    type eq = unit
-    type state = D.state
-  end
-  type left = Internal_defs.left
-  type right = Internal_defs.right
+  (** Composite changes and patches *)
   type composite_change = (D.left,D.right,D.diff) change
-  type change = Diffing.Define(Internal_defs).change
   type patch = composite_change list
 
-  module type Arg = sig
-    include Diffing.Define(Internal_defs).Core
-      with type update_result := D.state
+  (** Atomic changes (as defined by the internal call to
+      [Diffing.Define(...)]) *)
+  type change =
+    | Delete of left
+    | Insert of right
+    | Keep of left * right * unit
+    | Change of left * right * diff
+
+  module type Parameters = sig
+    val weight: change -> int
+    val test: D.state -> left -> right -> (unit, diff) result
+    val update: change -> D.state -> D.state
+
     val key_left: D.left -> string
     val key_right: D.right -> string
   end
 
-  module Simple:  Arg -> sig
+  module Simple: Parameters -> sig
       val diff: D.state -> D.left list -> D.right list -> patch
     end
+
 end
