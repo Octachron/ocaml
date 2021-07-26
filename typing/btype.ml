@@ -129,10 +129,6 @@ let dummy_method = "*dummy method*"
 
 (**** Representative of a type ****)
 
-let rec commu_repr = function
-    Clink r when !r <> Cunknown -> commu_repr !r
-  | c -> c
-
 let merge_fixed_explanation fixed1 fixed2 =
   match fixed1, fixed2 with
   | Some Univar _ as x, _ | _, (Some Univar _ as x) -> x
@@ -439,8 +435,7 @@ let copy_row f fixed row keep more =
   let fixed = if fixed then orig_fixed else None in
   create_row ~fields ~more ~fixed ~closed ~name
 
-let copy_commu c =
-  if commu_repr c = Cok then Cok else Clink (ref Cunknown)
+let copy_commu c = if is_commu_ok c then commu_ok else commu_var ()
 
 let rec copy_type_desc ?(keep_names=false) f = function
     Tvar _ as ty        -> if keep_names then ty else Tvar None

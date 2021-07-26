@@ -56,9 +56,9 @@ open Asttypes
     Note on mutability: TBD.
  *)
 type type_expr
-
 type row_desc
 type field_kind
+type commutable
 
 type type_desc =
   | Tvar of string option
@@ -192,10 +192,10 @@ and abbrev_memo =
     in an order different from other calls.
     This is only allowed when the real type is known.
 *)
-and commutable =
-    Cok
-  | Cunknown
-  | Clink of commutable ref
+
+val is_commu_ok: commutable -> bool
+val commu_ok: commutable
+val commu_var: unit -> commutable
 
 (** Getters for type_expr; calls repr before answering a value *)
 
@@ -691,5 +691,6 @@ val set_name:
 val set_row_field: row_field option ref -> row_field -> unit
 val set_univar: type_expr option ref -> type_expr -> unit
 val link_kind: inside:field_kind -> field_kind -> unit
-val set_commu: commutable ref -> commutable -> unit
+val link_commu: inside:commutable -> commutable -> unit
+val set_commu_ok: commutable -> unit
         (* Set references, logging the old value *)

@@ -2704,10 +2704,11 @@ and unify3 env t1 t1' t2 t2' =
         (!Clflags.classic || !umode = Pattern) &&
         not (is_optional l1 || is_optional l2) ->
           unify  env t1 t2; unify env  u1 u2;
-          begin match commu_repr c1, commu_repr c2 with
-            Clink r, c2 -> set_commu r c2
-          | c1, Clink r -> set_commu r c1
-          | _ -> ()
+          begin match is_commu_ok c1, is_commu_ok c2 with
+          | false, true -> set_commu_ok c1
+          | true, false -> set_commu_ok c2
+          | false, false -> link_commu ~inside:c1 c2
+          | true, true -> ()
           end
       | (Ttuple tl1, Ttuple tl2) ->
           unify_list env tl1 tl2
@@ -3193,7 +3194,7 @@ exception Filter_arrow_failed of filter_arrow_failure
 let filter_arrow env t l =
   let function_type level =
     let t1 = newvar2 level and t2 = newvar2 level in
-    let t' = newty2 ~level (Tarrow (l, t1, t2, Cok)) in
+    let t' = newty2 ~level (Tarrow (l, t1, t2, commu_ok)) in
     t', t1, t2
   in
   let t =
@@ -4491,7 +4492,8 @@ let rec build_subtype env (visited : transient_expr list)
       let (t1', c1) = build_subtype env visited loops (not posi) level t1 in
       let (t2', c2) = build_subtype env visited loops posi level t2 in
       let c = max_change c1 c2 in
-      if c > Unchanged then (newty (Tarrow(l, t1', t2', Cok)), c)
+      if c > Unchanged
+      then (newty (Tarrow(l, t1', t2', commu_ok)), c)
       else (t, Unchanged)
   | Ttuple tlist ->
       let tt = Transient_expr.repr t in

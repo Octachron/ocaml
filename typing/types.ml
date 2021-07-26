@@ -72,7 +72,7 @@ and field_kind =
 and commutable =
     Cok
   | Cunknown
-  | Clink of commutable ref
+  | Cvar of {mutable commu: commutable}
 
 module TransientTypeOps = struct
   type t = type_expr
@@ -489,7 +489,7 @@ type change =
       (Path.t * type_expr list) option ref * (Path.t * type_expr list) option
   | Crow of row_field option ref * row_field option
   | Ckind of field_kind
-  | Ccommu of commutable ref * commutable
+  | Ccommu of commutable
   | Cuniv of type_expr option ref * type_expr option
 
 type changes =
@@ -529,6 +529,16 @@ let field_kind_repr fk =
 let field_public = FKpublic
 let field_absent = FKabsent
 let field_private () = FKvar {field_kind=FKprivate}
+
+(* Constructor and accessors for [commutable] *)
+
+let rec is_commu_ok = function
+  | Cvar {commu} -> is_commu_ok commu
+  | Cunknown -> false
+  | Cok -> true
+
+let commu_ok = Cok
+let commu_var () = Cvar {commu=Cunknown}
 
 (**** Representative of a type ****)
 
@@ -675,7 +685,8 @@ let undo_change = function
   | Crow   (r, v) -> r := v
   | Ckind  (FKvar r) -> r.field_kind <- FKprivate
   | Ckind _ -> assert false
-  | Ccommu (r, v) -> r := v
+  | Ccommu (Cvar r) -> r.commu <- Cunknown
+  | Ccommu _ -> Misc.fatal_error "Types.undo_change"
   | Cuniv  (r, v) -> r := v
 
 type snapshot = changes ref * int
@@ -736,7 +747,7 @@ let set_row_field e v =
 let rec link_kind ~inside k =
   match inside with
   | FKvar ({field_kind = FKprivate} as rk) ->
-      (* prevent a loop by normalizing c and comparing it with inside *)
+      (* prevent a loop by normalizing k and comparing it with inside *)
       let k = field_kind_repr_aux k in
       assert (k != inside);
       log_change (Ckind inside); rk.field_kind <- k
@@ -744,8 +755,22 @@ let rec link_kind ~inside k =
       link_kind ~inside:field_kind k
   | _ -> invalid_arg "Types.link_kind"
 
-let set_commu rc c =
-  log_change (Ccommu (rc, !rc)); rc := c
+let rec commu_repr = function
+    Cvar {commu} when commu != Cunknown -> commu_repr commu
+  | c -> c
+
+let rec link_commu ~inside c =
+  match inside with
+  | Cvar ({commu = Cunknown} as rc) ->
+      (* prevent a loop by normalizing c and comparing it with inside *)
+      let c = commu_repr c in
+      assert (c != inside);
+      log_change (Ccommu inside); rc.commu <- c
+  | Cvar {commu} ->
+      link_commu ~inside:commu c
+  | _ -> invalid_arg "Types.link_commu"
+
+let set_commu_ok c = link_commu ~inside:c Cok
 
 let snapshot () =
   let old = !last_snapshot in

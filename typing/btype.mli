@@ -78,9 +78,6 @@ val is_Tunivar: type_expr -> bool
 val is_Tconstr: type_expr -> bool
 val dummy_method: label
 
-val commu_repr: commutable -> commutable
-        (* Return the canonical representative of a commutation lock *)
-
 (**** polymorphic variants ****)
 
 val is_fixed: row_desc -> bool

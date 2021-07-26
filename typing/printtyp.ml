@@ -467,13 +467,6 @@ let string_of_field_kind v =
   | Fabsent -> "Fabsent"
   | Fprivate -> "Fprivate"
 
-let rec safe_commu_repr v = function
-    Cok -> "Cok"
-  | Cunknown -> "Cunknown"
-  | Clink r ->
-      if List.memq r v then "Clink loop" else
-      safe_commu_repr (r::v) !r
-
 let rec safe_repr v t =
   match Transient_expr.coerce t with
     {desc = Tlink t} when not (List.memq t v) ->
@@ -508,7 +501,7 @@ and raw_type_desc ppf = function
   | Tarrow(l,t1,t2,c) ->
       fprintf ppf "@[<hov1>Tarrow(\"%s\",@,%a,@,%a,@,%s)@]"
         (string_of_label l) raw_type t1 raw_type t2
-        (safe_commu_repr [] c)
+        (if is_commu_ok c then "Cok" else "Cunknown")
   | Ttuple tl ->
       fprintf ppf "@[<1>Ttuple@,%a@]" raw_type_list tl
   | Tconstr (p, tl, abbrev) ->
