@@ -164,7 +164,6 @@ val copy_type_desc:
 val copy_row:
     (type_expr -> type_expr) ->
     bool -> row_desc -> bool -> type_expr -> row_desc
-val copy_kind: field_kind -> field_kind
 
 module For_copy : sig
 

@@ -58,6 +58,7 @@ open Asttypes
 type type_expr
 
 type row_desc
+type field_kind
 
 type type_desc =
   | Tvar of string option
@@ -98,7 +99,7 @@ type type_desc =
   *)
 
   | Tfield of string * field_kind * type_expr * type_expr
-  (** [Tfield ("foo", Fpresent, t, ts)] ==> [<...; foo : t; ts>] *)
+  (** [Tfield ("foo", Fpublic, t, ts)] ==> [<...; foo : t; ts>] *)
 
   | Tnil
   (** [Tnil] ==> [<...; >] *)
@@ -170,11 +171,6 @@ and abbrev_memo =
   | Mlink of abbrev_memo ref
   (** Abbreviations can be found after this indirection *)
 
-and field_kind =
-    Fvar of field_kind option ref
-  | Fpresent
-  | Fabsent
-
 (** [commutable] is a flag appended to every arrow type.
 
     When typing an application, if the type of the functional is
@@ -242,9 +238,6 @@ val newty3: level:int -> scope:int -> type_desc -> type_expr
 
 val newty2: level:int -> type_desc -> type_expr
         (** Create a type with a fresh id and no scope *)
-
-val field_kind_repr: field_kind -> field_kind
-        (** Return the canonical representative of an object field kind. *)
 
 module TransientTypeOps : sig
   (** Comparisons for functors *)
@@ -317,6 +310,18 @@ val row_repr: row_desc -> row_desc_repr
 (** Return the canonical representative of a row field *)
 val row_field_repr: row_field -> row_field
 val row_field: label -> row_desc -> row_field
+
+(** Current contents of a field_kind *)
+type field_kind_view =
+    Fprivate
+  | Fpublic
+  | Fabsent
+
+val eq_field_kind: field_kind -> field_kind -> bool
+val field_kind_repr: field_kind -> field_kind_view
+val field_public: field_kind
+val field_absent: field_kind
+val field_private: unit -> field_kind
 
 (* *)
 
@@ -685,6 +690,6 @@ val set_name:
     (Path.t * type_expr list) option -> unit
 val set_row_field: row_field option ref -> row_field -> unit
 val set_univar: type_expr option ref -> type_expr -> unit
-val set_kind: field_kind option ref -> field_kind -> unit
+val link_kind: inside:field_kind -> field_kind -> unit
 val set_commu: commutable ref -> commutable -> unit
         (* Set references, logging the old value *)

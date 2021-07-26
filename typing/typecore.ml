@@ -3543,7 +3543,8 @@ and type_expect_
                         | Tobject (fields, _) ->
                             let (fields, _) = Ctype.flatten_fields fields in
                             let collect_fields li (meth, meth_kind, _meth_ty) =
-                              if meth_kind = Fpresent then meth::li else li
+                              if field_kind_repr meth_kind = Fpublic
+                              then meth::li else li
                             in
                             Some (List.fold_left collect_fields [] fields)
                         | _ -> None

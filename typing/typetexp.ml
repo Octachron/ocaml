@@ -582,7 +582,7 @@ and transl_fields env policy o fields =
      | Open, Univars -> new_pre_univar ()
      | Open, _ -> newvar () in
   let ty = List.fold_left (fun ty (s, ty') ->
-      newty (Tfield (s, Fpresent, ty', ty))) ty_init fields in
+      newty (Tfield (s, field_public, ty', ty))) ty_init fields in
   ty, object_fields
 
 

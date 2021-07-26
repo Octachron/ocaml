@@ -64,9 +64,10 @@ and abbrev_memo =
   | Mlink of abbrev_memo ref
 
 and field_kind =
-    Fvar of field_kind option ref
-  | Fpresent
-  | Fabsent
+    FKvar of {mutable field_kind: field_kind}
+  | FKprivate (* was None as parameter to Fprivate *)
+  | FKpublic (* was Fpublic *)
+  | FKabsent
 
 and commutable =
     Cok
@@ -487,7 +488,7 @@ type change =
   | Cname of
       (Path.t * type_expr list) option ref * (Path.t * type_expr list) option
   | Crow of row_field option ref * row_field option
-  | Ckind of field_kind option ref * field_kind option
+  | Ckind of field_kind
   | Ccommu of commutable ref * commutable
   | Cuniv of type_expr option ref * type_expr option
 
@@ -503,18 +504,39 @@ let log_change ch =
   !trail := Change (ch, r');
   trail := r'
 
-(**** Representative of a type ****)
+(* constructor and accessors for [field_kind] *)
 
-let rec field_kind_repr =
-  function
-    Fvar {contents = Some kind} -> field_kind_repr kind
-  | kind                        -> kind
+type field_kind_view =
+    Fprivate
+  | Fpublic
+  | Fabsent
+
+let rec field_kind_repr_aux = function
+  | FKvar {field_kind} when field_kind <> FKprivate ->
+      field_kind_repr_aux field_kind
+  | kind -> kind
+
+let eq_field_kind fk1 fk2 =
+  field_kind_repr_aux fk1 == field_kind_repr_aux fk2
+
+let field_kind_repr fk =
+  match field_kind_repr_aux fk with
+  | FKvar _ -> Fprivate
+  | FKpublic -> Fpublic
+  | FKabsent -> Fabsent
+  | FKprivate -> Misc.fatal_error "Types.field_kind_repr"
+
+let field_public = FKpublic
+let field_absent = FKabsent
+let field_private () = FKvar {field_kind=FKprivate}
+
+(**** Representative of a type ****)
 
 let rec repr_link (t : type_expr) d : type_expr -> type_expr =
  function
    {desc = Tlink t' as d'} ->
      repr_link t d' t'
- | {desc = Tfield (_, k, _, t') as d'} when field_kind_repr k = Fabsent ->
+ | {desc = Tfield (_, k, _, t') as d'} when field_kind_repr_aux k = FKabsent ->
      repr_link t d' t'
  | t' ->
      log_change (Ccompress (t, t.desc, d));
@@ -524,7 +546,7 @@ let rec repr_link (t : type_expr) d : type_expr -> type_expr =
 let repr_link1 t = function
    {desc = Tlink t' as d'} ->
      repr_link t d' t'
- | {desc = Tfield (_, k, _, t') as d'} when field_kind_repr k = Fabsent ->
+ | {desc = Tfield (_, k, _, t') as d'} when field_kind_repr_aux k = FKabsent ->
      repr_link t d' t'
  | t' -> t'
 
@@ -532,7 +554,7 @@ let repr t =
   match t.desc with
    Tlink t' ->
      repr_link1 t t'
- | Tfield (_, k, _, t') when field_kind_repr k = Fabsent ->
+ | Tfield (_, k, _, t') when field_kind_repr_aux k = FKabsent ->
      repr_link1 t t'
  | _ -> t
 
@@ -651,7 +673,8 @@ let undo_change = function
   | Cscope (ty, scope) -> Transient_expr.set_scope ty scope
   | Cname  (r, v) -> r := v
   | Crow   (r, v) -> r := v
-  | Ckind  (r, v) -> r := v
+  | Ckind  (FKvar r) -> r.field_kind <- FKprivate
+  | Ckind _ -> assert false
   | Ccommu (r, v) -> r := v
   | Cuniv  (r, v) -> r := v
 
@@ -709,8 +732,18 @@ let set_name nm v =
   log_change (Cname (nm, !nm)); nm := v
 let set_row_field e v =
   log_change (Crow (e, !e)); e := Some v
-let set_kind rk k =
-  log_change (Ckind (rk, !rk)); rk := Some k
+
+let rec link_kind ~inside k =
+  match inside with
+  | FKvar ({field_kind = FKprivate} as rk) ->
+      (* prevent a loop by normalizing c and comparing it with inside *)
+      let k = field_kind_repr_aux k in
+      assert (k != inside);
+      log_change (Ckind inside); rk.field_kind <- k
+  | FKvar {field_kind} ->
+      link_kind ~inside:field_kind k
+  | _ -> invalid_arg "Types.link_kind"
+
 let set_commu rc c =
   log_change (Ccommu (rc, !rc)); rc := c
 

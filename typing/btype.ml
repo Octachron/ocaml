@@ -439,12 +439,6 @@ let copy_row f fixed row keep more =
   let fixed = if fixed then orig_fixed else None in
   create_row ~fields ~more ~fixed ~closed ~name
 
-let rec copy_kind = function
-    Fvar{contents = Some k} -> copy_kind k
-  | Fvar _   -> Fvar (ref None)
-  | Fpresent -> Fpresent
-  | Fabsent  -> assert false
-
 let copy_commu c =
   if commu_repr c = Cok then Cok else Clink (ref Cunknown)
 
@@ -458,7 +452,7 @@ let rec copy_type_desc ?(keep_names=false) f = function
   | Tobject (ty, _)     -> Tobject (f ty, ref None)
   | Tvariant _          -> assert false (* too ambiguous *)
   | Tfield (p, k, ty1, ty2) -> (* the kind is kept shared *)
-      Tfield (p, field_kind_repr k, f ty1, f ty2)
+      Tfield (p, (*field_kind_repr*) k, f ty1, f ty2)
   | Tnil                -> Tnil
   | Tlink ty            -> copy_type_desc f (get_desc ty)
   | Tsubst _            -> assert false
