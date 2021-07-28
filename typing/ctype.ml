@@ -2295,7 +2295,7 @@ and mcomp_kind k1 k2 =
   match k1, k2 with
     (Fpublic, Fabsent)
   | (Fabsent, Fpublic) -> raise Incompatible
-  | _                   -> ()
+  | _                  -> ()
 
 and mcomp_row type_pairs env row1 row2 =
   let r1, r2, pairs = merge_row_fields (row_fields row1) (row_fields row2) in
@@ -2903,12 +2903,11 @@ and unify_fields env ty1 ty2 =          (* Optimization *)
     raise exn
 
 and unify_kind k1 k2 =
-  if eq_field_kind k1 k2 then () else
   match field_kind_repr k1, field_kind_repr k2 with
     (Fprivate, (Fprivate | Fpublic)) -> link_kind ~inside:k1 k2
-  | (Fpublic, Fprivate)          -> link_kind ~inside:k2 k1
-  | (Fpublic, Fpublic)      -> ()
-  | _                         -> assert false
+  | (Fpublic, Fprivate)              -> link_kind ~inside:k2 k1
+  | (Fpublic, Fpublic)               -> ()
+  | _                                -> assert false
 
 and unify_row env row1 row2 =
   let Row {fields = row1_fields; more = rm1;
@@ -3676,12 +3675,11 @@ and moregen_fields inst_nongen type_pairs env ty1 ty2 =
     pairs
 
 and moregen_kind k1 k2 =
-  if eq_field_kind k1 k2 then () else
   match field_kind_repr k1, field_kind_repr k2 with
-    (Fprivate, (Fprivate | Fpublic))   -> link_kind ~inside:k1 k2
-  | (Fpublic, Fpublic)        -> ()
-  | (Fpublic, Fprivate)            -> raise Public_method_to_private_method
-  | (Fabsent, _) | (_, Fabsent) -> assert false
+    (Fprivate, (Fprivate | Fpublic)) -> link_kind ~inside:k1 k2
+  | (Fpublic, Fpublic)               -> ()
+  | (Fpublic, Fprivate)              -> raise Public_method_to_private_method
+  | (Fabsent, _) | (_, Fabsent)      -> assert false
 
 and moregen_row inst_nongen type_pairs env row1 row2 =
   let Row {fields = row1_fields; more = rm1; closed = row1_closed} =
@@ -4037,7 +4035,7 @@ and eqtype_kind k1 k2 =
   let k2 = field_kind_repr k2 in
   match k1, k2 with
   | (Fprivate, Fprivate)
-  | (Fpublic, Fpublic) -> ()
+  | (Fpublic, Fpublic)   -> ()
   | _                    -> raise_unexplained_for Unify
                             (* It's probably not possible to hit this case with
                                real OCaml code *)

@@ -516,9 +516,6 @@ let rec field_kind_repr_aux = function
       field_kind_repr_aux field_kind
   | kind -> kind
 
-let eq_field_kind fk1 fk2 =
-  field_kind_repr_aux fk1 == field_kind_repr_aux fk2
-
 let field_kind_repr fk =
   match field_kind_repr_aux fk with
   | FKvar _ -> Fprivate
@@ -749,8 +746,10 @@ let rec link_kind ~inside k =
   | FKvar ({field_kind = FKprivate} as rk) ->
       (* prevent a loop by normalizing k and comparing it with inside *)
       let k = field_kind_repr_aux k in
-      assert (k != inside);
-      log_change (Ckind inside); rk.field_kind <- k
+      if k != inside then begin
+        log_change (Ckind inside);
+        rk.field_kind <- k
+      end
   | FKvar {field_kind} ->
       link_kind ~inside:field_kind k
   | _ -> invalid_arg "Types.link_kind"
@@ -764,8 +763,10 @@ let rec link_commu ~inside c =
   | Cvar ({commu = Cunknown} as rc) ->
       (* prevent a loop by normalizing c and comparing it with inside *)
       let c = commu_repr c in
-      assert (c != inside);
-      log_change (Ccommu inside); rc.commu <- c
+      if c != inside then begin
+        log_change (Ccommu inside);
+        rc.commu <- c
+      end
   | Cvar {commu} ->
       link_commu ~inside:commu c
   | _ -> invalid_arg "Types.link_commu"

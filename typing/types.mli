@@ -317,7 +317,6 @@ type field_kind_view =
   | Fpublic
   | Fabsent
 
-val eq_field_kind: field_kind -> field_kind -> bool
 val field_kind_repr: field_kind -> field_kind_view
 val field_public: field_kind
 val field_absent: field_kind
