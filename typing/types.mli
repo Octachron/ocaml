@@ -99,7 +99,7 @@ type type_desc =
   *)
 
   | Tfield of string * field_kind * type_expr * type_expr
-  (** [Tfield ("foo", Fpublic, t, ts)] ==> [<...; foo : t; ts>] *)
+  (** [Tfield ("foo", field_public, t, ts)] ==> [<...; foo : t; ts>] *)
 
   | Tnil
   (** [Tnil] ==> [<...; >] *)
@@ -174,15 +174,15 @@ and abbrev_memo =
 (** [commutable] is a flag appended to every arrow type.
 
     When typing an application, if the type of the functional is
-    known, its type is instantiated with [Cok] arrows, otherwise as
-    [Clink (ref Cunknown)].
+    known, its type is instantiated with [commu_ok] arrows, otherwise as
+    [commu_var ()].
 
     When the type is not known, the application will be used to infer
     the actual type.  This is fragile in presence of labels where
     there is no principal type.
 
-    Two incompatible applications relying on [Cunknown] arrows will
-    trigger an error.
+    Two incompatible applications must rely on [is_commu_ok] arrows,
+    otherwise they will trigger an error.
 
     let f g =
       g ~a:() ~b:();
@@ -196,6 +196,26 @@ and abbrev_memo =
 val is_commu_ok: commutable -> bool
 val commu_ok: commutable
 val commu_var: unit -> commutable
+
+(** [field_kind] indicates the accessibility of a method.
+
+    An [Fprivate] field may become [Fpublic] or [Fabsent] during unification,
+    but not the other way round.
+
+    The same [field_kind] is kept shared when copying [Tfield] nodes
+    so that the copies of the self-type of a class share the same accessibility
+    (see also PR#10539).
+ *)
+
+type field_kind_view =
+    Fprivate
+  | Fpublic
+  | Fabsent
+
+val field_kind_repr: field_kind -> field_kind_view
+val field_public: field_kind
+val field_absent: field_kind
+val field_private: unit -> field_kind
 
 (** Getters for type_expr; calls repr before answering a value *)
 
@@ -310,17 +330,6 @@ val row_repr: row_desc -> row_desc_repr
 (** Return the canonical representative of a row field *)
 val row_field_repr: row_field -> row_field
 val row_field: label -> row_desc -> row_field
-
-(** Current contents of a field_kind *)
-type field_kind_view =
-    Fprivate
-  | Fpublic
-  | Fabsent
-
-val field_kind_repr: field_kind -> field_kind_view
-val field_public: field_kind
-val field_absent: field_kind
-val field_private: unit -> field_kind
 
 (* *)
 
@@ -676,7 +685,10 @@ val undo_compress: snapshot -> unit
            not already backtracked to a previous snapshot.
            Does not call [cleanup_abbrev] *)
 
-(* Functions to use when modifying a type (only Ctype?) *)
+(** Functions to use when modifying a type (only Ctype?).
+    The old values are logged and reverted on backtracking.
+ *)
+
 val link_type: type_expr -> type_expr -> unit
         (* Set the desc field of [t1] to [Tlink t2], logging the old
            value if there is an active snapshot *)
@@ -692,4 +704,3 @@ val set_univar: type_expr option ref -> type_expr -> unit
 val link_kind: inside:field_kind -> field_kind -> unit
 val link_commu: inside:commutable -> commutable -> unit
 val set_commu_ok: commutable -> unit
-        (* Set references, logging the old value *)
