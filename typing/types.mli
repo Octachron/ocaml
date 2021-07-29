@@ -216,6 +216,9 @@ val field_kind_repr: field_kind -> field_kind_view
 val field_public: field_kind
 val field_absent: field_kind
 val field_private: unit -> field_kind
+val field_kind_internal_repr: field_kind -> field_kind
+        (* Removes indirections in [field_kind].
+           Only needed for performance. *)
 
 (** Getters for type_expr; calls repr before answering a value *)
 

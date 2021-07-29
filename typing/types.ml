@@ -511,13 +511,13 @@ type field_kind_view =
   | Fpublic
   | Fabsent
 
-let rec field_kind_repr_aux = function
+let rec field_kind_internal_repr = function
   | FKvar {field_kind} when field_kind <> FKprivate ->
-      field_kind_repr_aux field_kind
+      field_kind_internal_repr field_kind
   | kind -> kind
 
 let field_kind_repr fk =
-  match field_kind_repr_aux fk with
+  match field_kind_internal_repr fk with
   | FKvar _ -> Fprivate
   | FKpublic -> Fpublic
   | FKabsent -> Fabsent
@@ -543,7 +543,7 @@ let rec repr_link (t : type_expr) d : type_expr -> type_expr =
  function
    {desc = Tlink t' as d'} ->
      repr_link t d' t'
- | {desc = Tfield (_, k, _, t') as d'} when field_kind_repr_aux k = FKabsent ->
+ | {desc = Tfield (_, k, _, t') as d'} when field_kind_internal_repr k = FKabsent ->
      repr_link t d' t'
  | t' ->
      log_change (Ccompress (t, t.desc, d));
@@ -553,7 +553,7 @@ let rec repr_link (t : type_expr) d : type_expr -> type_expr =
 let repr_link1 t = function
    {desc = Tlink t' as d'} ->
      repr_link t d' t'
- | {desc = Tfield (_, k, _, t') as d'} when field_kind_repr_aux k = FKabsent ->
+ | {desc = Tfield (_, k, _, t') as d'} when field_kind_internal_repr k = FKabsent ->
      repr_link t d' t'
  | t' -> t'
 
@@ -561,7 +561,7 @@ let repr t =
   match t.desc with
    Tlink t' ->
      repr_link1 t t'
- | Tfield (_, k, _, t') when field_kind_repr_aux k = FKabsent ->
+ | Tfield (_, k, _, t') when field_kind_internal_repr k = FKabsent ->
      repr_link1 t t'
  | _ -> t
 
@@ -745,7 +745,7 @@ let rec link_kind ~inside k =
   match inside with
   | FKvar ({field_kind = FKprivate} as rk) ->
       (* prevent a loop by normalizing k and comparing it with inside *)
-      let k = field_kind_repr_aux k in
+      let k = field_kind_internal_repr k in
       if k != inside then begin
         log_change (Ckind inside);
         rk.field_kind <- k
