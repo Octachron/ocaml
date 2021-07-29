@@ -543,7 +543,8 @@ let rec repr_link (t : type_expr) d : type_expr -> type_expr =
  function
    {desc = Tlink t' as d'} ->
      repr_link t d' t'
- | {desc = Tfield (_, k, _, t') as d'} when field_kind_internal_repr k = FKabsent ->
+ | {desc = Tfield (_, k, _, t') as d'}
+   when field_kind_internal_repr k = FKabsent ->
      repr_link t d' t'
  | t' ->
      log_change (Ccompress (t, t.desc, d));
@@ -553,7 +554,8 @@ let rec repr_link (t : type_expr) d : type_expr -> type_expr =
 let repr_link1 t = function
    {desc = Tlink t' as d'} ->
      repr_link t d' t'
- | {desc = Tfield (_, k, _, t') as d'} when field_kind_internal_repr k = FKabsent ->
+ | {desc = Tfield (_, k, _, t') as d'}
+   when field_kind_internal_repr k = FKabsent ->
      repr_link t d' t'
  | t' -> t'
 
