@@ -5393,7 +5393,7 @@ let immediacy env typ =
       if
         not (row_closed row)
         || List.exists
-           (fun (_, f) -> match row_field_repr f with 
+           (fun (_, f) -> match row_field_repr f with
            | Rpresent (Some _) | Reither (false, _, _) -> true
            | _ -> false)
           (row_fields row)

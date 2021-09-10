@@ -56,10 +56,9 @@ open Asttypes
     Note on mutability: TBD.
  *)
 type type_expr
-
 type row_desc
 type row_field
-      
+
 type type_desc =
   | Tvar of string option
   (** [Tvar (Some "a")] ==> ['a] or ['_a]
