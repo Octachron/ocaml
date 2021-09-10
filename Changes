@@ -677,6 +677,26 @@ OCaml 4.13.0 (24 September 2021)
 - #10327: Add a subdirectories variable and a copy action to ocamltest
   (Sébastien Hinderer, review by David Allsopp)
 
+* #10337: Normalize type_expr nodes on access
+  One should now use accessors such as get_desc and get_level to access fields
+  of type_expr, rather than calling manually Btype.repr (which is now hidden
+  in Types.Transient_expr).
+  (Jacques Garrigue and Takafumi Saikawa,
+   review by Florian Angeletti and Gabriel Radanne)
+
+* #10474: Force normalization on access to row_desc
+  Similar to #10337. Make row_desc an abstract type, with constructor
+  create_row and accessors defined in Types rather than Btype.
+  A normalized view row_desc_repr is provided for convenience.
+  (Jacques Garrigue and Takafumi Saikawa,
+   review by Leo White and Florian Angeletti)
+
+* #10627: Make row_field abstract
+  Completes #10474 by making row_field abstract too.
+  An immutable view row_field_view is provided, and one converts between it
+  and row_field via inj_row_field and row_field_repr.
+  (Jacques Garrigue and Takafumi Saikawa)
+
 - #10358: Use a hash table for the load path.
   (Leo White, review by Gabriel Scherer)
 
