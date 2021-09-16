@@ -244,7 +244,7 @@ let execute_phrase_with_log print_outcome log  phr =
               in
               Ophr_exception (exn, outv)
         in
-        Log.log_itemf "phrases" log "%a" !print_out_phrase out_phr;
+        Log.log_itemf ~key:"phrases" log "%a" !print_out_phrase out_phr;
         begin match out_phr with
         | Ophr_eval (_, _) | Ophr_signature _ -> true
         | Ophr_exception _ -> false
