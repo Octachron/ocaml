@@ -871,13 +871,14 @@ let default_report_printer () =
 let report_printer = ref default_report_printer
 
 
-let print_report log report =
+let log_report log report =
   match log with
   | Misc.Log.Direct ppf ->
     let printer = !report_printer () in
     printer.pp printer ppf report
   | Misc.Log.Json log ->
       json_mode_printer log report
+let print_report ppf report = log_report (Misc.Log.Direct ppf) report
 
 (******************************************************************************)
 (* Reporting errors *)
@@ -885,7 +886,7 @@ let print_report log report =
 type error = report
 
 let report_error ppf err =
-  print_report ppf err
+  log_report ppf err
 
 let mkerror loc sub txt =
   { kind = Report_error; main = { loc; txt }; sub }
@@ -953,12 +954,13 @@ let select_warning_log () =
   else
     Misc.Log.Direct !formatter_for_warnings
 
-let print_warning loc log w =
+let log_warning loc log w =
   match report_warning loc w with
   | None -> ()
-  | Some report -> print_report log report
+  | Some report -> log_report log report
+let print_warning loc ppf w = log_warning loc (Misc.Log.Direct ppf) w
 
-let prerr_warning loc w = print_warning loc (select_warning_log ()) w
+let prerr_warning loc w = log_warning loc (select_warning_log ()) w
 
 let default_alert_reporter =
   default_warning_alert_reporter
@@ -971,12 +973,13 @@ let default_alert_reporter =
 let alert_reporter = ref default_alert_reporter
 let report_alert loc w = !alert_reporter loc w
 
-let print_alert loc log w =
+let log_alert loc log w =
   match report_alert loc w with
   | None -> ()
-  | Some report -> print_report log report
+  | Some report -> log_report log report
+let print_alert loc ppf w = log_alert loc (Misc.Log.Direct ppf) w
 
-let prerr_alert loc w = print_alert loc (select_warning_log ()) w
+let prerr_alert loc w = log_alert loc (select_warning_log ()) w
 
 let alert ?(def = none) ?(use = none) ~kind loc message =
   prerr_alert loc {Warnings.kind; message; def; use}

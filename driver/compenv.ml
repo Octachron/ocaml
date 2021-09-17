@@ -109,7 +109,7 @@ type readenv_position =
 exception SyntaxError of string
 
 let print_error log msg =
-  Location.print_warning Location.none log
+  Location.log_warning Location.none log
     (Warnings.Bad_env_variable ("OCAMLPARAM", msg))
 
 let parse_args s =
@@ -539,7 +539,7 @@ let load_config ppf filename =
   | exception e ->
       Location.errorf ~loc:(Location.in_file filename)
         "Cannot open file %s" (Printexc.to_string e)
-      |> Location.print_report ppf;
+      |> Location.log_report ppf;
       raise Exit
   | ic ->
       let sic = Scanf.Scanning.from_channel ic in
@@ -563,7 +563,7 @@ let load_config ppf filename =
               }
             in
             Location.errorf ~loc "Configuration file error %s" error
-            |> Location.print_report ppf;
+            |> Location.log_report ppf;
             close_in ic;
             raise Exit
         | line ->
