@@ -646,13 +646,13 @@ let rec row_field_ext fi =
       if !ext = RFnone then ext else row_field_ext !ext
   | _ -> Misc.fatal_error "Types.row_field_ext "
 
-let inj_row_field ?with_ext_of view =
+let create_row_field ?use_ext_of view =
   match view with
   | Rabsent -> RFabsent
   | Rpresent t -> RFpresent t
   | Reither (const, arg_type, fixed) ->
       let ext =
-        match with_ext_of with
+        match use_ext_of with
           Some rf -> row_field_ext rf
         | None -> ref RFnone
       in

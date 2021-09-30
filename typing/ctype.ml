@@ -411,7 +411,7 @@ let rec filter_row_fields erase = function
       match row_field_repr f with
         Rabsent -> fi
       | Reither(_,_,false) when erase ->
-          link_row_field_ext ~inside:f (inj_row_field Rabsent); fi
+          link_row_field_ext ~inside:f (create_row_field Rabsent); fi
       | _ -> p :: fi
 
                     (**************************************)
@@ -3038,7 +3038,7 @@ and unify_row_field env fixed1 fixed2 rm1 rm2 l f1 f2 =
       if either_fixed && not (c1 || c2)
       && List.length tl1 = List.length tl2 then begin
         (* PR#7496 *)
-        let f = inj_row_field (Reither (c1 || c2, [], m1 || m2)) in
+        let f = create_row_field (Reither (c1 || c2, [], m1 || m2)) in
         link_row_field_ext ~inside:f1 f; link_row_field_ext ~inside:f2 f;
         List.iter2 (unify env) tl1 tl2
       end
@@ -3075,9 +3075,9 @@ and unify_row_field env fixed1 fixed2 rm1 rm2 l f1 f2 =
       in
       update_levels rm2 tl1';
       update_levels rm1 tl2';
-      let f1' = inj_row_field (Reither(c1 || c2, tl2', m1 || m2)) in
+      let f1' = create_row_field (Reither(c1 || c2, tl2', m1 || m2)) in
       let f2' =
-        inj_row_field ~with_ext_of:f1' (Reither(c1 || c2, tl1', m1 || m2)) in
+        create_row_field ~use_ext_of:f1' (Reither(c1 || c2, tl1', m1 || m2)) in
       link_row_field_ext ~inside:f1 f1'; link_row_field_ext ~inside:f2 f2';
   | Reither(_, _, false), Rabsent ->
       if_not_fixed first (fun () -> link_row_field_ext ~inside:f1 f2)
@@ -3754,7 +3754,7 @@ and moregen_row inst_nongen type_pairs env row1 row2 =
                if not (eq_row_field_ext f1 f2) then begin
                  if c1 && not c2 then raise_unexplained_for Moregen;
                  let f2' =
-                   inj_row_field ~with_ext_of:f2 (Reither (c2, [], m2)) in
+                   create_row_field ~use_ext_of:f2 (Reither (c2, [], m2)) in
                  link_row_field_ext ~inside:f1 f2';
                  if List.length tl1 = List.length tl2 then
                    List.iter2 (moregen inst_nongen type_pairs env) tl1 tl2
@@ -4596,15 +4596,15 @@ let rec build_subtype env (visited : transient_expr list)
           (fun (l,f as orig) -> match row_field_repr f with
             Rpresent None ->
               if posi then
-                (l, inj_row_field (Reither(true, [], false))), Unchanged
+                (l, create_row_field (Reither(true, [], false))), Unchanged
               else
                 orig, Unchanged
           | Rpresent(Some t) ->
               let (t', c) = build_subtype env visited loops posi level' t in
               let f =
                 if posi && level > 0
-                then inj_row_field (Reither(false, [t'], false))
-                else inj_row_field (Rpresent(Some t'))
+                then create_row_field (Reither(false, [t'], false))
+                else create_row_field (Rpresent(Some t'))
               in (l, f), c
           | _ -> assert false)
           fields
@@ -5062,7 +5062,7 @@ let rec normalize_type_rec visited ty =
                   [ty] tyl
               in
               if List.length tyl' <= List.length tyl then
-                inj_row_field ~with_ext_of:f (Reither(b, List.rev tyl', m))
+                create_row_field ~use_ext_of:f (Reither(b, List.rev tyl', m))
               else f
             | _ -> f)
           orig_fields in

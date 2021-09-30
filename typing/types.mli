@@ -302,10 +302,10 @@ val get_row_field: label -> row_desc -> row_field
 (** get all fields at once; different from the old [row_repr] *)
 type row_desc_repr =
     Row of { fields: (label * row_field) list;
-             more:type_expr;
-             closed:bool;
-             fixed:fixed_explanation option;
-             name:(Path.t * type_expr list) option }
+             more:   type_expr;
+             closed: bool;
+             fixed:  fixed_explanation option;
+             name:   (Path.t * type_expr list) option }
 
 val row_repr: row_desc -> row_desc_repr
 
@@ -313,10 +313,14 @@ val row_repr: row_desc -> row_desc_repr
 type row_field_view =
     Rpresent of type_expr option
   | Reither of bool * type_expr list * bool
+        (* 1st true denotes a constant constructor *)
+        (* 2nd true denotes a tag in a pattern matching, and
+           is erased later *)
   | Rabsent
 
+val create_row_field: ?use_ext_of:row_field -> row_field_view -> row_field
 val row_field_repr: row_field -> row_field_view
-val inj_row_field: ?with_ext_of:row_field -> row_field_view -> row_field
+
 val eq_row_field_ext: row_field -> row_field -> bool
 val match_row_field:
     present:(type_expr option -> 'a) ->

@@ -424,13 +424,13 @@ let copy_row f fixed row keep more =
   let fields = List.map
       (fun (l, fi) -> l,
         match row_field_repr fi with
-        | Rpresent(Some ty) -> inj_row_field (Rpresent(Some(f ty)))
+        | Rpresent(Some ty) -> create_row_field (Rpresent(Some(f ty)))
         | Reither(c, tl, m) ->
-            let with_ext_of = if keep then Some fi else None in
+            let use_ext_of = if keep then Some fi else None in
             let m = if is_fixed row then fixed else m in
             let tl = List.map f tl in
-            inj_row_field ?with_ext_of (Reither(c, tl, m))
-        | view -> inj_row_field view)
+            create_row_field ?use_ext_of (Reither(c, tl, m))
+        | view -> create_row_field view)
       orig_fields in
   let name =
     match orig_name with
