@@ -477,8 +477,6 @@ let signature_item_id = function
   | Sig_class_type (id, _, _, _)
     -> id
 
-(* migrating repr from Btype.. *)
-
 (**** Definitions for backtracking ****)
 
 type change =
