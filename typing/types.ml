@@ -19,6 +19,10 @@ open Asttypes
 
 (* Type expressions for the core language *)
 
+
+type nullable = private { _nullable: unit }
+type nonnullable = private { _nonnullable: unit }
+
 type transient_expr =
   { mutable desc: type_desc;
     mutable level: int;
@@ -50,16 +54,18 @@ and row_desc =
       row_name: (Path.t * type_expr list) option }
 and fixed_explanation =
   | Univar of type_expr | Fixed_private | Reified of Path.t | Rigid
-and row_field =
-    RFpresent of type_expr option
-  | RFeither of
+and 'a u_row_field =
+    RFpresent: type_expr option -> 'a u_row_field
+  | RFeither:
       { const: bool;
         arg_type: type_expr list;
         fixed: bool;
-        ext: row_field ref}
-  | RFabsent
-  | RFnone
-
+        ext: nullable_row_field ref}
+      -> 'a u_row_field
+  | RFabsent: 'a u_row_field
+  | RFnone: nullable u_row_field
+and row_field = nonnullable u_row_field
+and nullable_row_field = B: 'a u_row_field -> nullable_row_field [@@unboxed]
 and abbrev_memo =
     Mnil
   | Mcons of private_flag * Path.t * type_expr * type_expr * abbrev_memo
@@ -486,7 +492,7 @@ type change =
   | Cscope of type_expr * int
   | Cname of
       (Path.t * type_expr list) option ref * (Path.t * type_expr list) option
-  | Crow of row_field ref * row_field
+  | Crow of nullable_row_field ref * nullable_row_field
   | Ckind of field_kind option ref * field_kind option
   | Ccommu of commutable ref * commutable
   | Cuniv of type_expr option ref * type_expr option
@@ -624,26 +630,40 @@ type row_field_view =
            is erased later *)
   | Rabsent
 
-let rec row_field_repr_aux tl = function
-  | RFeither r when !(r.ext) = RFnone ->
-      RFeither {r with arg_type = tl@r.arg_type}
-  | RFeither {arg_type; ext} ->
-      row_field_repr_aux (tl@arg_type) !ext
+let rec row_field_repr_aux tl : row_field -> row_field = function
+  | RFeither r -> begin
+      match !(r.ext) with
+      | B RFnone ->
+          RFeither {r with arg_type = tl@r.arg_type}
+      | B RFeither x ->
+          row_field_repr_aux (tl@r.arg_type) (RFeither x)
+      | B RFpresent x  ->
+          row_field_repr_aux (tl@r.arg_type) (RFpresent x)
+      | B RFabsent ->
+          row_field_repr_aux (tl@r.arg_type) RFabsent
+    end
   | RFpresent (Some _) when tl <> [] ->
       RFpresent (Some (List.hd tl))
-  | fi -> fi
+  | RFpresent None as x -> x
+  | RFabsent -> RFabsent
+  | RFpresent _ as rf -> rf
+  | _ -> .
 
 let row_field_repr fi =
   match row_field_repr_aux [] fi with
   | RFeither {const; arg_type; fixed} -> Reither (const, arg_type, fixed)
   | RFpresent t -> Rpresent t
   | RFabsent -> Rabsent
-  | RFnone -> assert false
 
-let rec row_field_ext fi =
+let rec row_field_ext fi: nullable_row_field ref =
   match fi with
   | RFeither {ext} ->
-      if !ext = RFnone then ext else row_field_ext !ext
+      begin match !ext with
+      | B RFnone -> ext
+      | B (RFpresent _ as e) -> row_field_ext e
+      | B (RFabsent as e) -> row_field_ext e
+      | B (RFeither e) -> row_field_ext (RFeither e)
+      end
   | _ -> Misc.fatal_error "Types.row_field_ext "
 
 let create_row_field ?use_ext_of view =
@@ -654,20 +674,24 @@ let create_row_field ?use_ext_of view =
       let ext =
         match use_ext_of with
           Some rf -> row_field_ext rf
-        | None -> ref RFnone
+        | None -> ref (B RFnone)
       in
       RFeither {const; arg_type; fixed; ext}
 
 let eq_row_field_ext rf1 rf2 =
   row_field_ext rf1 == row_field_ext rf2
 
-let match_row_field ~present ~absent ~either f =
+let match_row_field ~present ~absent ~either (f:row_field) =
   match f with
-  | RFnone -> Misc.fatal_error "Types.match_row_field"
   | RFabsent -> absent ()
   | RFpresent t -> present t
   | RFeither {const; arg_type; fixed; ext} ->
-      let e = if !ext = RFnone then None else Some !ext in
+      let e : row_field option = match !ext with
+      | B RFnone -> None
+      | B (RFpresent _ as e) -> Some e
+      | B (RFabsent as e) -> Some e
+      | B RFeither e -> Some (RFeither e)
+      in
       either const arg_type fixed e
 
 
@@ -754,10 +778,14 @@ let set_name nm v =
 
 let rec link_row_field_ext ~inside v =
   match inside with
-  | RFeither {ext = {contents=RFnone} as e} ->
-      log_change (Crow (e, !e)); e := v
   | RFeither {ext} ->
-      link_row_field_ext ~inside:!ext v
+      begin match !ext with
+      | B RFnone as e ->
+          log_change (Crow (ext, e)); ext := B v
+      | B (RFpresent _ as e) -> link_row_field_ext ~inside:e v
+      | B (RFeither _ as e) -> link_row_field_ext ~inside:e v
+      | B (RFabsent as e) -> link_row_field_ext ~inside:e v
+      end
   | _ -> invalid_arg "Types.link_row_field_ext"
 
 let set_kind rk k =

@@ -57,6 +57,7 @@ open Asttypes
  *)
 type type_expr
 type row_desc
+type nullable_row_field
 type row_field
 
 type type_desc =
