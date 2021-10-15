@@ -213,8 +213,9 @@ val commu_var: unit -> commutable
     (see also PR#10539).
  *)
 
+type field_kind_link
 type field_kind_view =
-    Fprivate
+    Fprivate of field_kind_link
   | Fpublic
   | Fabsent
 
@@ -710,6 +711,6 @@ val set_name:
     (Path.t * type_expr list) option -> unit
 val set_row_field: row_field option ref -> row_field -> unit
 val set_univar: type_expr option ref -> type_expr -> unit
-val link_kind: inside:field_kind -> field_kind -> unit
+val link_kind: inside:field_kind_link -> field_kind -> unit
 val link_commu: inside:commutable_link -> commutable -> unit
 val set_commu_ok: commutable_link -> unit

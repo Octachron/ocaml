@@ -2797,7 +2797,7 @@ and unify3 env t1 t1' t2 t2' =
           end
       | (Tfield(f,kind,_,rem), Tnil) | (Tnil, Tfield(f,kind,_,rem)) ->
           begin match field_kind_repr kind with
-            Fprivate when f <> dummy_method ->
+            Fprivate kind when f <> dummy_method ->
               link_kind ~inside:kind field_absent;
               if d2 = Tnil then unify env rem t2'
               else unify env (newgenty Tnil) rem
@@ -2903,8 +2903,8 @@ and unify_fields env ty1 ty2 =          (* Optimization *)
 
 and unify_kind k1 k2 =
   match field_kind_repr k1, field_kind_repr k2 with
-    (Fprivate, (Fprivate | Fpublic)) -> link_kind ~inside:k1 k2
-  | (Fpublic, Fprivate)              -> link_kind ~inside:k2 k1
+    (Fprivate k1, (Fprivate _ | Fpublic)) -> link_kind ~inside:k1 k2
+  | (Fpublic, Fprivate k2)              -> link_kind ~inside:k2 k1
   | (Fpublic, Fpublic)               -> ()
   | _                                -> assert false
 
@@ -3499,7 +3499,7 @@ let update_class_signature env sign =
                      let meths = Meths.add lab (Public, Virtual, ty) meths in
                      let implicitly_declared = lab :: implicitly_declared in
                      meths, implicitly_declared
-                 | Fprivate ->
+                 | Fprivate _ ->
                      let meths = Meths.add lab (Private, Virtual, ty) meths in
                      let implicitly_declared = lab :: implicitly_declared in
                      meths, implicitly_declared
@@ -3519,7 +3519,7 @@ let hide_private_methods env sign =
   List.iter
     (fun (_, k, _) ->
        match field_kind_repr k with
-       | Fprivate -> link_kind ~inside:k field_absent
+       | Fprivate k -> link_kind ~inside:k field_absent
        | _    -> ())
     fields
 
@@ -3675,9 +3675,9 @@ and moregen_fields inst_nongen type_pairs env ty1 ty2 =
 
 and moregen_kind k1 k2 =
   match field_kind_repr k1, field_kind_repr k2 with
-    (Fprivate, (Fprivate | Fpublic)) -> link_kind ~inside:k1 k2
+    (Fprivate k1, (Fprivate _ | Fpublic)) -> link_kind ~inside:k1 k2
   | (Fpublic, Fpublic)               -> ()
-  | (Fpublic, Fprivate)              -> raise Public_method_to_private_method
+  | (Fpublic, Fprivate _)              -> raise Public_method_to_private_method
   | (Fabsent, _) | (_, Fabsent)      -> assert false
 
 and moregen_row inst_nongen type_pairs env row1 row2 =
@@ -4033,7 +4033,7 @@ and eqtype_kind k1 k2 =
   let k1 = field_kind_repr k1 in
   let k2 = field_kind_repr k2 in
   match k1, k2 with
-  | (Fprivate, Fprivate)
+  | (Fprivate _, Fprivate _)
   | (Fpublic, Fpublic)   -> ()
   | _                    -> raise_unexplained_for Unify
                             (* It's probably not possible to hit this case with

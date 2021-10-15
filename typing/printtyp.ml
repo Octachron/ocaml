@@ -465,7 +465,7 @@ let string_of_field_kind v =
   match field_kind_repr v with
   | Fpublic -> "Fpublic"
   | Fabsent -> "Fabsent"
-  | Fprivate -> "Fprivate"
+  | Fprivate _ -> "Fprivate"
 
 let rec safe_repr v t =
   match Transient_expr.coerce t with
