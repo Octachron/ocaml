@@ -2704,11 +2704,10 @@ and unify3 env t1 t1' t2 t2' =
         (!Clflags.classic || !umode = Pattern) &&
         not (is_optional l1 || is_optional l2) ->
           unify  env t1 t2; unify env  u1 u2;
-          begin match is_commu_ok c1, is_commu_ok c2 with
-          | false, true -> set_commu_ok c1
-          | true, false -> set_commu_ok c2
-          | false, false -> link_commu ~inside:c1 c2
-          | true, true -> ()
+          begin match commu_view c1, commu_view c2 with
+          | Commu_var v, Commu_ok | Commu_ok, Commu_var v -> set_commu_ok v
+          | Commu_var c1, Commu_var _ -> link_commu ~inside:c1 c2
+          | Commu_ok, Commu_ok -> ()
           end
       | (Ttuple tl1, Ttuple tl2) ->
           unify_list env tl1 tl2

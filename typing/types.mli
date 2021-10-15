@@ -193,6 +193,12 @@ and abbrev_memo =
     This is only allowed when the real type is known.
 *)
 
+type commutable_link
+type commutable_view =
+  | Commu_ok
+  | Commu_var of commutable_link
+
+val commu_view: commutable -> commutable_view
 val is_commu_ok: commutable -> bool
 val commu_ok: commutable
 val commu_var: unit -> commutable
@@ -705,5 +711,5 @@ val set_name:
 val set_row_field: row_field option ref -> row_field -> unit
 val set_univar: type_expr option ref -> type_expr -> unit
 val link_kind: inside:field_kind -> field_kind -> unit
-val link_commu: inside:commutable -> commutable -> unit
-val set_commu_ok: commutable -> unit
+val link_commu: inside:commutable_link -> commutable -> unit
+val set_commu_ok: commutable_link -> unit

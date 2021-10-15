@@ -19,6 +19,11 @@ open Asttypes
 
 (* Type expressions for the core language *)
 
+(* Type-level tags *)
+type cunknown = { _cunknown: unit }
+type positive = { _positive: unit }
+type 'a cvar = { _cvar: 'a }
+
 type transient_expr =
   { mutable desc: type_desc;
     mutable level: int;
@@ -69,10 +74,19 @@ and field_kind =
   | FKpublic (* was Fpublic *)
   | FKabsent
 
+and ('k,'e) ty_commutable =
+  | Cok: ('any, positive) ty_commutable
+  | Cunknown: (cunknown cvar as 'e, 'e) ty_commutable
+  | Cvar: {mutable commu: any_commutable} -> ('a cvar as 'e, 'e) ty_commutable
 and commutable =
-    Cok
-  | Cunknown
-  | Cvar of {mutable commu: commutable}
+  | Commu_repr: (positive cvar, 'any) ty_commutable -> commutable
+[@@unboxed]
+and commutable_var =
+  | Commu_var: (positive cvar, 'e cvar) ty_commutable -> commutable_var
+[@@unboxed]
+and any_commutable =
+  | Commu_ref: ('any,'any) ty_commutable -> any_commutable
+[@@unboxed]
 
 module TransientTypeOps = struct
   type t = type_expr
@@ -489,7 +503,7 @@ type change =
       (Path.t * type_expr list) option ref * (Path.t * type_expr list) option
   | Crow of row_field option ref * row_field option
   | Ckind of field_kind
-  | Ccommu of commutable
+  | Ccommu of commutable_var
   | Cuniv of type_expr option ref * type_expr option
 
 type changes =
@@ -529,13 +543,31 @@ let field_private () = FKvar {field_kind=FKprivate}
 
 (* Constructor and accessors for [commutable] *)
 
-let rec is_commu_ok = function
-  | Cvar {commu} -> is_commu_ok commu
-  | Cunknown -> false
-  | Cok -> true
 
-let commu_ok = Cok
-let commu_var () = Cvar {commu=Cunknown}
+type commutable_link = (positive cvar, positive cvar) ty_commutable
+
+type commutable_view =
+  | Commu_ok
+  | Commu_var of commutable_link
+
+let rec commu_view = function
+  | Commu_repr Cvar {commu=Commu_ref Cok} -> Commu_ok
+  | Commu_repr Cvar {commu=Commu_ref (Cvar _ as c) } ->
+      commu_view (Commu_repr c)
+  | Commu_repr (Cvar {commu=Commu_ref Cunknown} as cv) -> Commu_var cv
+  | Commu_repr Cok -> Commu_ok
+
+let rec is_commu_ok = function
+  | Commu_repr Cvar {commu=Commu_ref Cok} -> true
+  | Commu_repr Cvar {commu=Commu_ref (Cvar _ as c) } ->
+      is_commu_ok (Commu_repr c)
+  | Commu_repr Cvar {commu=Commu_ref Cunknown} -> false
+  | Commu_repr Cok -> true
+
+
+
+let commu_ok = Commu_repr Cok
+let commu_var () = Commu_repr (Cvar {commu=Commu_ref Cunknown})
 
 (**** Representative of a type ****)
 
@@ -684,9 +716,9 @@ let undo_change = function
   | Crow   (r, v) -> r := v
   | Ckind  (FKvar r) -> r.field_kind <- FKprivate
   | Ckind _ -> assert false
-  | Ccommu (Cvar r) -> r.commu <- Cunknown
-  | Ccommu _ -> Misc.fatal_error "Types.undo_change"
+  | Ccommu (Commu_var Cvar r) -> r.commu <- Commu_ref Cunknown
   | Cuniv  (r, v) -> r := v
+  | Ccommu (Commu_var (Cvar _)) -> .
 
 type snapshot = changes ref * int
 let last_snapshot = Local_store.s_ref 0
@@ -756,24 +788,35 @@ let rec link_kind ~inside k =
       link_kind ~inside:field_kind k
   | _ -> invalid_arg "Types.link_kind"
 
-let rec commu_repr = function
-    Cvar {commu} when commu != Cunknown -> commu_repr commu
-  | c -> c
+let rec commu_repr: type a. (positive cvar,a) ty_commutable -> commutable =
+  function
+  | Cvar {commu = Commu_ref Cunknown} as c -> Commu_repr c
+  | Cvar { commu = Commu_ref Cvar v } -> commu_repr (Cvar v)
+  | Cvar { commu = Commu_ref Cok } -> commu_repr Cok
+  | Cok -> Commu_repr Cok
+  | _ -> .
 
-let rec link_commu ~inside c =
+
+let commu_ref (Commu_repr c) =
+  match c with
+  | Cok -> Commu_ref Cok
+  | Cvar m -> Commu_ref (Cvar m)
+
+let rec link_commu ~(inside:commutable_link) (Commu_repr c as r) =
   match inside with
-  | Cvar ({commu = Cunknown} as rc) ->
+  | Cvar ({commu = Commu_ref Cunknown} as rc) ->
       (* prevent a loop by normalizing c and comparing it with inside *)
-      let c = commu_repr c in
-      if c != inside then begin
-        log_change (Ccommu inside);
-        rc.commu <- c
+      let cref = commu_ref (commu_repr c) in
+      if cref != Commu_ref inside then begin
+        log_change (Ccommu (Commu_var inside));
+        rc.commu <- cref
       end
-  | Cvar {commu} ->
-      link_commu ~inside:commu c
-  | _ -> invalid_arg "Types.link_commu"
+  | Cvar {commu=Commu_ref (Cvar _ as commu)} ->
+      link_commu ~inside:commu r
+  | Cvar {commu=Commu_ref Cok} -> ()
+  | _ -> .
 
-let set_commu_ok c = link_commu ~inside:c Cok
+let set_commu_ok c = link_commu ~inside:c (Commu_repr Cok)
 
 let snapshot () =
   let old = !last_snapshot in
