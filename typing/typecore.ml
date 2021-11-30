@@ -385,7 +385,11 @@ let unify_pat ?refine env pat expected_ty =
 (* unification of a type with a Tconstr with freshly created arguments *)
 let unify_head_only ~refine loc env ty constr =
   let path = cstr_type_path constr in
-  let decl = Env.find_type path !env in
+  let decl =
+    match Env.find_type path !env with
+    | Found x -> x
+    | Missing_cmi -> assert false (* missing cmi: this is the type of a constructor that we found in env *)
+  in
   let ty' = Ctype.newconstr path (Ctype.instance_list decl.type_params) in
   unify_pat_types ~refine loc env ty' ty
 
@@ -865,7 +869,9 @@ let split_cases env cases =
 
 let rec expand_path env p =
   let decl =
-    try Some (Env.find_type p env) with Not_found -> None
+    match Env.find_type p env with
+    | Found x -> Some x
+    | Missing_cmi -> None
   in
   match decl with
     Some {type_manifest = Some ty} ->
@@ -1279,8 +1285,8 @@ module Constructor = NameChoice (struct
     match Env.lookup_all_constructors_from_type ~loc usage path env with
     | _ :: _ as x -> x
     | [] ->
-        match (Env.find_type path env).type_kind with
-        | Type_open ->
+        match Env.find_type path env with
+        | Found { type_kind = Type_open ; _}  ->
             (* Extension constructors cannot be found by looking at the type
                declaration.
                We scan the whole environment to get an accurate spellchecking
@@ -3167,7 +3173,10 @@ and type_expect_
         | Some _, None -> ty_expected, expected_opath
         | Some(_, _, true), Some _ -> ty_expected, expected_opath
         | (None | Some (_, _, false)), Some (_, p', _) ->
-            let decl = Env.find_type p' env in
+            let decl = match Env.find_type p' env with
+              | Found x -> x
+              | Missing_cmi -> assert false (* missing cmi: handled by extract_concrete_record *)
+            in
             begin_def ();
             let ty = newconstr p' (instance_list decl.type_params) in
             end_def ();

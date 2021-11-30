@@ -446,7 +446,10 @@ let check_type
     | (Tunivar(_)         , _      ) -> empty
     (* Type constructor case. *)
     | (Tconstr(path,tys,_), m      ) ->
-        let msig = (Env.find_type path env).type_separability in
+        let msig = match Env.find_type path env with
+          | Found x -> x.type_separability
+          | Missing_cmi -> assert false (* missing cmi: the path at hand is resolvable and we don't call ourself recursively *)
+        in
         let on_param context (ty, m_param) =
           let hyps = match m_param with
             | Ind -> Hyps.guard hyps

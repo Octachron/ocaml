@@ -198,12 +198,16 @@ let type_module_type_of_fwd :
 
 let check_recmod_typedecls env decls =
   let recmod_ids = List.map fst decls in
+  let find_type path env = match Env.find_type path env with
+    | Found x -> x
+    | Missing_cmi -> assert false (* extracted directly from the environment *)
+  in
   List.iter
     (fun (id, md) ->
       List.iter
         (fun path ->
           Typedecl.check_recmod_typedecl env md.Types.md_loc recmod_ids
-                                         path (Env.find_type path env))
+                                         path (find_type path env))
         (Mtype.type_paths env (Pident id) md.Types.md_type))
     decls
 
@@ -2928,8 +2932,8 @@ let type_package env m p fl =
              | exception Not_found -> fl
              | path -> begin
                  match Env.find_type path env with
-                 | exception Not_found -> fl
-                 | decl ->
+                 | Missing_cmi-> fl
+                 | Found decl ->
                      if decl.type_arity > 0 then begin
                        fl
                      end else begin

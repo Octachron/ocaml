@@ -264,10 +264,10 @@ let enrich_typedecl env p id decl =
     Some _ -> decl
   | None ->
     match Env.find_type p env with
-    | exception Not_found -> decl
+    | Missing_cmi -> decl
         (* Type which was not present in the signature, so we don't have
            anything to do. *)
-    | orig_decl ->
+    | Found orig_decl ->
         if decl.type_arity <> orig_decl.type_arity then
           decl
         else begin
@@ -369,10 +369,13 @@ let no_code_needed env mty = no_code_needed_mod env Mp_present mty
 
 let rec contains_type env = function
     Mty_ident path ->
-      begin try match (Env.find_modtype path env).mtd_type with
-      | None -> raise Exit (* PR#6427 *)
-      | Some mty -> contains_type env mty
-      with Not_found -> raise Exit
+      begin
+        match Env.find_modtype path env with
+        | Found x -> begin match x.mtd_type with
+            | None -> raise Exit (* PR#6427 *)
+            | Some mty -> contains_type env mty
+          end
+        | Missing_cmi -> raise Exit
       end
   | Mty_signature sg ->
       contains_type_sig env sg

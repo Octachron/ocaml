@@ -468,7 +468,10 @@ let () =
        if is_exception_constructor env desc.cstr_res then
          raise Not_found;
        let path = Btype.cstr_type_path desc in
-       let type_decl = Env.find_type path env in
+       let type_decl = match Env.find_type path env with
+         | Found x -> x
+         | Missing_cmi -> assert false (* we found the constructor in env *)
+       in
        if is_extension_constructor desc.cstr_tag then
          let ret_type =
            if desc.cstr_generalized then Some desc.cstr_res

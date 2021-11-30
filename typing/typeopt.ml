@@ -28,14 +28,13 @@ let scrape_ty env ty =
       begin match get_desc ty with
       | Tconstr (p, _, _) ->
           begin match Env.find_type p env with
-          | {type_kind = ( Type_variant (_, Variant_unboxed)
+          | Found {type_kind = ( Type_variant (_, Variant_unboxed)
           | Type_record (_, Record_unboxed _) ); _} -> begin
               match Typedecl_unboxed.get_unboxed_type_representation env ty with
               | None -> ty
               | Some ty2 -> ty2
           end
-          | _ -> ty
-          | exception Not_found -> ty
+          | Found _ | Missing_cmi -> ty
           end
       | _ ->
           ty
@@ -99,13 +98,12 @@ let classify env ty =
            || Path.same p Predef.path_int32
            || Path.same p Predef.path_int64 then Addr
       else begin
-        try
-          match (Env.find_type p env).type_kind with
-          | Type_abstract ->
+          match Env.find_type p env with
+          | Found { type_kind=Type_abstract; _ } ->
               Any
-          | Type_record _ | Type_variant _ | Type_open ->
+          | Found { type_kind = Type_record _ | Type_variant _ | Type_open } ->
               Addr
-        with Not_found ->
+          | Missing_cmi ->
           (* This can happen due to e.g. missing -I options,
              causing some .cmi files to be unavailable.
              Maybe we should emit a warning. *)

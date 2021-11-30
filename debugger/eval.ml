@@ -144,7 +144,9 @@ let rec expression event env = function
       let (v, ty) = expression event env arg in
       begin match get_desc (Ctype.expand_head_opt env ty) with
         Tconstr(path, _, _) ->
-          let tydesc = Env.find_type path env in
+          let tydesc = match Env.find_type path env with
+            | Env.Found x -> x
+            | Env.Missing_cmi -> assert false  in
           begin match tydesc.type_kind with
             Type_record(lbl_list, _repr) ->
               let (pos, ty_res) =

@@ -126,9 +126,9 @@ let enter_type rec_flag env sdecl (id, uid) =
 
 let update_type temp_env env id loc =
   let path = Path.Pident id in
-  let decl = Env.find_type path temp_env in
-  match decl.type_manifest with None -> ()
-  | Some ty ->
+  match  Env.find_type path temp_env with
+  | Found { type_manifest = None; _ } | Missing_cmi -> ()
+  | Found ({ type_manifest = Some ty; _ } as decl) ->
       let params = List.map (fun _ -> Ctype.newvar ()) decl.type_params in
       try Ctype.unify env (Ctype.newconstr path params) ty
       with Ctype.Unify err ->
@@ -504,9 +504,11 @@ let rec check_constraints_rec env loc visited ty =
   match get_desc ty with
   | Tconstr (path, args, _) ->
       let decl =
-        try Env.find_type path env
-        with Not_found ->
-          raise (Error(loc, Unavailable_type_constructor path)) in
+        match Env.find_type path env with
+        | Missing_cmi ->
+            raise (Error(loc, Unavailable_type_constructor path))
+        | Found x -> x
+      in
       let ty' = Ctype.newconstr path (Ctype.instance_list decl.type_params) in
       begin
         (* We don't expand the error trace because that produces types that
@@ -606,8 +608,9 @@ let check_coherence env loc dpath decl =
       type_manifest = Some ty } ->
       begin match get_desc ty with
         Tconstr(path, args, _) ->
-          begin try
-            let decl' = Env.find_type path env in
+          begin match Env.find_type path env with
+          | Missing_cmi -> raise(Error(loc, Unavailable_type_constructor path))
+          | Found decl' ->
             let err =
               if List.length args <> List.length decl.type_params
               then Some Includecore.Arity
@@ -627,8 +630,6 @@ let check_coherence env loc dpath decl =
             in
             if err <> None then
               raise(Error(loc, Definition_mismatch (ty, env, err)))
-          with Not_found ->
-            raise(Error(loc, Unavailable_type_constructor path))
           end
       | _ -> raise(Error(loc, Definition_mismatch (ty, env, None)))
       end
@@ -740,9 +741,9 @@ let check_recursion ~orig_env env loc path decl to_check =
                  (otherwise we could loop if [path'] is itself
                  a non-regular abbreviation). *)
           else if to_check path' && not (List.mem path' prev_exp) then begin
-            try
+            begin match Env.find_type_expansion path' env with
+            | Found (params0, body0, _) ->
               (* Attempt expansion *)
-              let (params0, body0, _) = Env.find_type_expansion path' env in
               let (params, body) =
                 Ctype.instance_parameterized_type params0 body0 in
               begin
@@ -753,7 +754,8 @@ let check_recursion ~orig_env env loc path decl to_check =
               check_regular path' args
                 (path' :: prev_exp) ((ty,body) :: prev_expansions)
                 body
-            with Not_found -> ()
+            | Missing_cmi -> ()
+            end
           end;
           List.iter (check_regular cpath args prev_exp prev_expansions) args'
       | Tpoly (ty, tl) ->
@@ -888,7 +890,11 @@ let transl_type_decl env rec_flag sdecl_list =
         (* See typecore.ml for a description of the algorithm used
              to detect unused declarations in a set of recursive definitions. *)
         let slot = ref [] in
-        let td = Env.find_type (Path.Pident id) temp_env in
+        let td =
+          match Env.find_type (Path.Pident id) temp_env with
+          | Missing_cmi -> assert false
+          | Found x -> x
+        in
         Env.set_type_used_callback
           td
           (fun old_callback ->
@@ -1033,7 +1039,10 @@ let transl_extension_constructor ~scope env type_path type_params
         end;
         (* Ensure that constructor's type matches the type being extended *)
         let cstr_type_path = Btype.cstr_type_path cdescr in
-        let cstr_type_params = (Env.find_type cstr_type_path env).type_params in
+        let cstr_type_params = match Env.find_type cstr_type_path env with
+          | Missing_cmi -> assert false (* type of a constructor *)
+          | Found ty -> ty.type_params
+        in
         let cstr_types =
           (Btype.newgenty
              (Tconstr(cstr_type_path, cstr_type_params, ref Mnil)))
@@ -1343,14 +1352,16 @@ let rec parse_native_repr_attributes env core_type ty ~global_repr =
 let check_unboxable env loc ty =
   let check_type acc ty : Path.Set.t =
     let ty = Ctype.expand_head_opt env ty in
-    try match get_desc ty with
-      | Tconstr (p, _, _) ->
-        let tydecl = Env.find_type p env in
-        if tydecl.type_unboxed_default then
-          Path.Set.add p acc
-        else acc
-      | _ -> acc
-    with Not_found -> acc
+    match get_desc ty with
+    | Tconstr (p, _, _) ->
+        begin match Env.find_type p env with
+        | Missing_cmi -> acc
+        | Found tydecl ->
+            if tydecl.type_unboxed_default then
+              Path.Set.add p acc
+            else acc
+        end
+    | _ -> acc
   in
   let all_unboxable_types = Btype.fold_type_expr check_type Path.Set.empty ty in
   Path.Set.fold

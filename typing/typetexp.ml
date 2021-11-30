@@ -282,7 +282,10 @@ and transl_type_aux env policy styp =
                 match get_desc ty with
                   Tvariant row when Btype.static_row row -> ()
                 | Tconstr (path, _, _) ->
-                    check (Env.find_type path env)
+                    begin match Env.find_type path env with
+                    | Missing_cmi -> raise Not_found
+                    | Found x -> check x
+                    end
                 | _ -> raise Not_found
           in check decl;
           Location.deprecated styp.ptyp_loc

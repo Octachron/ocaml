@@ -82,11 +82,15 @@ val without_cmis: ('a -> 'b) -> 'a -> 'b
 
 (* Lookup by paths *)
 
+type 'a type_lookup_result =
+  | Missing_cmi
+  | Found of 'a
+
 val find_value: Path.t -> t -> value_description
-val find_type: Path.t -> t -> type_declaration
-val find_type_descrs: Path.t -> t -> type_descriptions
+val find_type: Path.t -> t -> type_declaration type_lookup_result
+val find_type_descrs: Path.t -> t -> type_descriptions type_lookup_result
 val find_module: Path.t -> t -> module_declaration
-val find_modtype: Path.t -> t -> modtype_declaration
+val find_modtype: Path.t -> t -> modtype_declaration type_lookup_result
 val find_class: Path.t -> t -> class_declaration
 val find_cltype: Path.t -> t -> class_type_declaration
 
@@ -97,9 +101,9 @@ val find_ident_constructor: Ident.t -> t -> constructor_description
 val find_ident_label: Ident.t -> t -> label_description
 
 val find_type_expansion:
-    Path.t -> t -> type_expr list * type_expr * int
+    Path.t -> t -> (type_expr list * type_expr * int) type_lookup_result
 val find_type_expansion_opt:
-    Path.t -> t -> type_expr list * type_expr * int
+    Path.t -> t -> (type_expr list * type_expr * int) type_lookup_result
 (* Find the manifest type information associated to a type for the sake
    of the compiler's type-based optimisations. *)
 val find_modtype_expansion: Path.t -> t -> module_type

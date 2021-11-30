@@ -1074,6 +1074,12 @@ let find_value_full path env =
       NameMap.find s sc.comp_values
   | Papply _ -> raise Not_found
 
+
+type 'a type_lookup_result =
+  | Missing_cmi
+  | Found of 'a
+
+
 let find_type_full path env =
   match path with
   | Pident id -> IdTbl.find_same id env.types
@@ -1091,7 +1097,9 @@ let find_modtype_lazy path env =
   | Papply _ -> raise Not_found
 
 let find_modtype path env =
-  Subst.Lazy.force_modtype_decl (find_modtype_lazy path env)
+  match find_modtype_lazy path env with
+  | exception Not_found -> Missing_cmi
+  | x -> Found (Subst.Lazy.force_modtype_decl x)
 
 let find_class_full path env =
   match path with
@@ -1187,9 +1195,13 @@ let find_type_data path env =
       | _ -> assert false
 
 let find_type p env =
-  (find_type_data p env).tda_declaration
+  match find_type_data p env with
+  | exception Not_found -> Missing_cmi
+  | x -> Found x.tda_declaration
 let find_type_descrs p env =
-  (find_type_data p env).tda_descriptions
+  match find_type_data p env with
+  | exception Not_found -> Missing_cmi
+  | x -> Found x.tda_descriptions
 
 let rec find_module_address path env =
   match path with
@@ -1383,30 +1395,32 @@ let find_module_lazy path env =
    - the type should be public or should have a private row,
    - the type should have an associated manifest type. *)
 let find_type_expansion path env =
-  let decl = find_type path env in
-  match decl.type_manifest with
-  | Some body when decl.type_private = Public
+  match find_type path env with
+  | Found ({ type_manifest = Some body} as decl) when decl.type_private = Public
               || decl.type_kind <> Type_abstract
               || Btype.has_constr_row body ->
-      (decl.type_params, body, decl.type_expansion_scope)
+      Found (decl.type_params, body, decl.type_expansion_scope)
   (* The manifest type of Private abstract data types without
      private row are still considered unknown to the type system.
      Hence, this case is caught by the following clause that also handles
      purely abstract data types without manifest type definition. *)
-  | _ -> raise Not_found
+  | _ -> Missing_cmi
 
 (* Find the manifest type information associated to a type, i.e.
    the necessary information for the compiler's type-based optimisations.
    In particular, the manifest type associated to a private abstract type
    is revealed for the sake of compiler's type-based optimisations. *)
 let find_type_expansion_opt path env =
-  let decl = find_type path env in
-  match decl.type_manifest with
+  match find_type path env with
+  | Found decl ->
+  begin match decl.type_manifest with
   (* The manifest type of Private abstract data types can still get
      an approximation using their manifest type. *)
   | Some body ->
-      (decl.type_params, body, decl.type_expansion_scope)
-  | _ -> raise Not_found
+      Found (decl.type_params, body, decl.type_expansion_scope)
+  | _ -> Missing_cmi
+    end
+  | _ -> Missing_cmi
 
 let find_modtype_expansion_lazy path env =
   match (find_modtype_lazy path env).mtdl_type with
@@ -2578,8 +2592,8 @@ let mark_type_used uid =
 
 let mark_type_path_used env path =
   match find_type path env with
-  | decl -> mark_type_used decl.type_uid
-  | exception Not_found -> ()
+  | Found decl -> mark_type_used decl.type_uid
+  | Missing_cmi -> ()
 
 let mark_constructor_used usage cd =
   match Types.Uid.Tbl.find !used_constructors cd.cd_uid with
@@ -3098,9 +3112,9 @@ let lookup_label ~errors ~use ~loc usage lid env =
 
 let lookup_all_labels_from_type ~use ~loc usage ty_path env =
   match find_type_descrs ty_path env with
-  | exception Not_found -> []
-  | Type_variant _ | Type_abstract | Type_open -> []
-  | Type_record (lbls, _) ->
+  | Missing_cmi -> []
+  | Found (Type_variant _ | Type_abstract | Type_open) -> []
+  | Found Type_record (lbls, _) ->
       List.map
         (fun lbl ->
            let use_fun () = use_label ~use ~loc usage env lbl in
@@ -3120,9 +3134,9 @@ let lookup_constructor ~errors ~use ~loc usage lid env =
 
 let lookup_all_constructors_from_type ~use ~loc usage ty_path env =
   match find_type_descrs ty_path env with
-  | exception Not_found -> []
-  | Type_record _ | Type_abstract | Type_open -> []
-  | Type_variant (cstrs, _) ->
+  | Missing_cmi -> []
+  | Found (Type_record _ | Type_abstract | Type_open) -> []
+  | Found Type_variant (cstrs, _) ->
       List.map
         (fun cstr ->
            let use_fun () =

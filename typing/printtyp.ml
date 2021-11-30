@@ -101,13 +101,17 @@ module Namespace = struct
     | Class_type -> to_lookup Env.find_cltype_by_name
     | Other -> fun _ -> raise Not_found
 
+  let raise_not_found f env p = match f env p with
+    | Env.Missing_cmi -> raise Not_found
+    | Env.Found x -> x
+
   let location namespace id =
     let path = Path.Pident id in
     try Some (
         match namespace with
-        | Type -> (in_printing_env @@ Env.find_type path).type_loc
+        | Type -> (in_printing_env @@ raise_not_found Env.find_type path).type_loc
         | Module -> (in_printing_env @@ Env.find_module path).md_loc
-        | Module_type -> (in_printing_env @@ Env.find_modtype path).mtd_loc
+        | Module_type -> (in_printing_env @@ raise_not_found Env.find_modtype path).mtd_loc
         | Class -> (in_printing_env @@ Env.find_class path).cty_loc
         | Class_type -> (in_printing_env @@ Env.find_cltype path).clty_loc
         | Other -> Location.none
@@ -626,28 +630,39 @@ let rec index l x =
     [] -> raise Not_found
   | a :: l -> if eq_type x a then 0 else 1 + index l x
 
+let index l x = match index l x with
+  | exception Not_found -> None
+  | x -> Some x
+
 let rec uniq = function
     [] -> true
   | a :: l -> not (List.memq (a : int) l) && uniq l
 
 let rec normalize_type_path ?(cache=false) env p =
-  try
-    let (params, ty, _) = Env.find_type_expansion p env in
-    match get_desc ty with
-      Tconstr (p1, tyl, _) ->
-        if List.length params = List.length tyl
-        && List.for_all2 eq_type params tyl
-        then normalize_type_path ~cache env p1
-        else if cache || List.length params <= List.length tyl
-             || not (uniq (List.map get_id tyl)) then (p, Id)
-        else
-          let l1 = List.map (index params) tyl in
-          let (p2, s2) = normalize_type_path ~cache env p1 in
-          (p2, compose l1 s2)
-    | _ ->
-        (p, Nth (index params ty))
-  with
-    Not_found ->
+  match Env.find_type_expansion p env with
+  | Found (params, ty, _) ->
+      begin match get_desc ty with
+        Tconstr (p1, tyl, _) ->
+          if List.length params = List.length tyl
+          && List.for_all2 eq_type params tyl
+          then normalize_type_path ~cache env p1
+          else if cache || List.length params <= List.length tyl
+                  || not (uniq (List.map get_id tyl)) then (p, Id)
+          else
+            let l1 = List.map (index params) tyl in
+            if List.for_all ((<>) None) l1 then
+              let l1 = List.filter_map Fun.id l1 in
+              let (p2, s2) = normalize_type_path ~cache env p1 in
+              (p2, compose l1 s2)
+            else
+            Env.normalize_type_path None env p, Id
+      | _ ->
+          match index params ty with
+          | None -> Env.normalize_type_path None env p, Id
+          | Some nth ->
+              (p, Nth nth)
+      end
+  | Missing_cmi ->
       (Env.normalize_type_path None env p, Id)
 
 let penalty s =
@@ -2328,9 +2343,7 @@ let warn_on_missing_def env ppf t =
   match get_desc t with
   | Tconstr (p,_,_) ->
     begin
-      try
-        ignore(Env.find_type p env : Types.type_declaration)
-      with Not_found ->
+     if (Env.find_type p env) = Env.Missing_cmi then
         fprintf ppf
           "@,@[%a is abstract because no corresponding cmi file was found \
            in path.@]" path p

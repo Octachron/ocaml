@@ -63,8 +63,8 @@ let compute_variance env visited vari ty =
     | Tconstr (path, tl, _) ->
         let open Variance in
         if tl = [] then () else begin
-          try
-            let decl = Env.find_type path env in
+          match Env.find_type path env with
+          | Found decl ->
             let cvari f = mem f vari in
             List.iter2
               (fun ty v ->
@@ -85,7 +85,7 @@ let compute_variance env visited vari ty =
                 let v2 = set May_weak weak v1 in
                 compute_variance_rec v2 ty)
               tl decl.type_variance
-          with Not_found ->
+          | Missing_cmi ->
             List.iter (compute_variance_rec unknown) tl
         end
     | Tobject (ty, _) ->

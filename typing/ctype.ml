@@ -281,8 +281,9 @@ let in_current_module = function
 
 let in_pervasives p =
   in_current_module p &&
-  try ignore (Env.find_type p Env.initial_safe_string); true
-  with Not_found -> false
+  match Env.find_type p Env.initial_safe_string with
+  | Found _ -> true
+  | Missing_cmi -> false
 
 let is_datatype decl=
   match decl.type_kind with
@@ -450,11 +451,11 @@ let rec free_vars_rec real ty =
       Tvar _, _ ->
         free_variables := (ty, real) :: !free_variables
     | Tconstr (path, tl, _), Some env ->
-        begin try
-          let (_, body, _) = Env.find_type_expansion path env in
+        begin match Env.find_type_expansion path env with
+        | Found (_, body, _) ->
           if get_level body <> generic_level then
             free_variables := (ty, real) :: !free_variables
-        with Not_found -> ()
+        | Missing_cmi -> ()
         end;
         List.iter (free_vars_rec true) tl
 (* Do not count "virtual" free variables
@@ -664,8 +665,9 @@ let forward_try_expand_safe = (* Forward declaration *)
 
 let rec normalize_package_path env p =
   let t =
-    try (Env.find_modtype p env).mtd_type
-    with Not_found -> None
+    match Env.find_modtype p env with
+    | Found mty -> mty.mtd_type
+    | Missing_cmi -> None
   in
   match t with
   | Some (Mty_ident p) -> normalize_package_path env p
@@ -744,8 +746,9 @@ let rec update_level env level expand ty =
         end
     | Tconstr(p, (_ :: _ as tl), _) ->
         let variance =
-          try (Env.find_type p env).type_variance
-          with Not_found -> List.map (fun _ -> Variance.unknown) tl in
+          match Env.find_type p env with
+          | Found ty -> ty.type_variance
+          | Missing_cmi -> List.map (fun _ -> Variance.unknown) tl in
         let needs_expand =
           expand ||
           List.exists2
@@ -821,11 +824,11 @@ let rec lower_contravariant env var_level visited contra ty =
     | Tconstr (_, [], _) -> ()
     | Tconstr (path, tyl, _abbrev) ->
        let variance, maybe_expand =
-         try
-           let typ = Env.find_type path env in
+         match Env.find_type path env with
+         | Found typ ->
            typ.type_variance,
            typ.type_kind = Type_abstract
-          with Not_found ->
+         | Missing_cmi  ->
             (* See testsuite/tests/typing-missing-cmi-2 for an example *)
             List.map (fun _ -> Variance.unknown) tyl,
             false
@@ -1519,12 +1522,12 @@ let expand_abbrev_gen kind find_type_expansion env ty =
           ty'
       | None ->
           match find_type_expansion path env with
-          | exception Not_found ->
+          | Env.Missing_cmi ->
             (* another way to expand is to normalize the path itself *)
             let path' = Env.normalize_type_path None env path in
             if Path.same path path' then raise Cannot_expand
             else newty2 ~level (Tconstr (path', args, abbrev))
-          | (params, body, lv) ->
+          | Env.Found (params, body, lv) ->
             (* prerr_endline
               ("add a "^string_of_kind kind^" expansion for "^Path.name path);*)
             let ty' =
@@ -1617,8 +1620,8 @@ let rec extract_concrete_typedecl env ty =
   match get_desc ty with
     Tconstr (p, _, _) ->
       begin match Env.find_type p env with
-      | exception Not_found -> May_have_typedecl
-      | decl ->
+      | Missing_cmi -> May_have_typedecl
+      | Found decl ->
           if decl.type_kind <> Type_abstract then Typedecl(p, p, decl)
           else begin
             match try_expand_safe env ty with
@@ -1701,28 +1704,24 @@ let full_expand ~may_forget_scope env ty =
    types expand to non-generic types.
 *)
 let generic_abbrev env path =
-  try
-    let (_, body, _) = Env.find_type_expansion path env in
+  match  Env.find_type_expansion path env with
+  | Found (_,body,_) ->
     get_level body = generic_level
-  with
-    Not_found ->
-      false
+  | Missing_cmi ->  false
 
 let generic_private_abbrev env path =
-  try
-    match Env.find_type path env with
-      {type_kind = Type_abstract;
-       type_private = Private;
-       type_manifest = Some body} ->
-         get_level body = generic_level
-    | _ -> false
-  with Not_found -> false
+  match Env.find_type path env with
+  | Found {type_kind = Type_abstract;
+           type_private = Private;
+           type_manifest = Some body} ->
+      get_level body = generic_level
+  | Found _ | Missing_cmi -> false
 
 let is_contractive env p =
-  try
-    let decl = Env.find_type p env in
+    match Env.find_type p env with
+    | Missing_cmi -> false
+    | Found decl ->
     in_pervasives p && decl.type_manifest = None || is_datatype decl
-  with Not_found -> false
 
 
                               (*****************)
@@ -1803,8 +1802,9 @@ let rec local_non_recursive_abbrev ~allow_rec strict visited env p ty =
             (try_expand_head try_expand_safe_opt env ty)
         with Cannot_expand ->
           let params =
-            try (Env.find_type p' env).type_params
-            with Not_found -> args
+            match Env.find_type p' env with
+            | Found decl -> decl.type_params
+            | Missing_cmi -> args
           in
           List.iter2
             (fun tv ty ->
@@ -1892,8 +1892,8 @@ let occur_univar ?(inj_only=false) env ty =
           occur_rec bound  ty
       | Tconstr (_, [], _) -> ()
       | Tconstr (p, tl, _) ->
-          begin try
-            let td = Env.find_type p env in
+          begin match Env.find_type p env with
+          | Found td ->
             List.iter2
               (fun t v ->
                 (* The null variance only occurs in type abbreviations and
@@ -1906,7 +1906,7 @@ let occur_univar ?(inj_only=false) env ty =
                 if Variance.(if inj_only then mem Inj v else not (eq v null))
                 then occur_rec bound t)
               tl td.type_variance
-          with Not_found ->
+          | Missing_cmi ->
             if not inj_only then List.iter (occur_rec bound) tl
           end
       | _ -> iter_type_expr (occur_rec bound) ty
@@ -1956,13 +1956,13 @@ let univars_escape env univar_pairs vl ty =
       | Tunivar _ -> if TypeSet.mem t family then raise_escape_exn (Univ t)
       | Tconstr (_, [], _) -> ()
       | Tconstr (p, tl, _) ->
-          begin try
-            let td = Env.find_type p env in
+          begin match Env.find_type p env with
+          | Found td ->
             List.iter2
               (* see occur_univar *)
               (fun t v -> if not Variance.(eq v null) then occur t)
               tl td.type_variance
-          with Not_found ->
+          | Missing_cmi ->
             List.iter occur tl
           end
       | _ ->
@@ -2154,26 +2154,26 @@ let reify env t =
   iterator t
 
 let is_newtype env p =
-  try
-    let decl = Env.find_type p env in
+  match Env.find_type p env with
+  | Found decl ->
     decl.type_expansion_scope <> Btype.lowest_level &&
     decl.type_kind = Type_abstract &&
     decl.type_private = Public
-  with Not_found -> false
+  | Missing_cmi -> false
 
 let non_aliasable p decl =
   (* in_pervasives p ||  (subsumed by in_current_module) *)
   in_current_module p && not decl.type_is_newtype
 
 let is_instantiable env p =
-  try
-    let decl = Env.find_type p env in
+  match Env.find_type p env with
+  | Found decl ->
     decl.type_kind = Type_abstract &&
     decl.type_private = Public &&
     decl.type_arity = 0 &&
     decl.type_manifest = None &&
     not (non_aliasable p decl)
-  with Not_found -> false
+  | Missing_cmi -> false
 
 
 (* PR#7113: -safe-string should be a global property *)
@@ -2187,10 +2187,12 @@ let compatible_paths p1 p2 =
 let rec expands_to_datatype env ty =
   match get_desc ty with
     Tconstr (p, _, _) ->
-      begin try
-        is_datatype (Env.find_type p env) ||
+      begin match Env.find_type p env with
+      | Missing_cmi -> false
+      | Found decl ->
+        try is_datatype decl ||
         expands_to_datatype env (try_expand_safe env ty)
-      with Not_found | Cannot_expand -> false
+        with  Cannot_expand -> false
       end
   | _ -> false
 
@@ -2239,11 +2241,11 @@ let rec mcomp type_pairs env t1 t2 =
         | (_, Tconstr (_, [], _)) when has_injective_univars env t1' ->
             raise_unexplained_for Unify
         | (Tconstr (p, _, _), _) | (_, Tconstr (p, _, _)) ->
-            begin try
-              let decl = Env.find_type p env in
+            begin match Env.find_type p env with
+            | Missing_cmi -> ()
+            | Found decl ->
               if non_aliasable p decl || is_datatype decl then
                 raise Incompatible
-            with Not_found -> ()
             end
         (*
         | (Tpackage (p1, n1, tl1), Tpackage (p2, n2, tl2)) when n1 = n2 ->
@@ -2329,13 +2331,14 @@ and mcomp_row type_pairs env row1 row2 =
     pairs
 
 and mcomp_type_decl type_pairs env p1 p2 tl1 tl2 =
-  try
-    let decl = Env.find_type p1 env in
-    let decl' = Env.find_type p2 env in
+  match Env.find_type p1 env, Env.find_type p2 env with
+  | Found decl, Found decl' ->
     if compatible_paths p1 p2 then begin
       let inj =
-        try List.map Variance.(mem Inj) (Env.find_type p1 env).type_variance
-        with Not_found -> List.map (fun _ -> false) tl1
+        match Env.find_type p1 env with
+        | Missing_cmi -> List.map (fun _ -> false) tl1
+        | Found decl ->
+            List.map Variance.(mem Inj) decl.type_variance
       in
       List.iter2
         (fun i (t1,t2) -> if i then mcomp type_pairs env t1 t2)
@@ -2343,7 +2346,7 @@ and mcomp_type_decl type_pairs env p1 p2 tl1 tl2 =
     end else if non_aliasable p1 decl && non_aliasable p2 decl' then
       raise Incompatible
     else
-      match decl.type_kind, decl'.type_kind with
+      begin match decl.type_kind, decl'.type_kind with
       | Type_record (lst,r), Type_record (lst',r') when r = r' ->
           mcomp_list type_pairs env tl1 tl2;
           mcomp_record_description type_pairs env lst lst'
@@ -2356,7 +2359,8 @@ and mcomp_type_decl type_pairs env p1 p2 tl1 tl2 =
       | Type_abstract, _ when not (non_aliasable p1 decl)-> ()
       | _, Type_abstract when not (non_aliasable p2 decl') -> ()
       | _ -> raise Incompatible
-  with Not_found -> ()
+      end
+  | Missing_cmi, _ | _, Missing_cmi -> ()
 
 and mcomp_type_option type_pairs env t t' =
   match t, t' with
@@ -2419,7 +2423,9 @@ let find_lowest_level ty =
   in find ty; unmark_type ty; !lowest
 
 let find_expansion_scope env path =
-  (Env.find_type path env).type_expansion_scope
+  match Env.find_type path env with
+  | Found ty -> Env.Found ty.type_expansion_scope
+  | Missing_cmi -> Env.Missing_cmi
 
 let add_gadt_equation env source destination =
   (* Format.eprintf "@[add_gadt_equation %s %a@]@."
@@ -2730,9 +2736,9 @@ and unify3 env t1 t1' t2 t2' =
             unify_list env tl1 tl2
           else
             let inj =
-              try List.map Variance.(mem Inj)
-                    (Env.find_type p1 !env).type_variance
-              with Not_found -> List.map (fun _ -> false) tl1
+              match Env.find_type p1 !env with
+              | Found ty -> List.map Variance.(mem Inj) ty.type_variance
+              | Missing_cmi -> List.map (fun _ -> false) tl1
             in
             List.iter2
               (fun i (t1, t2) ->
@@ -4559,30 +4565,30 @@ let rec build_subtype env (visited : transient_expr list)
          expand them *)
       let tt = Transient_expr.repr t in
       if memq_warn tt visited then (t, Unchanged) else
-      let visited = tt :: visited in
-      begin try
-        let decl = Env.find_type p env in
-        if level = 0 && generic_abbrev env p && safe_abbrev env t
-        && not (has_constr_row' env t)
-        then warn := true;
-        let tl' =
-          List.map2
-            (fun v t ->
-              let (co,cn) = Variance.get_upper v in
-              if cn then
-                if co then (t, Unchanged)
-                else build_subtype env visited loops (not posi) level t
-              else
-                if co then build_subtype env visited loops posi level t
-                else (newvar(), Changed))
-            decl.type_variance tl
-        in
-        let c = collect tl' in
-        if c > Unchanged then (newconstr p (List.map fst tl'), c)
-        else (t, Unchanged)
-      with Not_found ->
-        (t, Unchanged)
-      end
+        let visited = tt :: visited in
+        begin match Env.find_type p env with
+        | Found decl ->
+            if level = 0 && generic_abbrev env p && safe_abbrev env t
+               && not (has_constr_row' env t)
+            then warn := true;
+            let tl' =
+              List.map2
+                (fun v t ->
+                   let (co,cn) = Variance.get_upper v in
+                   if cn then
+                     if co then (t, Unchanged)
+                     else build_subtype env visited loops (not posi) level t
+                   else
+                   if co then build_subtype env visited loops posi level t
+                   else (newvar(), Changed))
+                decl.type_variance tl
+            in
+            let c = collect tl' in
+            if c > Unchanged then (newconstr p (List.map fst tl'), c)
+            else (t, Unchanged)
+        | Missing_cmi ->
+            (t, Unchanged)
+       end
   | Tvariant row ->
       let tt = Transient_expr.repr t in
       if memq_warn tt visited || not (static_row row) then (t, Unchanged) else
@@ -4711,8 +4717,8 @@ let rec subtype_rec env trace t1 t2 cstrs =
       when generic_abbrev env p2 && safe_abbrev env t2 ->
         subtype_rec env trace t1 (expand_abbrev env t2) cstrs
     | (Tconstr(p1, tl1, _), Tconstr(p2, tl2, _)) when Path.same p1 p2 ->
-        begin try
-          let decl = Env.find_type p1 env in
+        begin match Env.find_type p1 env with
+        | Found decl ->
           List.fold_left2
             (fun cstrs v (t1, t2) ->
               let (co, cn) = Variance.get_upper v in
@@ -4737,7 +4743,7 @@ let rec subtype_rec env trace t1 t2 cstrs =
                     cstrs
                 else cstrs)
             cstrs decl.type_variance (List.combine tl1 tl2)
-        with Not_found ->
+        | Missing_cmi ->
           (trace, t1, t2, !univar_pairs)::cstrs
         end
     | (Tconstr(p1, _, _), _)
@@ -5379,10 +5385,10 @@ let () =
 let immediacy env typ =
    match get_desc typ with
   | Tconstr(p, _args, _abbrev) ->
-    begin try
-      let type_decl = Env.find_type p env in
-      type_decl.type_immediate
-    with Not_found -> Type_immediacy.Unknown
+      begin match Env.find_type p env with
+      | Found type_decl ->
+          type_decl.type_immediate
+      | Missing_cmi -> Type_immediacy.Unknown
     (* This can happen due to e.g. missing -I options,
        causing some .cmi files to be unavailable.
        Maybe we should emit a warning. *)

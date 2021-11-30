@@ -378,14 +378,13 @@ module Make(O : OBJ)(EVP : EVALPATH with type valu = O.t) = struct
                end
           | Tconstr(path, ty_list, _) -> begin
               try
-                let decl = Env.find_type path env in
-                match decl with
-                | {type_kind = Type_abstract; type_manifest = None} ->
+                begin match Env.find_type path env with
+                | Found {type_kind = Type_abstract; type_manifest = None} ->
                     Oval_stuff "<abstr>"
-                | {type_kind = Type_abstract; type_manifest = Some body} ->
+                | Found ({type_kind = Type_abstract; type_manifest = Some body} as decl) ->
                     tree_of_val depth obj
                       (instantiate_type env decl.type_params ty_list body)
-                | {type_kind = Type_variant (constr_list,rep)} ->
+                | Found ({type_kind = Type_variant (constr_list,rep)} as decl) ->
                     let unbx = (rep = Variant_unboxed) in
                     let tag =
                       if unbx then Cstr_unboxed
@@ -421,7 +420,7 @@ module Make(O : OBJ)(EVP : EVALPATH with type valu = O.t) = struct
                                         (Out_name.create (Ident.name cd_id)),
                                       [ r ])
                     end
-                | {type_kind = Type_record(lbl_list, rep)} ->
+                | Found ({type_kind = Type_record(lbl_list, rep)} as decl) ->
                     begin match check_depth depth obj ty with
                       Some x -> x
                     | None ->
@@ -437,14 +436,14 @@ module Make(O : OBJ)(EVP : EVALPATH with type valu = O.t) = struct
                           env path decl.type_params ty_list
                           lbl_list pos obj unbx
                     end
-                | {type_kind = Type_open} ->
+                | Found ({type_kind = Type_open} ) ->
                     tree_of_extension path ty_list depth obj
-              with
-                Not_found ->                (* raised by Env.find_type *)
-                  Oval_stuff "<abstr>"
-              | Datarepr.Constr_not_found -> (* raised by find_constr_by_tag *)
-                  Oval_stuff "<unknown constructor>"
+                | Missing_cmi ->  (* raised by Env.find_type *)
+                    Oval_stuff "<abstr>"
               end
+            with Datarepr.Constr_not_found -> (* raised by find_constr_by_tag *)
+                  Oval_stuff "<unknown constructor>"
+            end
           | Tvariant row ->
               if O.is_block obj then
                 let tag : int = O.obj (O.field obj 0) in
