@@ -65,8 +65,6 @@ type cmt_infos = {
   cmt_imports : crcs;
   cmt_interface_digest : Digest.t option;
   cmt_use_summaries : bool;
-  cmt_uid_to_loc : Location.t Shape.Uid.Tbl.t;
-  cmt_impl_shape : Shape.t option; (* None for mli *)
 }
 
 type error =
@@ -96,7 +94,6 @@ val save_cmt :
   string option ->  (* source file *)
   Env.t -> (* initial env *)
   Cmi_format.cmi_infos option -> (* if a .cmi was generated *)
-  Shape.t option ->
   unit
 
 (* Miscellaneous functions *)

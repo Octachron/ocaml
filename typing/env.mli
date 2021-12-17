@@ -18,10 +18,6 @@
 open Types
 open Misc
 
-val register_uid : Uid.t -> Location.t -> unit
-
-val get_uid_to_loc_tbl : unit -> Location.t Types.Uid.Tbl.t
-
 type value_unbound_reason =
   | Val_unbound_instance_variable
   | Val_unbound_self
@@ -112,9 +108,6 @@ val find_value_address: Path.t -> t -> address
 val find_module_address: Path.t -> t -> address
 val find_class_address: Path.t -> t -> address
 val find_constructor_address: Path.t -> t -> address
-
-val shape_of_path:
-  namespace:Shape.Sig_component_kind.t -> t -> Path.t -> Shape.t
 
 val add_functor_arg: Ident.t -> t -> t
 val is_functor_arg: Path.t -> t -> bool
@@ -287,10 +280,10 @@ val add_value:
 val add_type: check:bool -> Ident.t -> type_declaration -> t -> t
 val add_extension:
   check:bool -> rebind:bool -> Ident.t -> extension_constructor -> t -> t
-val add_module: ?arg:bool -> ?shape:Shape.t ->
-  Ident.t -> module_presence -> module_type -> t -> t
-val add_module_declaration: ?arg:bool -> ?shape:Shape.t -> check:bool ->
-  Ident.t -> module_presence -> module_declaration -> t -> t
+val add_module:
+  ?arg:bool -> Ident.t -> module_presence -> module_type -> t -> t
+val add_module_declaration: ?arg:bool -> check:bool -> Ident.t ->
+  module_presence -> module_declaration -> t -> t
 val add_module_declaration_lazy: update_summary:bool ->
   Ident.t -> module_presence -> Subst.Lazy.module_decl -> t -> t
 val add_modtype: Ident.t -> modtype_declaration -> t -> t
@@ -321,6 +314,7 @@ val filter_non_loaded_persistent : (Ident.t -> bool) -> t -> t
 
 (* Insertion of all fields of a signature. *)
 
+val add_item: signature_item -> t -> t
 val add_signature: signature -> t -> t
 
 (* Insertion of all fields of a signature, relative to the given path.
@@ -349,7 +343,7 @@ val enter_module:
   scope:int -> ?arg:bool -> string -> module_presence ->
   module_type -> t -> Ident.t * t
 val enter_module_declaration:
-  scope:int -> ?arg:bool -> ?shape:Shape.t -> string -> module_presence ->
+  scope:int -> ?arg:bool -> string -> module_presence ->
   module_declaration -> t -> Ident.t * t
 val enter_modtype:
   scope:int -> string -> modtype_declaration -> t -> Ident.t * t
@@ -359,14 +353,7 @@ val enter_cltype:
 
 (* Same as [add_signature] but refreshes (new stamp) and rescopes bound idents
    in the process. *)
-val enter_signature: ?mod_shape:Shape.t -> scope:int -> signature -> t ->
-  signature * t
-
-(* Same as [enter_signature] but also extends the shape map ([parent_shape])
-   with all the the items from the signature, their shape being a projection
-   from the given shape. *)
-val enter_signature_and_shape: scope:int -> parent_shape:Shape.Map.t ->
-  Shape.t -> signature -> t -> signature * Shape.Map.t * t
+val enter_signature: scope:int -> signature -> t -> signature * t
 
 val enter_unbound_value : string -> value_unbound_reason -> t -> t
 

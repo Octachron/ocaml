@@ -721,10 +721,6 @@ let mk_dtypedtree f =
   "-dtypedtree", Arg.Unit f, " (undocumented)"
 ;;
 
-let mk_dshape f =
-  "-dshape", Arg.Unit f, " (undocumented)"
-;;
-
 let mk_drawlambda f =
   "-drawlambda", Arg.Unit f, " (undocumented)"
 ;;
@@ -962,7 +958,6 @@ module type Core_options = sig
   val _dsource : unit -> unit
   val _dparsetree : unit -> unit
   val _dtypedtree : unit -> unit
-  val _dshape : unit -> unit
   val _drawlambda : unit -> unit
   val _dlambda : unit -> unit
 
@@ -1260,7 +1255,6 @@ struct
     mk_dsource F._dsource;
     mk_dparsetree F._dparsetree;
     mk_dtypedtree F._dtypedtree;
-    mk_dshape F._dshape;
     mk_drawlambda F._drawlambda;
     mk_dlambda F._dlambda;
     mk_dinstr F._dinstr;
@@ -1329,7 +1323,6 @@ struct
     mk_dsource F._dsource;
     mk_dparsetree F._dparsetree;
     mk_dtypedtree F._dtypedtree;
-    mk_dshape F._dshape;
     mk_drawlambda F._drawlambda;
     mk_dlambda F._dlambda;
     mk_dinstr F._dinstr;
@@ -1739,7 +1732,6 @@ module Default = struct
     let _drawlambda = set dump_rawlambda
     let _dsource = set dump_source
     let _dtypedtree = set dump_typedtree
-    let _dshape = set dump_shape
     let _dunique_ids = set unique_ids
     let _dno_unique_ids = clear unique_ids
     let _dlocations = set locations

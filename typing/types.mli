@@ -354,7 +354,20 @@ val match_row_field:
 
 (* *)
 
-module Uid = Shape.Uid
+module Uid : sig
+  type t
+
+  val reinit : unit -> unit
+
+  val mk : current_unit:string -> t
+  val of_compilation_unit_id : Ident.t -> t
+  val of_predef_id : Ident.t -> t
+  val internal_not_actually_unique : t
+
+  val for_actual_declaration : t -> bool
+
+  include Identifiable.S with type t := t
+end
 
 (* Sets and maps of methods and instance variables *)
 

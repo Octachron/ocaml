@@ -173,7 +173,7 @@ exception Error_forward of Location.error
 
 let type_module =
   ref ((fun _env _md -> assert false) :
-       Env.t -> Parsetree.module_expr -> Typedtree.module_expr * Shape.t)
+       Env.t -> Parsetree.module_expr -> Typedtree.module_expr)
 
 (* Forward declaration, to be filled in by Typemod.type_open *)
 
@@ -3669,7 +3669,7 @@ and type_expect_
       (* remember original level *)
       begin_def ();
       let context = Typetexp.narrow () in
-      let modl, md_shape = !type_module env smodl in
+      let modl = !type_module env smodl in
       Mtype.lower_nongen (get_level ty) modl.mod_type;
       let pres =
         match modl.mod_type with
@@ -3685,9 +3685,7 @@ and type_expect_
         match name.txt with
         | None -> None, env
         | Some name ->
-          let id, env =
-            Env.enter_module_declaration ~scope ~shape:md_shape name pres md env
-          in
+          let id, env = Env.enter_module_declaration ~scope name pres md env in
           Some id, env
       in
       Typetexp.widen context;
@@ -4813,7 +4811,7 @@ and type_unpacks ?(in_function : (Location.t * type_expr) option)
     List.fold_left (fun (env, tunpacks) unpack ->
       begin_def ();
       let context = Typetexp.narrow () in
-      let modl, md_shape =
+      let modl =
         !type_module env
           Ast_helper.(
             Mod.unpack ~loc:unpack.tu_loc
@@ -4834,8 +4832,7 @@ and type_unpacks ?(in_function : (Location.t * type_expr) option)
           md_uid = unpack.tu_uid; }
       in
       let (id, env) =
-        Env.enter_module_declaration ~scope ~shape:md_shape
-          unpack.tu_name.txt pres md env
+        Env.enter_module_declaration ~scope unpack.tu_name.txt pres md env
       in
       Typetexp.widen context;
       env, (id, unpack.tu_name, pres, modl) :: tunpacks

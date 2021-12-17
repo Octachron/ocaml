@@ -623,8 +623,7 @@ and 'a class_infos =
 type implementation = {
   structure: structure;
   coercion: module_coercion;
-  signature: Types.signature;
-  shape: Shape.t;
+  signature: Types.signature
 }
 
 

@@ -29,15 +29,13 @@ module Signature_names : sig
 end
 
 val type_module:
-        Env.t -> Parsetree.module_expr -> Typedtree.module_expr * Shape.t
+        Env.t -> Parsetree.module_expr -> Typedtree.module_expr
 val type_structure:
   Env.t -> Parsetree.structure ->
-  Typedtree.structure * Types.signature * Signature_names.t * Shape.t *
-  Env.t
+  Typedtree.structure * Types.signature * Signature_names.t * Env.t
 val type_toplevel_phrase:
   Env.t -> Parsetree.structure ->
-  Typedtree.structure * Types.signature * Signature_names.t * Shape.t *
-  Env.t
+  Typedtree.structure * Types.signature * Signature_names.t * Env.t
 val type_implementation:
   string -> string -> string -> Env.t ->
   Parsetree.structure -> Typedtree.implementation
