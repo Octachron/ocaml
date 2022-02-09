@@ -20,14 +20,6 @@
 
 open! Dynlink_compilerlibs
 
-(* Dynlink is only allowed on the main domain.
-   Entrypoints to public functions should check for this. *)
-let is_dynlink_allowed () =
-  if not (Domain.is_main_domain ()) then
-    failwith "Dynlink can only be called from the main domain."
-  else
-    ()
-
 module String = struct
   include Misc.Stdlib.String
 
@@ -80,6 +72,7 @@ module Make (P : Dynlink_platform_intf.S) = struct
     }
   end
 
+  let global_lock = Mutex.create ()
   let global_state = ref State.empty
 
   let inited = ref false
@@ -87,8 +80,9 @@ module Make (P : Dynlink_platform_intf.S) = struct
   let unsafe_allowed = ref false
 
   let allow_unsafe_modules b =
-    is_dynlink_allowed();
-    unsafe_allowed := b
+    Mutex.lock global_lock;
+    unsafe_allowed := b;
+    Mutex.unlock global_lock
 
   let check_symbols_disjoint ~descr syms1 syms2 =
     let exe = Sys.executable_name in
@@ -143,15 +137,18 @@ module Make (P : Dynlink_platform_intf.S) = struct
         public_dynamically_loaded_units = String.Set.empty;
       }
     in
-    global_state := state
+    global_state:=state
+
 
   let init () =
-    is_dynlink_allowed();
+    Mutex.lock global_lock;
     if not !inited then begin
       P.init ();
       default_available_units ();
-      inited := true
-    end
+      inited:=true;
+    end;
+    Mutex.unlock global_lock
+
 
   let set_loaded_implem filename ui implems =
     String.Map.add (UH.name ui) (UH.crc ui, filename, DT.Loaded) implems
@@ -219,7 +216,8 @@ module Make (P : Dynlink_platform_intf.S) = struct
     String.Map.add name (UH.crc ui, filename, DT.Not_initialized) implems
 
   let check_unsafe_module ui =
-    if (not !unsafe_allowed) && UH.unsafe_module ui then begin
+    if not !unsafe_allowed && UH.unsafe_module ui then begin
+      Mutex.unlock global_lock;
       raise (DT.Error Unsafe_file)
     end
 
@@ -280,21 +278,21 @@ module Make (P : Dynlink_platform_intf.S) = struct
     end
 
   let set_allowed_units allowed_units =
-    is_dynlink_allowed();
     let allowed_units = String.Set.of_list allowed_units in
+    Mutex.lock global_lock;
     let state =
       let state = !global_state in
       { state with
         allowed_units;
       }
     in
-    global_state := state
+    global_state:=state;
+    Mutex.unlock global_lock
 
   let allow_only units =
-    is_dynlink_allowed();
+    Mutex.lock global_lock;
     let allowed_units =
-      String.Set.inter (!global_state).allowed_units
-        (String.Set.of_list units)
+      String.Set.inter (!global_state).allowed_units (String.Set.of_list units)
     in
     let state =
       let state = !global_state in
@@ -302,13 +300,13 @@ module Make (P : Dynlink_platform_intf.S) = struct
         allowed_units;
       }
     in
-    global_state := state
+    global_state:=state;
+    Mutex.unlock global_lock
 
   let prohibit units =
-    is_dynlink_allowed();
+    Mutex.lock global_lock;
     let allowed_units =
-      String.Set.diff (!global_state).allowed_units
-        (String.Set.of_list units)
+      String.Set.diff (!global_state).allowed_units (String.Set.of_list units)
     in
     let state =
       let state = !global_state in
@@ -316,21 +314,37 @@ module Make (P : Dynlink_platform_intf.S) = struct
         allowed_units;
       }
     in
-    global_state := state
+    global_state:=state;
+    Mutex.unlock global_lock
 
   let main_program_units () =
     init ();
-    String.Set.elements (!global_state).main_program_units
+    let global_state = Mutex.lock global_lock;
+      let s = !global_state in
+      Mutex.unlock global_lock;
+      s
+    in
+    String.Set.elements global_state.main_program_units
 
   let public_dynamically_loaded_units () =
     init ();
-    String.Set.elements (!global_state).public_dynamically_loaded_units
+    let global_state = Mutex.lock global_lock;
+      let s = !global_state in
+      Mutex.unlock global_lock;
+      s
+    in
+    String.Set.elements global_state.public_dynamically_loaded_units
 
   let all_units () =
     init ();
+    let global_state = Mutex.lock global_lock;
+      let s = !global_state in
+      Mutex.unlock global_lock;
+      s
+    in
     String.Set.elements (String.Set.union
-      (!global_state).main_program_units
-      (!global_state).public_dynamically_loaded_units)
+      global_state.main_program_units
+      global_state.public_dynamically_loaded_units)
 
   let dll_filename fname =
     if Filename.is_implicit fname then Filename.concat (Sys.getcwd ()) fname
@@ -339,28 +353,38 @@ module Make (P : Dynlink_platform_intf.S) = struct
   let load priv filename =
     init ();
     let filename = dll_filename filename in
+    let locked = ref false in
     match P.load ~filename ~priv with
     | exception exn -> raise (DT.Error (Cannot_open_dynamic_library exn))
     | handle, units ->
       try
-        global_state := check filename units !global_state ~priv;
+        Mutex.lock global_lock; locked := true;
+        global_state:=check filename units !global_state ~priv;
         P.run_shared_startup handle;
+        locked := false; Mutex.unlock global_lock;
         List.iter
           (fun unit_header ->
              P.run handle ~unit_header ~priv;
              if not priv then begin
-               global_state := set_loaded filename unit_header !global_state
+               Mutex.lock global_lock; locked := true;
+               global_state := set_loaded filename unit_header !global_state;
+               locked := false; Mutex.unlock global_lock;
              end)
           units;
         P.finish handle
       with exn ->
+        if !locked then Mutex.unlock global_lock;
         P.finish handle;
         raise exn
 
   let loadfile filename = load false filename
   let loadfile_private filename = load true filename
 
-  let unsafe_get_global_value = P.unsafe_get_global_value
+  let unsafe_get_global_value ~bytecode_or_asm_symbol =
+    Mutex.lock global_lock;
+    let r = P.unsafe_get_global_value ~bytecode_or_asm_symbol in
+    Mutex.unlock global_lock;
+    r
 
   let is_native = P.is_native
   let adapt_filename = P.adapt_filename

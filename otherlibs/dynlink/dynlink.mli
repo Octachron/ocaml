@@ -25,6 +25,7 @@ val is_native : bool
 
 (** {1 Dynamic loading of compiled files} *)
 
+
 val loadfile : string -> unit
 (** In bytecode: load the given bytecode object file ([.cmo] file) or
     bytecode library file ([.cma] file), and link it with the running
@@ -119,6 +120,13 @@ val allow_unsafe_modules : bool -> unit
     By default, dynamic linking of unsafe object files is
     not allowed. In native code, this function does nothing; object files
     with external functions are always allowed to be dynamically linked. *)
+
+(** {1 Domain safety}
+
+All functions above use a global lock to forbid:
+ - concurrent modification of the set of exported modules
+ - concurrent loading of plugins
+*)
 
 (** {1 Error reporting} *)
 
