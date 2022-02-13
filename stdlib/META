@@ -1,3 +1,3 @@
 description = "Standard library"
-version = "[distributed with Ocaml]"
+version = "[distributed with OCaml]"
 directory = "+"

@@ -1,5 +1,5 @@
 description = "Unix system calls"
-version = "[distributed with Ocaml]"
+version = "[distributed with OCaml]"
 directory = "+"
 archive(byte) = "unix.cma"
 archive(native) = "unix.cmxa"

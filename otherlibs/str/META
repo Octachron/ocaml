@@ -1,5 +1,5 @@
 description = "Regular expressions and string processing"
-version = "[distributed with Ocaml]"
+version = "[distributed with OCaml]"
 directory = "+"
 archive(byte) = "str.cma"
 archive(native) = "str.cmxa"
