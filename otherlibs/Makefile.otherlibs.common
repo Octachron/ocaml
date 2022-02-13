@@ -102,6 +102,7 @@ endif
           $(CMIFILES:.cmi=.mli) $(CMIFILES:.cmi=.cmti) \
           $(CAMLOBJS_NAT) $(LIBNAME).cmxa $(LIBNAME).cmxs $(LIBNAME).$(A))
 	$(MKDIR) "$(INSTALL_LIBDIR_LIBNAME)"
+	$(INSTALL_DATA) META "$(INSTALL_LIBDIR)/"META.$(LIBNAME)
 	$(INSTALL_DATA) \
 	  $(LIBNAME).cma $(CMIFILES) \
 	  "$(INSTALL_LIBDIR_LIBNAME)/"

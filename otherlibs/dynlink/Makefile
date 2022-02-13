@@ -254,6 +254,7 @@ install:
 	$(INSTALL_DATA) \
 	  dynlink.cmi dynlink.cma \
 	  "$(INSTALL_LIBDIR_DYNLINK)"
+	$(INSTALL_DATA) META "$(INSTALL_LIBDIR)"/META.dynlink
 ifeq "$(INSTALL_SOURCE_ARTIFACTS)" "true"
 	$(INSTALL_DATA) \
 	  dynlink.cmti dynlink.mli \
