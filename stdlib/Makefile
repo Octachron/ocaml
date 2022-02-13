@@ -68,7 +68,7 @@ install::
 
 install::
 	$(INSTALL_DATA) \
-	  stdlib.cma std_exit.cmo *.cmi camlheader_ur \
+	  stdlib.cma std_exit.cmo *.cmi camlheader_ur META.bytes \
 	  "$(INSTALL_LIBDIR)"
 	$(INSTALL_DATA) META "$(INSTALL_LIBDIR)"/META.stdlib
 ifeq "$(INSTALL_SOURCE_ARTIFACTS)" "true"
