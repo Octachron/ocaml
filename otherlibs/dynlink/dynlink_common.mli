@@ -18,7 +18,6 @@
 [@@@ocaml.warning "+a-4-30-40-41-42"]
 
 (** Construction of dynlink functionality given the platform-specific code. *)
-
 module Make (_ : Dynlink_platform_intf.S) : sig
   val is_native : bool
   val loadfile : string -> unit
@@ -33,3 +32,8 @@ module Make (_ : Dynlink_platform_intf.S) : sig
   val all_units : unit -> string list
   val allow_unsafe_modules : bool -> unit
 end
+
+(** The bytecode implementation needs to reacquire the lock when updating
+    the global symbol table.
+*)
+val with_lock: (unit -> 'a) -> 'a
