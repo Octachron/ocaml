@@ -125,12 +125,12 @@ let start  ~ncalls ~domains ~width ~depth ~childs =
 
 let seq ppf target =
   Format.fprintf ppf
-    {|@[<h>let () = Dynlink.loadfile @@@@ Dynlink.adapt_filename "%a.cmo"@]@.|}
+    {|@[<h>let () = Dynlink.loadfile @@@@ Dynlink.adapt_filename "%a.cmo"@]@,|}
     name target
 
 let par_create ppf target =
   Format.fprintf ppf
-    {|@[<h>let d%a = Domain.spawn (fun () -> Dynlink.loadfile @@@@ Dynlink.adapt_filename "%a.cmo")@]@.|}
+    {|@[<h>let d%a = Domain.spawn (fun () -> Dynlink.loadfile @@@@ Dynlink.adapt_filename "%a.cmo")@]@,|}
     id target name target
 
 let add ppf parent = match parent with
@@ -139,7 +139,7 @@ let add ppf parent = match parent with
 
 let register ppf parent current =
   Format.fprintf ppf
-    {|@[<h>let () = %a "%a->%a"|}
+    {|@[<h>let () = %a "%a->%a"@]@,|}
     add parent
     id current
     id parent
@@ -152,11 +152,11 @@ let new_add ppf node =
     | Some p -> node.parents.(Pos.rand p)
   in
   Format.fprintf ppf
-    "let add x = %a x@." add path
+    "let add x = %a x@," add path
 
 let par_join ppf target =
     Format.fprintf ppf
-    {|@[<h>let () = Domain.join d%a@]@.|}
+    {|@[<h>let () = Domain.join d%a@]@,|}
     id target
 
 type action = Parent of path | Child of node
@@ -194,16 +194,18 @@ let join_action ppf ch = match ch.sync with
 
 let write_node ppf node =
   let schedule = schedule node in
+  Format.fprintf ppf "@[<v>";
   Array.iter (write_action node ppf) schedule;
   Array.iter (join_action ppf) (shuffle node.children);
   new_add ppf node;
-  Format.pp_print_flush ppf ()
+  Format.fprintf ppf "@]"
 
 
 let to_file name f x =
   let ch = open_out name in
   let ppf = Format.formatter_of_out_channel ch in
   f ppf x;
+  Format.pp_print_flush ppf ();
   close_out ch
 
 
@@ -231,7 +233,7 @@ let files ppf node =
 let registred ppf node =
   iter (fun node ->
       Array.iter (fun p ->
-          Format.fprintf ppf {|"%a->%a";|} id node.path id p
+          Format.fprintf ppf {|@[<h>"%a->%a"@];@ |} id node.path id p
         )
         node.parents
     )
@@ -246,7 +248,7 @@ let repeat n ppf fmt =
 let task ppf n = repeat n ppf "*"
 
 let main_header ppf node =
-  Format.fprintf ppf {|(* TEST
+  Format.fprintf ppf {|@[<v>(* TEST
 
 include dynlink
 libraries = ""
@@ -255,7 +257,7 @@ readonly_files = "@[<h>store.ml main.ml%a@]"
 * shared-libraries
 ** setup-ocamlc.byte-build-env
 *** ocamlc.byte
-module = "store.ml"@.|}
+module = "store.ml"@ @]|}
     files node;
   let bytecode_compilation i node =
     Format.fprintf ppf
@@ -286,7 +288,7 @@ module = "store.ml"@.|}
       "@[<v>%a ocamlopt.byte@ \
        flags = \"-shared\"@ \
        program= \"%a.cmxs\"@ \
-       modules = \"\"@ \
+       module = \"\"@ \
        all_modules = \"%a.ml\"@ \
       @]"
       task i
@@ -332,22 +334,24 @@ let check ppf node =
     "@[<v>@ \
      module String_set = Set.Make(String)@ \
      let stored = Atomic.get Store.store@ \
-     let stored_set = String_set.off_list stored@ \
-     %a@ \
-     let expected = String_set.of_list %a@ \
-     let () =@ \
-       let () = List.iter (Printf.printf \"%s\n\") (String_set.elements stored_set) in@ \
-       assert (String_set.equal stored_set expected)
-@]"
+     let stored_set = String_set.of_list stored@ \
+     @[<b>let expected =@ String_set.of_list@ %a@]@ \
+     @[<v 2>let () =@ \
+       let () = @[<h>List.iter (Printf.printf \"%%s\\n\") (String_set.elements stored_set) in@]@ \
+       assert (String_set.equal stored_set expected)\
+    @]\
+     @]"
     expected node
 
 let main_file ppf node =
-  main_header ppf node;
-  write_node ppf node;
-  check ppf node
+  Format.fprintf ppf
+    "@[<v>%a@ (* Link plugins *)@ %a@ (* Check result *)@ %a@]@."
+  main_header node
+  write_node node
+  check node
 
 let () =
-  let domains = 4 in
-  let tree = start ~ncalls:(Pos.exn 5) ~depth:(Pos.exn 1) ~domains ~width:10 ~childs:(domains/2) in
+  let domains = 16 in
+  let tree = start ~ncalls:(Pos.exn 1) ~depth:(Pos.exn 1) ~domains ~width:20 ~childs:(domains/2) in
   to_file "main.ml" main_file tree;
   gen_files tree
