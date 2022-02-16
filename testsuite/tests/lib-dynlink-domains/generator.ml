@@ -1,24 +1,63 @@
-
 type path = int list
-type rev_path = Rev of int list
+type topdown_path = Topdown of int list
+let rev p = Topdown (List.rev p)
+
+module Pp = struct
+  let int ppf d = Format.fprintf ppf "%d" d
+  let list ~sep p ppf x = Format.pp_print_list ~pp_sep:(fun ppf () -> Format.fprintf ppf sep) p ppf x
+end
 
 
 let id ppf path =
-  Format.fprintf ppf "@[<h>%a@]"
-    (Format.pp_print_list ~pp_sep:(fun _ _ -> ()) (fun ppf -> Format.fprintf ppf "%d")) path
+  Format.fprintf ppf "@[<h>%a@]" Pp.(list ~sep:"_" int) path
 
 let name ppf path =
   Format.fprintf ppf "Unit%a" id path
+
+module Immutable_array = struct
+  type 'a t = { cardinal:int; get: int -> 'a }
+  let (.![]) a n = a.get n
+
+  let rand x = x.![Random.int x.cardinal]
+  let concat_list l =
+    let cardinal = List.fold_left (fun acc x -> acc + x.cardinal) 0 l in
+    let rec pick l n = match l with
+      | [] -> assert false
+      | a :: q ->
+          if n < a.cardinal then
+            a.![n]
+          else pick q (n-a.cardinal)
+    in
+    { cardinal; get = pick l}
+
+  let concat_array a =
+    let cardinal = Array.fold_left (fun acc x -> acc + x.cardinal) 0 a in
+    let rec pick pos n =
+      if n < a.(pos).cardinal then
+        a.(pos).![n]
+      else pick (pos+1) (n-a.(pos).cardinal)
+    in
+    { cardinal; get = pick 0}
+
+  let append x y =
+    let cardinal = x.cardinal + y.cardinal in
+    let get n = if n >= x.cardinal then y.![n-x.cardinal] else x.![n] in
+    { cardinal; get }
+
+  let singleton x = { cardinal = 1; get = fun _ -> x }
+end
 
 
 type schedule_atom =
   | Seq_action
   | Register_action
+  | Intron_action
   | Domain_action of int
 
 type 'a normalized_schedule_atom =
   | Seq_point of int
   | Register_point of 'a
+  | Intron_point
   | Domain_open of int
   | Domain_close of int
 
@@ -28,26 +67,9 @@ type 'a node = { path:path; children: 'a forest; schedule:'a schedule }
 and 'a forest = 'a node array
 
 
-
 module Int_map = Map.Make(Int)
 module Int_set = Set.Make(Int)
 module String_set = Set.Make(String)
-
-let older_siblings schedule pos =
-  let l = Array.length schedule in
-  let rec find sched_pos child_pos loaded_plugins =
-    if 1 + child_pos >= pos || sched_pos >= l  then loaded_plugins else
-      match schedule.(sched_pos) with
-      | Register_point _ ->
-          find (1+sched_pos) child_pos loaded_plugins
-      | Seq_point p ->
-          find (1+sched_pos) (1+child_pos) (Int_set.add p loaded_plugins)
-      | Domain_open i ->
-          find (1+sched_pos) (1+child_pos) loaded_plugins
-      | Domain_close i ->
-          find (1+ sched_pos) child_pos (Int_set.add i loaded_plugins)
-  in
-  find 0 0 Int_set.empty
 
 
 module Pos: sig
@@ -83,15 +105,18 @@ module Rand = struct
     shuffle_in_place a;
     a
 
-  let schedule ~calls ~seq ~par =
-    let total = calls + seq + 2 * par in
+  let schedule ~calls ~seq ~par ~introns =
+    let total = calls + seq + 2 * par + introns in
     let a = Array.make total Seq_action in
     for i = seq to seq + par - 1 do
       a.(i) <- Domain_action i;
       a.(par + i) <- Domain_action i
     done;
-    for i = seq + 2 * par to total - 1 do
+    for i = seq + 2 * par to seq + 2 * par + calls - 1 do
       a.(i) <- Register_action;
+    done;
+    for i = seq + 2 * par + calls to seq + 2 * par + calls + introns - 1 do
+      a.(i) <- Intron_action
     done;
     shuffle_in_place a;
     a
@@ -118,10 +143,13 @@ module Rand = struct
       let s, domains = spawn_or_not ~current_depth ~depth domains in
       number_of_domains ~current_depth ~depth ~spawned:(spawned +s) ~domains (k-1)
 
-
-  let normalized_schedule ~calls ~seq ~par =
-    let raw_schedule = schedule ~calls ~seq ~par in
+  let normalized_schedule ~calls ~seq ~par ~introns =
+    let raw_schedule = schedule ~calls ~seq ~par ~introns in
     let update (res, creation_pos, domain_pos) = function
+      | Intron_action ->
+          Intron_point :: res,
+          creation_pos,
+          domain_pos
       | Register_action ->
           Register_point () :: res, creation_pos, domain_pos
       | Seq_action ->
@@ -142,32 +170,67 @@ module Rand = struct
     Array.of_list @@ List.rev l
 
   let rec node_at_path tree = function
-    | [] -> tree
-    | x :: path ->
-        node_at_path tree.children.(x) path
+    | Topdown [] -> tree
+    | Topdown (x :: path) ->
+        node_at_path tree.children.(x) (Topdown path)
 
-  let rec drop n l = if n = 0 then l else
-      match l with
-      | [] -> []
-      | _a :: q -> drop (n-1) q
+  let rec path from node =
+    let children = Array.mapi (fun i -> path (i::from)) node.children in
+    Immutable_array.(concat_array (Array.append [|singleton from|] children))
 
-  let anterior_plugin tree path =
-    let n = List.length path in
-    let level = 1 + Random.int n in
-    let rev_parent = drop level path in
-    let rec find = function
-      | [] -> []
-      | pos :: rparents ->
-          let parent = List.rev rparents in
-          let node = node_at_path tree parent in
-          let olders = Array.of_list @@ Int_set.elements @@ older_siblings node.schedule pos in
-          if olders = [||] then find rparents
-          else
-            let p = olders.(Random.int (Array.length olders)) in
-            p :: rparents
+  type path_filter = { strictly_older: int array; pos: int; sub_filter: path_filter option }
+
+  let rec filtred_path filter from node =
+    let strictly_older = Array.init (Array.length filter.strictly_older) (fun i -> path (i::from) node.children.(i)) in
+    let lower_paths = match filter.sub_filter with
+      | None -> [||]
+      | Some sub_filter ->
+          [|filtred_path sub_filter (filter.pos::from) node.children.(filter.pos)|]
     in
-    find rev_parent
+    Immutable_array.concat_array (Array.append lower_paths strictly_older )
 
+  let older_siblings schedule pos =
+    let l = Array.length schedule in
+    let rec find sched_pos child_pos loaded_plugins =
+      if 1 + child_pos >= pos || sched_pos >= l  then loaded_plugins else
+        match schedule.(sched_pos) with
+        | Register_point _ | Intron_point ->
+            find (1+sched_pos) child_pos loaded_plugins
+        | Seq_point p ->
+            find (1+sched_pos) (1+child_pos) (Int_set.add p loaded_plugins)
+        | Domain_open i ->
+            find (1+sched_pos) (1+child_pos) loaded_plugins
+        | Domain_close i ->
+            find (1+ sched_pos) child_pos (Int_set.add i loaded_plugins)
+    in
+    find 0 0 Int_set.empty
+
+let rec path_filter (Topdown remaining_path) node = match remaining_path with
+  | [] -> assert false
+  | pos :: rpath ->
+      let strictly_older = Array.of_list @@ Int_set.elements @@ older_siblings node.schedule pos in
+      let sub_filter =  match rpath with
+        | [] -> None
+        | _ :: _  as rpath -> Some (path_filter (Topdown rpath) node.children.(pos))
+      in
+      { strictly_older; pos; sub_filter }
+
+
+let rec pp_filter ppf f = match f.sub_filter with
+  | None ->
+      Format.fprintf ppf "@[<h> [%a]< %d@]" Pp.(list ~sep:"," int) (Array.to_list f.strictly_older) f.pos
+  | Some sub ->
+      Format.fprintf ppf "[%a]<@[<v>%d@,%a@]" Pp.(list ~sep:"," int) (Array.to_list f.strictly_older) f.pos pp_filter sub
+
+
+
+  let anterior_plugin tree = function
+    | [] -> Immutable_array.singleton []
+    | path ->
+        let path_filter = path_filter (rev path) tree in
+        Immutable_array.append
+          (Immutable_array.singleton [])
+          (filtred_path path_filter [] tree)
 
   let rec map = fun f node ->
     let schedule = f node.path node.schedule in
@@ -176,8 +239,8 @@ module Rand = struct
 
   let links tree =
     let edit_schedule path = function
-      | Register_point () -> Register_point (anterior_plugin tree path)
-      | Domain_close _ | Domain_open _ | Seq_point _ as x -> x
+      | Register_point () -> Register_point (Immutable_array.rand @@ anterior_plugin tree path)
+      | Intron_point | Domain_close _ | Domain_open _ | Seq_point _ as x -> x
     in
     let edit path schedule = Array.map (edit_schedule path) schedule in
     map edit tree
@@ -189,7 +252,7 @@ let leaf path =
   { path = path; children = [||]; schedule = [|Register_point ()|] }
 
 
-let rec rand path ~ncalls ~current_depth ~domains ~width ~depth =
+let rec rand path ~introns ~ncalls ~current_depth ~domains ~width ~depth =
   match depth, width <= 0 with
   | None, _ | _, true ->
     leaf path
@@ -201,12 +264,13 @@ let rec rand path ~ncalls ~current_depth ~domains ~width ~depth =
       in
     branch path
       ~ncalls
+      ~introns
       ~current_depth
       ~width
       ~domains
       ~depth
       ~bins
-and branch path ~ncalls ~current_depth ~domains ~width ~depth ~bins =
+and branch path ~introns ~ncalls ~current_depth ~domains ~width ~depth ~bins =
   let number_of_grandchilds = Rand.split bins width in
   let available_domains = min domains bins in
   let par, _ = Rand.number_of_domains ~current_depth ~depth ~domains:available_domains ~spawned:0 2 in
@@ -216,29 +280,31 @@ and branch path ~ncalls ~current_depth ~domains ~width ~depth ~bins =
     Array.init bins (fun n ->
         rand (n::path)
           ~ncalls
+          ~introns
           ~domains:(number_of_domains.(n))
           ~current_depth:Pos.(current_depth + exn 1)
           ~width:(number_of_grandchilds.(n))
           ~depth:Pos.(depth-1)
       )
   in
-  let schedule = Rand.normalized_schedule ~calls:(Pos.int ncalls) ~par ~seq:(bins-par) in
+  let schedule = Rand.normalized_schedule ~calls:(Pos.int ncalls) ~par ~seq:(bins-par) ~introns in
   { path; children; schedule }
 
 
-let start  ~ncalls ~domains ~width ~depth ~childs =
+let start  ~ncalls ~domains ~width ~depth ~introns ~childs =
   let number_of_grandchilds = Rand.split childs width in
   let children =
     Array.init childs (fun n ->
         rand [n]
           ~ncalls
-          ~domains:2
+          ~domains:(domains/childs - 1)
           ~current_depth:(Pos.exn 1)
           ~width:(number_of_grandchilds.(n))
           ~depth:Pos.(depth-1)
+          ~introns
       )
   in
-  let schedule = Rand.normalized_schedule ~par:childs ~seq:0 ~calls:0 in
+  let schedule = Rand.normalized_schedule ~par:childs ~seq:0 ~calls:0 ~introns in
   Rand.links { path=[]; children; schedule }
 
 
@@ -272,6 +338,17 @@ let par_join ppf target =
     {|@[<h>let () = Domain.join d%a@]@,|}
     id target
 
+let intron ppf =
+  let choice = [|
+    Format.asprintf {|let wordy = "This" ^ "is" ^ "a" ^ "very" ^ "useful" ^ "code" ^ "fragment: %d"|} (Random.int 1000);
+    Format.asprintf
+      {|let sqrt2 = let rec find c = if Float.abs (c *. c -. 2.) < 1e-3 then c else find ((c *. c +. 2.) /. (2. *. c)) in find %f|}
+      (1. +. Random.float 5.)
+    ;
+  |]
+  in
+  let pick = choice.(Random.int @@ Array.length choice) in
+  Format.fprintf ppf "%s@ " pick
 
 let write_action node ppf = function
   | Register_point parent ->
@@ -282,6 +359,8 @@ let write_action node ppf = function
       par_join ppf node.children.(n).path
   | Seq_point n ->
       seq ppf node.children.(n).path
+  | Intron_point ->
+      intron ppf
 
 let write_node ppf node =
   Format.fprintf ppf "@[<v>";
@@ -325,7 +404,7 @@ let registred ~quote ~sep ppf node =
   let pairs =
   fold (fun set node ->
       Array.fold_left (fun set -> function
-          | Seq_point _ | Domain_open _ | Domain_close _  -> set
+          | Seq_point _ | Domain_open _ | Domain_close _ | Intron_point  -> set
           | Register_point p  ->
               let link = Format.asprintf "[%a]->[%a]" id node.path id p  in
               String_set.add link set
@@ -452,10 +531,47 @@ let main_file ppf node =
   write_node node
   check node
 
+let nlinks  =ref 2
+let depth = ref 4
+let domains = ref 16
+let childs: int option ref = ref None
+let width = ref 10
+let introns = ref 8
+
+(* bug detected with
+
+   seed=10
+   -width=2000 -depth=16 -nlinks=5 -introns=4 -domains=24 -childs=8
+
+*)
+
+let args =
+  [ "-nlinks", Arg.Int ((:=) nlinks), "<int> number of calls to older plugins";
+    "-depth", Arg.Int ((:=) depth), "<int> number of plugin layers";
+    "-domains", Arg.Int ((:=) domains), "<int> number of domain spawned (in total)";
+    "-childs", Arg.Int (fun n -> childs := Some n), "<int> number of domain spawned in main program";
+    "-width", Arg.Int ((:=) width), "<int> maximum number of unrelated plugins active at the same time";
+    "-introns", Arg.Int ((:=) introns), "<int> number of random unrelated code fragments inserted";
+  ]
+
 let () =
   Random.init 10;
-  let domains = 16 in
-  let tree = start ~ncalls:(Pos.exn 1) ~depth:(Pos.exn 4) ~domains ~width:20 ~childs:(domains/2) in
+  let () = Arg.parse (Arg.align args) ignore
+      "generator -width=<w> -depth=<d> -domains=<dn> -nlinks=<l> generate a test for a random plugin tree \
+       with depth <d>, width <w>, with <dn> domain spawned, and where each plugin calls <l> functions from older plugins"
+  in
+  let childs = match !childs with
+    | None -> !domains/2
+    | Some c -> c
+  in
+  let tree = start
+      ~ncalls:(Pos.exn !nlinks)
+      ~depth:(Pos.exn !depth)
+      ~domains:!domains
+      ~width:!width
+      ~childs
+      ~introns:!introns
+  in
   to_file "main.ml" main_file tree;
   reference "main.reference" tree;
   gen_files tree
