@@ -52,12 +52,14 @@ type schedule_atom =
   | Seq_action
   | Register_action
   | Intron_action
+  | Define_action
   | Domain_action of int
 
 type 'a normalized_schedule_atom =
   | Seq_point of int
   | Register_point of 'a
   | Intron_point
+  | Define_point of 'a
   | Domain_open of int
   | Domain_close of int
 
@@ -106,7 +108,7 @@ module Rand = struct
     a
 
   let schedule ~calls ~seq ~par ~introns =
-    let total = calls + seq + 2 * par + introns in
+    let total = calls + seq + 2 * par + introns + 1 in
     let a = Array.make total Seq_action in
     for i = seq to seq + par - 1 do
       a.(i) <- Domain_action i;
@@ -118,6 +120,7 @@ module Rand = struct
     for i = seq + 2 * par + calls to seq + 2 * par + calls + introns - 1 do
       a.(i) <- Intron_action
     done;
+    a.(calls + seq + 2 * par + introns) <- Define_action;
     shuffle_in_place a;
     a
 
@@ -148,6 +151,10 @@ module Rand = struct
     let update (res, creation_pos, domain_pos) = function
       | Intron_action ->
           Intron_point :: res,
+          creation_pos,
+          domain_pos
+      | Define_action ->
+          Define_point () :: res,
           creation_pos,
           domain_pos
       | Register_action ->
@@ -194,7 +201,7 @@ module Rand = struct
     let rec find sched_pos child_pos loaded_plugins =
       if 1 + child_pos >= pos || sched_pos >= l  then loaded_plugins else
         match schedule.(sched_pos) with
-        | Register_point _ | Intron_point ->
+        | Register_point _ | Intron_point | Define_point _ ->
             find (1+sched_pos) child_pos loaded_plugins
         | Seq_point p ->
             find (1+sched_pos) (1+child_pos) (Int_set.add p loaded_plugins)
@@ -240,6 +247,7 @@ let rec pp_filter ppf f = match f.sub_filter with
   let links tree =
     let edit_schedule path = function
       | Register_point () -> Register_point (Immutable_array.rand @@ anterior_plugin tree path)
+      | Define_point () -> Define_point (Immutable_array.rand @@ anterior_plugin tree path)
       | Intron_point | Domain_close _ | Domain_open _ | Seq_point _ as x -> x
     in
     let edit path schedule = Array.map (edit_schedule path) schedule in
@@ -249,7 +257,7 @@ end
 
 
 let leaf path =
-  { path = path; children = [||]; schedule = [|Register_point ()|] }
+  { path = path; children = [||]; schedule = [|Register_point (); Define_point ()|] }
 
 
 let rec rand path ~introns ~ncalls ~current_depth ~domains ~width ~depth =
@@ -357,6 +365,8 @@ let write_action node ppf = function
       par_create ppf node.children.(n).path
   | Domain_close n ->
       par_join ppf node.children.(n).path
+  | Define_point p ->
+      new_add ppf p
   | Seq_point n ->
       seq ppf node.children.(n).path
   | Intron_point ->
@@ -365,7 +375,6 @@ let write_action node ppf = function
 let write_node ppf node =
   Format.fprintf ppf "@[<v>";
   Array.iter (write_action node ppf) node.schedule;
-  new_add ppf [];
   Format.fprintf ppf "@]"
 
 
@@ -404,7 +413,7 @@ let registred ~quote ~sep ppf node =
   let pairs =
   fold (fun set node ->
       Array.fold_left (fun set -> function
-          | Seq_point _ | Domain_open _ | Domain_close _ | Intron_point  -> set
+          | Seq_point _ | Domain_open _ | Domain_close _ | Intron_point | Define_point _  -> set
           | Register_point p  ->
               let link = Format.asprintf "[%a]->[%a]" id node.path id p  in
               String_set.add link set
