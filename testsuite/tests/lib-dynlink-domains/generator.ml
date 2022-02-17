@@ -24,7 +24,7 @@ type schedule_atom =
 type 'a normalized_schedule_atom =
   | Seq_point of int
   | Register_point of 'a
-  | Intron_point
+  | Intron_point of int * 'a option
   | Define_point of 'a
   | Domain_open of int
   | Domain_close of int
@@ -116,7 +116,7 @@ module Rand = struct
     let raw_schedule = schedule ~calls ~seq ~par ~introns in
     let update (res, creation_pos, domain_pos) = function
       | Intron_action ->
-          Intron_point :: res,
+          Intron_point (Random.int 2,None) :: res,
           creation_pos,
           domain_pos
       | Define_action ->
@@ -157,17 +157,17 @@ module Rand = struct
       let n = Array.length a in
       let cardinals =
         let cs = Array.make (n+1) 0 in
-        Array.iteri (fun i x -> if i > 0 then cs.(i) <- cs.(i-1) + x.cardinal) a;
+        Array.iteri (fun i x -> if i < n then cs.(i+1) <- cs.(i) + x.cardinal) a;
         cs
       in
       let cardinal = cardinals.(n) in
-      let rec pick a c_low pos n =
+      let rec pick a ~c_low ~pos n =
         let c = cardinals.(pos+1) in
         if n < c  then
           a.(pos).![n - c_low]
-        else pick a c (pos+1) n
+        else pick a ~c_low:c ~pos:(pos+1) n
       in
-      { cardinal; get = pick a 0 0}
+      { cardinal; get = pick a ~c_low:0 ~pos:0}
 
     let append x y =
       let cardinal = x.cardinal + y.cardinal in
@@ -197,7 +197,7 @@ module Rand = struct
     let rec find sched_pos child_pos loaded_plugins =
       if 1 + child_pos >= pos || sched_pos >= l  then loaded_plugins else
         match schedule.(sched_pos) with
-        | Register_point _ | Intron_point | Define_point _ ->
+        | Register_point _ | Intron_point _ | Define_point _ ->
             find (1+sched_pos) child_pos loaded_plugins
         | Seq_point p ->
             find (1+sched_pos) (1+child_pos) (Int_set.add p loaded_plugins)
@@ -235,7 +235,20 @@ let rec path_filter (Topdown remaining_path) node = match remaining_path with
     let edit_schedule path = function
       | Register_point () -> Register_point (Immutable_array.rand @@ anterior_plugin tree path)
       | Define_point () -> Define_point (Immutable_array.rand @@ anterior_plugin tree path)
-      | Intron_point | Domain_close _ | Domain_open _ | Seq_point _ as x -> x
+      | Intron_point (variant,_) ->
+          let plugins = anterior_plugin tree path in
+          let rec sample ntry =
+            if ntry = 0 then Intron_point (Random.int 2, None) else
+            let plugin = Immutable_array.rand plugins in
+            if plugin = [] then sample (ntry - 1) else
+            let linked = node_at_path tree (rev plugin) in
+            let same_variant = function Intron_point (n, _ ) -> n = variant | _ -> false in
+            if Array.exists same_variant linked.schedule then
+              Intron_point (variant, Some plugin)
+            else sample (ntry - 1)
+          in
+          sample 5
+      | Domain_close _ | Domain_open _ | Seq_point _ as x -> x
     in
     let edit path schedule = Array.map (edit_schedule path) schedule in
     map edit tree
@@ -332,21 +345,32 @@ module Synthesis = struct
       {|@[<h>let () = Domain.join d%a@]@,|}
       id target
 
-  let intron ppf =
-    let choice = [|
-      Format.asprintf {|let wordy = "This" ^ "is" ^ "a" ^ "very" ^ "useful" ^ "code" ^ "fragment: %d"|} (Random.int 1000);
-      Format.asprintf
-  {|let sqrt2 =
-    let rec find c =
-      if Float.abs (c *. c -. 2.) < 1e-3 then c
-      else find ((c *. c +. 2.) /. (2. *. c))
-    in find %f|}
-        (1. +. Random.float 5.)
-      ;
-    |]
+  let intron ppf variant plugin_opt path  =
+    let maybe_wordy ppf = function
+      | None -> Format.fprintf ppf {|"That's all"|}
+      | Some plugin ->
+          Format.fprintf ppf "@[<h>%a.wordy@]" name plugin
     in
-    let pick = choice.(Random.int @@ Array.length choice) in
-    Format.fprintf ppf "%s@ " pick
+    let maybe_start ppf = function
+      | None -> Format.fprintf ppf "%h"  (Random.float 5.)
+      | Some plugin ->
+        Format.fprintf ppf "@[<h>%a.sqrt2@]" name plugin
+    in
+    let code = match variant with
+      | 0 ->
+          Format.asprintf
+            {|let wordy = "This" ^ "is" ^ "a" ^ "very" ^ "useful" ^ "code" ^ "fragment: %d." ^ %a |}
+            (Random.int 1000) maybe_wordy plugin_opt;
+      | _ ->
+          Format.asprintf
+{|let sqrt2 =
+  let rec find c =
+    if Float.abs (c *. c -. 2.) < 1e-3 then c
+    else find ((c *. c +. 2.) /. (2. *. c))
+  in find %a|}
+maybe_start plugin_opt
+    in
+    Format.fprintf ppf "%s@ " code
 
   let write_action node ppf = function
     | Register_point parent ->
@@ -359,8 +383,8 @@ module Synthesis = struct
         new_add ppf p
     | Seq_point n ->
         seq ppf node.children.(n).path
-    | Intron_point ->
-        intron ppf
+    | Intron_point (n,x) ->
+        intron ppf n x node.path
 
   let write_node ppf node =
     Format.fprintf ppf "@[<v>";
@@ -377,8 +401,10 @@ module Synthesis = struct
 
 
   let gen_node node =
-    to_file (Format.asprintf "@[<h>%a.ml@]" name node.path)
-      write_node node
+    if node.path = [] then ()
+    else
+      to_file (Format.asprintf "@[<h>%a.ml@]" name node.path)
+        write_node node
 
 
   let rec fold f acc node =
@@ -396,14 +422,14 @@ module Synthesis = struct
   let plugins node = iter gen_node node
 
   let files ppf node =
-    iter (fun node -> Format.fprintf ppf " @[<h>%a.ml@]" name node.path) node
+    iter (fun node -> if node.path = [] then () else Format.fprintf ppf " @[<h>%a.ml@]" name node.path) node
 
 
   let registred ~quote ~sep ppf node =
     let pairs =
       fold (fun set node ->
           Array.fold_left (fun set -> function
-              | Seq_point _ | Domain_open _ | Domain_close _ | Intron_point | Define_point _  -> set
+              | Seq_point _ | Domain_open _ | Domain_close _ | Intron_point _ | Define_point _  -> set
               | Register_point p  ->
                   let link = Format.asprintf "[%a]->[%a]" id node.path id p  in
                   String_set.add link set
@@ -436,10 +462,12 @@ readonly_files = "@[<h>store.ml main.ml%a@]"
 module = "store.ml"@ @]|}
       files node;
     let bytecode_compilation i node =
+      if node.path = [] then i else begin
       Format.fprintf ppf
         {|@[<v>%a ocamlc.byte@,module = "%a.ml"@,@]|}
         task i name node.path;
       i + 1
+      end
     in
     let stars = fold bytecode_compilation 4 node in
     Format.fprintf ppf
@@ -460,6 +488,7 @@ module = "store.ml"@ @]|}
       task (3 + stars)
     ;
     let native_compilation i node =
+      if node.path = [] then i else begin
       Format.fprintf ppf
         "@[<v>%a ocamlopt.byte@ \
          flags = \"-shared\"@ \
@@ -471,6 +500,7 @@ module = "store.ml"@ @]|}
         name node.path
         name node.path;
       i + 1
+      end
     in
     Format.fprintf ppf
       "@[<v>** native-dynlink@ \
@@ -535,14 +565,22 @@ module = "store.ml"@ @]|}
        @]"
 
 
-  let main ppf node =
+  let main ~seed ~width ~depth ~nlinks ~introns ~childs ~domains ppf node =
     Format.fprintf ppf
-      "@[<v>%a@ (* Link plugins *)@ %a@ (* Print result *)@ %t@]@."
+      "@[<v>%a@ \
+      (*  This module and all plugin modules are generated by a call to test_generator.ml with parameters:@ \
+      seed=%d, width=%d, depth=%d, nlinks=%d, introns=%d, childs=%d, domains=%d.@ *)@ \
+       (* Link plugins *)@ \
+       %a@ \
+       (* Print result *)@ \
+       %t@]@."
       main_header node
+      seed width depth nlinks introns childs domains
       write_node node
       print_result
 end
 
+let seed = ref 10
 let nlinks  =ref 2
 let depth = ref 4
 let domains = ref 16
@@ -557,26 +595,31 @@ let args =
     "-childs", Arg.Int (fun n -> childs := Some n), "<int> number of domain spawned in main program";
     "-width", Arg.Int ((:=) width), "<int> maximum number of unrelated plugins active at the same time";
     "-introns", Arg.Int ((:=) introns), "<int> number of random unrelated code fragments inserted";
+    "-seed", Arg.Int ((:=) seed), "<int> PRNG seed"
   ]
 
 let () =
-  Random.init 10;
   let () = Arg.parse (Arg.align args) ignore
       "generator -width=<w> -depth=<d> -domains=<dn> -nlinks=<l> generate a test for a random plugin tree \
        with depth <d>, width <w>, with <dn> domain spawned, and where each plugin calls <l> functions from older plugins"
   in
+  let seed = !seed in
+  Random.init seed;
+  let nlinks = !nlinks and depth = !depth and width = !width and domains = !domains and introns = !introns in
   let childs = match !childs with
-    | None -> !domains/2
+    | None -> domains/2
     | Some c -> c
   in
   let tree = start
-      ~ncalls:(Pos.exn !nlinks)
-      ~depth:(Pos.exn !depth)
-      ~domains:!domains
-      ~width:!width
+      ~ncalls:(Pos.exn nlinks)
+      ~depth:(Pos.exn depth)
+      ~domains
+      ~width
       ~childs
-      ~introns:!introns
+      ~introns
   in
-  Synthesis.to_file "main.ml" Synthesis.main tree;
+  Synthesis.to_file "main.ml"
+    (Synthesis.main ~nlinks ~width ~introns ~depth ~domains ~childs ~seed)
+       tree;
   Synthesis.reference "main.reference" tree;
   Synthesis.plugins tree
