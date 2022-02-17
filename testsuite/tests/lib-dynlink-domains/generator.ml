@@ -12,41 +12,7 @@ let id ppf path =
   Format.fprintf ppf "@[<h>%a@]" Pp.(list ~sep:"_" int) path
 
 let name ppf path =
-  Format.fprintf ppf "Unit%a" id path
-
-module Immutable_array = struct
-  type 'a t = { cardinal:int; get: int -> 'a }
-  let (.![]) a n = a.get n
-
-  let rand x = x.![Random.int x.cardinal]
-  let concat_list l =
-    let cardinal = List.fold_left (fun acc x -> acc + x.cardinal) 0 l in
-    let rec pick l n = match l with
-      | [] -> assert false
-      | a :: q ->
-          if n < a.cardinal then
-            a.![n]
-          else pick q (n-a.cardinal)
-    in
-    { cardinal; get = pick l}
-
-  let concat_array a =
-    let cardinal = Array.fold_left (fun acc x -> acc + x.cardinal) 0 a in
-    let rec pick pos n =
-      if n < a.(pos).cardinal then
-        a.(pos).![n]
-      else pick (pos+1) (n-a.(pos).cardinal)
-    in
-    { cardinal; get = pick 0}
-
-  let append x y =
-    let cardinal = x.cardinal + y.cardinal in
-    let get n = if n >= x.cardinal then y.![n-x.cardinal] else x.![n] in
-    { cardinal; get }
-
-  let singleton x = { cardinal = 1; get = fun _ -> x }
-end
-
+  Format.fprintf ppf "Plugin_%a" id (List.rev path)
 
 type schedule_atom =
   | Seq_action
@@ -181,9 +147,39 @@ module Rand = struct
     | Topdown (x :: path) ->
         node_at_path tree.children.(x) (Topdown path)
 
+  module Immutable_array = struct
+    type 'a t = { cardinal:int; get: int -> 'a }
+    let (.![]) a n = a.get n
+
+    let rand x = x.![Random.int x.cardinal]
+
+    let concat a =
+      let n = Array.length a in
+      let cardinals =
+        let cs = Array.make (n+1) 0 in
+        Array.iteri (fun i x -> if i > 0 then cs.(i) <- cs.(i-1) + x.cardinal) a;
+        cs
+      in
+      let cardinal = cardinals.(n) in
+      let rec pick a c_low pos n =
+        let c = cardinals.(pos+1) in
+        if n < c  then
+          a.(pos).![n - c_low]
+        else pick a c (pos+1) n
+      in
+      { cardinal; get = pick a 0 0}
+
+    let append x y =
+      let cardinal = x.cardinal + y.cardinal in
+      let get n = if n >= x.cardinal then y.![n-x.cardinal] else x.![n] in
+      { cardinal; get }
+
+    let singleton x = { cardinal = 1; get = fun _ -> x }
+  end
+
   let rec path from node =
     let children = Array.mapi (fun i -> path (i::from)) node.children in
-    Immutable_array.(concat_array (Array.append [|singleton from|] children))
+    Immutable_array.(concat (Array.append [|singleton from|] children))
 
   type path_filter = { strictly_older: int array; pos: int; sub_filter: path_filter option }
 
@@ -194,7 +190,7 @@ module Rand = struct
       | Some sub_filter ->
           [|filtred_path sub_filter (filter.pos::from) node.children.(filter.pos)|]
     in
-    Immutable_array.concat_array (Array.append lower_paths strictly_older )
+    Immutable_array.concat (Array.append lower_paths strictly_older )
 
   let older_siblings schedule pos =
     let l = Array.length schedule in
@@ -222,15 +218,6 @@ let rec path_filter (Topdown remaining_path) node = match remaining_path with
       in
       { strictly_older; pos; sub_filter }
 
-
-let rec pp_filter ppf f = match f.sub_filter with
-  | None ->
-      Format.fprintf ppf "@[<h> [%a]< %d@]" Pp.(list ~sep:"," int) (Array.to_list f.strictly_older) f.pos
-  | Some sub ->
-      Format.fprintf ppf "[%a]<@[<v>%d@,%a@]" Pp.(list ~sep:"," int) (Array.to_list f.strictly_older) f.pos pp_filter sub
-
-
-
   let anterior_plugin tree = function
     | [] -> Immutable_array.singleton []
     | path ->
@@ -253,57 +240,56 @@ let rec pp_filter ppf f = match f.sub_filter with
     let edit path schedule = Array.map (edit_schedule path) schedule in
     map edit tree
 
-end
+  let leaf path =
+    { path = path; children = [||]; schedule = [|Register_point (); Define_point ()|] }
 
 
-let leaf path =
-  { path = path; children = [||]; schedule = [|Register_point (); Define_point ()|] }
-
-
-let rec rand path ~introns ~ncalls ~current_depth ~domains ~width ~depth =
-  match depth, width <= 0 with
-  | None, _ | _, true ->
-    leaf path
-  | Some depth, false ->
-      let bins =
-        match Pos.opt (min width 4) with
-        | None -> 1
-        | Some p -> 1 + Pos.rand p
-      in
-    branch path
-      ~ncalls
-      ~introns
-      ~current_depth
-      ~width
-      ~domains
-      ~depth
-      ~bins
-and branch path ~introns ~ncalls ~current_depth ~domains ~width ~depth ~bins =
-  let number_of_grandchilds = Rand.split bins width in
-  let available_domains = min domains bins in
-  let par, _ = Rand.number_of_domains ~current_depth ~depth ~domains:available_domains ~spawned:0 2 in
-  let remaining_domains = domains - par in
-  let number_of_domains = Rand.split bins remaining_domains in
-  let children =
-    Array.init bins (fun n ->
-        rand (n::path)
+  let rec node path ~introns ~ncalls ~current_depth ~domains ~width ~depth =
+    match depth, width <= 0 with
+    | None, _ | _, true ->
+        leaf path
+    | Some depth, false ->
+        let bins =
+          match Pos.opt (min width 4) with
+          | None -> 1
+          | Some p -> 1 + Pos.rand p
+        in
+        nodes path
           ~ncalls
           ~introns
-          ~domains:(number_of_domains.(n))
-          ~current_depth:Pos.(current_depth + exn 1)
-          ~width:(number_of_grandchilds.(n))
-          ~depth:Pos.(depth-1)
-      )
-  in
-  let schedule = Rand.normalized_schedule ~calls:(Pos.int ncalls) ~par ~seq:(bins-par) ~introns in
-  { path; children; schedule }
+          ~current_depth
+          ~width
+          ~domains
+          ~depth
+          ~bins
+  and nodes path ~introns ~ncalls ~current_depth ~domains ~width ~depth ~bins =
+    let number_of_grandchilds = split bins width in
+    let available_domains = min domains bins in
+    let par, _ = number_of_domains ~current_depth ~depth ~domains:available_domains ~spawned:0 2 in
+    let remaining_domains = domains - par in
+    let number_of_domains = split bins remaining_domains in
+    let children =
+      Array.init bins (fun n ->
+          node (n::path)
+            ~ncalls
+            ~introns
+            ~domains:(number_of_domains.(n))
+            ~current_depth:Pos.(current_depth + exn 1)
+            ~width:(number_of_grandchilds.(n))
+            ~depth:Pos.(depth-1)
+        )
+    in
+    let schedule = normalized_schedule ~calls:(Pos.int ncalls) ~par ~seq:(bins-par) ~introns in
+    { path; children; schedule }
 
+
+end
 
 let start  ~ncalls ~domains ~width ~depth ~introns ~childs =
   let number_of_grandchilds = Rand.split childs width in
   let children =
     Array.init childs (fun n ->
-        rand [n]
+        Rand.node [n]
           ~ncalls
           ~domains:(domains/childs - 1)
           ~current_depth:(Pos.exn 1)
@@ -315,126 +301,130 @@ let start  ~ncalls ~domains ~width ~depth ~introns ~childs =
   let schedule = Rand.normalized_schedule ~par:childs ~seq:0 ~calls:0 ~introns in
   Rand.links { path=[]; children; schedule }
 
-
-let seq ppf target =
-  Format.fprintf ppf
-    {|@[<h>let () = Dynlink.loadfile @@@@ Dynlink.adapt_filename "%a.cmo"@]@,|}
-    name target
-
-let par_create ppf target =
-  Format.fprintf ppf
-    {|@[<h>let d%a = Domain.spawn (fun () -> Dynlink.loadfile @@@@ Dynlink.adapt_filename "%a.cmo")@]@,|}
-    id target name target
-
-let add ppf parent = match parent with
-  | [] -> Format.fprintf ppf "Store.add"
-  | p -> Format.fprintf ppf "%a.add" name p
-
-let register ppf ~parent ~current =
-  Format.fprintf ppf
-    {|@[<h>let () = %a "[%a]->[%a]"@]@,|}
-    add parent
-    id current
-    id parent
-
-let new_add ppf path =
-  Format.fprintf ppf
-    "let add x = %a x@," add path
-
-let par_join ppf target =
+module Synthesis = struct
+  let seq ppf target =
     Format.fprintf ppf
-    {|@[<h>let () = Domain.join d%a@]@,|}
-    id target
+      {|@[<h>let () = Dynlink.loadfile @@@@ Dynlink.adapt_filename "%a.cmo"@]@,|}
+      name target
 
-let intron ppf =
-  let choice = [|
-    Format.asprintf {|let wordy = "This" ^ "is" ^ "a" ^ "very" ^ "useful" ^ "code" ^ "fragment: %d"|} (Random.int 1000);
-    Format.asprintf
-      {|let sqrt2 = let rec find c = if Float.abs (c *. c -. 2.) < 1e-3 then c else find ((c *. c +. 2.) /. (2. *. c)) in find %f|}
-      (1. +. Random.float 5.)
-    ;
-  |]
-  in
-  let pick = choice.(Random.int @@ Array.length choice) in
-  Format.fprintf ppf "%s@ " pick
+  let par_create ppf target =
+    Format.fprintf ppf
+      {|@[<h>let d%a = Domain.spawn (fun () -> Dynlink.loadfile @@@@ Dynlink.adapt_filename "%a.cmo")@]@,|}
+      id target name target
 
-let write_action node ppf = function
-  | Register_point parent ->
-      register ppf ~parent ~current:node.path
-  | Domain_open n ->
-      par_create ppf node.children.(n).path
-  | Domain_close n ->
-      par_join ppf node.children.(n).path
-  | Define_point p ->
-      new_add ppf p
-  | Seq_point n ->
-      seq ppf node.children.(n).path
-  | Intron_point ->
-      intron ppf
+  let add ppf parent = match parent with
+    | [] -> Format.fprintf ppf "Store.add"
+    | p -> Format.fprintf ppf "%a.add" name p
 
-let write_node ppf node =
-  Format.fprintf ppf "@[<v>";
-  Array.iter (write_action node ppf) node.schedule;
-  Format.fprintf ppf "@]"
+  let register ppf ~parent ~current =
+    Format.fprintf ppf
+      {|@[<h>let () = %a "[%a]->[%a]"@]@,|}
+      add parent
+      id current
+      id parent
 
+  let new_add ppf path =
+    Format.fprintf ppf
+      "let add x = %a x@," add path
 
-let to_file name f x =
-  let ch = open_out name in
-  let ppf = Format.formatter_of_out_channel ch in
-  f ppf x;
-  Format.pp_print_flush ppf ();
-  close_out ch
+  let par_join ppf target =
+    Format.fprintf ppf
+      {|@[<h>let () = Domain.join d%a@]@,|}
+      id target
 
+  let intron ppf =
+    let choice = [|
+      Format.asprintf {|let wordy = "This" ^ "is" ^ "a" ^ "very" ^ "useful" ^ "code" ^ "fragment: %d"|} (Random.int 1000);
+      Format.asprintf
+  {|let sqrt2 =
+    let rec find c =
+      if Float.abs (c *. c -. 2.) < 1e-3 then c
+      else find ((c *. c +. 2.) /. (2. *. c))
+    in find %f|}
+        (1. +. Random.float 5.)
+      ;
+    |]
+    in
+    let pick = choice.(Random.int @@ Array.length choice) in
+    Format.fprintf ppf "%s@ " pick
 
-let gen_node node =
-  to_file (Format.asprintf "@[<h>%a.ml@]" name node.path)
-  write_node node
+  let write_action node ppf = function
+    | Register_point parent ->
+        register ppf ~parent ~current:node.path
+    | Domain_open n ->
+        par_create ppf node.children.(n).path
+    | Domain_close n ->
+        par_join ppf node.children.(n).path
+    | Define_point p ->
+        new_add ppf p
+    | Seq_point n ->
+        seq ppf node.children.(n).path
+    | Intron_point ->
+        intron ppf
 
-
-let rec fold f acc node =
-  let acc = f acc node in
-  fold_forest f acc node.children
-and fold_forest f acc nodes = Array.fold_left (fold f) acc nodes
-
-let rec iter f node =
-  f node;
-  iter_forest f node.children
-and iter_forest f nodes = Array.iter (iter f) nodes
-
-
-
-let gen_files node = iter gen_node node
-
-let files ppf node =
-  iter (fun node -> Format.fprintf ppf " @[<h>%a.ml@]" name node.path) node
+  let write_node ppf node =
+    Format.fprintf ppf "@[<v>";
+    Array.iter (write_action node ppf) node.schedule;
+    Format.fprintf ppf "@]"
 
 
-let registred ~quote ~sep ppf node =
-  let pairs =
-  fold (fun set node ->
-      Array.fold_left (fun set -> function
-          | Seq_point _ | Domain_open _ | Domain_close _ | Intron_point | Define_point _  -> set
-          | Register_point p  ->
-              let link = Format.asprintf "[%a]->[%a]" id node.path id p  in
-              String_set.add link set
-        )
-        set node.schedule
-      ) String_set.empty node
-  in
-  String_set.iter (fun link ->
-      Format.fprintf ppf {|@[<h>%s%s%s@]%(%)|}  quote link quote sep
-    ) pairs
+  let to_file name f x =
+    let ch = open_out name in
+    let ppf = Format.formatter_of_out_channel ch in
+    f ppf x;
+    Format.pp_print_flush ppf ();
+    close_out ch
 
 
-let repeat n ppf fmt =
-  for i = 1 to n do
-    Format.fprintf ppf fmt
-  done
+  let gen_node node =
+    to_file (Format.asprintf "@[<h>%a.ml@]" name node.path)
+      write_node node
 
-let task ppf n = repeat n ppf "*"
 
-let main_header ppf node =
-  Format.fprintf ppf {|@[<v>(* TEST
+  let rec fold f acc node =
+    let acc = f acc node in
+    fold_forest f acc node.children
+  and fold_forest f acc nodes = Array.fold_left (fold f) acc nodes
+
+  let rec iter f node =
+    f node;
+    iter_forest f node.children
+  and iter_forest f nodes = Array.iter (iter f) nodes
+
+
+
+  let plugins node = iter gen_node node
+
+  let files ppf node =
+    iter (fun node -> Format.fprintf ppf " @[<h>%a.ml@]" name node.path) node
+
+
+  let registred ~quote ~sep ppf node =
+    let pairs =
+      fold (fun set node ->
+          Array.fold_left (fun set -> function
+              | Seq_point _ | Domain_open _ | Domain_close _ | Intron_point | Define_point _  -> set
+              | Register_point p  ->
+                  let link = Format.asprintf "[%a]->[%a]" id node.path id p  in
+                  String_set.add link set
+            )
+            set node.schedule
+        ) String_set.empty node
+    in
+    String_set.iter (fun link ->
+        Format.fprintf ppf {|@[<h>%s%s%s@]%(%)|}  quote link quote sep
+      ) pairs
+
+
+  let repeat n ppf fmt =
+    for i = 1 to n do
+      Format.fprintf ppf fmt
+    done
+
+  let task ppf n = repeat n ppf "*"
+
+  let main_header ppf node =
+    Format.fprintf ppf {|@[<v>(* TEST
 
 include dynlink
 libraries = ""
@@ -444,101 +434,114 @@ readonly_files = "@[<h>store.ml main.ml%a@]"
 ** setup-ocamlc.byte-build-env
 *** ocamlc.byte
 module = "store.ml"@ @]|}
-    files node;
-  let bytecode_compilation i node =
+      files node;
+    let bytecode_compilation i node =
+      Format.fprintf ppf
+        {|@[<v>%a ocamlc.byte@,module = "%a.ml"@,@]|}
+        task i name node.path;
+      i + 1
+    in
+    let stars = fold bytecode_compilation 4 node in
     Format.fprintf ppf
-      {|@[<v>%a ocamlc.byte@,module = "%a.ml"@,@]|}
-      task i name node.path;
-    i + 1
-  in
-  let stars = fold bytecode_compilation 4 node in
-  Format.fprintf ppf
-    "@[<v>%a ocamlc.byte@ \
-     module = \"main.ml\"@ \
-     %a ocamlc.byte@ \
-     program = \"./run.byte.exe\"@ \
-     libraries= \"dynlink\"@ \
-     all_modules = \"store.cmo main.cmo\"@ \
-     module = \"\" @ \
-     %a run@ \
-     %a check-program-output@ \
-     @ \
-@]"
-    task stars
-    task (1 + stars)
-    task (2 + stars)
-    task (3 + stars)
-  ;
-  let native_compilation i node =
+      "@[<v>%a ocamlc.byte@ \
+       module = \"main.ml\"@ \
+       %a ocamlc.byte@ \
+       program = \"./run.byte.exe\"@ \
+       libraries= \"dynlink\"@ \
+       all_modules = \"store.cmo main.cmo\"@ \
+       module = \"\" @ \
+       %a run@ \
+       %a check-program-output@ \
+       @ \
+       @]"
+      task stars
+      task (1 + stars)
+      task (2 + stars)
+      task (3 + stars)
+    ;
+    let native_compilation i node =
+      Format.fprintf ppf
+        "@[<v>%a ocamlopt.byte@ \
+         flags = \"-shared\"@ \
+         program= \"%a.cmxs\"@ \
+         module = \"\"@ \
+         all_modules = \"%a.ml\"@ \
+         @]"
+        task i
+        name node.path
+        name node.path;
+      i + 1
+    in
     Format.fprintf ppf
-      "@[<v>%a ocamlopt.byte@ \
-       flags = \"-shared\"@ \
-       program= \"%a.cmxs\"@ \
+      "@[<v>** native-dynlink@ \
+       *** setup-ocamlopt.byte-build-env@ \
+       **** ocamlopt.byte@ \
+       flags = \"\"@ \
+       module = \"store.ml\"@ \
+       @]";
+    let stars = fold native_compilation 5 node in
+    Format.fprintf ppf
+      "@[<v>\
+       %a ocamlopt.byte@ \
+       flags = \"\"@ \
+       module = \"main.ml\"@ \
+       %a ocamlopt.byte@ \
+       program = \"./main.exe\"@ \
+       libraries=\"dynlink\"@ \
+       all_modules = \"store.cmx main.cmx\"@ \
        module = \"\"@ \
-       all_modules = \"%a.ml\"@ \
-      @]"
-      task i
-      name node.path
-      name node.path;
-    i + 1
-  in
-  Format.fprintf ppf
-    "@[<v>** native-dynlink@ \
-     *** setup-ocamlopt.byte-build-env@ \
-     **** ocamlopt.byte@ \
-     flags = \"\"@ \
-     module = \"store.ml\"@ \
-     @]";
-  let stars = fold native_compilation 5 node in
-  Format.fprintf ppf
-    "@[<v>\
-     %a ocamlopt.byte@ \
-     flags = \"\"@ \
-     module = \"main.ml\"@ \
-     %a ocamlopt.byte@ \
-     program = \"./main.exe\"@ \
-     libraries=\"dynlink\"@ \
-     all_modules = \"store.cmx main.cmx\"@ \
-     module = \"\"@ \
-     %a run@ \
-     %a check-program-output@ \
-    *)@ \
-     @]"
-    task stars
-    task (1 + stars)
-    task (2 + stars)
-    task (3 + stars)
+       %a run@ \
+       %a check-program-output@ \
+       *)@ \
+       @]"
+      task stars
+      task (1 + stars)
+      task (2 + stars)
+      task (3 + stars)
 
-let expected ppf nodes =
-  Format.fprintf ppf
-    "@[<v>[%a]@]"
-    (registred ~quote:{|"|} ~sep:";@ ") nodes
+  let expected ppf nodes =
+    Format.fprintf ppf
+      "@[<v>[%a]@]"
+      (registred ~quote:{|"|} ~sep:";@ ") nodes
 
-let reference file nodes =
-  to_file file (fun ppf ->
-      Format.fprintf ppf "@[<v>%a@]@?" (registred ~quote:"" ~sep:"@,")
-    ) nodes
+  let reference file nodes =
+    to_file file (fun ppf ->
+        Format.fprintf ppf "@[<v>%a@]@?" (registred ~quote:"" ~sep:"@,")
+      ) nodes
 
-let check ppf node =
-  Format.fprintf ppf
-    "@[<v>@ \
-     module String_set = Set.Make(String)@ \
-     let stored = Atomic.get Store.store@ \
-     let stored_set = String_set.of_list stored@ \
-     @[<b>let expected =@ String_set.of_list@ %a@]@ \
-     @[<v 2>let () =@ \
+  let full_check ppf node =
+    Format.fprintf ppf
+      "@[<v>@ \
+       module String_set = Set.Make(String)@ \
+       let stored = Atomic.get Store.store@ \
+       let stored_set = String_set.of_list stored@ \
+       @[<b>let expected =@ String_set.of_list@ %a@]@ \
+       @[<v 2>let () =@ \
        let () = @[<h>List.iter (Printf.printf \"%%s\\n\") (String_set.elements stored_set) in@]@ \
        assert (String_set.equal stored_set expected)\
-    @]\
-     @]"
-    expected node
+       @]\
+       @]"
+      expected node
 
-let main_file ppf node =
-  Format.fprintf ppf
-    "@[<v>%a@ (* Link plugins *)@ %a@ (* Check result *)@ %a@]@."
-  main_header node
-  write_node node
-  check node
+  let print_result ppf =
+    Format.fprintf ppf
+      "@[<v>@ \
+       module String_set = Set.Make(String)@ \
+       let stored = Atomic.get Store.store@ \
+       let stored_set = String_set.of_list stored@ \
+       @[<v 2>let () =@ \
+       @[<h>List.iter (Printf.printf \"%%s\\n\") (String_set.elements stored_set)@]@ \
+       @]\
+       @]"
+
+
+  let main ppf node =
+    Format.fprintf ppf
+      "@[<v>%a@ (* Link plugins *)@ %a@ (* Print result *)@ %t@]@."
+      main_header node
+      write_node node
+      print_result
+end
 
 let nlinks  =ref 2
 let depth = ref 4
@@ -546,13 +549,6 @@ let domains = ref 16
 let childs: int option ref = ref None
 let width = ref 10
 let introns = ref 8
-
-(* bug detected with
-
-   seed=10
-   -width=2000 -depth=16 -nlinks=5 -introns=4 -domains=24 -childs=8
-
-*)
 
 let args =
   [ "-nlinks", Arg.Int ((:=) nlinks), "<int> number of calls to older plugins";
@@ -581,6 +577,6 @@ let () =
       ~childs
       ~introns:!introns
   in
-  to_file "main.ml" main_file tree;
-  reference "main.reference" tree;
-  gen_files tree
+  Synthesis.to_file "main.ml" Synthesis.main tree;
+  Synthesis.reference "main.reference" tree;
+  Synthesis.plugins tree
