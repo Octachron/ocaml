@@ -7,7 +7,6 @@ module Pp = struct
   let list ~sep p ppf x = Format.pp_print_list ~pp_sep:(fun ppf () -> Format.fprintf ppf sep) p ppf x
 end
 
-
 let id ppf path =
   Format.fprintf ppf "@[<h>%a@]" Pp.(list ~sep:"_" int) path
 
@@ -21,10 +20,14 @@ type schedule_atom =
   | Define_action
   | Domain_action of int
 
+type intron_kind =
+  | String
+  | Float
+
 type 'a normalized_schedule_atom =
   | Seq_point of int
   | Register_point of 'a
-  | Intron_point of int * 'a option
+  | Intron_point of intron_kind * 'a option
   | Define_point of 'a
   | Domain_open of int
   | Domain_close of int
@@ -112,11 +115,13 @@ module Rand = struct
       let s, domains = spawn_or_not ~current_depth ~depth domains in
       number_of_domains ~current_depth ~depth ~spawned:(spawned +s) ~domains (k-1)
 
+  let intron () = if Random.int 2 = 0 then Float else String
+
   let normalized_schedule ~calls ~seq ~par ~introns =
     let raw_schedule = schedule ~calls ~seq ~par ~introns in
     let update (res, creation_pos, domain_pos) = function
       | Intron_action ->
-          Intron_point (Random.int 2,None) :: res,
+          Intron_point (intron (),None) :: res,
           creation_pos,
           domain_pos
       | Define_action ->
@@ -238,7 +243,7 @@ let rec path_filter (Topdown remaining_path) node = match remaining_path with
       | Intron_point (variant,_) ->
           let plugins = anterior_plugin tree path in
           let rec sample ntry =
-            if ntry = 0 then Intron_point (Random.int 2, None) else
+            if ntry = 0 then Intron_point (variant, None) else
             let plugin = Immutable_array.rand plugins in
             if plugin = [] then sample (ntry - 1) else
             let linked = node_at_path tree (rev plugin) in
@@ -357,11 +362,11 @@ module Synthesis = struct
         Format.fprintf ppf "@[<h>%a.sqrt2@]" name plugin
     in
     let code = match variant with
-      | 0 ->
+      | String ->
           Format.asprintf
             {|let wordy = "This" ^ "is" ^ "a" ^ "very" ^ "useful" ^ "code" ^ "fragment: %d." ^ %a |}
             (Random.int 1000) maybe_wordy plugin_opt;
-      | _ ->
+      | Float ->
           Format.asprintf
 {|let sqrt2 =
   let rec find c =
