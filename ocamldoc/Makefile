@@ -217,10 +217,14 @@ DEPEND_PREREQS = $(LEXERS:.mll=.ml) \
 install:
 	$(MKDIR) "$(INSTALL_BINDIR)"
 	$(MKDIR) "$(INSTALL_LIBDIR)/ocamldoc"
+	$(MKDIR) "$(INSTALL_SITELIBDIR)/ocamldoc"
 	$(INSTALL_PROG) $(OCAMLDOC) "$(INSTALL_BINDIR)"
 	$(INSTALL_DATA) \
-	  ocamldoc.hva *.cmi $(OCAMLDOC_LIBCMA) META \
+	  ocamldoc.hva *.cmi $(OCAMLDOC_LIBCMA) \
 	  "$(INSTALL_LIBDIR)/ocamldoc"
+	$(INSTALL_DATA) \
+	  META \
+	  "$(INSTALL_SITELIBDIR)/ocamldoc"
 	$(INSTALL_DATA) \
 	  $(OCAMLDOC_LIBCMIS) \
 	  "$(INSTALL_LIBDIR)/ocamldoc"

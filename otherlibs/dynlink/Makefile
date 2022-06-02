@@ -243,6 +243,7 @@ $(extract_crc): dynlink.cma byte/dynlink_compilerlibs.cmo extract_crc.cmo
 	$(OCAMLC) -o $@ $^
 
 INSTALL_LIBDIR_DYNLINK = $(INSTALL_LIBDIR)/dynlink
+INSTALL_SITELIBDIR_DYNLINK = $(INSTALL_SITELIBDIR)/dynlink
 
 install:
 # If installing over a previous OCaml version, ensure dynlink is removed from
@@ -251,10 +252,11 @@ install:
         "$(INSTALL_LIBDIR)/dynlink.$(A)" \
         $(addprefix "$(INSTALL_LIBDIR)/", $(notdir $(NATOBJS)))
 	$(MKDIR) "$(INSTALL_LIBDIR_DYNLINK)"
+	$(MKDIR) "$(INSTALL_SITELIBDIR_DYNLINK)"
 	$(INSTALL_DATA) \
 	  dynlink.cmi dynlink.cma \
 	  "$(INSTALL_LIBDIR_DYNLINK)"
-	$(INSTALL_DATA) META "$(INSTALL_LIBDIR)"/META.dynlink
+	$(INSTALL_DATA) META "$(INSTALL_SITELIBDIR_DYNLINK)"
 ifeq "$(INSTALL_SOURCE_ARTIFACTS)" "true"
 	$(INSTALL_DATA) \
 	  dynlink.cmti dynlink.mli \

@@ -66,11 +66,15 @@ install::
     exit 1; \
   fi
 
+INSTALL_SITELIBDIR_STDLIB=$(INSTALL_SITELIBDIR)/stdlib
+
 install::
 	$(INSTALL_DATA) \
-	  stdlib.cma std_exit.cmo *.cmi camlheader_ur META.bytes \
+	  stdlib.cma std_exit.cmo *.cmi camlheader_ur \
 	  "$(INSTALL_LIBDIR)"
-	$(INSTALL_DATA) META "$(INSTALL_LIBDIR)"/META.stdlib
+	$(MKDIR) "$(INSTALL_SITELIBDIR_STDLIB)"
+	$(INSTALL_DATA) META "$(INSTALL_SITELIBDIR_STDLIB)"
+	$(INSTALL_DATA) META.bytes "$(INSTALL_SITELIBDIR)"
 ifeq "$(INSTALL_SOURCE_ARTIFACTS)" "true"
 	$(INSTALL_DATA) \
 	  *.cmt *.cmti *.mli *.ml \

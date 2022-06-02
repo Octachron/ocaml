@@ -113,6 +113,7 @@ clean: partialclean
 distclean: clean
 
 INSTALL_THREADSLIBDIR=$(INSTALL_LIBDIR)/$(LIBNAME)
+INSTALL_SITELIBDIR_THREADS=$(INSTALL_SITELIBDIR)/$(LIBNAME)
 
 install:
 	if test -f dllthreads$(EXT_DLL); then \
@@ -120,9 +121,11 @@ install:
 	fi
 	$(INSTALL_DATA) libthreads.$(A) "$(INSTALL_LIBDIR)"
 	$(MKDIR) "$(INSTALL_THREADSLIBDIR)"
+	$(MKDIR) "$(INSTALL_SITELIBDIR_THREADS)"
 	$(INSTALL_DATA) \
-	  $(CMIFILES) threads.cma META \
+	  $(CMIFILES) threads.cma \
 	  "$(INSTALL_THREADSLIBDIR)"
+	$(INSTALL_DATA) META "$(INSTALL_SITELIBDIR_THREADS)"
 ifeq "$(INSTALL_SOURCE_ARTIFACTS)" "true"
 	$(INSTALL_DATA) \
 	  $(CMIFILES:.cmi=.cmti) \
