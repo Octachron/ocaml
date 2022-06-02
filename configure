@@ -738,6 +738,7 @@ DEFAULT_STRING
 WINDOWS_UNICODE_MODE
 DLLIBS
 PARTIALLD
+SITELIBDIR
 target_os
 target_vendor
 target_cpu
@@ -819,6 +820,7 @@ mkexedebugflag
 mkexe_exp
 mkexe
 fpic
+sitelibdir
 syslib
 outputobj
 outputexe
@@ -938,6 +940,7 @@ enable_libtool_lock
       ac_precious_vars='build_alias
 host_alias
 target_alias
+SITELIBDIR
 AS
 ASPP
 PARTIALLD
@@ -1632,6 +1635,7 @@ Optional Packages:
   --with-odoc
 
 Some influential environment variables:
+  SITELIBDIR  where to install the META package description files
   AS          which assembler to use
   ASPP        which assembler (with preprocessor) to use
   PARTIALLD   how to build partial (relocatable) object files
@@ -2928,6 +2932,7 @@ OCAML_VERSION_SHORT=5.0
 
 
 
+
  # TODO: rename this variable
 
 
@@ -3150,6 +3155,7 @@ case $host in #(
 esac
 
 # Environment variables that are taken into account
+
 
 
 
@@ -18037,6 +18043,12 @@ esac
 
 if test x"$libdir" = x'${exec_prefix}/lib'; then :
   libdir="$libdir"/ocaml
+fi
+
+if test -n "$SITELIBDIR"; then :
+  sitelibdir="$SITELIBDIR"
+else
+  sitelibdir="$libdir"
 fi
 
 if test x"$mandir" = x'${datarootdir}/man'; then :

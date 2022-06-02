@@ -48,6 +48,7 @@ datarootdir=@datarootdir@
 
 ### Where to install the standard library
 LIBDIR=@libdir@
+SITELIBDIR=@sitelibdir@
 
 ### Where to install the stub code for the standard library
 STUBLIBDIR=@libdir@/stublibs

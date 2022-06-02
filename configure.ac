@@ -104,6 +104,7 @@ AC_SUBST([ocamlyacc_wstr_module])
 AC_SUBST([outputexe])
 AC_SUBST([outputobj])
 AC_SUBST([syslib])
+AC_SUBST([sitelibdir])
 AC_SUBST([fpic])
 AC_SUBST([mkexe])
 AC_SUBST([mkexe_exp])
@@ -233,6 +234,7 @@ AS_CASE([$host],
   syslib='-l$(1)'])
 
 # Environment variables that are taken into account
+AC_ARG_VAR([SITELIBDIR], [where to install the META package description files])
 
 AC_ARG_VAR([AS], [which assembler to use])
 AC_ARG_VAR([ASPP], [which assembler (with preprocessor) to use])
@@ -2043,6 +2045,10 @@ AS_CASE([$host],
 
 AS_IF([test x"$libdir" = x'${exec_prefix}/lib'],
   [libdir="$libdir"/ocaml])
+
+AS_IF([test -n "$SITELIBDIR"],
+  [sitelibdir="$SITELIBDIR"],
+  [sitelibdir="$libdir"])
 
 AS_IF([test x"$mandir" = x'${datarootdir}/man'],
   [mandir='${prefix}/man'])
