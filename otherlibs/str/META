@@ -1,6 +1,6 @@
 description = "Regular expressions and string processing"
 version = "[distributed with OCaml]"
-directory = "+"
+directory = "+str"
 archive(byte) = "str.cma"
 archive(native) = "str.cmxa"
 plugin(byte) = "str.cma"

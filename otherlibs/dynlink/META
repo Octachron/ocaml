@@ -1,5 +1,5 @@
 version = "[distributed with OCaml]"
 description = "Dynamic loading and linking of object files"
-directory = "+"
+directory = "+dynlink"
 archive(byte) = "dynlink.cma"
 archive(native) = "dynlink.cmxa"
