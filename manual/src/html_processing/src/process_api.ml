@@ -128,6 +128,16 @@ let make_toc ~version ~search file config title body =
                           ((if config.title = "" then "" else "../") ^
                            (manual_page_url ^ "/index.html")))
 
+let manual_link soup =
+  let links = soup $$ "a.manual-link" in
+  let relink a =
+    let h = R.attribute "href" a in
+    if String.length h > 3 then
+      let hbase = String.sub h 3 (String.length h - 3) in
+      let href = "../manual/" ^ hbase in
+      set_attribute "href" href a
+  in
+  iter relink links
 
 let process ?(search=true) ~version config file out =
 
@@ -147,7 +157,7 @@ let process ?(search=true) ~version config file out =
   (* Add left sidebar with TOC *)
   let title = soup $ "title" |> R.leaf_text in
   make_toc ~version ~search file config title body;
-
+  manual_link soup;
   dbg "Saving %s..." out;
 
   (* Save new html file *)
