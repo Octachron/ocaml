@@ -18,6 +18,12 @@
 
 (** Effects.
 
+    See
+{%html:<a class="manual-link" href="../effects.html">the effect tutorial</a>%}
+{%latex:section \ref{s:effect-handlers}.%}
+{%man:the effect tutorial %}
+    in the reference manual for more information.
+
     @since 5.0 *)
 
 type _ t = ..
