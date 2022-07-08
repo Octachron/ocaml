@@ -561,7 +561,8 @@ end
 
 open Err
 
-module Elision = struct
+module Elided_trace = struct
+
   type elidable =
     | Not_elided of Location.msg
     | Consider_for_elision of
@@ -571,32 +572,51 @@ module Elision = struct
     | Resolved of Location.msg list
     | Unresolved_elision_hint of {
         revert_elision: (unit->Location.msg);
+        compressed:bool;
+        attached: Location.msg list;
         loc:Location.t option;
         fixed: Location.msg list
       }
 
-  let revert = function
+  let elision ?loc () = Location.msg ?loc "..."
+  let finalize = function
     | Resolved l -> l
-    |  Unresolved_elision_hint {revert_elision; fixed; _} ->
-        revert_elision () :: fixed
+    |  Unresolved_elision_hint r ->
+        let elision_mark = if r.compressed then [elision ()] else [] in
+        r.attached @ r.revert_elision () :: elision_mark @ r.fixed
 
-  let start l = Resolved l
+  let singleton x = Resolved [x]
 
-  let mk ?loc () = Location.msg ?loc "..."
 
-  let commit = function
+  let commit_elision = function
     | Resolved f -> f
     | Unresolved_elision_hint {fixed; loc; _ } ->
-        mk ?loc () :: fixed
+        elision ?loc () :: fixed
 
-  let add last el =
+  let elidable_add last el =
     match  last, el with
-    | Consider_for_elision {revert_elision;loc},
-      (Unresolved_elision_hint {fixed;_}| Resolved fixed)  ->
-        Unresolved_elision_hint {fixed; revert_elision; loc }
+    | Consider_for_elision {revert_elision;loc}, Unresolved_elision_hint t ->
+        Unresolved_elision_hint {
+          fixed=t.fixed; revert_elision; loc;
+          compressed=true; attached=[];
+        }
+
+    | Consider_for_elision {revert_elision;loc}, Resolved fixed ->
+        Unresolved_elision_hint {
+          fixed; revert_elision; loc;
+          compressed=false; attached=[];
+        }
     | Not_elided l, Resolved f -> Resolved (l::f)
     | Not_elided w, Unresolved_elision_hint {loc;fixed} ->
-        Resolved (w :: mk ?loc () :: fixed)
+        Resolved (w :: elision ?loc () :: fixed)
+
+  let add next el =
+    next :: commit_elision el
+
+  let attach next = function
+    | Resolved r -> Resolved (next :: r)
+    | Unresolved_elision_hint  r ->
+        Unresolved_elision_hint  { r with attached = next :: r.attached }
 
   let empty = Resolved []
 
@@ -613,9 +633,9 @@ let dwith_context ?loc ctx printer =
 let dwith_context_and_elision ?loc ctx printer diff =
   let msg () = dwith_context ?loc ctx (printer diff) in
   if is_big (diff.got,diff.expected) then
-    Elision.Consider_for_elision { revert_elision = msg; loc }
+    Elided_trace.Consider_for_elision { revert_elision = msg; loc }
   else
-    Elision.Not_elided (msg ())
+    Elided_trace.Not_elided (msg ())
 
 (* Merge sub msgs into one printer *)
 let coalesce msgs =
@@ -752,18 +772,17 @@ let rec module_type ~expansion_token ~eqmode ~env ~before ~ctx diff =
   | _ ->
       let inner = if eqmode then eq_module_types else module_types in
       let last = dwith_context_and_elision ctx inner diff in
-      let before = Elision.add last before in
+      let before = Elided_trace.elidable_add last before in
       module_type_symptom ~eqmode ~expansion_token ~env ~before ~ctx
         diff.symptom
 
 and module_type_symptom ~eqmode ~expansion_token ~env ~before ~ctx = function
   | Mt_core core ->
       begin match core_module_type_symptom core with
-      | None -> Elision.revert before
-      | Some msg -> Location.msg "%t" msg :: Elision.commit before
+      | None -> Elided_trace.finalize before
+      | Some msg -> Elided_trace.add (Location.msg "%t" msg) before
       end
-  | Signature s ->
-      signature ~expansion_token ~env ~before:(Elision.commit before) ~ctx s
+  | Signature s -> signature ~expansion_token ~env ~before ~ctx s
   | Functor f -> functor_symptom ~expansion_token ~env ~before ~ctx f
   | After_alias_expansion diff ->
       module_type ~eqmode ~expansion_token ~env ~before ~ctx diff
@@ -771,7 +790,7 @@ and module_type_symptom ~eqmode ~expansion_token ~env ~before ~ctx = function
       let printer =
         Format.dprintf "Module %a cannot be aliased" Printtyp.path path
       in
-      dwith_context ctx printer :: Elision.commit before
+      Elided_trace.add (dwith_context ctx printer) before
 
 and functor_params ~expansion_token ~env ~before ~ctx {got;expected;_} =
   let d = Functor_suberror.Inclusion.patch env got expected in
@@ -784,7 +803,7 @@ and functor_params ~expansion_token ~env ~before ~ctx {got;expected;_} =
        @[functor@ %t@ -> ...@]@]"
       actual expected
   in
-  let msgs = dwith_context ctx main :: Elision.commit before in
+  let msgs = Elided_trace.add (dwith_context ctx main) before in
   let functor_suberrors =
     if expansion_token then
       Functor_suberror.params functor_arg_diff ~expansion_token env d
@@ -804,41 +823,41 @@ and signature ~expansion_token ~env:_ ~before ~ctx sgs =
           if expansion_token then
             with_context ctx missing_field a
             :: List.map (Location.msg "%a" missing_field) l
-            @ before
+            @ Elided_trace.commit_elision before
           else
-            before
+            Elided_trace.finalize before
       | [], a :: _ -> sigitem ~expansion_token ~env:sgs.env ~before ~ctx a
       | [], [] -> assert false
     )
 and sigitem ~expansion_token ~env ~before ~ctx (name,s) = match s with
   | Core c ->
-      dwith_context ctx (core env name c) :: before
+      Elided_trace.add (dwith_context ctx (core env name c)) before
   | Module_type diff ->
-      module_type ~expansion_token ~eqmode:false ~env
-        ~before:(Elision.start before) ~ctx:(Context.Module name :: ctx)
-        diff
+      module_type ~expansion_token ~eqmode:false ~env ~before
+        ~ctx:(Context.Module name :: ctx) diff
   | Module_type_declaration diff ->
-      module_type_decl ~expansion_token ~env ~before:(Elision.start before) ~ctx
-        name diff
+      module_type_decl ~expansion_token ~env ~before ~ctx name diff
 and module_type_decl ~expansion_token ~env ~before ~ctx id diff =
   let next =
     dwith_context_and_elision ctx (module_type_declarations id) diff in
-  let before = Elision.add next before in
+  let before = Elided_trace.elidable_add next before in
   match diff.symptom with
   | Not_less_than mts ->
       let before =
-        Location.msg "The first module type is not included in the second"
-        :: Elision.commit before
+        Elided_trace.attach
+        (Location.msg "The first module type is not included in the second")
+         before
       in
-      module_type ~expansion_token ~eqmode:true
-        ~before:(Elision.start before) ~ctx:(Context.Modtype id :: ctx)
-        ~env mts
+      module_type ~expansion_token ~eqmode:true ~before ~env
+        ~ctx:(Context.Modtype id :: ctx) mts
   | Not_greater_than mts ->
       let before =
-        Location.msg "The second module type is not included in the first"
-        :: Elision.commit before in
-      module_type ~expansion_token ~eqmode:true ~env
-        ~before:(Elision.start before)  ~ctx:(Context.Modtype id :: ctx) mts
+        Elided_trace.attach
+        (Location.msg "The second module type is not included in the first")
+        before
+      in
+      module_type ~expansion_token ~eqmode:true ~before ~env
+        ~ctx:(Context.Modtype id :: ctx) mts
   | Incomparable mts ->
       module_type ~expansion_token ~eqmode:true ~env ~before
         ~ctx:(Context.Modtype id :: ctx) mts.less_than
@@ -846,9 +865,10 @@ and module_type_decl ~expansion_token ~env ~before ~ctx id diff =
       begin match diff.got.Types.mtd_type with
       | None -> assert false
       | Some mty ->
-          with_context (Modtype id::ctx)
-            (Illegal_permutation.pp Context.alt_pp env) (mty,c)
-          :: Elision.commit before
+          let msg =
+            with_context (Modtype id::ctx)
+              (Illegal_permutation.pp Context.alt_pp env) (mty,c) in
+          Elided_trace.add msg before
       end
 
 and functor_arg_diff ~expansion_token env (patch: _ Diffing.change) =
@@ -862,7 +882,7 @@ and functor_arg_diff ~expansion_token env (patch: _ Diffing.change) =
       let more () =
         subcase_list @@
         module_type_symptom ~eqmode:false ~expansion_token ~env
-          ~before:Elision.empty ~ctx:[] mty_diff.symptom
+          ~before:Elided_trace.empty ~ctx:[] mty_diff.symptom
       in
       Functor_suberror.Inclusion.diff g e more
 
@@ -877,21 +897,21 @@ let functor_app_diff ~expansion_token env  (patch: _ Diffing.change) =
       let more () =
         subcase_list @@
         module_type_symptom ~eqmode:false ~expansion_token ~env
-          ~before:Elision.empty ~ctx:[] mty_diff.symptom
+          ~before:Elided_trace.empty ~ctx:[] mty_diff.symptom
       in
       Functor_suberror.App.diff g e more
 
 let module_type_subst ~env id diff =
   match diff.symptom with
   | Not_less_than mts ->
-      module_type ~expansion_token:true ~eqmode:true ~before:Elision.empty ~env
-        ~ctx:[Modtype id] mts
+      module_type ~expansion_token:true ~eqmode:true ~env
+        ~before:Elided_trace.empty ~ctx:[Modtype id] mts
   | Not_greater_than mts ->
-      module_type ~expansion_token:true ~eqmode:true ~before:Elision.empty ~env
-        ~ctx:[Modtype id] mts
+      module_type ~expansion_token:true ~eqmode:true ~env
+        ~before:Elided_trace.empty ~ctx:[Modtype id] mts
   | Incomparable mts ->
-      module_type ~expansion_token:true ~eqmode:true ~env ~before:Elision.empty
-        ~ctx:[Modtype id] mts.less_than
+      module_type ~expansion_token:true ~eqmode:true ~env
+        ~before:Elided_trace.empty ~ctx:[Modtype id] mts.less_than
   | Illegal_permutation c ->
       let mty = diff.got in
       let main =
@@ -902,16 +922,18 @@ let module_type_subst ~env id diff =
 let all env = function
   | In_Compilation_unit diff ->
       let first = Location.msg "%a" interface_mismatch diff in
-      signature ~expansion_token:true ~env ~before:[first] ~ctx:[] diff.symptom
+      let before = Elided_trace.singleton first in
+      signature ~expansion_token:true ~env ~before ~ctx:[] diff.symptom
   | In_Type_declaration (id,reason) ->
       [Location.msg "%t" (core env id reason)]
   | In_Module_type diff ->
       module_type ~expansion_token:true ~eqmode:false
-        ~before:Elision.empty ~env ~ctx:[] diff
+        ~before:Elided_trace.empty ~env ~ctx:[] diff
   | In_Module_type_substitution (id,diff) ->
       module_type_subst ~env id diff
   | In_Signature diff ->
-      signature ~expansion_token:true ~before:[] ~env ~ctx:[] diff
+      signature ~expansion_token:true ~before:Elided_trace.empty ~env ~ctx:[]
+        diff
   | In_Expansion cmts ->
       match core_module_type_symptom cmts with
       | None -> assert false
@@ -943,7 +965,7 @@ let report_apply_error ~loc env (lid_app, mty_f, args) =
       let more () =
         subcase_list @@
         module_type_symptom ~eqmode:false ~expansion_token:true ~env
-          ~before:Elision.empty ~ctx:[] mty_diff.symptom
+          ~before:Elided_trace.empty ~ctx:[] mty_diff.symptom
       in
       Location.errorf ~loc "%t" (Functor_suberror.App.single_diff g e more)
   | _ ->
