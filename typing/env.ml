@@ -3168,6 +3168,30 @@ let find_label_by_name lid env =
   let loc = Location.(in_file !input_name) in
   lookup_label ~errors:false ~use:false ~loc Projection lid env
 
+(* Stable name lookup for printing *)
+
+let find_stable_name proj ident env  =
+  match Ident.find_all (Ident.name ident) (proj env).IdTbl.current with
+  | [] -> Ident.name ident
+  | lbls ->
+      let index =
+        Seq.find_map
+          (fun (n,(i,_)) -> if Ident.same ident i then Some n else None)
+          (Seq.mapi (fun i x -> i,x) @@ List.to_seq lbls)
+      in
+      match index with
+      | Some 0 | None -> Ident.name ident
+      | Some n ->
+        String.concat "/" [Ident.name ident; string_of_int (1+n)]
+
+let find_stable_value_name = find_stable_name (fun env -> env.values)
+let find_stable_type_name = find_stable_name (fun env -> env.types)
+let find_stable_module_name = find_stable_name (fun env -> env.modules)
+let find_stable_modtype_name = find_stable_name (fun env -> env.modtypes)
+let find_stable_class_name = find_stable_name (fun env -> env.classes)
+let find_stable_cltype_name = find_stable_name (fun env -> env.cltypes)
+
+
 (* Ordinary lookup functions *)
 
 let lookup_module_path ?(use=true) ~loc ~load lid env =

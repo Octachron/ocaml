@@ -268,6 +268,13 @@ val find_constructor_by_name:
 val find_label_by_name:
   Longident.t -> t -> label_description
 
+val find_stable_value_name:   Ident.t -> t -> string
+val find_stable_type_name:    Ident.t -> t -> string
+val find_stable_module_name:  Ident.t -> t -> string
+val find_stable_modtype_name: Ident.t -> t -> string
+val find_stable_class_name:   Ident.t -> t -> string
+val find_stable_cltype_name:  Ident.t -> t -> string
+
 (* Check if a name is bound *)
 
 val bound_value: string -> t -> bool

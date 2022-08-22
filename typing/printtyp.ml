@@ -55,7 +55,7 @@ let printing_env = ref Env.empty
    cmi present on the file system *)
 let in_printing_env f = Env.without_cmis f !printing_env
 
-let human_unique n id = Printf.sprintf "%s/%d" (Ident.name id) n
+
 
 type namespace =
   | Type
@@ -64,6 +64,19 @@ type namespace =
   | Class
   | Class_type
   | Other (** Other bypasses the unique name identifier mechanism *)
+
+let human_unique n id = Printf.sprintf "%s/%d" (Ident.name id) n
+
+let stable_unique namespace id =
+  let find env = match namespace with
+    | Type -> Env.find_stable_type_name id env
+    | Module -> Env.find_stable_module_name id env
+    | Module_type -> Env.find_stable_modtype_name id env
+    | Class -> Env.find_stable_class_name id env
+    | Class_type-> Env.find_stable_cltype_name id env
+    | Other -> Ident.name id
+  in
+  in_printing_env find
 
 module Namespace = struct
 
@@ -133,10 +146,9 @@ module Conflicts = struct
   type explanation =
     { kind: namespace; name:string; root_name:string; location:Location.t}
   let explanations = ref M.empty
-  let collect_explanation namespace n id =
-    let name = human_unique n id in
+  let collect_explanation namespace id ~name =
     let root_name = Ident.name id in
-    if not (M.mem name !explanations) then
+    if root_name != name && not (M.mem name !explanations) then
       match Namespace.location namespace id with
       | None -> ()
       | Some location ->
@@ -274,7 +286,6 @@ let pervasives_name namespace name =
   | Uniquely_associated_to (id',r) ->
       let hid, map = add_hid_id id' Ident.Map.empty in
       Out_name.set r (human_unique hid id');
-      Conflicts.collect_explanation namespace hid id';
       set namespace @@ M.add name (Need_unique_name map) (get namespace);
       Out_name.create (pervasives name)
   | exception Not_found ->
@@ -283,7 +294,7 @@ let pervasives_name namespace name =
       r
 
 (** Lookup for preexisting named item within the current {!printing_env} *)
-let env_ident namespace name =
+let _env_ident namespace name =
   if S.mem name !protected then None else
   match Namespace.lookup namespace name with
   | Pident id -> Some id
@@ -301,15 +312,12 @@ let ident_name_simple namespace id =
       r
   | Need_unique_name map ->
       let hid, m = find_hid id map in
-      Conflicts.collect_explanation namespace hid id;
       set namespace @@ M.add name (Need_unique_name m) (get namespace);
       Out_name.create (human_unique hid id)
   | Uniquely_associated_to (id',r) ->
       let hid', m = find_hid id' Ident.Map.empty in
       let hid, m = find_hid id m in
       Out_name.set r (human_unique hid' id');
-      List.iter (fun (id,hid) -> Conflicts.collect_explanation namespace hid id)
-        [id, hid; id', hid' ];
       set namespace @@ M.add name (Need_unique_name m) (get namespace);
       Out_name.create (human_unique hid id)
   | Associated_to_pervasives r ->
@@ -326,11 +334,9 @@ let ident_name_simple namespace id =
 (** Same as {!ident_name_simple} but lookup to existing named identifiers
     in the current {!printing_env} *)
 let ident_name namespace id =
-  begin match env_ident namespace (Ident.name id) with
-  | Some id' -> ignore (ident_name_simple namespace id')
-  | None -> ()
-  end;
-  ident_name_simple namespace id
+  let name = stable_unique namespace id in
+  Conflicts.collect_explanation namespace id ~name;
+  Out_name.create name
 
 let reset () =
   Array.iteri ( fun i _ -> map.(i) <- M.empty ) map
