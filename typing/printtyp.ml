@@ -41,7 +41,6 @@ let () = Env.print_longident := longident
 module Out_name = struct
   let create x = { printed_name = x }
   let print x = x.printed_name
-  let set out_name x = out_name.printed_name <- x
 end
 
 (** Some identifiers may require hiding when printing *)
@@ -65,18 +64,6 @@ type namespace =
   | Class_type
   | Other (** Other bypasses the unique name identifier mechanism *)
 
-let human_unique n id = Printf.sprintf "%s/%d" (Ident.name id) n
-
-let stable_unique namespace id =
-  let find env = match namespace with
-    | Type -> Env.find_stable_type_name id env
-    | Module -> Env.find_stable_module_name id env
-    | Module_type -> Env.find_stable_modtype_name id env
-    | Class -> Env.find_stable_class_name id env
-    | Class_type-> Env.find_stable_cltype_name id env
-    | Other -> Ident.name id
-  in
-  in_printing_env find
 
 module Namespace = struct
 
@@ -101,11 +88,8 @@ module Namespace = struct
 
   let pp ppf x = Format.pp_print_string ppf (show x)
 
-  (** The two functions below should never access the filesystem,
-      and thus use {!in_printing_env} rather than directly
-      accessing the printing environment *)
   let lookup =
-    let to_lookup f lid = fst @@ in_printing_env (f (Lident lid)) in
+    let to_lookup f lid = fst @@ in_printing_env (f (Longident.Lident lid)) in
     function
     | Type -> to_lookup Env.find_type_by_name
     | Module -> to_lookup Env.find_module_by_name
@@ -114,6 +98,10 @@ module Namespace = struct
     | Class_type -> to_lookup Env.find_cltype_by_name
     | Other -> fun _ -> raise Not_found
 
+
+  (** The function below should never access the filesystem,
+      and thus use {!in_printing_env} rather than directly
+      accessing the printing environment *)
   let location namespace id =
     let path = Path.Pident id in
     try Some (
@@ -221,49 +209,14 @@ end
 
 module Naming_context = struct
 
-module M = String.Map
-module S = String.Set
-
 let enabled = ref true
 let enable b = enabled := b
+module S = String.Set
+module M = String.Map
 
-(** Name mapping *)
-type mapping =
-  | Need_unique_name of int Ident.Map.t
-  (** The same name has already been attributed to multiple types.
-      The [map] argument contains the specific binding time attributed to each
-      types.
-  *)
-  | Uniquely_associated_to of Ident.t * out_name
-    (** For now, the name [Ident.name id] has been attributed to [id],
-        [out_name] is used to expand this name if a conflict arises
-        at a later point
-    *)
-  | Associated_to_pervasives of out_name
-  (** [Associated_to_pervasives out_name] is used when the item
-      [Stdlib.$name] has been associated to the name [$name].
-      Upon a conflict, this name will be expanded to ["Stdlib." ^ name ] *)
-
-let hid_start = 0
-
-let add_hid_id id map =
-  let new_id = 1 + Ident.Map.fold (fun _ -> Int.max) map hid_start in
-  new_id, Ident.Map.add id new_id  map
-
-let find_hid id map =
-  try Ident.Map.find id map, map with
-  Not_found -> add_hid_id id map
-
-let pervasives name = "Stdlib." ^ name
-
-let map = Array.make Namespace.size M.empty
-let get namespace = map.(Namespace.id namespace)
-let set namespace x = map.(Namespace.id namespace) <- x
-
-(* Names used in recursive definitions are not considered when determining
-   if a name is already attributed in the current environment.
-   This is a complementary version of hidden_rec_items used by short-path. *)
-let protected = ref S.empty
+(* Names bound in recursive definitions should be considered as bound
+   in the environment when printing identifiers *)
+let bound_in_recursion = ref M.empty
 
 (* When dealing with functor arguments, identity becomes fuzzy because the same
    syntactic argument may be represented by different identifiers during the
@@ -272,64 +225,32 @@ let protected = ref S.empty
 let fuzzy = ref S.empty
 let with_arg id f =
   protect_refs [ R(fuzzy, S.add (Ident.name id) !fuzzy) ] f
-let fuzzy_id namespace id = namespace = Module && S.mem (Ident.name id) !fuzzy
 
 let with_hidden ids f =
-  let update m id = S.add (Ident.name id.ident) m in
-  protect_refs [ R(protected, List.fold_left update !protected ids)] f
+  let update m id = M.add (Ident.name id.ident) id.ident m in
+  protect_refs
+    [ R(bound_in_recursion, List.fold_left update !bound_in_recursion ids)]
+    f
 
-let pervasives_name namespace name =
-  if not !enabled then Out_name.create name else
-  match M.find name (get namespace) with
-  | Associated_to_pervasives r -> r
-  | Need_unique_name _ -> Out_name.create (pervasives name)
-  | Uniquely_associated_to (id',r) ->
-      let hid, map = add_hid_id id' Ident.Map.empty in
-      Out_name.set r (human_unique hid id');
-      set namespace @@ M.add name (Need_unique_name map) (get namespace);
-      Out_name.create (pervasives name)
-  | exception Not_found ->
-      let r = Out_name.create name in
-      set namespace @@ M.add name (Associated_to_pervasives r) (get namespace);
-      r
 
-(** Lookup for preexisting named item within the current {!printing_env} *)
-let _env_ident namespace name =
-  if S.mem name !protected then None else
-  match Namespace.lookup namespace name with
-  | Pident id -> Some id
-  | _ -> None
-  | exception Not_found -> None
-
-(** Associate a name to the identifier [id] within [namespace] *)
-let ident_name_simple namespace id =
-  if not !enabled || fuzzy_id namespace id then
-    Out_name.create (Ident.name id)
-  else
-  let name = Ident.name id in
-  match M.find name (get namespace) with
-  | Uniquely_associated_to (id',r) when Ident.same id id' ->
-      r
-  | Need_unique_name map ->
-      let hid, m = find_hid id map in
-      set namespace @@ M.add name (Need_unique_name m) (get namespace);
-      Out_name.create (human_unique hid id)
-  | Uniquely_associated_to (id',r) ->
-      let hid', m = find_hid id' Ident.Map.empty in
-      let hid, m = find_hid id m in
-      Out_name.set r (human_unique hid' id');
-      set namespace @@ M.add name (Need_unique_name m) (get namespace);
-      Out_name.create (human_unique hid id)
-  | Associated_to_pervasives r ->
-      Out_name.set r ("Stdlib." ^ Out_name.print r);
-      let hid, m = find_hid id Ident.Map.empty in
-      set namespace @@ M.add name (Need_unique_name m) (get namespace);
-      Out_name.create (human_unique hid id)
-  | exception Not_found ->
-      let r = Out_name.create name in
-      set namespace
-      @@ M.add name (Uniquely_associated_to (id,r) ) (get namespace);
-      r
+let stable_unique namespace id =
+  let find env = match namespace with
+    | Type -> Env.find_stable_type_name id env
+    | Module -> Env.find_stable_module_name id env
+    | Module_type -> Env.find_stable_modtype_name id env
+    | Class -> Env.find_stable_class_name id env
+    | Class_type-> Env.find_stable_cltype_name id env
+    | Other -> None
+  in
+  match in_printing_env find, M.find_opt (Ident.name id) !bound_in_recursion with
+  | None, _ | Some 0, None-> Ident.name id
+  | Some n, Some p ->
+      if Ident.same p id then
+        Ident.name id
+      else
+        String.concat "/" [Ident.name id; string_of_int (2 + n)]
+  | Some n, None ->
+      String.concat "/" [Ident.name id; string_of_int (1 + n)]
 
 (** Same as {!ident_name_simple} but lookup to existing named identifiers
     in the current {!printing_env} *)
@@ -337,31 +258,21 @@ let ident_name namespace id =
   let name = stable_unique namespace id in
   Conflicts.collect_explanation namespace id ~name;
   Out_name.create name
-
-let reset () =
-  Array.iteri ( fun i _ -> map.(i) <- M.empty ) map
-
-let with_ctx f =
-  let old = Array.copy map in
-  try_finally f
-    ~always:(fun () -> Array.blit old 0 map 0 (Array.length map))
-
 end
 let ident_name = Naming_context.ident_name
-let reset_naming_context = Naming_context.reset
 
 let ident ppf id = pp_print_string ppf
-    (Out_name.print (Naming_context.ident_name_simple Other id))
+    (Out_name.print (Naming_context.ident_name Other id))
 
 (* Print a path *)
 
 let ident_stdlib = Ident.create_persistent "Stdlib"
 
-let non_shadowed_pervasive = function
+let non_shadowed_stdlib namespace = function
   | Pdot(Pident id, s) as path ->
       Ident.same id ident_stdlib &&
-      (match in_printing_env (Env.find_type_by_name (Lident s)) with
-       | (path', _) -> Path.same path path'
+      (match Namespace.lookup namespace s with
+       | path' -> Path.same path path'
        | exception Not_found -> true)
   | _ -> false
 
@@ -422,8 +333,8 @@ let rewrite_double_underscore_paths env p =
 let rec tree_of_path namespace = function
   | Pident id ->
       Oide_ident (ident_name namespace id)
-  | Pdot(_, s) as path when non_shadowed_pervasive path ->
-      Oide_ident (Naming_context.pervasives_name namespace s)
+  | Pdot(_, s) as path when non_shadowed_stdlib namespace path ->
+      Oide_ident (Out_name.create @@ s)
   | Pdot(Pident t, s)
     when namespace=Type && not (Path.is_uident (Ident.name t)) ->
       (* [t.A]: inline record of the constructor [A] from type [t] *)
@@ -443,7 +354,6 @@ let string_of_path p =
   Format.asprintf "%a" path p
 
 let strings_of_paths namespace p =
-  reset_naming_context ();
   let trees = List.map (tree_of_path namespace) p in
   List.map (Format.asprintf "%a" !Oprint.out_ident) trees
 
@@ -708,7 +618,7 @@ let set_printing_env env =
   end
 
 let wrap_printing_env env f =
-  set_printing_env env; reset_naming_context ();
+  set_printing_env env;
   try_finally f ~always:(fun () -> set_printing_env Env.empty)
 
 let wrap_printing_env ~error env f =
@@ -1060,7 +970,7 @@ let reset_except_context () =
   Names.reset_names (); reset_loop_marks ()
 
 let reset () =
-  reset_naming_context (); Conflicts.reset ();
+  Conflicts.reset ();
   reset_except_context ()
 
 let prepare_for_printing tyl =
@@ -1108,7 +1018,12 @@ let rec tree_of_typexp mode ty =
         let tyl' = apply_subst s tyl in
         if is_nth s && not (tyl'=[])
         then tree_of_typexp mode (List.hd tyl')
-        else Otyp_constr (tree_of_path Type p', tree_of_typlist mode tyl')
+        else
+          let tpath =
+            (* if p' != p, we keep the name chosen by short-paths *)
+            if p' != p then tree_of_path Type p' else tree_of_path Other p'
+          in
+          Otyp_constr (tpath, tree_of_typlist mode tyl')
     | Tvariant row ->
         let Row {fields; name; closed} = row_repr row in
         let fields =
@@ -1866,8 +1781,7 @@ and tree_of_signature_rec env' sg =
   let collect_trees_of_rec_group group =
     let env = !printing_env in
     let env', group_trees =
-      Naming_context.with_ctx
-        (fun () -> trees_of_recursive_sigitem_group env group)
+       trees_of_recursive_sigitem_group env group
     in
     set_printing_env env';
     (env, group_trees) in
@@ -1945,7 +1859,6 @@ let modtype_declaration id ppf decl =
 
 let print_items showval env x =
   Names.refresh_weak();
-  reset_naming_context ();
   Conflicts.reset ();
   let extend_val env (sigitem,outcome) = outcome, showval env sigitem in
   let post_process (env,l) = List.map (extend_val env) l in
@@ -1963,7 +1876,6 @@ let signature ppf sg =
 let printed_signature sourcefile ppf sg =
   (* we are tracking any collision event for warning 63 *)
   Conflicts.reset ();
-  reset_naming_context ();
   let t = tree_of_signature sg in
   if Warnings.(is_active @@ Erroneous_printed_signature "")
   && Conflicts.exists ()

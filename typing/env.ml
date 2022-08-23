@@ -431,6 +431,19 @@ module IdTbl =
           List.map (fun (p, desc) -> (p, f desc))
             (find_all wrap name next)
 
+    let rec find_all_idents name tbl =
+      List.map
+        (fun (id, _) -> Some id)
+        (Ident.find_all name tbl.current) @
+      match tbl.layer with
+      | Nothing -> []
+      | Open { next; components; _ } ->
+          if NameMap.mem name components then
+            None :: find_all_idents name next
+          else
+            find_all_idents name next
+      | Map {next; _ } -> find_all_idents name next
+
     let rec fold_name wrap f tbl acc =
       let acc =
         Ident.fold_name
@@ -3171,18 +3184,15 @@ let find_label_by_name lid env =
 (* Stable name lookup for printing *)
 
 let find_stable_name proj ident env  =
-  match Ident.find_all (Ident.name ident) (proj env).IdTbl.current with
-  | [] -> Ident.name ident
+  match IdTbl.find_all_idents (Ident.name ident) (proj env) with
+  | [] -> None
   | lbls ->
-      let index =
-        Seq.find_map
-          (fun (n,(i,_)) -> if Ident.same ident i then Some n else None)
-          (Seq.mapi (fun i x -> i,x) @@ List.to_seq lbls)
+      let find_ident (n,p) = match p with
+        | Some i -> if Ident.same ident i then Some n else None
+        | _ -> None
       in
-      match index with
-      | Some 0 | None -> Ident.name ident
-      | Some n ->
-        String.concat "/" [Ident.name ident; string_of_int (1+n)]
+      Seq.find_map find_ident
+        (Seq.mapi (fun i x -> i,x) @@ List.to_seq lbls)
 
 let find_stable_value_name = find_stable_name (fun env -> env.values)
 let find_stable_type_name = find_stable_name (fun env -> env.types)
