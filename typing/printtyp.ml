@@ -240,9 +240,8 @@ let with_arg id f =
 
 let with_hidden ids f =
   let update m id = M.add (Ident.name id.ident) id.ident m in
-  protect_refs
-    [ R(bound_in_recursion, List.fold_left update !bound_in_recursion ids)]
-    f
+  let updated = List.fold_left update !bound_in_recursion ids in
+  protect_refs [ R(bound_in_recursion, updated )] f
 
 
 let stable_unique namespace id =
@@ -254,7 +253,8 @@ let stable_unique namespace id =
     | Class_type-> Env.find_stable_cltype_name id env
     | Other -> None
   in
-  match in_printing_env find, M.find_opt (Ident.name id) !bound_in_recursion with
+  let rec_bound = M.find_opt (Ident.name id) !bound_in_recursion in
+  match in_printing_env find, rec_bound with
   | None, _ | Some 0, None-> Ident.name id
   | Some n, Some p ->
       if Ident.same p id then
@@ -346,7 +346,7 @@ let rec tree_of_path namespace = function
   | Pident id ->
       Oide_ident (ident_name namespace id)
   | Pdot(_, s) as path when non_shadowed_stdlib namespace path ->
-      Oide_ident (Out_name.create @@ s)
+      Oide_ident (Out_name.create s)
   | Pdot(Pident t, s)
     when namespace=Type && not (Path.is_uident (Ident.name t)) ->
       (* [t.A]: inline record of the constructor [A] from type [t] *)
@@ -1033,7 +1033,7 @@ let rec tree_of_typexp mode ty =
         else
           let tpath =
             (* if p' != p, we keep the name chosen by short-paths *)
-            if p' != p then tree_of_path Type p' else tree_of_path Other p'
+            if p' != p then tree_of_path Other p' else tree_of_path Type p'
           in
           Otyp_constr (tpath, tree_of_typlist mode tyl')
     | Tvariant row ->
