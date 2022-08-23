@@ -48,6 +48,8 @@ Error: Signature mismatch:
        The type X.t option is not compatible with the type X/2.t option
        Type X.t is not compatible with type X/2.t 
        File "_none_", line 1:
+         Definition of module X
+       File "_none_", line 1:
          Definition of module X/2
        File "pr10693_bad.ml", line 17, characters 6-24: Expected declaration
        File "pr10693_bad.ml", line 15, characters 4-22: Actual declaration

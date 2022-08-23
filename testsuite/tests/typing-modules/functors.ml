@@ -523,6 +523,8 @@ Error: The functor application is ill-typed.
             P.B : b
           is not included in
             b/2
+          Line 5, characters 2-15:
+            Definition of module type b
           Line 2, characters 0-13:
             Definition of module type b/2
        3. Modules do not match: $S3 : sig type w end is not included in y
@@ -542,6 +544,8 @@ Line 6, characters 13-19:
 6 |     type t = F(X).t
                  ^^^^^^
 Error: Modules do not match: a is not included in a/2
+     Line 3, characters 2-15:
+       Definition of module type a
      Line 1, characters 0-13:
        Definition of module type a/2
 |}]
@@ -580,6 +584,8 @@ Error: Signature mismatch:
             a
           does not include
             a/2
+          Line 4, characters 2-15:
+            Definition of module type a
           Line 1, characters 0-13:
             Definition of module type a/2
 |}]

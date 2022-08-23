@@ -134,14 +134,26 @@ module Conflicts = struct
   type explanation =
     { kind: namespace; name:string; root_name:string; location:Location.t}
   let explanations = ref M.empty
+
+  let add namespace name id =
+    match Namespace.location namespace id with
+    | None -> ()
+    | Some location ->
+        let explanation =
+          { kind = namespace; location; name; root_name=Ident.name id}
+        in
+        explanations := M.add name explanation !explanations
+
   let collect_explanation namespace id ~name =
     let root_name = Ident.name id in
     if root_name != name && not (M.mem name !explanations) then
-      match Namespace.location namespace id with
-      | None -> ()
-      | Some location ->
-          let explanation = { kind = namespace; location; name; root_name } in
-          explanations := M.add name explanation !explanations
+      begin
+        add namespace name id;
+        if not (M.mem root_name !explanations) then
+          match Namespace.lookup namespace root_name with
+          | Pident root_id -> add namespace root_name root_id
+          | exception Not_found | _ -> ()
+      end
 
   let pp_explanation ppf r=
     Format.fprintf ppf "@[<v 2>%a:@,Definition of %s %s@]"
