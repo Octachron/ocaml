@@ -56,35 +56,30 @@ let in_printing_env f = Env.without_cmis f !printing_env
 
 
 
-type namespace =
-  | Type
-  | Module
-  | Module_type
-  | Class
-  | Class_type
-  | Other (** Other bypasses the unique name identifier mechanism *)
+type namespace = Shape.Sig_component_kind.t =
+    | Value
+    | Type
+    | Module
+    | Module_type
+    | Extension_constructor
+    | Class
+    | Class_type
 
 
 module Namespace = struct
 
+  let show = Shape.Sig_component_kind.to_string
+
   let id = function
-    | Type -> 0
-    | Module -> 1
-    | Module_type -> 2
-    | Class -> 3
-    | Class_type -> 4
-    | Other -> 5
+    | Value -> 0
+    | Type -> 1
+    | Module -> 2
+    | Module_type -> 3
+    | Extension_constructor -> 4
+    | Class -> 5
+    | Class_type -> 6
 
-  let size = 1 + id Other
-
-  let show =
-    function
-    | Type -> "type"
-    | Module -> "module"
-    | Module_type -> "module type"
-    | Class -> "class"
-    | Class_type -> "class type"
-    | Other -> ""
+  let size = id Class_type
 
   let pp ppf x = Format.pp_print_string ppf (show x)
 
@@ -96,7 +91,8 @@ module Namespace = struct
     | Module_type -> to_lookup Env.find_modtype_by_name
     | Class -> to_lookup Env.find_class_by_name
     | Class_type -> to_lookup Env.find_cltype_by_name
-    | Other -> fun _ -> raise Not_found
+    | Extension_constructor -> raise Not_found
+    | Value -> to_lookup Env.find_value_by_name
 
 
   (** The function below should never access the filesystem,
@@ -111,7 +107,7 @@ module Namespace = struct
         | Module_type -> (in_printing_env @@ Env.find_modtype path).mtd_loc
         | Class -> (in_printing_env @@ Env.find_class path).cty_loc
         | Class_type -> (in_printing_env @@ Env.find_cltype path).clty_loc
-        | Other -> Location.none
+        | Value | Extension_constructor -> Location.none
       ) with Not_found -> None
 
   let best_class_namespace = function
@@ -237,7 +233,8 @@ let bound_in_recursion = ref M.empty
 let fuzzy = ref S.empty
 let with_arg id f =
   protect_refs [ R(fuzzy, S.add (Ident.name id) !fuzzy) ] f
-let fuzzy_id namespace id = namespace = Module && S.mem (Ident.name id) !fuzzy
+let fuzzy_id namespace id =
+  namespace = Some Module && S.mem (Ident.name id) !fuzzy
 
 let with_hidden ids f =
   let update m id = M.add (Ident.name id.ident) id.ident m in
@@ -246,20 +243,11 @@ let with_hidden ids f =
 
 
 let stable_unique namespace id =
-  let find env = match namespace with
-    | Type -> Env.find_type_index id env
-    | Module -> Env.find_module_index id env
-    | Module_type -> Env.find_modtype_index id env
-    | Class -> Env.find_class_index id env
-    | Class_type-> Env.find_cltype_index id env
-    | Other -> None
-  in
   let rec_bound = M.find_opt (Ident.name id) !bound_in_recursion in
-  match in_printing_env find, rec_bound with
+  match in_printing_env (Env.find_index namespace id), rec_bound with
   | None, _ | Some (Some 0), None | Some None, Some _ -> Ident.name id
   | Some None, None ->
-      if namespace = Other then Ident.name id
-      else Ident.name id
+     Ident.name id
       (* In this case, the environment does not contain enough information
          to let us choose good unique names for identifiers sharing this name.
          Not only there are other indents in scope
@@ -275,29 +263,35 @@ let stable_unique namespace id =
 
 (** Same as {!ident_name_simple} but lookup to existing named identifiers
     in the current {!printing_env} *)
-let ident_name namespace id =
+let ident_name ?namespace id =
   if not !enabled || fuzzy_id namespace id then
     Out_name.create (Ident.name id)
   else
-    let name = stable_unique namespace id in
-    Conflicts.collect_explanation namespace id ~name;
-    Out_name.create name
+    match namespace with
+    | None -> Out_name.create (Ident.name id)
+    | Some namespace ->
+        let name = stable_unique namespace id in
+        Conflicts.collect_explanation namespace id ~name;
+        Out_name.create name
 end
 let ident_name = Naming_context.ident_name
 
 let ident ppf id = pp_print_string ppf
-    (Out_name.print (Naming_context.ident_name Other id))
+    (Out_name.print (Naming_context.ident_name id))
 
 (* Print a path *)
 
 let ident_stdlib = Ident.create_persistent "Stdlib"
 
-let non_shadowed_stdlib namespace = function
-  | Pdot(Pident id, s) as path ->
+let non_shadowed_stdlib namespace path =
+  match namespace, path with
+  | Some namespace, (Pdot(Pident id, s) as path) ->
       Ident.same id ident_stdlib &&
       (match Namespace.lookup namespace s with
        | path' -> Path.same path path'
        | exception Not_found -> true)
+  | None, Pdot(Pident id, _)  ->
+      Ident.same id ident_stdlib
   | _ -> false
 
 let find_double_underscore s =
@@ -354,34 +348,39 @@ let rewrite_double_underscore_paths env p =
   else
     rewrite_double_underscore_paths env p
 
-let rec tree_of_path ?(disambiguate_names=true) namespace p =
-  let namespace = if disambiguate_names then namespace else Other in
+let rec tree_of_path ?(disambiguation=true) namespace p =
+  let namespace = if disambiguation then namespace else None in
   match p with
   | Pident id ->
-      Oide_ident (ident_name namespace id)
+      Oide_ident (ident_name ?namespace id)
   | Pdot(_, s) as path when non_shadowed_stdlib namespace path ->
       Oide_ident (Out_name.create s)
   | Pdot(Pident t, s)
-    when namespace=Type && not (Path.is_uident (Ident.name t)) ->
+    when namespace=Some Type && not (Path.is_uident (Ident.name t)) ->
       (* [t.A]: inline record of the constructor [A] from type [t] *)
-      Oide_dot (Oide_ident (ident_name Type t), s)
+      Oide_dot (Oide_ident (ident_name ~namespace:Type t), s)
   | Pdot(p, s) ->
-      Oide_dot (tree_of_path ~disambiguate_names Module p, s)
+      Oide_dot (tree_of_path ~disambiguation (Some Module) p, s)
   | Papply(p1, p2) ->
-      let t1 = tree_of_path ~disambiguate_names Module p1 in
-      let t2 = tree_of_path ~disambiguate_names Module p2 in
+      let t1 = tree_of_path ~disambiguation (Some Module) p1 in
+      let t2 = tree_of_path ~disambiguation (Some Module) p2 in
       Oide_apply (t1, t2)
 
-let tree_of_path ?disambiguate_names namespace p =
-  tree_of_path ?disambiguate_names namespace
+let tree_of_path_without_namespace ~disambiguation p =
+  tree_of_path ~disambiguation None
+    (rewrite_double_underscore_paths !printing_env p)
+
+let tree_of_path namespace p =
+  tree_of_path ~disambiguation:true (Some namespace)
     (rewrite_double_underscore_paths !printing_env p)
 
 let best_tree_of_type_path p p' =
   if p == p' then tree_of_path Type p'
-  else tree_of_path ~disambiguate_names:false Other p'
+  else tree_of_path_without_namespace ~disambiguation:false p'
 
 let path ppf p =
-  !Oprint.out_ident ppf (tree_of_path Other p)
+  !Oprint.out_ident ppf
+    (tree_of_path_without_namespace ~disambiguation:true p)
 
 let string_of_path p =
   Format.asprintf "%a" path p
@@ -2472,7 +2471,7 @@ let report_ambiguous_type_error ppf env tp0 tpl txt1 txt2 txt3 =
           txt3 type_path_expansion tp0)
 
 (* Adapt functions to exposed interface *)
-let tree_of_path = tree_of_path Other
+let tree_of_path = tree_of_path_without_namespace ~disambiguation:true
 let tree_of_modtype = tree_of_modtype ~ellipsis:false
 let type_expansion mode ppf ty_exp =
   type_expansion ppf (trees_of_type_expansion mode ty_exp)

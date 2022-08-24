@@ -3183,8 +3183,8 @@ let find_label_by_name lid env =
 
 (* Stable name lookup for printing *)
 
-let find_index proj ident env  =
-  match IdTbl.find_all_idents (Ident.name ident) (proj env) with
+let find_index_tbl tbl ident  =
+  match IdTbl.find_all_idents (Ident.name ident) tbl with
   | [] -> None
   | lbls ->
       let find_ident (n,p) = match p with
@@ -3197,13 +3197,14 @@ let find_index proj ident env  =
       in
       Some index
 
-let find_value_index = find_index (fun env -> env.values)
-let find_type_index = find_index (fun env -> env.types)
-let find_module_index = find_index (fun env -> env.modules)
-let find_modtype_index = find_index (fun env -> env.modtypes)
-let find_class_index = find_index (fun env -> env.classes)
-let find_cltype_index = find_index (fun env -> env.cltypes)
-
+let find_index kind id env = match kind with
+  | Shape.Sig_component_kind.Value -> find_index_tbl env.values id
+  | Shape.Sig_component_kind.Type -> find_index_tbl env.types id
+  | Shape.Sig_component_kind.Module -> find_index_tbl env.modules id
+  | Shape.Sig_component_kind.Module_type -> find_index_tbl env.modtypes id
+  | Shape.Sig_component_kind.Extension_constructor -> None
+  | Shape.Sig_component_kind.Class -> find_index_tbl env.classes id
+  | Shape.Sig_component_kind.Class_type -> find_index_tbl env.cltypes id
 (* Ordinary lookup functions *)
 
 let lookup_module_path ?(use=true) ~loc ~load lid env =

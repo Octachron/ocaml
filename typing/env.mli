@@ -268,20 +268,15 @@ val find_constructor_by_name:
 val find_label_by_name:
   Longident.t -> t -> label_description
 
-(** The [find_*_index] functions computes a "namespaced" De Bruijn index
+(** The [find_index] function computes a "namespaced" De Bruijn index
     of an identifier in a given environment. In other words, it returns how many
     times an identifier has been shadowed by a more recent identifiers with the
     same name in a given environment.
-    [find_*_index id env] identifiers is [None] if the name of the
+    [find_index kind id env] identifiers is [None] if the name of the
     identifier is unbound in [env], and [Some None] if it is the
     identifier [id] itself which is unbound.
 *)
-val find_value_index:   Ident.t -> t -> int option option
-val find_type_index:    Ident.t -> t -> int option option
-val find_module_index:  Ident.t -> t -> int option option
-val find_modtype_index: Ident.t -> t -> int option option
-val find_class_index:   Ident.t -> t -> int option option
-val find_cltype_index:  Ident.t -> t -> int option option
+val find_index: Shape.Sig_component_kind.t -> Ident.t -> t -> int option option
 
 (* Check if a name is bound *)
 

@@ -34,13 +34,7 @@ module Out_name: sig
   val print: out_name -> string
 end
 
-type namespace =
-  | Type
-  | Module
-  | Module_type
-  | Class
-  | Class_type
-  | Other (** Other bypasses the unique name for identifier mechanism *)
+type namespace = Shape.Sig_component_kind.t
 
 val strings_of_paths: namespace -> Path.t list -> string list
     (** Print a list of paths, using the same naming context to
