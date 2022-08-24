@@ -3191,8 +3191,11 @@ let find_stable_name proj ident env  =
         | Some i -> if Ident.same ident i then Some n else None
         | _ -> None
       in
-      Seq.find_map find_ident
-        (Seq.mapi (fun i x -> i,x) @@ List.to_seq lbls)
+      let index =
+        Seq.find_map find_ident
+          (Seq.mapi (fun i x -> i,x) @@ List.to_seq lbls)
+      in
+      Some index
 
 let find_stable_value_name = find_stable_name (fun env -> env.values)
 let find_stable_type_name = find_stable_name (fun env -> env.types)

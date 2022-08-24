@@ -237,6 +237,7 @@ let bound_in_recursion = ref M.empty
 let fuzzy = ref S.empty
 let with_arg id f =
   protect_refs [ R(fuzzy, S.add (Ident.name id) !fuzzy) ] f
+let fuzzy_id namespace id = namespace = Module && S.mem (Ident.name id) !fuzzy
 
 let with_hidden ids f =
   let update m id = M.add (Ident.name id.ident) id.ident m in
@@ -255,21 +256,32 @@ let stable_unique namespace id =
   in
   let rec_bound = M.find_opt (Ident.name id) !bound_in_recursion in
   match in_printing_env find, rec_bound with
-  | None, _ | Some 0, None-> Ident.name id
-  | Some n, Some p ->
+  | None, _ | Some (Some 0), None | Some None, Some _ -> Ident.name id
+  | Some None, None ->
+      if namespace = Other then Ident.name id
+      else Ident.name id
+      (* In this case, the environment does not contain enough information
+         to let us choose good unique names for identifiers sharing this name.
+         Not only there are other indents in scope
+         with the same name, but the current identifiers does not exist in the
+         environment *)
+  | Some (Some n), Some p ->
       if Ident.same p id then
         Ident.name id
       else
         String.concat "/" [Ident.name id; string_of_int (2 + n)]
-  | Some n, None ->
+  | Some (Some n), None ->
       String.concat "/" [Ident.name id; string_of_int (1 + n)]
 
 (** Same as {!ident_name_simple} but lookup to existing named identifiers
     in the current {!printing_env} *)
 let ident_name namespace id =
-  let name = stable_unique namespace id in
-  Conflicts.collect_explanation namespace id ~name;
-  Out_name.create name
+  if not !enabled || fuzzy_id namespace id then
+    Out_name.create (Ident.name id)
+  else
+    let name = stable_unique namespace id in
+    Conflicts.collect_explanation namespace id ~name;
+    Out_name.create name
 end
 let ident_name = Naming_context.ident_name
 
@@ -342,7 +354,9 @@ let rewrite_double_underscore_paths env p =
   else
     rewrite_double_underscore_paths env p
 
-let rec tree_of_path namespace = function
+let rec tree_of_path ?(disambiguate_names=true) namespace p =
+  let namespace = if disambiguate_names then namespace else Other in
+  match p with
   | Pident id ->
       Oide_ident (ident_name namespace id)
   | Pdot(_, s) as path when non_shadowed_stdlib namespace path ->
@@ -352,12 +366,19 @@ let rec tree_of_path namespace = function
       (* [t.A]: inline record of the constructor [A] from type [t] *)
       Oide_dot (Oide_ident (ident_name Type t), s)
   | Pdot(p, s) ->
-      Oide_dot (tree_of_path Module p, s)
+      Oide_dot (tree_of_path ~disambiguate_names Module p, s)
   | Papply(p1, p2) ->
-      Oide_apply (tree_of_path Module p1, tree_of_path Module p2)
+      let t1 = tree_of_path ~disambiguate_names Module p1 in
+      let t2 = tree_of_path ~disambiguate_names Module p2 in
+      Oide_apply (t1, t2)
 
-let tree_of_path namespace p =
-  tree_of_path namespace (rewrite_double_underscore_paths !printing_env p)
+let tree_of_path ?disambiguate_names namespace p =
+  tree_of_path ?disambiguate_names namespace
+    (rewrite_double_underscore_paths !printing_env p)
+
+let best_tree_of_type_path p p' =
+  if p == p' then tree_of_path Type p'
+  else tree_of_path ~disambiguate_names:false Other p'
 
 let path ppf p =
   !Oprint.out_ident ppf (tree_of_path Other p)
@@ -1031,10 +1052,7 @@ let rec tree_of_typexp mode ty =
         if is_nth s && not (tyl'=[])
         then tree_of_typexp mode (List.hd tyl')
         else
-          let tpath =
-            (* if p' != p, we keep the name chosen by short-paths *)
-            if p' != p then tree_of_path Other p' else tree_of_path Type p'
-          in
+          let tpath = best_tree_of_type_path p p' in
           Otyp_constr (tpath, tree_of_typlist mode tyl')
     | Tvariant row ->
         let Row {fields; name; closed} = row_repr row in
@@ -1054,7 +1072,7 @@ let rec tree_of_typexp mode ty =
         begin match name with
         | Some(p, tyl) when nameable_row row ->
             let (p', s) = best_type_path p in
-            let id = tree_of_path Type p' in
+            let id = best_tree_of_type_path p p' in
             let args = tree_of_typlist mode (apply_subst s tyl) in
             let out_variant =
               if is_nth s then List.hd args else Otyp_constr (id, args) in
@@ -1154,7 +1172,7 @@ and tree_of_typobject mode fi nm =
       let args = tree_of_typlist mode tyl in
       let (p', s) = best_type_path p in
       assert (s = Id);
-      Otyp_class (non_gen, tree_of_path Type p', args)
+      Otyp_class (non_gen, best_tree_of_type_path p p', args)
   | _ ->
       fatal_error "Printtyp.tree_of_typobject"
   end
@@ -1202,8 +1220,8 @@ let type_scheme ppf ty =
 
 let type_path ppf p =
   let (p', s) = best_type_path p in
-  let p = if (s = Id) then p' else p in
-  let t = tree_of_path Type p in
+  let p'' = if (s = Id) then p' else p in
+  let t = best_tree_of_type_path p p'' in
   !Oprint.out_ident ppf t
 
 let tree_of_type_scheme ty =
