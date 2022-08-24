@@ -3183,7 +3183,7 @@ let find_label_by_name lid env =
 
 (* Stable name lookup for printing *)
 
-let find_stable_name proj ident env  =
+let find_index proj ident env  =
   match IdTbl.find_all_idents (Ident.name ident) (proj env) with
   | [] -> None
   | lbls ->
@@ -3197,13 +3197,12 @@ let find_stable_name proj ident env  =
       in
       Some index
 
-let find_stable_value_name = find_stable_name (fun env -> env.values)
-let find_stable_type_name = find_stable_name (fun env -> env.types)
-let find_stable_module_name = find_stable_name (fun env -> env.modules)
-let find_stable_modtype_name = find_stable_name (fun env -> env.modtypes)
-let find_stable_class_name = find_stable_name (fun env -> env.classes)
-let find_stable_cltype_name = find_stable_name (fun env -> env.cltypes)
-
+let find_value_index = find_index (fun env -> env.values)
+let find_type_index = find_index (fun env -> env.types)
+let find_module_index = find_index (fun env -> env.modules)
+let find_modtype_index = find_index (fun env -> env.modtypes)
+let find_class_index = find_index (fun env -> env.classes)
+let find_cltype_index = find_index (fun env -> env.cltypes)
 
 (* Ordinary lookup functions *)
 

@@ -247,11 +247,11 @@ let with_hidden ids f =
 
 let stable_unique namespace id =
   let find env = match namespace with
-    | Type -> Env.find_stable_type_name id env
-    | Module -> Env.find_stable_module_name id env
-    | Module_type -> Env.find_stable_modtype_name id env
-    | Class -> Env.find_stable_class_name id env
-    | Class_type-> Env.find_stable_cltype_name id env
+    | Type -> Env.find_type_index id env
+    | Module -> Env.find_module_index id env
+    | Module_type -> Env.find_modtype_index id env
+    | Class -> Env.find_class_index id env
+    | Class_type-> Env.find_cltype_index id env
     | Other -> None
   in
   let rec_bound = M.find_opt (Ident.name id) !bound_in_recursion in
