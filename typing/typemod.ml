@@ -3320,14 +3320,15 @@ let report_error ~loc env = function
         shadowed_name
   | Cannot_hide_id Appears_in_signature
       { opened_item_kind; opened_item_id; user_id; user_kind; user_loc } ->
+      let opened_name = Env.indexed_name opened_item_kind opened_item_id env in
       let opened_item_kind= Sig_component_kind.to_string opened_item_kind in
       Location.errorf ~loc
-        "@[<v>The %s %a introduced by this open appears in the signature@ \
-         %a:@;<1 2>The %s %s has no valid type if %a is hidden@]"
-        opened_item_kind Ident.print opened_item_id
+        "@[<v>The %s %s introduced by this open appears in the signature@ \
+         %a:@;<1 2>The %s %s has no valid type if %s is hidden@]"
+        opened_item_kind opened_name
         Location.print_loc user_loc
         (Sig_component_kind.to_string user_kind) (Ident.name user_id)
-        Ident.print opened_item_id
+        opened_name
   | Invalid_type_subst_rhs ->
       Location.errorf ~loc "Only type synonyms are allowed on the right of :="
   | Unpackable_local_modtype_subst p ->
