@@ -277,7 +277,7 @@ val find_label_by_name:
     identifier [id] itself which is unbound.
 *)
 val find_index: Shape.Sig_component_kind.t -> Ident.t -> t -> int option option
-
+val indexed_name: Shape.Sig_component_kind.t -> Ident.t -> t -> string
 (* Check if a name is bound *)
 
 val bound_value: string -> t -> bool

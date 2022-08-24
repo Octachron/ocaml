@@ -3205,6 +3205,11 @@ let find_index kind id env = match kind with
   | Shape.Sig_component_kind.Extension_constructor -> None
   | Shape.Sig_component_kind.Class -> find_index_tbl env.classes id
   | Shape.Sig_component_kind.Class_type -> find_index_tbl env.cltypes id
+
+let indexed_name kind id env = match find_index kind id env with
+  | None | Some None | Some Some 0 -> Ident.name id
+  | Some (Some n) -> String.concat "/" [Ident.name id; string_of_int (1 + n)]
+
 (* Ordinary lookup functions *)
 
 let lookup_module_path ?(use=true) ~loc ~load lid env =

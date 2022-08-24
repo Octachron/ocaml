@@ -3193,7 +3193,7 @@ let package_units initial_env objfiles cmifile modulename =
 
 open Printtyp
 
-let report_error ~loc _env = function
+let report_error ~loc env = function
     Cannot_apply mty ->
       Location.errorf ~loc
         "@[This module is not a functor; it has type@ %a@]" modtype mty
@@ -3302,18 +3302,22 @@ let report_error ~loc _env = function
   | Cannot_hide_id Illegal_shadowing
       { shadowed_item_kind; shadowed_item_id; shadowed_item_loc;
         shadower_id; user_id; user_kind; user_loc } ->
+      let shadowed_name =
+        Env.indexed_name shadowed_item_kind shadowed_item_id env
+      in
+      let shadower_name = Env.indexed_name shadowed_item_kind shadower_id env in
       let shadowed_item_kind= Sig_component_kind.to_string shadowed_item_kind in
       Location.errorf ~loc
-        "@[<v>Illegal shadowing of included %s %a by %a@ \
-         %a:@;<1 2>%s %a came from this include@ \
-         %a:@;<1 2>The %s %s has no valid type if %a is shadowed@]"
-        shadowed_item_kind Ident.print shadowed_item_id Ident.print shadower_id
+        "@[<v>Illegal shadowing of included %s %s by %s@ \
+         %a:@;<1 2>%s %s came from this include@ \
+         %a:@;<1 2>The %s %s has no valid type if %s is shadowed@]"
+        shadowed_item_kind shadowed_name shadower_name
         Location.print_loc shadowed_item_loc
         (String.capitalize_ascii shadowed_item_kind)
-        Ident.print shadowed_item_id
+        shadowed_name
         Location.print_loc user_loc
         (Sig_component_kind.to_string user_kind) (Ident.name user_id)
-        Ident.print shadowed_item_id
+        shadowed_name
   | Cannot_hide_id Appears_in_signature
       { opened_item_kind; opened_item_id; user_id; user_kind; user_loc } ->
       let opened_item_kind= Sig_component_kind.to_string opened_item_kind in
