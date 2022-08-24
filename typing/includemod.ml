@@ -1080,7 +1080,9 @@ module Functor_inclusion_diff = struct
       { env; subst = Subst.identity; res = keep_expansible_param res1}
     in
     Compute.diff state param1 param2
-
+  let update env subst ch =
+    let st, _ = update ch { env; res = None; subst } in
+    st.env, st.subst
 end
 
 module Functor_app_diff = struct
@@ -1183,7 +1185,9 @@ module Functor_app_diff = struct
       { env; subst = Subst.identity; res = I.keep_expansible_param res }
     in
     Compute.diff state args params
-
+  let update env subst ch =
+    let st, _ = update ch { env; res = None; subst } in
+    st.env, st.subst
 end
 
 (* Hide the context and substitution parameters to the outside world *)

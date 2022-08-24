@@ -811,6 +811,7 @@ typing/includemod.cmx : \
 typing/includemod.cmi : \
     typing/types.cmi \
     typing/typedtree.cmi \
+    typing/subst.cmi \
     typing/shape.cmi \
     typing/path.cmi \
     parsing/longident.cmi \
@@ -823,6 +824,7 @@ typing/includemod.cmi : \
 typing/includemod_errorprinter.cmo : \
     typing/types.cmi \
     typing/typedtree.cmi \
+    typing/subst.cmi \
     typing/printtyp.cmi \
     typing/path.cmi \
     typing/oprint.cmi \
@@ -839,6 +841,7 @@ typing/includemod_errorprinter.cmo : \
 typing/includemod_errorprinter.cmx : \
     typing/types.cmx \
     typing/typedtree.cmx \
+    typing/subst.cmx \
     typing/printtyp.cmx \
     typing/path.cmx \
     typing/oprint.cmx \

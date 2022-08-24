@@ -272,7 +272,7 @@ Error: The functor application is ill-typed.
          functor (A : ...) (B : $T2) (C : ...) -> ...
        1. Module K matches the expected module type
        2. An argument appears to be missing with module type
-              $T2 = sig type x = A.x end
+              $T2 = sig type x = K.x end
        3. Module $S3 matches the expected module type
 |}]
 
@@ -330,7 +330,7 @@ Error: The functor application is ill-typed.
          functor (A : ...) (B : $T2) (C : ...) -> ...
        1. Module M.N matches the expected module type
        2. An argument appears to be missing with module type
-              $T2 = sig type x = A.x end
+              $T2 = sig type x = M.N.x end
        3. Module Defs.Y matches the expected module type
 |}]
 
@@ -432,7 +432,7 @@ Error: Signature mismatch:
          functor (B : $T1) (Y : $T2) (Z : $T3) -> ...
        1. Module types $S1 and $T1 match
        2. An argument appears to be missing with module type
-              $T2 = sig type yu = Y of B.u end
+              $T2 = sig type yu = Y of X.u end
        3. Module types $S3 and $T3 match
 |}]
 

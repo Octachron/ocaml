@@ -269,7 +269,7 @@ module With_shorthand = struct
     let add_shorthand side pos mty =
       {name = (make side pos); item = mty }
     in
-    let aux i d =
+    let aux i (env,d) =
       let pos = i + 1 in
       let d = match d with
         | Insert mty ->
@@ -284,7 +284,7 @@ module With_shorthand = struct
             Keep (add_shorthand Got pos g,
                           add_shorthand (elide_if_app ctx Expected) pos e, p)
       in
-      pos, d
+      env, pos, d
     in
     List.mapi aux p
 
@@ -380,7 +380,7 @@ module Functor_suberror = struct
         (printer param)
         Format.pp_close_stag ()
     in
-    let params = List.filter_map proj @@ List.map snd patch in
+    let params = List.filter_map proj @@ List.map (fun (_,_,x) -> x) patch in
     Printtyp.functor_parameters ~sep elt params
 
   let expected d =
@@ -399,9 +399,10 @@ module Functor_suberror = struct
       | rest -> List.rev rest in
     drop (List.rev patch)
 
-  let prepare_patch ~drop ~ctx patch =
+
+  let prepare_patch ~normalize ~drop ~ctx patch =
     let drop_suffix x = if drop then drop_inserted_suffix x else x in
-    patch |> drop_suffix |> With_shorthand.patch ctx
+    patch |> drop_suffix |> normalize |> With_shorthand.patch ctx
 
 
   module Inclusion = struct
@@ -448,17 +449,52 @@ module Functor_suberror = struct
             Format.dprintf
               "The functor was expected to be generative at this position"
 
+      let apply_subst subst c = match c with
+        | Types.Unit -> c
+        | Types.Named (n,mty) ->
+            Types.Named(n,Subst.modtype Keep subst mty)
+      let normalize (env,subst,patch) c =
+        let env,subst = Includemod.Functor_inclusion_diff.update env subst c in
+        env,subst,
+        match c with
+        | Diffing.Change (l,r,d) ->
+            (env,Diffing.Change(l,apply_subst subst r,d)) :: patch
+        | Diffing.Insert r ->
+            (env,Diffing.Insert(apply_subst subst r)) :: patch
+        | Diffing.Delete _ -> (env,c) :: patch
+        | Diffing.Keep(l,r,d) ->
+            (env,Diffing.Keep(l,apply_subst subst r, d)) :: patch
+      let normalize env l =
+        let _,_, l = List.fold_left normalize (env,Subst.identity,[]) l in
+        List.rev l
+
       let patch env got expected =
         Includemod.Functor_inclusion_diff.diff env got expected
-        |> prepare_patch ~drop:false ~ctx:Inclusion
+        |> prepare_patch ~normalize:(normalize env) ~drop:false ~ctx:Inclusion
 
     end
 
   module App = struct
 
+    let apply_subst = Inclusion.apply_subst
+    let normalize (env,subst,patch) c =
+      let env,subst = Includemod.Functor_app_diff.update env subst c in
+      env,subst,
+      match c with
+      | Diffing.Change (l,r,d) ->
+          (env,Diffing.Change(l,apply_subst subst r,d)) :: patch
+      | Diffing.Insert r ->
+          (env,Diffing.Insert(apply_subst subst r)) :: patch
+      | Diffing.Delete _ -> (env,c) :: patch
+      | Diffing.Keep(l,r,d) ->
+          (env,Diffing.Keep(l,apply_subst subst r, d)) :: patch
+    let normalize env l =
+      let _,_, l = List.fold_left normalize (env,Subst.identity,[]) l in
+      List.rev l
+
     let patch env ~f ~args =
       Includemod.Functor_app_diff.diff env ~f ~args
-      |> prepare_patch ~drop:true ~ctx:App
+      |> prepare_patch ~normalize:(normalize env) ~drop:true ~ctx:App
 
     let got d =
       let extract: _ Diffing.change -> _ = function
@@ -539,20 +575,20 @@ module Functor_suberror = struct
          (fun () -> sub ~expansion_token env diff)
       )
 
-  let params sub ~expansion_token env l =
+  let params sub ~expansion_token l =
     let rec aux subcases = function
       | [] -> subcases
-      | (_, Diffing.Keep _) as a :: q ->
-          aux (subcase sub ~expansion_token env a :: subcases) q
-      | a :: q ->
-          List.fold_left (fun acc x ->
-            (subcase sub ~expansion_token:false env x) :: acc
+      | (env, p, (Diffing.Keep _ as x)) :: q ->
+          aux (subcase sub ~expansion_token env (p,x) :: subcases) q
+      | (env, p, a) :: q ->
+           List.fold_left (fun acc (env,p,x) ->
+              (subcase sub ~expansion_token:false env (p,x)) :: acc
             )
-            (subcase sub ~expansion_token env a :: subcases)
-            q
+             (subcase sub ~expansion_token env (p,a) :: subcases)
+             q
     in
     match l with
-    | [a] -> [onlycase sub ~expansion_token env a]
+    | [env,p,a] -> [onlycase sub ~expansion_token env (p,a)]
     | l -> aux [] l
 end
 
@@ -753,7 +789,7 @@ and functor_params ~expansion_token ~env ~before ~ctx {got;expected;_} =
   let msgs = dwith_context ctx main :: before in
   let functor_suberrors =
     if expansion_token then
-      Functor_suberror.params functor_arg_diff ~expansion_token env d
+      Functor_suberror.params functor_arg_diff ~expansion_token d
     else []
   in
   functor_suberrors @ msgs
@@ -818,7 +854,7 @@ and functor_arg_diff ~expansion_token env (patch: _ Diffing.change) =
   match patch with
   | Insert mty -> Functor_suberror.Inclusion.insert mty
   | Delete mty -> Functor_suberror.Inclusion.delete mty
-  | Keep (x, y, _) ->  Functor_suberror.Inclusion.ok x y
+  | Keep (x, y, _) -> Functor_suberror.Inclusion.ok x y
   | Change (_, _, Err.Incompatible_params (i,_)) ->
       Functor_suberror.Inclusion.incompatible i
   | Change (g, e,  Err.Mismatch mty_diff) ->
@@ -900,9 +936,9 @@ let report_apply_error ~loc env (lid_app, mty_f, args) =
   match d with
   (* We specialize the one change and one argument case to remove the
      presentation of the functor arguments *)
-  | [ _,  Change (_, _, Err.Incompatible_params (i,_)) ] ->
+  | [ _, _, Change (_, _, Err.Incompatible_params (i,_)) ] ->
       Location.errorf ~loc "%t" (Functor_suberror.App.incompatible i)
-  | [ _, Change (g, e,  Err.Mismatch mty_diff) ] ->
+  | [ _, _, Change (g, e,  Err.Mismatch mty_diff) ] ->
       let more () =
         subcase_list @@
         module_type_symptom ~eqmode:false ~expansion_token:true ~env ~before:[]
@@ -914,7 +950,7 @@ let report_apply_error ~loc env (lid_app, mty_f, args) =
       let expected = Functor_suberror.expected d in
       let sub =
         List.rev @@
-        Functor_suberror.params functor_app_diff env ~expansion_token:true d
+        Functor_suberror.params functor_app_diff ~expansion_token:true d
       in
       Location.errorf ~loc ~sub
         "@[<hv>The functor application %tis ill-typed.@ \
