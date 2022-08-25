@@ -245,24 +245,24 @@ let with_hidden ids f =
 let stable_unique namespace id =
   let rec_bound = M.find_opt (Ident.name id) !bound_in_recursion in
   match in_printing_env (Env.find_index namespace id), rec_bound with
-  | None, _ | Some (Some 0), None | Some None, Some _ -> Ident.name id
-  | Some None, None ->
-     Ident.name id
-      (* In this case, the environment does not contain enough information
-         to let us choose good unique names for identifiers sharing this name.
-         Not only there are other indents in scope
-         with the same name, but the current identifiers does not exist in the
-         environment *)
-  | Some (Some n), Some p ->
+  | None, None
+    (* This case is potentially problematic, it might indicate that
+       the identifier id is not defined in the environment, while there
+       are other identifiers in scope that share the same name.
+       Currently, this kind of partially incoherent environment happens
+       within functor error messages where the left and right hand side
+       have a different views of the environment at the source level.
+       Printing the source-level name seems like a reasonable compromise
+       in this situation however.*)
+  | None, Some _ | Some 0, None -> Ident.name id
+  | Some n, Some p ->
       if Ident.same p id then
         Ident.name id
       else
         String.concat "/" [Ident.name id; string_of_int (2 + n)]
-  | Some (Some n), None ->
+  | Some n, None ->
       String.concat "/" [Ident.name id; string_of_int (1 + n)]
 
-(** Same as {!ident_name_simple} but lookup to existing named identifiers
-    in the current {!printing_env} *)
 let ident_name ?namespace id =
   if not !enabled || fuzzy_id namespace id then
     Out_name.create (Ident.name id)

@@ -3184,18 +3184,12 @@ let find_label_by_name lid env =
 (* Stable name lookup for printing *)
 
 let find_index_tbl tbl ident  =
-  match IdTbl.find_all_idents (Ident.name ident) tbl with
-  | [] -> None
-  | lbls ->
-      let find_ident (n,p) = match p with
-        | Some i -> if Ident.same ident i then Some n else None
-        | _ -> None
-      in
-      let index =
-        Seq.find_map find_ident
-          (Seq.mapi (fun i x -> i,x) @@ List.to_seq lbls)
-      in
-      Some index
+  let lbs = IdTbl.find_all_idents (Ident.name ident) tbl in
+  let find_ident (n,p) = match p with
+    | Some i -> if Ident.same ident i then Some n else None
+    | _ -> None
+  in
+  Seq.find_map find_ident @@ Seq.mapi (fun i x -> i,x) @@ List.to_seq lbs
 
 let find_index kind id env = match kind with
   | Shape.Sig_component_kind.Value -> find_index_tbl env.values id
@@ -3207,8 +3201,8 @@ let find_index kind id env = match kind with
   | Shape.Sig_component_kind.Class_type -> find_index_tbl env.cltypes id
 
 let indexed_name kind id env = match find_index kind id env with
-  | None | Some None | Some Some 0 -> Ident.name id
-  | Some (Some n) -> String.concat "/" [Ident.name id; string_of_int (1 + n)]
+  | None | Some 0 -> Ident.name id
+  | Some n -> String.concat "/" [Ident.name id; string_of_int (1 + n)]
 
 (* Ordinary lookup functions *)
 

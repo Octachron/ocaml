@@ -271,12 +271,8 @@ val find_label_by_name:
 (** The [find_index] function computes a "namespaced" De Bruijn index
     of an identifier in a given environment. In other words, it returns how many
     times an identifier has been shadowed by a more recent identifiers with the
-    same name in a given environment.
-    [find_index kind id env] identifiers is [None] if the name of the
-    identifier is unbound in [env], and [Some None] if it is the
-    identifier [id] itself which is unbound.
-*)
-val find_index: Shape.Sig_component_kind.t -> Ident.t -> t -> int option option
+    same name in a given environment. *)
+val find_index: Shape.Sig_component_kind.t -> Ident.t -> t -> int option
 val indexed_name: Shape.Sig_component_kind.t -> Ident.t -> t -> string
 (* Check if a name is bound *)
 
