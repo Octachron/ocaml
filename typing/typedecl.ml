@@ -1713,7 +1713,6 @@ let report_error ppf = function
       let pp_expansions ppf expansions =
         Format.(pp_print_list ~pp_sep:comma pp_expansion) ppf expansions in
       Printtyp.prepare_for_printing [used_as; defined_as];
-      Printtyp.Naming_context.reset ();
       begin match expansions with
       | [] ->
           fprintf ppf
