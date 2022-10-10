@@ -60,7 +60,7 @@ type namespace =
 type ('c,'sh,'names) generic_printing_context =
   {
     env: Env.t;
-    names: 'names;
+    var_names: 'names;
     path_conflict: 'c;
     short_path:'sh;
   }
@@ -409,7 +409,7 @@ let best_tree_of_type_path ctx p p' =
   else tree_of_path ctx ~disambiguation:false Other p'
 
 let path ppf p =
-  let ctx = { env = Env.empty; path_conflict = None; short_path = None; names = None } in
+  let ctx = { env = Env.empty; path_conflict = None; short_path = None; var_names = None } in
   !Oprint.out_ident ppf (tree_of_path ctx Other p)
 
 let string_of_path p =
@@ -816,31 +816,34 @@ let printer_iter_type_expr ctx f ty =
       Btype.iter_type_expr f ty
 
 module Names : sig
-  val reset_names : unit -> unit
+  type t
+  val create : unit -> t
+  val reset_names : t -> unit
 
-  val add_named_vars : Printing_context.t -> type_expr -> unit
-  val add_subst : (type_expr * type_expr) list -> unit
+  val add_named_vars :
+    (_,Short_path.t option,t) generic_printing_context -> type_expr -> unit
+  val add_subst : t -> (type_expr * type_expr) list -> unit
 
-  val new_name : unit -> string
-  val new_weak_name : type_expr -> unit -> string
+  val new_name : t -> string
+  val new_weak_name : type_expr -> t -> string
 
-  val name_of_type : (unit -> string) -> transient_expr -> string
-  val check_name_of_type : transient_expr -> unit
+  val name_of_type : t -> (t -> string) -> transient_expr -> string
+  val check_name_of_type : t -> transient_expr -> unit
 
-  val remove_names : transient_expr list -> unit
+  val remove_names : t -> transient_expr list -> unit
 
-  val with_local_names : (unit -> 'a) -> 'a
+  val with_local_names : t -> (unit -> 'a) -> 'a
 
   (* Refresh the weak variable map in the toplevel; for [print_items], which is
      itself for the toplevel *)
-  val refresh_weak : unit -> unit
+  val refresh_weak : t -> unit
 end = struct
   (* We map from types to names, but not directly; we also store a substitution,
      which maps from types to types.  The lookup process is
      "type -> apply substitution -> find name".  The substitution is presumed to
      be acyclic. *)
 
-  type context = {
+  type t = {
     mutable names: (transient_expr * string) list;
     mutable subst: (transient_expr * transient_expr) list;
     mutable counter: int;
@@ -858,11 +861,11 @@ end = struct
     vars = [];
     visited = [];
     weak_counter = 1;
-    weak_var_name = TypeMap.empty;
+    weak_var_map = TypeMap.empty;
     weak_vars = String.Set.empty
   }
 
-  let reset_names () = ()
+  let reset_names _ = ()
 
   let add_named_var ctx tty =
     match tty.desc with
@@ -872,58 +875,59 @@ end = struct
     | _ -> ()
 
   let rec add_named_vars ctx ty =
+    let names = ctx.var_names in
     let tty = Transient_expr.repr ty in
     let px = proxy ty in
-    if not (List.memq px !visited_for_named_vars) then begin
-      visited_for_named_vars := px :: !visited_for_named_vars;
+    if not (List.memq px names.visited) then begin
+      names.visited <- px :: names.visited;
       match tty.desc with
       | Tvar _ | Tunivar _ ->
-          add_named_var tty
+          add_named_var names tty
       | _ ->
           printer_iter_type_expr ctx (add_named_vars ctx) ty
     end
 
-  let rec substitute ty =
-    match List.assq ty !name_subst with
-    | ty' -> substitute ty'
+  let rec substitute ctx ty =
+    match List.assq ty ctx.subst with
+    | ty' -> substitute ctx ty'
     | exception Not_found -> ty
 
-  let add_subst subst =
-    name_subst :=
+  let add_subst ctx subst =
+    ctx.subst <-
       List.map (fun (t1,t2) -> Transient_expr.repr t1, Transient_expr.repr t2)
         subst
-      @ !name_subst
+      @ ctx.subst
 
-  let name_is_already_used name =
-    List.mem name !named_vars
-    || List.exists (fun (_, name') -> name = name') !names
-    || String.Set.mem name !named_weak_vars
+  let name_is_already_used ctx name =
+    List.mem name ctx.vars
+    || List.exists (fun (_, name') -> name = name') ctx.names
+    || String.Set.mem name ctx.weak_vars
 
-  let rec new_name () =
+  let rec new_name ctx =
     let name =
-      if !name_counter < 26
-      then String.make 1 (Char.chr(97 + !name_counter))
-      else String.make 1 (Char.chr(97 + !name_counter mod 26)) ^
-             Int.to_string(!name_counter / 26) in
-    incr name_counter;
-    if name_is_already_used name then new_name () else name
+      if ctx.counter < 26
+      then String.make 1 (Char.chr(97 + ctx.counter))
+      else String.make 1 (Char.chr(97 + ctx.counter mod 26)) ^
+             Int.to_string(ctx.counter / 26) in
+    ctx.counter <- ctx.counter + 1;
+    if name_is_already_used ctx name then new_name ctx else name
 
-  let rec new_weak_name ty () =
-    let name = "weak" ^ Int.to_string !weak_counter in
-    incr weak_counter;
-    if name_is_already_used name then new_weak_name ty ()
+  let rec new_weak_name ty ctx =
+    let name = "weak" ^ Int.to_string ctx.counter in
+    ctx.weak_counter <- 1 + ctx.weak_counter;
+    if name_is_already_used ctx name then new_weak_name ty ctx
     else begin
-        named_weak_vars := String.Set.add name !named_weak_vars;
-        weak_var_map := TypeMap.add ty name !weak_var_map;
+        ctx.weak_vars <- String.Set.add name ctx.weak_vars;
+        ctx.weak_var_map <- TypeMap.add ty name ctx.weak_var_map;
         name
       end
 
-  let name_of_type name_generator t =
+  let name_of_type ctx name_generator t =
     (* We've already been through repr at this stage, so t is our representative
        of the union-find class. *)
-    let t = substitute t in
-    try List.assq t !names with Not_found ->
-      try TransientTypeMap.find t !weak_var_map with Not_found ->
+    let t = substitute ctx t in
+    try List.assq t ctx.names with Not_found ->
+      try TransientTypeMap.find t ctx.weak_var_map with Not_found ->
       let name =
         match t.desc with
           Tvar (Some name) | Tunivar (Some name) ->
@@ -934,7 +938,7 @@ end = struct
             let i = ref 0 in
             while List.exists
                     (fun (_, name') -> !current_name = name')
-                    !names
+                    ctx.names
             do
               current_name := name ^ (Int.to_string !i);
               i := !i + 1;
@@ -942,30 +946,30 @@ end = struct
             !current_name
         | _ ->
             (* No name available, create a new one *)
-            name_generator ()
+            name_generator ctx
       in
       (* Exception for type declarations *)
-      if name <> "_" then names := (t, name) :: !names;
+      if name <> "_" then ctx.names <- (t, name) :: ctx.names;
       name
 
-  let check_name_of_type t = ignore(name_of_type new_name t)
+  let check_name_of_type ctx t = ignore(name_of_type ctx new_name t)
 
-  let remove_names tyl =
-    let tyl = List.map substitute tyl in
-    names := List.filter (fun (ty,_) -> not (List.memq ty tyl)) !names
+  let remove_names ctx tyl =
+    let tyl = List.map (substitute ctx) tyl in
+    ctx.names <- List.filter (fun (ty,_) -> not (List.memq ty tyl)) ctx.names
 
-  let with_local_names f =
-    let old_names = !names in
-    let old_subst = !name_subst in
-    names      := [];
-    name_subst := [];
+  let with_local_names ctx f =
+    let old_names = ctx.names in
+    let old_subst = ctx.subst in
+    ctx.names      <- [];
+    ctx.subst <- [];
     try_finally
       ~always:(fun () ->
-        names      := old_names;
-        name_subst := old_subst)
+        ctx.names      <- old_names;
+        ctx.subst <- old_subst)
       f
 
-  let refresh_weak () =
+  let refresh_weak ctx =
     let refresh t name (m,s) =
       if is_non_gen Type_scheme t then
         begin
@@ -974,9 +978,9 @@ end = struct
         end
       else m, s in
     let m, s =
-      TypeMap.fold refresh !weak_var_map (TypeMap.empty ,String.Set.empty) in
-    named_weak_vars := s;
-    weak_var_map := m
+      TypeMap.fold refresh ctx.weak_var_map (TypeMap.empty ,String.Set.empty) in
+    ctx.weak_vars <- s;
+    ctx.weak_var_map <- m
 end
 
 
@@ -1004,11 +1008,11 @@ let add_alias_proxy px =
 
 let add_alias ty = add_alias_proxy (proxy ty)
 
-let add_printed_alias_proxy px =
-  Names.check_name_of_type px;
+let add_printed_alias_proxy ctx px =
+  Names.check_name_of_type ctx.var_names px;
   printed_aliases := px :: !printed_aliases
 
-let add_printed_alias ty = add_printed_alias_proxy (proxy ty)
+let add_printed_alias ctx ty = add_printed_alias_proxy ctx (proxy ty)
 
 let aliasable ctx ty =
   match get_desc ty with
@@ -1055,7 +1059,7 @@ let reset_loop_marks () =
 module Printing_context = struct
 
 type t =
-  (Naming_context.t option, Short_path.t option, Names.context) generic_printing_context
+  (Naming_context.t option, Short_path.t option, Names.t) generic_printing_context
 let set_printing_env = Short_path.set_printing_env
 
 let create env =
@@ -1064,19 +1068,20 @@ let create env =
     else Some (Short_path.create env)
   in
   let path_conflict = Some (Naming_context.create ()) in
-  { env; path_conflict; short_path }
+  let var_names = Names.create () in
+  { env; path_conflict; short_path; var_names }
 
 end
 let set_printing_env = Printing_context.set_printing_env
 
-let reset_except_context () =
-  Names.reset_names (); reset_loop_marks ()
+let reset_except_context ctx =
+  Names.reset_names ctx.var_names; reset_loop_marks ()
 
-let reset () =
-  reset_except_context ()
+let reset ctx =
+  reset_except_context ctx
 
 let prepare_for_printing ctx tyl =
-  reset_except_context (); List.iter (prepare_type ctx) tyl
+  reset_except_context ctx; List.iter (prepare_type ctx) tyl
 
 (* Disabled in classic mode when printing an unification error *)
 let print_labels = ref true
@@ -1085,7 +1090,7 @@ let rec tree_of_typexp ctx mode ty =
   let px = proxy ty in
   if List.memq px !printed_aliases && not (List.memq px !delayed) then
    let mark = is_non_gen mode ty in
-   let name = Names.name_of_type
+   let name = Names.name_of_type ctx.var_names
                 (if mark then Names.new_weak_name ty else Names.new_name)
                 px
    in
@@ -1099,7 +1104,7 @@ let rec tree_of_typexp ctx mode ty =
         let name_gen =
           if non_gen then Names.new_weak_name ty else Names.new_name
         in
-        Otyp_var (non_gen, Names.name_of_type name_gen tty)
+        Otyp_var (non_gen, Names.name_of_type ctx.var_names name_gen tty)
     | Tarrow(l, ty1, ty2, _) ->
         let lab =
           if !print_labels || is_optional l then Raw.string_of_label l else ""
@@ -1182,14 +1187,14 @@ let rec tree_of_typexp ctx mode ty =
           (* Make the names delayed, so that the real type is
              printed once when used as proxy *)
           List.iter add_delayed tyl;
-          let tl = List.map (Names.name_of_type Names.new_name) tyl in
+          let tl = List.map (Names.name_of_type ctx.var_names Names.new_name) tyl in
           let tr = Otyp_poly (tl, tree_of_typexp ctx mode ty) in
           (* Forget names when we leave scope *)
-          Names.remove_names tyl;
+          Names.remove_names ctx.var_names tyl;
           delayed := old_delayed; tr
         end
     | Tunivar _ ->
-        Otyp_var (false, Names.name_of_type Names.new_name tty)
+        Otyp_var (false, Names.name_of_type ctx.var_names Names.new_name tty)
     | Tpackage (p, fl) ->
         let fl =
           List.map
@@ -1201,8 +1206,8 @@ let rec tree_of_typexp ctx mode ty =
   in
   if List.memq px !delayed then delayed := List.filter ((!=) px) !delayed;
   if is_aliased_proxy px && aliasable ctx ty then begin
-    add_printed_alias_proxy px;
-    Otyp_alias (pr_typ (), Names.name_of_type Names.new_name px) end
+    add_printed_alias_proxy ctx px;
+    Otyp_alias (pr_typ (), Names.name_of_type ctx.var_names Names.new_name px) end
   else pr_typ ()
 
 and tree_of_row_field ctx mode (l, f) =
@@ -1346,7 +1351,7 @@ let rec tree_of_type_decl ctx id decl =
 
   List.iter add_alias params;
   List.iter (prepare_type ctx) params;
-  List.iter add_printed_alias params;
+  List.iter (add_printed_alias ctx) params;
   let ty_manifest =
     match decl.type_manifest with
     | None -> None
@@ -1469,7 +1474,7 @@ and tree_of_constructor ctx cd =
       ocstr_return_type = None;
     }
   | Some res ->
-      Names.with_local_names (fun () ->
+      Names.with_local_names ctx.var_names (fun () ->
         let ret = tree_of_typexp ctx Type res in
         let args = arg () in
         {
@@ -1482,11 +1487,11 @@ and tree_of_label ctx l =
   (Ident.name l.ld_id, l.ld_mutable = Mutable, tree_of_typexp ctx Type l.ld_type)
 
 let constructor ctx ppf c =
-  reset_except_context ();
+  reset_except_context ctx;
   !Oprint.out_constr ppf (tree_of_constructor ctx c)
 
 let label ctx ppf l =
-  reset_except_context ();
+  reset_except_context ctx;
   !Oprint.out_label ppf (tree_of_label ctx l)
 
 let tree_of_type_declaration ctx id decl rs =
@@ -1505,18 +1510,18 @@ let extension_constructor_args_and_ret_type_subtree ctx ext_args ext_ret_type =
   match ext_ret_type with
   | None -> (tree_of_constructor_arguments ctx ext_args, None)
   | Some res ->
-      Names.with_local_names (fun () ->
+      Names.with_local_names ctx.var_names (fun () ->
         let ret = tree_of_typexp ctx Type res in
         let args = tree_of_constructor_arguments ctx ext_args in
         (args, Some ret))
 
 let tree_of_extension_constructor ctx id ext es =
-  reset_except_context ();
+  reset_except_context ctx;
   let ty_name = Path.name ext.ext_type_path in
   let ty_params = filter_params ext.ext_type_params in
   List.iter add_alias ty_params;
   List.iter (prepare_type ctx) ty_params;
-  List.iter add_printed_alias ty_params;
+  List.iter (add_printed_alias ctx) ty_params;
   prepare_type_constructor_arguments ctx ext.ext_args;
   Option.iter (prepare_type ctx) ext.ext_ret_type;
   let type_param =
@@ -1603,7 +1608,7 @@ let prepare_method ctx _lab (priv, _virt, ty) =
 let tree_of_method ctx mode (lab, priv, virt, ty) =
   let (ty, tyl) = method_type priv ty in
   let tty = tree_of_typexp ctx mode ty in
-  Names.remove_names (List.map Transient_expr.repr tyl);
+  Names.remove_names ctx.var_names (List.map Transient_expr.repr tyl);
   let priv = priv <> Mpublic in
   let virt = virt = Virtual in
   Ocsg_method (lab, priv, virt, tty)
@@ -1643,7 +1648,7 @@ let rec tree_of_class_type ctx mode params =
       let self_ty =
         if is_aliased_proxy px then
           Some
-            (Otyp_var (false, Names.name_of_type Names.new_name px))
+            (Otyp_var (false, Names.name_of_type ctx.var_names Names.new_name px))
         else None
       in
       let csil = [] in
@@ -1711,14 +1716,14 @@ let class_variance =
 let tree_of_class_declaration ctx id cl rs =
   let params = filter_params cl.cty_params in
 
-  reset_except_context ();
+  reset_except_context ctx;
   List.iter add_alias params;
   prepare_class_type ctx params cl.cty_type;
   let px = proxy (Btype.self_type_row cl.cty_type) in
   List.iter (prepare_type ctx) params;
 
-  List.iter add_printed_alias params;
-  if is_aliased_proxy px then add_printed_alias_proxy px;
+  List.iter (add_printed_alias ctx) params;
+  if is_aliased_proxy px then add_printed_alias_proxy ctx px;
 
   let vir_flag = cl.cty_new = None in
   Osig_class
@@ -1733,14 +1738,14 @@ let class_declaration ctx id ppf cl =
 let tree_of_cltype_declaration ctx id cl rs =
   let params = cl.clty_params in
 
-  reset_except_context ();
+  reset_except_context ctx;
   List.iter add_alias params;
   prepare_class_type ctx params cl.clty_type;
   let px = proxy (Btype.self_type_row cl.clty_type) in
   List.iter (prepare_type ctx) params;
 
-  List.iter add_printed_alias params;
-  if is_aliased_proxy px then add_printed_alias_proxy px;
+  List.iter (add_printed_alias ctx) params;
+  if is_aliased_proxy px then add_printed_alias_proxy ctx px;
 
   let sign = Btype.signature_of_class_type cl.clty_type in
   let has_virtual_vars =
@@ -1930,7 +1935,7 @@ let modtype_declaration ctx id ppf decl =
 (* For the toplevel: merge with tree_of_signature? *)
 
 let print_items ctx showval env x =
-  Names.refresh_weak();
+  Names.refresh_weak ctx;
   (*  *Conflicts.reset (); *)
   let extend_val env (sigitem,outcome) = outcome, showval env sigitem in
   let post_process (env,l) = List.map (extend_val env) l in
@@ -2354,9 +2359,9 @@ let warn_on_missing_defs env ppf = function
 
 (* [subst] comes out of equality, and is [[]] otherwise *)
 let error ectx trace_format mode subst env tr txt1 ppf txt2 ty_expect_explanation =
-  reset ();
+  reset ectx;
   (* We want to substitute in the opposite order from [Eqtype] *)
-  Names.add_subst (List.map (fun (ty1,ty2) -> ty2,ty1) subst);
+  Names.add_subst ectx.var_names (List.map (fun (ty1,ty2) -> ty2,ty1) subst);
   let tr =
     prepare_trace ectx
       (fun ty_exp ->
@@ -2480,7 +2485,7 @@ module Subtype = struct
         txt1 =
     let ctx = Printing_context.create env in
     Short_path.with_error ~error:true (fun () ->
-      reset ();
+      reset ctx;
       let tr_sub = prepare_trace ctx (prepare_expansion ctx) tr_sub in
       let tr_unif = prepare_unification_trace ctx (prepare_expansion ctx) tr_unif in
       let keep_first = match tr_unif with
@@ -2502,7 +2507,7 @@ end
 let report_ambiguous_type_error ppf env tp0 tpl txt1 txt2 txt3 =
   let ctx = Printing_context.create env in
   Short_path.with_error ~error:true (fun () ->
-    reset ();
+    reset ctx;
     let tp0 = trees_of_type_path_expansion ctx tp0 in
       match tpl with
       [] -> assert false
