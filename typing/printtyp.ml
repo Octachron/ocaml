@@ -57,12 +57,13 @@ type namespace =
   | Other (** Other bypasses the unique name identifier mechanism *)
 
 
-type ('c,'sh,'names) generic_printing_context =
+type ('c,'sh,'names,'aliases) generic_printing_context =
   {
     env: Env.t;
     var_names: 'names;
     path_conflict: 'c;
     short_path:'sh;
+    aliases: 'aliases;
   }
 
 let in_printing_env ctx f = Env.without_cmis f ctx.env
@@ -409,7 +410,13 @@ let best_tree_of_type_path ctx p p' =
   else tree_of_path ctx ~disambiguation:false Other p'
 
 let path ppf p =
-  let ctx = { env = Env.empty; path_conflict = None; short_path = None; var_names = None } in
+  let ctx = {
+    env = Env.empty;
+    path_conflict = None;
+    short_path = None;
+    var_names = None;
+    aliases = None;
+  } in
   !Oprint.out_ident ppf (tree_of_path ctx Other p)
 
 let string_of_path p =
@@ -821,7 +828,7 @@ module Names : sig
   val reset_names : t -> unit
 
   val add_named_vars :
-    (_,Short_path.t option,t) generic_printing_context -> type_expr -> unit
+    (_,Short_path.t option,t,_) generic_printing_context -> type_expr -> unit
   val add_subst : t -> (type_expr * type_expr) list -> unit
 
   val new_name : t -> string
@@ -988,29 +995,38 @@ let reserve_names ctx ty =
   normalize_type ty;
   Names.add_named_vars ctx ty
 
-let visited_objects = ref ([] : transient_expr list)
-let aliased = ref ([] : transient_expr list)
-let delayed = ref ([] : transient_expr list)
-let printed_aliases = ref ([] : transient_expr list)
+module Aliases = struct
+  type t = {
+    mutable visited_objects: transient_expr list;
+    mutable aliased: transient_expr list;
+    mutable delayed: transient_expr list;
+    mutable printed: transient_expr list;
+  }
+  let create () = {
+    visited_objects = [];
+    aliased = [];
+    delayed = [];
+    printed = [];
+  }
 
 (* [printed_aliases] is a subset of [aliased] that records only those aliased
    types that have actually been printed; this allows us to avoid naming loops
    that the user will never see. *)
 
-let add_delayed t =
-  if not (List.memq t !delayed) then delayed := t :: !delayed
+let add_delayed ctx t =
+  if not (List.memq t ctx.delayed) then ctx.delayed <- t :: ctx.delayed
 
-let is_aliased_proxy px = List.memq px !aliased
+let is_aliased_proxy ctx px = List.memq px ctx.aliased
 
-let add_alias_proxy px =
-  if not (is_aliased_proxy px) then
-    aliased := px :: !aliased
+let add_alias_proxy ctx px =
+  if not (is_aliased_proxy ctx px) then
+    ctx.aliased <- px :: ctx.aliased
 
-let add_alias ty = add_alias_proxy (proxy ty)
+let add_alias ctx ty = add_alias_proxy ctx (proxy ty)
 
 let add_printed_alias_proxy ctx px =
   Names.check_name_of_type ctx.var_names px;
-  printed_aliases := px :: !printed_aliases
+  ctx.aliases.printed <- px :: ctx.aliases.printed
 
 let add_printed_alias ctx ty = add_printed_alias_proxy ctx (proxy ty)
 
@@ -1028,19 +1044,20 @@ let should_visit_object ty =
   | _ -> false
 
 let rec mark_loops_rec ctx visited ty =
+  let aliases = ctx.aliases in
   let px = proxy ty in
-  if List.memq px visited && aliasable ctx ty then add_alias_proxy px else
+  if List.memq px visited && aliasable ctx ty then add_alias_proxy aliases px else
     let tty = Transient_expr.repr ty in
     let visited = px :: visited in
     match tty.desc with
     | Tvariant _ | Tobject _ ->
-        if List.memq px !visited_objects then add_alias_proxy px else begin
+        if List.memq px aliases.visited_objects then add_alias_proxy aliases px else begin
           if should_visit_object ty then
-            visited_objects := px :: !visited_objects;
+            aliases.visited_objects <- px :: aliases.visited_objects;
           printer_iter_type_expr ctx (mark_loops_rec ctx visited) ty
         end
     | Tpoly(ty, tyl) ->
-        List.iter add_alias tyl;
+        List.iter (add_alias aliases) tyl;
         mark_loops_rec ctx visited ty
     | _ ->
         printer_iter_type_expr ctx (mark_loops_rec ctx visited) ty
@@ -1052,14 +1069,15 @@ let prepare_type ctx ty =
   reserve_names ctx ty;
   mark_loops ctx ty
 
-let reset_loop_marks () =
-  visited_objects := []; aliased := []; delayed := []; printed_aliases := []
-
+let reset_loop_marks ctx = () (*{ ctx with aliases = create () }*)
+end
+let prepare_type = Aliases.prepare_type
 
 module Printing_context = struct
 
 type t =
-  (Naming_context.t option, Short_path.t option, Names.t) generic_printing_context
+  (Naming_context.t option, Short_path.t option, Names.t, Aliases.t)
+    generic_printing_context
 let set_printing_env = Short_path.set_printing_env
 
 let create env =
@@ -1069,26 +1087,27 @@ let create env =
   in
   let path_conflict = Some (Naming_context.create ()) in
   let var_names = Names.create () in
-  { env; path_conflict; short_path; var_names }
+  let aliases = Aliases.create () in
+  { env; path_conflict; short_path; var_names; aliases }
 
 end
 let set_printing_env = Printing_context.set_printing_env
 
 let reset_except_context ctx =
-  Names.reset_names ctx.var_names; reset_loop_marks ()
+  Names.reset_names ctx.var_names; Aliases.reset_loop_marks ctx
 
 let reset ctx =
   reset_except_context ctx
 
 let prepare_for_printing ctx tyl =
-  reset_except_context ctx; List.iter (prepare_type ctx) tyl
+  reset_except_context ctx; List.iter (Aliases.prepare_type ctx) tyl
 
 (* Disabled in classic mode when printing an unification error *)
 let print_labels = ref true
 
-let rec tree_of_typexp ctx mode ty =
+let rec tree_of_typexp (ctx:Printing_context.t) mode ty =
   let px = proxy ty in
-  if List.memq px !printed_aliases && not (List.memq px !delayed) then
+  if List.memq px ctx.aliases.printed && not (List.memq px ctx.aliases.delayed) then
    let mark = is_non_gen mode ty in
    let name = Names.name_of_type ctx.var_names
                 (if mark then Names.new_weak_name ty else Names.new_name)
@@ -1183,15 +1202,15 @@ let rec tree_of_typexp ctx mode ty =
           prerr_string "; " in *)
         if tyl = [] then tree_of_typexp ctx mode ty else begin
           let tyl = List.map Transient_expr.repr tyl in
-          let old_delayed = !delayed in
+          let old_delayed = ctx.aliases.delayed in
           (* Make the names delayed, so that the real type is
              printed once when used as proxy *)
-          List.iter add_delayed tyl;
+          List.iter (Aliases.add_delayed ctx.aliases) tyl;
           let tl = List.map (Names.name_of_type ctx.var_names Names.new_name) tyl in
           let tr = Otyp_poly (tl, tree_of_typexp ctx mode ty) in
           (* Forget names when we leave scope *)
           Names.remove_names ctx.var_names tyl;
-          delayed := old_delayed; tr
+          ctx.aliases.delayed <- old_delayed; tr
         end
     | Tunivar _ ->
         Otyp_var (false, Names.name_of_type ctx.var_names Names.new_name tty)
@@ -1204,10 +1223,13 @@ let rec tree_of_typexp ctx mode ty =
             )) fl in
         Otyp_module (tree_of_path ctx Module_type p, fl)
   in
-  if List.memq px !delayed then delayed := List.filter ((!=) px) !delayed;
-  if is_aliased_proxy px && aliasable ctx ty then begin
-    add_printed_alias_proxy ctx px;
-    Otyp_alias (pr_typ (), Names.name_of_type ctx.var_names Names.new_name px) end
+  if List.memq px ctx.aliases.delayed then
+    ctx.aliases.delayed <- List.filter ((!=) px) ctx.aliases.delayed;
+  if Aliases.is_aliased_proxy ctx.aliases px
+  && Aliases.aliasable ctx ty then begin
+    Aliases.add_printed_alias_proxy ctx px;
+    Otyp_alias (pr_typ (), Names.name_of_type ctx.var_names Names.new_name px)
+  end
   else pr_typ ()
 
 and tree_of_row_field ctx mode (l, f) =
@@ -1280,12 +1302,12 @@ let type_expr ctx ppf ty =
 (* "Half-prepared" type expression: [ty] should have had its names reserved, but
    should not have had its loops marked. *)
 let type_expr_with_reserved_names ctx ppf ty =
-  reset_loop_marks ();
-  mark_loops ctx ty;
+  Aliases.reset_loop_marks ctx;
+  Aliases.mark_loops ctx ty;
   prepared_type_expr ctx ppf ty
 
 let shared_type_scheme ctx ppf ty =
-  prepare_type ctx ty;
+  Aliases.prepare_type ctx ty;
   typexp ctx Type_scheme ppf ty
 
 let type_scheme ctx ppf ty =
@@ -1329,8 +1351,8 @@ let filter_params tyl =
   in List.rev params
 
 let prepare_type_constructor_arguments ctx  = function
-  | Cstr_tuple l -> List.iter (prepare_type ctx) l
-  | Cstr_record l -> List.iter (fun l -> prepare_type ctx l.ld_type) l
+  | Cstr_tuple l -> List.iter (Aliases.prepare_type ctx) l
+  | Cstr_record l -> List.iter (fun l -> Aliases.prepare_type ctx l.ld_type) l
 
 let rec tree_of_type_decl ctx id decl =
 
@@ -1349,9 +1371,9 @@ let rec tree_of_type_decl ctx id decl =
   | None -> ()
   end;
 
-  List.iter add_alias params;
-  List.iter (prepare_type ctx) params;
-  List.iter (add_printed_alias ctx) params;
+  List.iter (Aliases.add_alias ctx.aliases) params;
+  List.iter (Aliases.prepare_type ctx) params;
+  List.iter (Aliases.add_printed_alias ctx) params;
   let ty_manifest =
     match decl.type_manifest with
     | None -> None
@@ -1367,7 +1389,7 @@ let rec tree_of_type_decl ctx id decl =
               end
           | _ -> ty
         in
-        prepare_type ctx ty;
+        Aliases.prepare_type ctx ty;
         Some ty
   in
   begin match decl.type_kind with
@@ -1519,9 +1541,9 @@ let tree_of_extension_constructor ctx id ext es =
   reset_except_context ctx;
   let ty_name = Path.name ext.ext_type_path in
   let ty_params = filter_params ext.ext_type_params in
-  List.iter add_alias ty_params;
+  List.iter (Aliases.add_alias ctx.aliases) ty_params;
   List.iter (prepare_type ctx) ty_params;
-  List.iter (add_printed_alias ctx) ty_params;
+  List.iter (Aliases.add_printed_alias ctx) ty_params;
   prepare_type_constructor_arguments ctx ext.ext_args;
   Option.iter (prepare_type ctx) ext.ext_ret_type;
   let type_param =
@@ -1613,10 +1635,10 @@ let tree_of_method ctx mode (lab, priv, virt, ty) =
   let virt = virt = Virtual in
   Ocsg_method (lab, priv, virt, tty)
 
-let rec prepare_class_type ctx params = function
+let rec prepare_class_type (ctx: Printing_context.t) params = function
   | Cty_constr (_p, tyl, cty) ->
       let row = Btype.self_type_row cty in
-      if List.memq (proxy row) !visited_objects
+      if List.memq (proxy row) ctx.aliases.visited_objects
       || not (List.for_all is_Tvar params)
       || List.exists (deep_occur row) tyl
       then prepare_class_type ctx params cty
@@ -1624,19 +1646,20 @@ let rec prepare_class_type ctx params = function
   | Cty_signature sign ->
       (* Self may have a name *)
       let px = proxy sign.csig_self_row in
-      if List.memq px !visited_objects then add_alias_proxy px
-      else visited_objects := px :: !visited_objects;
+      if List.memq px ctx.aliases.visited_objects then
+        Aliases.add_alias_proxy ctx.aliases px
+      else ctx.aliases.visited_objects <- px :: ctx.aliases.visited_objects;
       Vars.iter (fun _ (_, _, ty) -> prepare_type ctx ty) sign.csig_vars;
       Meths.iter (prepare_method ctx) sign.csig_meths
   | Cty_arrow (_, ty, cty) ->
       prepare_type ctx ty;
       prepare_class_type ctx params cty
 
-let rec tree_of_class_type ctx mode params =
+let rec tree_of_class_type (ctx:Printing_context.t) mode params =
   function
   | Cty_constr (p', tyl, cty) ->
       let row = Btype.self_type_row cty in
-      if List.memq (proxy row) !visited_objects
+      if List.memq (proxy row) ctx.aliases.visited_objects
       || not (List.for_all is_Tvar params)
       then
         tree_of_class_type ctx mode params cty
@@ -1646,7 +1669,7 @@ let rec tree_of_class_type ctx mode params =
   | Cty_signature sign ->
       let px = proxy sign.csig_self_row in
       let self_ty =
-        if is_aliased_proxy px then
+        if Aliases.is_aliased_proxy ctx.aliases px then
           Some
             (Otyp_var (false, Names.name_of_type ctx.var_names Names.new_name px))
         else None
@@ -1717,13 +1740,14 @@ let tree_of_class_declaration ctx id cl rs =
   let params = filter_params cl.cty_params in
 
   reset_except_context ctx;
-  List.iter add_alias params;
+  List.iter (Aliases.add_alias ctx.aliases) params;
   prepare_class_type ctx params cl.cty_type;
   let px = proxy (Btype.self_type_row cl.cty_type) in
   List.iter (prepare_type ctx) params;
 
-  List.iter (add_printed_alias ctx) params;
-  if is_aliased_proxy px then add_printed_alias_proxy ctx px;
+  List.iter (Aliases.add_printed_alias ctx) params;
+  if Aliases.is_aliased_proxy ctx.aliases px then
+    Aliases.add_printed_alias_proxy ctx px;
 
   let vir_flag = cl.cty_new = None in
   Osig_class
@@ -1739,13 +1763,14 @@ let tree_of_cltype_declaration ctx id cl rs =
   let params = cl.clty_params in
 
   reset_except_context ctx;
-  List.iter add_alias params;
+  List.iter (Aliases.add_alias ctx.aliases) params;
   prepare_class_type ctx params cl.clty_type;
   let px = proxy (Btype.self_type_row cl.clty_type) in
   List.iter (prepare_type ctx) params;
 
-  List.iter (add_printed_alias ctx) params;
-  if is_aliased_proxy px then add_printed_alias_proxy ctx px;
+  List.iter (Aliases.add_printed_alias ctx) params;
+  if Aliases.is_aliased_proxy ctx.aliases px then
+    Aliases.add_printed_alias_proxy ctx px;
 
   let sign = Btype.signature_of_class_type cl.clty_type in
   let has_virtual_vars =
@@ -2009,11 +2034,14 @@ type 'a diff = Same of 'a | Diff of 'a * 'a
 
 let trees_of_type_expansion ctx mode Errortrace.{ty = t; expanded = t'} =
   (*  reset_loop_marks (); *)
-  mark_loops ctx t;
+  Aliases.mark_loops ctx t;
   if same_path ctx t t'
-  then begin add_delayed (proxy t); Same (tree_of_typexp ctx mode t) end
+  then begin
+    Aliases.add_delayed ctx.aliases (proxy t);
+    Same (tree_of_typexp ctx mode t)
+  end
   else begin
-    mark_loops ctx t';
+    Aliases.mark_loops ctx t';
     let t' = if proxy t == proxy t' then unalias t' else t' in
     (* beware order matter due to side effect,
        e.g. when printing object types *)
@@ -2301,8 +2329,8 @@ let explanation ectx (type variety) intro prev env
     | Tvar _ | Tunivar _  ->
         Some(fun ppf ->
             (* reset_loop_marks (); *)
-          mark_loops ectx x;
-          mark_loops ectx y;
+          Aliases.mark_loops ectx x;
+          Aliases.mark_loops ectx y;
           dprintf "@,@[<hov>The type variable %a occurs inside@ %a@]"
             (prepared_type_expr ectx) x (prepared_type_expr ectx) y
             ppf)
