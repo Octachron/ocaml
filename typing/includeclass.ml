@@ -63,12 +63,13 @@ let include_err mode ppf =
         (function ppf ->
           fprintf ppf "but is expected to have type")
   | CM_Class_type_mismatch (env, cty1, cty2) ->
-      Printtyp.wrap_printing_env ~error:true env (fun () ->
+      Env.without_cmis (fun () ->
+          let ctx = Printtyp.context env in
         fprintf ppf
           "@[The class type@;<1 2>%a@ %s@;<1 2>%a@]"
-          Printtyp.class_type cty1
+          (Printtyp.class_type ctx) cty1
           "is not matched by the class type"
-          Printtyp.class_type cty2)
+          (Printtyp.class_type ctx) cty2) ()
   | CM_Parameter_mismatch (env, err) ->
       Printtyp.report_moregen_error ppf mode env err
         (function ppf ->

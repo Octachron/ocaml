@@ -256,13 +256,14 @@ let pp_record_diff first second prefix decl env ppf (x : record_change) =
       Format.fprintf  ppf "%aA field, %s, is missing in %s %s."
         prefix x (Ident.name cd.insert.ld_id) first decl
   | Change Type {got=lbl1; expected=lbl2; reason} ->
+      let ctx = Printtyp.context env in
       Format.fprintf ppf
         "@[<hv>%aFields do not match:@;<1 2>\
          %a@ is not the same as:\
          @;<1 2>%a@ %a@]"
         prefix x
-        Printtyp.label lbl1
-        Printtyp.label lbl2
+        (Printtyp.label ctx) lbl1
+        (Printtyp.label ctx) lbl2
         (report_label_mismatch first second env) reason
   | Change Name n ->
       Format.fprintf ppf "%aFields have different names, %s and %s."

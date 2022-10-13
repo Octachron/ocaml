@@ -138,12 +138,12 @@ module S = String.Set
 type t = {
   mutable explanations: conflict_explanation M.t;
 
-  mutable bound_in_recursion: Ident.t M.t
+  bound_in_recursion: Ident.t M.t
 (** Names bound in recursive definitions should be considered as bound
    in the environment when printing identifiers *)
 ;
 
-  mutable fuzzy: S.t
+  fuzzy: S.t
 (** When dealing with functor arguments, identity becomes fuzzy because the same
    syntactic argument may be represented by different identifiers during the
    error processing, we are thus disabling disambiguation on the argument name
@@ -158,7 +158,9 @@ let create () = {
 }
 
 let with_arg id ctx =
-  { ctx with fuzzy = S.add (Ident.name id) ctx.fuzzy }
+  Option.map (fun ctx ->
+      { ctx with fuzzy = S.add (Ident.name id) ctx.fuzzy }
+    ) ctx
 let fuzzy_id ctx namespace id =
   namespace = Module && S.mem (Ident.name id) ctx.fuzzy
 
@@ -170,7 +172,7 @@ let hide ids ctx =
       let bound_in_recursion = List.fold_left update pc.bound_in_recursion ids in
       Some { pc with bound_in_recursion  }
 
-let indexed_name ({env; path_conflict; _ } as env_ctx) namespace id =
+let indexed_name ectx namespace id =
   let find namespace id env = match namespace with
     | Type -> Env.find_type_index id env
     | Module -> Env.find_module_index id env
@@ -179,8 +181,8 @@ let indexed_name ({env; path_conflict; _ } as env_ctx) namespace id =
     | Class_type-> Env.find_cltype_index id env
     | Other -> None
   in
-  let rec_bound = M.find_opt (Ident.name id) path_conflict.bound_in_recursion in
-  match in_printing_env env_ctx (find namespace id), rec_bound with
+  let rec_bound = M.find_opt (Ident.name id) ectx.path_conflict.bound_in_recursion in
+  match in_printing_env ectx (find namespace id), rec_bound with
   | None, None
     (* This case is potentially problematic, it might indicate that
        the identifier id is not defined in the environment, while there
@@ -202,16 +204,17 @@ let indexed_name ({env; path_conflict; _ } as env_ctx) namespace id =
 
 module Conflicts = struct
   module M = String.Map
-  type explanation = conflict_explanation
-  let add namespace name id ({env; path_conflict } as ctx ) =
-    match Namespace.location ctx namespace id with
+  type explanation = conflict_explanation =
+  { kind: namespace; name:string; root_name:string; location:Location.t}
+  let add namespace name id ectx =
+    match Namespace.location ectx namespace id with
     | None -> ()
     | Some location ->
         let explanation =
           { kind = namespace; location; name; root_name=Ident.name id}
         in
-        path_conflict.explanations <-
-          M.add name explanation path_conflict.explanations
+        ectx.path_conflict.explanations <-
+          M.add name explanation ectx.path_conflict.explanations
 
   let collect_explanation ({ path_conflict=pthx; _} as ctx) namespace id ~name =
     let root_name = Ident.name id in
@@ -231,9 +234,11 @@ module Conflicts = struct
   let print_located_explanations ppf l =
     Format.fprintf ppf "@[<v>%a@]" (Format.pp_print_list pp_explanation) l
 
-  let list_explanations pc =
-    let c = pc.explanations in
-    c |> M.bindings |> List.map snd |> List.sort Stdlib.compare
+  let list_explanations ctx =
+    match ctx.path_conflict with
+    | None -> []
+    | Some c ->
+    c.explanations |> M.bindings |> List.map snd |> List.sort Stdlib.compare
 
 
   let print_toplevel_hint ppf l =
@@ -271,12 +276,12 @@ module Conflicts = struct
   let print_explanations ppf ctx =
     match ctx.path_conflict with
     | None -> ()
-    | Some path_conflict ->
+    | Some _ ->
         let ltop, l =
           (* isolate toplevel locations, since they are too imprecise *)
           let from_toplevel a =
             a.location.Location.loc_start.Lexing.pos_fname = "//toplevel//" in
-          List.partition from_toplevel (list_explanations path_conflict)
+          List.partition from_toplevel (list_explanations ctx)
         in
         begin match l with
         | [] -> ()
@@ -289,6 +294,8 @@ module Conflicts = struct
   let exists ctx = match ctx.path_conflict with
     | None -> false
     | Some pctx -> M.cardinal pctx.explanations > 0
+
+  let reset _ctx = ()
 end
 
 
@@ -1069,12 +1076,11 @@ let prepare_type ctx ty =
   reserve_names ctx ty;
   mark_loops ctx ty
 
-let reset_loop_marks ctx = () (*{ ctx with aliases = create () }*)
+let reset_loop_marks _ctx = () (*{ ctx with aliases = create () }*)
 end
 let prepare_type = Aliases.prepare_type
 
 module Printing_context = struct
-
 type t =
   (Naming_context.t option, Short_path.t option, Names.t, Aliases.t)
     generic_printing_context
@@ -1091,7 +1097,9 @@ let create env =
   { env; path_conflict; short_path; var_names; aliases }
 
 end
+type printing_context = Printing_context.t
 let set_printing_env = Printing_context.set_printing_env
+let context = Printing_context.create
 
 let reset_except_context ctx =
   Names.reset_names ctx.var_names; Aliases.reset_loop_marks ctx
@@ -1948,8 +1956,8 @@ and functor_param ctx ~sep ~custom_printer id q =
   match id with
   | None -> functor_parameters ctx ~sep custom_printer q
   | Some id ->
-      let ctx = Naming_context.with_arg id ctx in
-      functor_parameters ctx ~sep custom_printer q
+      let path_conflict = Naming_context.with_arg id ctx.path_conflict in
+      functor_parameters { ctx with path_conflict } ~sep custom_printer q
 
 
 
@@ -1959,8 +1967,8 @@ let modtype_declaration ctx id ppf decl =
 
 (* For the toplevel: merge with tree_of_signature? *)
 
-let print_items ctx showval env x =
-  Names.refresh_weak ctx;
+let print_items showval env x =
+  Names.refresh_weak env.var_names;
   (*  *Conflicts.reset (); *)
   let extend_val env (sigitem,outcome) = outcome, showval env sigitem in
   let post_process (env,l) = List.map (extend_val env) l in
