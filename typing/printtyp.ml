@@ -376,6 +376,7 @@ let rewrite_double_underscore_paths env p =
     rewrite_double_underscore_paths env p
 
 let rec tree_of_path ?(disambiguation=true) namespace p =
+  let tree_of_path namespace p = tree_of_path ~disambiguation namespace p in
   let namespace = if disambiguation then namespace else Other in
   match p with
   | Pident id ->
@@ -387,10 +388,10 @@ let rec tree_of_path ?(disambiguation=true) namespace p =
       (* [t.A]: inline record of the constructor [A] from type [t] *)
       Oide_dot (Oide_ident (ident_name Type t), s)
   | Pdot(p, s) ->
-      Oide_dot (tree_of_path ~disambiguation Module p, s)
+      Oide_dot (tree_of_path Module p, s)
   | Papply(p1, p2) ->
-      let t1 = tree_of_path ~disambiguation Module p1 in
-      let t2 = tree_of_path ~disambiguation Module p2 in
+      let t1 = tree_of_path Module p1 in
+      let t2 = tree_of_path Module p2 in
       Oide_apply (t1, t2)
 
 let tree_of_path ?disambiguation namespace p =
