@@ -134,12 +134,20 @@ val shared_type_scheme: formatter -> type_expr -> unit
 val tree_of_value_description: Ident.t -> value_description -> out_sig_item
 val value_description: Ident.t -> formatter -> value_description -> unit
 val label : formatter -> label_declaration -> unit
+val add_constructor_to_preparation : constructor_declaration -> unit
+val prepared_constructor :
+  local_names:bool -> formatter -> constructor_declaration -> unit
 val constructor : formatter -> constructor_declaration -> unit
 val tree_of_type_declaration:
     Ident.t -> type_declaration -> rec_status -> out_sig_item
+val no_reset_type_declaration: Ident.t -> formatter -> type_declaration -> unit
 val type_declaration: Ident.t -> formatter -> type_declaration -> unit
 val tree_of_extension_constructor:
     Ident.t -> extension_constructor -> ext_status -> out_sig_item
+val add_extension_constructor_to_preparation :
+    extension_constructor -> unit
+val prepared_extension_constructor:
+    local_names:bool -> Ident.t -> formatter -> extension_constructor -> unit
 val extension_constructor:
     Ident.t -> formatter -> extension_constructor -> unit
 (* Prints extension constructor with the type signature:

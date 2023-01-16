@@ -1316,9 +1316,40 @@ let prepare_type_constructor_arguments = function
   | Cstr_tuple l -> List.iter prepare_type l
   | Cstr_record l -> List.iter (fun l -> prepare_type l.ld_type) l
 
-let rec tree_of_type_decl id decl =
+let rec tree_of_constructor_arguments = function
+  | Cstr_tuple l -> tree_of_typlist Type l
+  | Cstr_record l -> [ Otyp_record (List.map tree_of_label l) ]
 
-  reset_except_context();
+and tree_of_label l =
+  (Ident.name l.ld_id, l.ld_mutable = Mutable, tree_of_typexp Type l.ld_type)
+
+let tree_of_constructor ?(local_names=true) cd =
+  let name = Ident.name cd.cd_id in
+  let arg () = tree_of_constructor_arguments cd.cd_args in
+  match cd.cd_res with
+  | None -> {
+      ocstr_name = name;
+      ocstr_args = arg ();
+      ocstr_return_type = None;
+    }
+  | Some res ->
+      let local_names =
+        if local_names
+        then Names.with_local_names
+        else fun f -> f ()
+      in
+      local_names (fun () ->
+        let ret = tree_of_typexp Type res in
+        let args = arg () in
+        {
+          ocstr_name = name;
+          ocstr_args = args;
+          ocstr_return_type = Some ret;
+        })
+
+
+
+let tree_of_type_decl id decl =
 
   let params = filter_params decl.type_params in
 
@@ -1444,37 +1475,26 @@ let rec tree_of_type_decl id decl =
       otype_unboxed = unboxed;
       otype_cstrs = constraints }
 
-and tree_of_constructor_arguments = function
-  | Cstr_tuple l -> tree_of_typlist Type l
-  | Cstr_record l -> [ Otyp_record (List.map tree_of_label l) ]
+let no_reset_tree_of_type_decl id decl =
+  tree_of_type_decl id decl
 
-and tree_of_constructor cd =
-  let name = Ident.name cd.cd_id in
-  let arg () = tree_of_constructor_arguments cd.cd_args in
-  match cd.cd_res with
-  | None -> {
-      ocstr_name = name;
-      ocstr_args = arg ();
-      ocstr_return_type = None;
-    }
-  | Some res ->
-      Names.with_local_names (fun () ->
-        let ret = tree_of_typexp Type res in
-        let args = arg () in
-        {
-          ocstr_name = name;
-          ocstr_args = args;
-          ocstr_return_type = Some ret;
-        })
+let tree_of_type_decl id decl =
+  reset_except_context();
+  tree_of_type_decl id decl
 
-and tree_of_label l =
-  (Ident.name l.ld_id, l.ld_mutable = Mutable, tree_of_typexp Type l.ld_type)
+let add_constructor_to_preparation c =
+  prepare_type_constructor_arguments c.cd_args;
+  Option.iter prepare_type c.cd_res
+
+let prepared_constructor ?local_names ppf c =
+  !Oprint.out_constr ppf (tree_of_constructor ?local_names c)
 
 let constructor ppf c =
   reset_except_context ();
-  prepare_type_constructor_arguments c.cd_args;
-  Option.iter prepare_type c.cd_res;
-  !Oprint.out_constr ppf (tree_of_constructor c)
+  add_constructor_to_preparation c;
+  prepared_constructor ppf c
+
+let prepared_constructor ~local_names ppf c = prepared_constructor ~local_names ppf c
 
 let label ppf l =
   reset_except_context ();
@@ -1484,8 +1504,14 @@ let label ppf l =
 let tree_of_type_declaration id decl rs =
   Osig_type (tree_of_type_decl id decl, tree_of_rec rs)
 
+let no_reset_tree_of_type_declaration id decl rs =
+  Osig_type (no_reset_tree_of_type_decl id decl, tree_of_rec rs)
+
 let type_declaration id ppf decl =
   !Oprint.out_sig_item ppf (tree_of_type_declaration id decl Trec_first)
+
+let no_reset_type_declaration id ppf decl =
+  !Oprint.out_sig_item ppf (no_reset_tree_of_type_declaration id decl Trec_first)
 
 let constructor_arguments ppf a =
   let tys = tree_of_constructor_arguments a in
@@ -1493,24 +1519,32 @@ let constructor_arguments ppf a =
 
 (* Print an extension declaration *)
 
-let extension_constructor_args_and_ret_type_subtree ext_args ext_ret_type =
+let extension_constructor_args_and_ret_type_subtree
+    ?(local_names=true) ext_args ext_ret_type =
   match ext_ret_type with
   | None -> (tree_of_constructor_arguments ext_args, None)
   | Some res ->
-      Names.with_local_names (fun () ->
-        let ret = tree_of_typexp Type res in
-        let args = tree_of_constructor_arguments ext_args in
-        (args, Some ret))
+      let local_names =
+        if local_names
+        then Names.with_local_names
+        else fun f -> f ()
+      in
+      local_names (fun () ->
+          let ret = tree_of_typexp Type res in
+          let args = tree_of_constructor_arguments ext_args in
+          (args, Some ret))
 
-let tree_of_extension_constructor id ext es =
-  reset_except_context ();
-  let ty_name = Path.name ext.ext_type_path in
+let add_extension_constructor_to_preparation ext =
   let ty_params = filter_params ext.ext_type_params in
   List.iter add_alias ty_params;
   List.iter prepare_type ty_params;
   List.iter add_printed_alias ty_params;
   prepare_type_constructor_arguments ext.ext_args;
-  Option.iter prepare_type ext.ext_ret_type;
+  Option.iter prepare_type ext.ext_ret_type
+
+let prepared_tree_of_extension_constructor ?local_names id ext es =
+  let ty_name = Path.name ext.ext_type_path in
+  let ty_params = filter_params ext.ext_type_params in
   let type_param =
     function
     | Otyp_var (_, id) -> id
@@ -1522,6 +1556,7 @@ let tree_of_extension_constructor id ext es =
   let name = Ident.name id in
   let args, ret =
     extension_constructor_args_and_ret_type_subtree
+      ?local_names
       ext.ext_args
       ext.ext_ret_type
   in
@@ -1541,8 +1576,17 @@ let tree_of_extension_constructor id ext es =
   in
     Osig_typext (ext, es)
 
+let tree_of_extension_constructor id ext es =
+  reset_except_context ();
+  add_extension_constructor_to_preparation ext;
+  prepared_tree_of_extension_constructor id ext es
+
 let extension_constructor id ppf ext =
   !Oprint.out_sig_item ppf (tree_of_extension_constructor id ext Text_first)
+
+let prepared_extension_constructor ~local_names id ppf ext =
+  !Oprint.out_sig_item ppf
+    (prepared_tree_of_extension_constructor ~local_names id ext Text_first)
 
 let extension_only_constructor id ppf ext =
   reset_except_context ();

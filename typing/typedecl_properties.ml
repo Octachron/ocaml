@@ -21,7 +21,7 @@ type ('prop, 'req) property = {
   merge : prop:'prop -> new_prop:'prop -> 'prop;
 
   default : decl -> 'prop;
-  compute : Env.t -> decl -> 'req -> 'prop;
+  compute : Env.t -> Ident.t -> decl -> 'req -> 'prop;
   update_decl : decl -> 'prop -> decl;
 
   check : Env.t -> Ident.t -> decl -> 'req -> unit;
@@ -53,8 +53,8 @@ let compute_property
     let new_env = add_types_to_env new_decls env in
     let new_props =
       List.map2
-        (fun (_id, decl) (prop, req) ->
-           let new_prop = property.compute new_env decl req in
+        (fun (id, decl) (prop, req) ->
+           let new_prop = property.compute new_env id decl req in
            property.merge ~prop ~new_prop)
         new_decls (List.combine props required) in
     if not (List.for_all2 property.eq props new_props)

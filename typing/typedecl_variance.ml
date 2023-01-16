@@ -22,15 +22,27 @@ module TypeMap = Btype.TypeMap
 
 type surface_variance = bool * bool * bool
 
+type variance_variable_context =
+  | Type_declaration of Ident.t * type_declaration
+  | Gadt_constructor of constructor_declaration
+  | Extension_constructor of Ident.t * extension_constructor
+
+type variance_variable_error =
+  | No_variable
+  | Variance_not_reflected
+  | Variance_not_deducible
+
 type variance_error =
-| Variance_not_satisfied of int
-| No_variable
-| Variance_not_reflected
-| Variance_not_deducible
+  | Variance_not_satisfied of int
+  | Variance_variable_error of {
+       error : variance_variable_error;
+       context : variance_variable_context;
+       variable : type_expr
+     }
 
 type error =
-| Bad_variance of variance_error * surface_variance * surface_variance
-| Varying_anonymous
+  | Bad_variance of variance_error * surface_variance * surface_variance
+  | Varying_anonymous
 
 
 exception Error of Location.t * error
@@ -145,7 +157,9 @@ let compute_variance_type env ~check (required, loc) decl tyl =
         try check ty; compute_variance env tvl injective ty
         with Exit -> ())
       params;
-  if check then begin
+  begin match check with
+  | None -> ()
+  | Some context ->
     (* Check variance of parameters *)
     let pos = ref 0 in
     List.iter2
@@ -188,14 +202,33 @@ let compute_variance_type env ~check (required, loc) decl tyl =
           !tvl2 null in
       Btype.backtrack snap;
       let (c1,n1) = get_upper v1 and (c2,n2,i2) = get_lower v2 in
-      if c1 && not c2 || n1 && not n2 then
-        if List.exists (eq_type ty) fvl then
-          let code = if not i2 then No_variable
-                     else if c2 || n2 then Variance_not_reflected
-                     else Variance_not_deducible in
-          raise (Error (loc, Bad_variance (code, (c1,n1,false), (c2,n2,false))))
-        else
-          Btype.iter_type_expr check ty
+      if c1 && not c2 || n1 && not n2 then begin
+        match List.find_opt (eq_type ty) fvl with
+        | Some variable ->
+            let code =
+              if not i2 then 
+                Variance_variable_error
+                  { error = No_variable
+                  ; context
+                  ; variable
+                  }
+              else if c2 || n2 then
+                Variance_variable_error
+                  { error = Variance_not_reflected
+                  ; context
+                  ; variable
+                  }
+              else
+                Variance_variable_error
+                  { error = Variance_not_deducible
+                  ; context
+                  ; variable
+                  }
+            in
+            raise (Error (loc, Bad_variance (code, (c1,n1,false), (c2,n2,false))))
+        | None ->
+            Btype.iter_type_expr check ty
+      end
     in
     List.iter (fun (_,ty) -> check ty) tyl;
   end;
@@ -263,45 +296,79 @@ let compute_variance_extension env ~check decl ext rloc =
     {decl with type_params = ext.ext_type_params}
     (ext.ext_args, ext.ext_ret_type)
 
-let compute_variance_decl env ~check decl (required, _ as rloc) =
+let compute_variance_decl env ~check id decl (required, _ as rloc) =
   if (decl.type_kind = Type_abstract || decl.type_kind = Type_open)
        && decl.type_manifest = None then
     List.map
       (fun (c, n, i) ->
         make (not n) (not c) (decl.type_kind <> Type_abstract || i))
       required
-  else
-  let mn =
-    match decl.type_manifest with
-      None -> []
-    | Some ty -> [false, ty]
-  in
-  let vari = match decl.type_kind with
-    Type_abstract | Type_open ->
-      compute_variance_type env ~check rloc decl mn
-  | Type_variant (tll,_rep) ->
-      if List.for_all (fun c -> c.Types.cd_res = None) tll then
-        compute_variance_type env ~check rloc decl
-          (mn @ List.flatten (List.map (fun c -> for_constr c.Types.cd_args)
-                                tll))
-      else begin
-        let mn =
-          List.map (fun (_,ty) -> (Types.Cstr_tuple [ty],None)) mn in
-        let tll =
-          mn @ List.map (fun c -> c.Types.cd_args, c.Types.cd_res) tll in
-        match List.map (compute_variance_gadt env ~check rloc decl) tll with
-        | vari :: rem ->
-            List.fold_left (List.map2 Variance.union) vari rem
-        | _ -> assert false
-      end
-  | Type_record (ftl, _) ->
-      compute_variance_type env ~check rloc decl
-        (mn @ List.map (fun {Types.ld_mutable; ld_type} ->
-             (ld_mutable = Mutable, ld_type)) ftl)
-  in
-  if mn = [] || decl.type_kind <> Type_abstract then
-    List.map Variance.strengthen vari
-  else vari
+  else begin
+    let mn =
+      match decl.type_manifest with
+        None -> []
+      | Some ty -> [ false, ty ]
+    in
+    let vari =
+      match decl.type_kind with
+        Type_abstract | Type_open ->
+          let check =
+            if check
+            then Some (Type_declaration (id,decl))
+            else None
+          in
+          compute_variance_type env ~check rloc decl mn
+      | Type_variant (tll,_rep) ->
+          if List.for_all (fun c -> c.Types.cd_res = None) tll then
+            let check =
+              if check
+              then Some (Type_declaration (id,decl))
+              else None
+            in
+            compute_variance_type env ~check rloc decl
+              (mn @ List.flatten (List.map (fun c -> for_constr c.Types.cd_args)
+                                    tll))
+          else begin
+            let vari =
+              match decl.type_manifest with
+              | None -> []
+              | Some ty ->
+                  let mn = Types.Cstr_tuple [ ty ], None in
+                  let check =
+                    if check
+                    then Some (Type_declaration (id,decl))
+                    else None
+                  in
+                  [ compute_variance_gadt env ~check rloc decl mn ]
+            in
+            let compute_variance_gadt tl =
+              let check =
+                if check
+                then Some (Gadt_constructor tl)
+                else None
+              in
+              compute_variance_gadt env ~check rloc decl
+                (tl.Types.cd_args, tl.Types.cd_res)
+            in
+            match List.append vari (List.map compute_variance_gadt tll) with
+            | vari :: rem ->
+                List.fold_left (List.map2 Variance.union) vari rem
+            | _ -> assert false
+          end
+      | Type_record (ftl, _) ->
+          let check =
+            if check
+            then Some (Type_declaration (id,decl))
+            else None
+          in
+          compute_variance_type env ~check rloc decl
+            (mn @ List.map (fun {Types.ld_mutable; ld_type} ->
+                 (ld_mutable = Mutable, ld_type)) ftl)
+    in
+    if mn = [] || decl.type_kind <> Type_abstract then
+      List.map Variance.strengthen vari
+    else vari
+  end
 
 let is_hash id =
   let s = Ident.name id in
@@ -309,14 +376,17 @@ let is_hash id =
 
 let check_variance_extension env decl ext rloc =
   (* TODO: refactorize compute_variance_extension *)
-  ignore (compute_variance_extension env ~check:true decl
+  let check =
+    Some (Extension_constructor (ext.Typedtree.ext_id, ext.Typedtree.ext_type))
+  in
+  ignore (compute_variance_extension env ~check decl
     ext.Typedtree.ext_type rloc)
 
-let compute_decl env ~check decl req =
-  compute_variance_decl env ~check decl (req, decl.type_loc)
+let compute_decl env ~check id decl req =
+  compute_variance_decl env ~check id decl (req, decl.type_loc)
 
-let check_decl env decl req =
-  ignore (compute_variance_decl env ~check:true decl (req, decl.type_loc))
+let check_decl env id decl req =
+  ignore (compute_variance_decl env ~check:true id decl (req, decl.type_loc))
 
 type prop = Variance.t list
 type req = surface_variance list
@@ -333,7 +403,7 @@ let property : (prop, req) Typedecl_properties.property =
   let update_decl decl variance =
     { decl with type_variance = variance } in
   let check env id decl req =
-    if is_hash id then () else check_decl env decl req in
+    if is_hash id then () else check_decl env id decl req in
   {
     eq;
     merge;
