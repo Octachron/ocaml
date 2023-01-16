@@ -206,7 +206,7 @@ let compute_variance_type env ~check (required, loc) decl tyl =
         match List.find_opt (eq_type ty) fvl with
         | Some variable ->
             let code =
-              if not i2 then 
+              if not i2 then
                 Variance_variable_error
                   { error = No_variable
                   ; context
@@ -225,7 +225,9 @@ let compute_variance_type env ~check (required, loc) decl tyl =
                   ; variable
                   }
             in
-            raise (Error (loc, Bad_variance (code, (c1,n1,false), (c2,n2,false))))
+            raise
+              (Error
+                     (loc, Bad_variance (code, (c1,n1,false), (c2,n2,false))))
         | None ->
             Btype.iter_type_expr check ty
       end
