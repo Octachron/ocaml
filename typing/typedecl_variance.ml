@@ -205,29 +205,22 @@ let compute_variance_type env ~check (required, loc) decl tyl =
       if c1 && not c2 || n1 && not n2 then begin
         match List.find_opt (eq_type ty) fvl with
         | Some variable ->
-            let code =
+            let error =
               if not i2 then
-                Variance_variable_error
-                  { error = No_variable
-                  ; context
-                  ; variable
-                  }
+                No_variable
               else if c2 || n2 then
-                Variance_variable_error
-                  { error = Variance_not_reflected
-                  ; context
-                  ; variable
-                  }
+                Variance_not_reflected
               else
-                Variance_variable_error
-                  { error = Variance_not_deducible
-                  ; context
-                  ; variable
-                  }
+                Variance_not_deducible
+            in
+            let variance_error =
+              Variance_variable_error { error; context; variable }
             in
             raise
-              (Error
-                     (loc, Bad_variance (code, (c1,n1,false), (c2,n2,false))))
+              (Error (loc
+                     , Bad_variance ( variance_error
+                                    , (c1,n1,false)
+                                    , (c2,n2,false))))
         | None ->
             Btype.iter_type_expr check ty
       end
