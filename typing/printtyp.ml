@@ -1494,7 +1494,8 @@ let constructor ppf c =
   add_constructor_to_preparation c;
   prepared_constructor ppf c
 
-let prepared_constructor ~local_names ppf c = prepared_constructor ~local_names ppf c
+let prepared_constructor ~local_names ppf c =
+  prepared_constructor ~local_names ppf c
 
 let label ppf l =
   reset_except_context ();
@@ -1511,7 +1512,8 @@ let type_declaration id ppf decl =
   !Oprint.out_sig_item ppf (tree_of_type_declaration id decl Trec_first)
 
 let no_reset_type_declaration id ppf decl =
-  !Oprint.out_sig_item ppf (no_reset_tree_of_type_declaration id decl Trec_first)
+  !Oprint.out_sig_item ppf
+    (no_reset_tree_of_type_declaration id decl Trec_first)
 
 let constructor_arguments ppf a =
   let tys = tree_of_constructor_arguments a in
