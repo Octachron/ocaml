@@ -1912,38 +1912,38 @@ let report_error ppf = function
            Printtyp.prepare_for_printing [ variable ];
            begin match context with
            | Type_declaration (id, decl) ->
-               fprintf ppf "@[%s@;<1 2>%a@;"
+               fprintf ppf "@[<v>%s@;<1 2>%a@;"
                  "In the definition"
                  (Printtyp.no_reset_type_declaration id)
                  decl
            | Gadt_constructor c ->
                Printtyp.add_constructor_to_preparation c;
-               fprintf ppf "@[%s@;<1 2>%a@;"
+               fprintf ppf "@[<v>%s@;<1 2>%a@;"
                  "In the GADT constructor"
                  (Printtyp.prepared_constructor ~local_names:false)
                  c
            | Extension_constructor (id, e) ->
                Printtyp.add_extension_constructor_to_preparation e;
-               fprintf ppf "@[%s@;<1 2>%a@;"
+               fprintf ppf "@[<v>%s@;<1 2>%a@;"
                  "In the extension constructor"
                  (Printtyp.prepared_extension_constructor id ~local_names:false)
                  e
            end;
            begin match error with
            | Variance_not_reflected ->
-               fprintf ppf "%s@ %a@ %s@ %s@ It"
+               fprintf ppf "@[%s@ %a@ %s@ %s@ It"
                  "the type variable"
                  Printtyp.prepared_type_expr variable
                  "has a variance that"
                  "is not reflected by its occurrence in type parameters."
            | No_variable ->
-               fprintf ppf "%s@ %a@ %s@ %s@]"
+               fprintf ppf "@[%s@ %a@ %s@ %s@]@]"
                  "the type variable"
                  Printtyp.prepared_type_expr variable
                  "cannot be deduced"
                  "from the type parameters."
            | Variance_not_deducible ->
-               fprintf ppf "%s@ %a@ %s@ %s@ It"
+               fprintf ppf "@[%s@ %a@ %s@ %s@ It"
                  "the type variable"
                  Printtyp.prepared_type_expr variable
                  "has a variance that"
@@ -1957,7 +1957,7 @@ let report_error ppf = function
       (match n with
        | Variance_variable_error { error = No_variable; _ } -> ()
        | _ ->
-           fprintf ppf " was expected to be %s,@ but it is %s.@]"
+           fprintf ppf " was expected to be %s,@ but it is %s.@]@]"
              (variance v2) (variance v1))
   | Unavailable_type_constructor p ->
       fprintf ppf "The definition of type %a@ is unavailable" Printtyp.path p
