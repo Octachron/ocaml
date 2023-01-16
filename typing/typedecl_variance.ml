@@ -297,6 +297,11 @@ let compute_variance_extension env ~check decl ext rloc =
     (ext.ext_args, ext.ext_ret_type)
 
 let compute_variance_decl env ~check id decl (required, _ as rloc) =
+  let check =
+    if check
+    then Some (Type_declaration (id,decl))
+    else None
+  in
   if (decl.type_kind = Type_abstract || decl.type_kind = Type_open)
        && decl.type_manifest = None then
     List.map
@@ -312,19 +317,9 @@ let compute_variance_decl env ~check id decl (required, _ as rloc) =
     let vari =
       match decl.type_kind with
         Type_abstract | Type_open ->
-          let check =
-            if check
-            then Some (Type_declaration (id,decl))
-            else None
-          in
           compute_variance_type env ~check rloc decl mn
       | Type_variant (tll,_rep) ->
           if List.for_all (fun c -> c.Types.cd_res = None) tll then
-            let check =
-              if check
-              then Some (Type_declaration (id,decl))
-              else None
-            in
             compute_variance_type env ~check rloc decl
               (mn @ List.flatten (List.map (fun c -> for_constr c.Types.cd_args)
                                     tll))
@@ -334,18 +329,13 @@ let compute_variance_decl env ~check id decl (required, _ as rloc) =
               | None -> []
               | Some ty ->
                   let mn = Types.Cstr_tuple [ ty ], None in
-                  let check =
-                    if check
-                    then Some (Type_declaration (id,decl))
-                    else None
-                  in
                   [ compute_variance_gadt env ~check rloc decl mn ]
             in
             let compute_variance_gadt tl =
               let check =
-                if check
-                then Some (Gadt_constructor tl)
-                else None
+                match check with
+                | Some _ -> Some (Gadt_constructor tl)
+                | None -> None
               in
               compute_variance_gadt env ~check rloc decl
                 (tl.Types.cd_args, tl.Types.cd_res)
@@ -356,11 +346,6 @@ let compute_variance_decl env ~check id decl (required, _ as rloc) =
             | _ -> assert false
           end
       | Type_record (ftl, _) ->
-          let check =
-            if check
-            then Some (Type_declaration (id,decl))
-            else None
-          in
           compute_variance_type env ~check rloc decl
             (mn @ List.map (fun {Types.ld_mutable; ld_type} ->
                  (ld_mutable = Mutable, ld_type)) ftl)
