@@ -2070,9 +2070,10 @@ let report_error ppf = function
            Printtyp.prepare_for_printing [ variable ];
            begin match context with
            | Type_declaration (id, decl) ->
+               Printtyp.add_type_declaration_to_preparation id decl;
                fprintf ppf "@[<v>%s@;<1 2>%a@;"
                  "In the definition"
-                 (Printtyp.no_reset_type_declaration id)
+                 (Printtyp.prepared_type_declaration id)
                  decl
            | Gadt_constructor c ->
                Printtyp.add_constructor_to_preparation c;
