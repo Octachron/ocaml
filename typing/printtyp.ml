@@ -1475,7 +1475,13 @@ let tree_of_type_decl id decl =
       otype_unboxed = unboxed;
       otype_cstrs = constraints }
 
-let no_reset_tree_of_type_decl id decl =
+let add_type_decl_to_preparation id decl =
+  (* TODO: this isn't really proper "preparation", we just build the full
+     output and discard the result. *)
+  tree_of_type_decl id decl
+  |> (ignore : Outcometree.out_type_decl -> unit)
+
+let tree_of_prepared_type_decl id decl =
   tree_of_type_decl id decl
 
 let tree_of_type_decl id decl =
@@ -1505,15 +1511,18 @@ let label ppf l =
 let tree_of_type_declaration id decl rs =
   Osig_type (tree_of_type_decl id decl, tree_of_rec rs)
 
-let no_reset_tree_of_type_declaration id decl rs =
-  Osig_type (no_reset_tree_of_type_decl id decl, tree_of_rec rs)
+let tree_of_prepared_type_declaration id decl rs =
+  Osig_type (tree_of_prepared_type_decl id decl, tree_of_rec rs)
 
 let type_declaration id ppf decl =
   !Oprint.out_sig_item ppf (tree_of_type_declaration id decl Trec_first)
 
-let no_reset_type_declaration id ppf decl =
+let add_type_declaration_to_preparation id decl =
+  add_type_decl_to_preparation id decl
+
+let prepared_type_declaration id ppf decl =
   !Oprint.out_sig_item ppf
-    (no_reset_tree_of_type_declaration id decl Trec_first)
+    (tree_of_prepared_type_declaration id decl Trec_first)
 
 let constructor_arguments ppf a =
   let tys = tree_of_constructor_arguments a in

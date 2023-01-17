@@ -289,7 +289,7 @@ Working version
 
 - #11888: Improve the error message when type variables cannot be deduced from
   the type parameters.
-  (Stefan Muenzel, review by ??)
+  (Stefan Muenzel, review by Florian Angeletti and Gabriel Scherer)
 
 ### Internal/compiler-libs changes:
 
