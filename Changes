@@ -72,6 +72,9 @@ Working version
 - #11879: Bugfix for Ctype.nondep_type
   (Stephen Dolan, review by Gabriel Scherer)
 
+- #11912: Refactoring handling of scoped type variables
+  (Richard Eisenberg, review by Gabriel Scherer)
+
 ### Code generation and optimizations:
 
 - #8998, #11321, #11430: change mangling of OCaml long identifiers
