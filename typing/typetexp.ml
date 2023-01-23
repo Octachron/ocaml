@@ -77,10 +77,11 @@ module TyVarEnv : sig
      Env.t -> Location.t -> poly_univars -> type_expr list
   (* see mli file *)
 
-  type policy
-  val fixed_policy : policy (* no wildcards allowed *)
-  val extensible_policy : policy (* common case *)
-  val univars_policy : policy (* fresh variables are univars (in methods) *)
+  type policy =
+    | Closed (* no wildcards allowed: all types variable must be bound *)
+    | Unification (* common case *)
+    | Universal (* fresh variables are univars (in methods) *)
+
   val new_any_var : Location.t -> Env.t -> policy -> type_expr
     (* create a new variable to represent a _; fails for fixed_policy *)
   val new_var : ?name:string -> policy -> type_expr
@@ -240,19 +241,13 @@ end = struct
     used_variables := TyVarMap.add name (v, loc) !used_variables
 
 
-  type flavor = Unification | Universal
-  type extensibility = Extensible | Fixed
-  type policy = { flavor : flavor; extensibility : extensibility }
-
-  let fixed_policy = { flavor = Unification; extensibility = Fixed }
-  let extensible_policy = { flavor = Unification; extensibility = Extensible }
-  let univars_policy = { flavor = Universal; extensibility = Extensible }
+  type policy = Closed | Unification | Universal
 
   let add_pre_univar tv = function
-    | { flavor = Universal } ->
+    | Universal ->
       assert (not_generic tv);
       pre_univars := tv :: !pre_univars
-    | _ -> ()
+    | Closed | Unification -> ()
 
   let collect_univars f =
     pre_univars := [];
@@ -274,8 +269,8 @@ end = struct
     tv
 
   let new_any_var loc env = function
-    | { extensibility = Fixed } -> raise(Error(loc, env, No_type_wildcards))
-    | policy -> new_var policy
+    | Closed -> raise(Error(loc, env, No_type_wildcards))
+    | Unification | Universal as policy -> new_var policy
 
   let globalize_used_variables ~globals_only env ~fixed =
     let r = ref [] in
@@ -751,7 +746,7 @@ let make_fixed_univars ty =
 
 let transl_simple_type env ?univars ~fixed styp =
   TyVarEnv.reset_locals ?univars ();
-  let policy = TyVarEnv.(if fixed then fixed_policy else extensible_policy) in
+  let policy = TyVarEnv.(if fixed then Closed else Unification) in
   let typ = transl_type env policy styp in
   TyVarEnv.globalize_used_variables ~globals_only:false env ~fixed ();
   make_fixed_univars typ.ctyp_type;
@@ -762,7 +757,7 @@ let transl_simple_type_univars env styp =
   let typ, univs =
     TyVarEnv.collect_univars begin fun () ->
       with_local_level ~post:generalize_ctyp begin fun () ->
-        let typ = transl_type env TyVarEnv.univars_policy styp in
+        let typ = transl_type env Universal styp in
         (* Globalize only local occurrences of variables that are already in
            global scope; others will be univars and dealt with in
            make_fixed_univars. *)
@@ -779,7 +774,7 @@ let transl_simple_type_delayed env styp =
   TyVarEnv.reset_locals ();
   let typ, force =
     with_local_level begin fun () ->
-      let typ = transl_type env TyVarEnv.extensible_policy styp in
+      let typ = transl_type env Unification styp in
       make_fixed_univars typ.ctyp_type;
       (* This brings the used variables to the global level, but doesn't link
          them to their other occurrences just yet. This will be done when
