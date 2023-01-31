@@ -1348,11 +1348,8 @@ let tree_of_constructor ?(local_names=true) cd =
         })
 
 
-
-let tree_of_type_decl id decl =
-
+let prepare_decl id decl =
   let params = filter_params decl.type_params in
-
   begin match decl.type_manifest with
   | Some ty ->
       let vars = free_variables ty in
@@ -1363,7 +1360,6 @@ let tree_of_type_decl id decl =
         params
   | None -> ()
   end;
-
   List.iter add_alias params;
   List.iter prepare_type params;
   List.iter add_printed_alias params;
@@ -1397,7 +1393,10 @@ let tree_of_type_decl id decl =
       List.iter (fun l -> prepare_type l.ld_type) l
   | Type_open -> ()
   end;
+  ty_manifest, params
 
+let tree_of_type_decl id decl =
+  let ty_manifest, params = prepare_decl id decl in
   let type_param =
     function
     | Otyp_var (_, id) -> id
@@ -1476,10 +1475,7 @@ let tree_of_type_decl id decl =
       otype_cstrs = constraints }
 
 let add_type_decl_to_preparation id decl =
-  (* TODO: this isn't really proper "preparation", we just build the full
-     output and discard the result. *)
-  tree_of_type_decl id decl
-  |> (ignore : Outcometree.out_type_decl -> unit)
+   ignore @@ prepare_decl id decl
 
 let tree_of_prepared_type_decl id decl =
   tree_of_type_decl id decl
