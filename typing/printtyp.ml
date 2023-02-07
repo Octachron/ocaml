@@ -1316,12 +1316,12 @@ let prepare_type_constructor_arguments = function
   | Cstr_tuple l -> List.iter prepare_type l
   | Cstr_record l -> List.iter (fun l -> prepare_type l.ld_type) l
 
-let rec tree_of_constructor_arguments = function
+let tree_of_label l =
+  (Ident.name l.ld_id, l.ld_mutable = Mutable, tree_of_typexp Type l.ld_type)
+
+let tree_of_constructor_arguments = function
   | Cstr_tuple l -> tree_of_typlist Type l
   | Cstr_record l -> [ Otyp_record (List.map tree_of_label l) ]
-
-and tree_of_label l =
-  (Ident.name l.ld_id, l.ld_mutable = Mutable, tree_of_typexp Type l.ld_type)
 
 let tree_of_constructor ?(local_names=true) cd =
   let name = Ident.name cd.cd_id in
