@@ -331,11 +331,13 @@ let compute_variance_decl env ~check decl (required, _ as rloc) =
                                     tll))
           else begin
             let vari =
-              match decl.type_manifest with
-              | None -> []
-              | Some ty ->
-                  let mn = Types.Cstr_tuple [ ty ], None in
-                  [ compute_variance_gadt env ~check rloc decl mn ]
+              List.map
+                (fun ty ->
+                   compute_variance_type env ~check rloc
+                     {decl with type_private = Private}
+                     (add_false [ ty ])
+                )
+                (Option.to_list decl.type_manifest)
             in
             let constructor_variance =
               List.map
