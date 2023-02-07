@@ -286,7 +286,11 @@ let compute_variance_gadt env ~check (required, loc as rloc) decl
             (for_constr tl)
       | _ -> assert false
 
-let compute_variance_extension env ~check decl ext rloc =
+let compute_variance_extension env decl ext rloc =
+  let check =
+    Some (Extension_constructor (ext.Typedtree.ext_id, ext.Typedtree.ext_type))
+  in
+  let ext = ext.Typedtree.ext_type in
   compute_variance_gadt env ~check rloc
     {decl with type_params = ext.ext_type_params}
     (ext.ext_args, ext.ext_ret_type)
@@ -359,11 +363,7 @@ let is_hash id =
 
 let check_variance_extension env decl ext rloc =
   (* TODO: refactorize compute_variance_extension *)
-  let check =
-    Some (Extension_constructor (ext.Typedtree.ext_id, ext.Typedtree.ext_type))
-  in
-  ignore (compute_variance_extension env ~check decl
-    ext.Typedtree.ext_type rloc)
+  ignore (compute_variance_extension env decl ext rloc)
 
 let compute_decl env ~check id decl req =
   compute_variance_decl env ~check id decl (req, decl.type_loc)
