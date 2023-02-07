@@ -340,7 +340,9 @@ let compute_variance_decl env ~check id decl (required, _ as rloc) =
                   [ compute_variance_gadt env ~check rloc decl mn ]
             in
             let constructor_variance =
-              List.map (compute_variance_gadt_constructor env ~check rloc decl) tll
+              List.map
+                (compute_variance_gadt_constructor env ~check rloc decl)
+                tll
             in
             match List.append vari constructor_variance with
             | vari :: rem ->
