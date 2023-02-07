@@ -291,6 +291,15 @@ let compute_variance_extension env ~check decl ext rloc =
     {decl with type_params = ext.ext_type_params}
     (ext.ext_args, ext.ext_ret_type)
 
+let compute_variance_gadt_constructor env ~check rloc decl tl =
+  let check =
+    match check with
+    | Some _ -> Some (Gadt_constructor tl)
+    | None -> None
+  in
+  compute_variance_gadt env ~check rloc decl
+    (tl.Types.cd_args, tl.Types.cd_res)
+
 let compute_variance_decl env ~check id decl (required, _ as rloc) =
   let check =
     if check
@@ -326,16 +335,10 @@ let compute_variance_decl env ~check id decl (required, _ as rloc) =
                   let mn = Types.Cstr_tuple [ ty ], None in
                   [ compute_variance_gadt env ~check rloc decl mn ]
             in
-            let compute_variance_gadt tl =
-              let check =
-                match check with
-                | Some _ -> Some (Gadt_constructor tl)
-                | None -> None
-              in
-              compute_variance_gadt env ~check rloc decl
-                (tl.Types.cd_args, tl.Types.cd_res)
+            let constructor_variance =
+              List.map (compute_variance_gadt_constructor env ~check rloc decl) tll
             in
-            match List.append vari (List.map compute_variance_gadt tll) with
+            match List.append vari constructor_variance with
             | vari :: rem ->
                 List.fold_left (List.map2 Variance.union) vari rem
             | _ -> assert false
