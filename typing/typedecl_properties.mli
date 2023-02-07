@@ -28,7 +28,7 @@ type ('prop, 'req) property = {
   merge : prop:'prop -> new_prop:'prop -> 'prop;
 
   default : decl -> 'prop;
-  compute : Env.t -> Ident.t -> decl -> 'req -> 'prop;
+  compute : Env.t -> decl -> 'req -> 'prop;
   update_decl : decl -> 'prop -> decl;
 
   check : Env.t -> Ident.t -> decl -> 'req -> unit;

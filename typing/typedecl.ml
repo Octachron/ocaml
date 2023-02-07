@@ -1731,7 +1731,7 @@ let transl_with_constraint id ?fixed_row_path ~sig_env ~sig_decl ~outer_env
   let new_type_variance =
     let required = Typedecl_variance.variance_of_sdecl sdecl in
     try
-      Typedecl_variance.compute_decl env ~check:true id new_sig_decl required
+      Typedecl_variance.compute_decl env ~check:(Some id) new_sig_decl required
     with Typedecl_variance.Error (loc, err) ->
       raise (Error (loc, Variance err)) in
   let new_type_immediate =

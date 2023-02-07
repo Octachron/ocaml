@@ -44,7 +44,7 @@ let property : (Type_immediacy.t, unit) Typedecl_properties.property =
   let eq = (=) in
   let merge ~prop:_ ~new_prop = new_prop in
   let default _decl = Type_immediacy.Unknown in
-  let compute env _id decl () = compute_decl env decl in
+  let compute env decl () = compute_decl env decl in
   let update_decl decl immediacy = { decl with type_immediate = immediacy } in
   let check _env _id decl () =
     let written_by_user = Type_immediacy.of_attributes decl.type_attributes in

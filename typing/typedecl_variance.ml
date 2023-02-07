@@ -304,11 +304,9 @@ let compute_variance_gadt_constructor env ~check rloc decl tl =
   compute_variance_gadt env ~check rloc decl
     (tl.Types.cd_args, tl.Types.cd_res)
 
-let compute_variance_decl env ~check id decl (required, _ as rloc) =
+let compute_variance_decl env ~check decl (required, _ as rloc) =
   let check =
-    if check
-    then Some (Type_declaration (id,decl))
-    else None
+    Option.map (fun id -> Type_declaration (id, decl)) check
   in
   if (decl.type_kind = Type_abstract || decl.type_kind = Type_open)
        && decl.type_manifest = None then
@@ -367,11 +365,11 @@ let check_variance_extension env decl ext rloc =
   (* TODO: refactorize compute_variance_extension *)
   ignore (compute_variance_extension env decl ext rloc)
 
-let compute_decl env ~check id decl req =
-  compute_variance_decl env ~check id decl (req, decl.type_loc)
+let compute_decl env ~check decl req =
+  compute_variance_decl env ~check decl (req, decl.type_loc)
 
 let check_decl env id decl req =
-  ignore (compute_variance_decl env ~check:true id decl (req, decl.type_loc))
+  ignore (compute_variance_decl env ~check:(Some id) decl (req, decl.type_loc))
 
 type prop = Variance.t list
 type req = surface_variance list
@@ -384,7 +382,7 @@ let property : (prop, req) Typedecl_properties.property =
   let default decl =
     List.map (fun _ -> Variance.null) decl.type_params in
   let compute env decl req =
-    compute_decl env ~check:false decl req in
+    compute_decl env ~check:None decl req in
   let update_decl decl variance =
     { decl with type_variance = variance } in
   let check env id decl req =

@@ -58,7 +58,7 @@ val check_variance_extension :
   Typedtree.extension_constructor -> req * Location.t -> unit
 
 val compute_decl :
-  Env.t -> check:bool -> Ident.t -> type_declaration -> req -> prop
+  Env.t -> check:Ident.t option -> type_declaration -> req -> prop
 
 val update_decls :
   Env.t -> Parsetree.type_declaration list ->
