@@ -938,6 +938,37 @@ val get_formatter_stag_functions : unit -> formatter_stag_functions
 
     @since 4.08 *)
 
+
+(** {1:enginesemantics Redefining formatter engine semantics} *)
+
+type formatting_engine_parameters
+type width_info = { width: int; consumed_bytes: int }
+type width_definition = string -> width_info
+
+
+val get_width_definition: formatting_engine_parameters -> width_definition
+val make_formatting_engine_parameter:
+  ?width_definition:width_definition
+  -> unit -> formatting_engine_parameters
+
+val update_formatting_engine_parameters:
+  ?width_definition:width_definition
+  -> formatting_engine_parameters -> formatting_engine_parameters
+
+
+val pp_get_formatting_engine_parameters:
+  formatter -> formatting_engine_parameters
+val pp_set_formatting_engine_parameters:
+  formatter -> formatting_engine_parameters -> unit
+val pp_update_formatting_engine_parameters:
+  formatter -> (formatting_engine_parameters -> formatting_engine_parameters) -> unit
+
+
+val utf8_scalar_width: formatter -> unit
+val utf16le_scalar_width: formatter -> unit
+val utf16be_scalar_width: formatter -> unit
+
+
 (** {1:formatter Defining formatters}
 
   Defining new formatters permits unrelated output of material in

@@ -130,6 +130,11 @@ type pp_scan_elem = {
    Each stack element describes a pretty-printing box. *)
 type pp_format_elem = { box_type : box_type; width : int }
 
+
+(** Description of a string length *)
+type width_info = { width: int; consumed_bytes: int }
+type width_definition = (string list * int) option -> string -> width_info
+
 (* The formatter definition.
    Each formatter value is a pretty-printer instance with all its
    machinery. *)
@@ -184,8 +189,12 @@ type formatter = {
   mutable pp_mark_close_tag : stag -> string;
   mutable pp_print_open_tag : stag -> unit;
   mutable pp_print_close_tag : stag -> unit;
+  (* semantic definition of string width in the formatter *)
+  mutable string_width: width_definition;
+
   (* The pretty-printer queue. *)
   pp_queue : pp_queue;
+  mutable pp_fragment: (string * int) option;
 }
 
 
@@ -248,10 +257,15 @@ let pp_clear_queue state =
 let pp_infinity = 1000000010
 
 (* Output functions for the formatter. *)
-let pp_output_string state s = state.pp_out_string s 0 (String.length s)
+let pp_output_string state s =
+  state.pp_out_string s 0 (String.length s)
 and pp_output_newline state = state.pp_out_newline ()
 and pp_output_spaces state n = state.pp_out_spaces n
 and pp_output_indent state n = state.pp_out_indent n
+
+let pp_output_substring state s start len  =
+  state.pp_out_string s start len
+
 
 (* Format a textual token *)
 let format_pp_text state size text =
@@ -259,9 +273,25 @@ let format_pp_text state size text =
   pp_output_string state text;
   state.pp_is_new_line <- false
 
+(* For formatting fragments, we only use the width info *)
+let approximative_width state s =
+  state.pp_fragment <- None;
+  (state.string_width None s).width
+
+(*
+let split_at state width_info s =
+  let fragment =
+    String.sub s width_info.consumed_bytes
+        (String.length s - width_info.consumed_bytes)
+  in
+    s.pp_fragment <- Some fragment;
+    String.sub s 0 width_info.consumed_bytes
+ *)
+
 (* Format a string by its length, if not empty *)
 let format_string state s =
-  if s <> "" then format_pp_text state (String.length s) s
+  if s <> "" then
+    format_pp_text state (approximative_width state s) s
 
 (* To format a break, indenting a new line. *)
 let break_new_line state (before, offset, after) width =
@@ -391,13 +421,13 @@ let format_pp_token state size = function
     | Some { box_type; width } ->
       begin match box_type with
       | Pp_hovbox ->
-        if size + String.length before > state.pp_space_left
+        if size + approximative_width state before > state.pp_space_left
         then break_new_line state breaks width
         else break_same_line state fits
       | Pp_box ->
         (* Have the line just been broken here ? *)
         if state.pp_is_new_line then break_same_line state fits else
-        if size + String.length before > state.pp_space_left
+        if size + approximative_width state before > state.pp_space_left
           then break_new_line state breaks width else
         (* break the line here leads to new indentation ? *)
         if state.pp_current_indent > state.pp_margin - width + off
@@ -449,10 +479,35 @@ let enqueue_advance state tok = pp_enqueue state tok; advance_left state
 let enqueue_string_as state size s =
   enqueue_advance state { size; token = Pp_text s; length = Size.to_int size }
 
+(* To enqueue string slices. *)
+let enqueue_slice_as state size consumed_bytes s =
+  let slice = Pp_slice (state.pp_fragment, s, consumed_bytes) in
+  enqueue_advance state
+    { size; token = slice; length = Size.to_int size };
+  pp_fragment <- None
+
 
 let enqueue_string state s =
-  enqueue_string_as state (Size.of_int (String.length s)) s
+  match state.pp_fragment with
+  | None ->
+      let width_info = state.string_width None s in
+      if width_info.consumed_bytes = String.length s then
+        enqueue_string_as state (Size.of_int width_info.width)
+      else begin
+        enqueue_slice_as
+          state (Size.of_int width_info.width)
+          consumed_bytes
+          s;
+        pp_fragment <- Some (s, width.consumed_bytes);
+      end
+  | Some (prefix, prefix_consumed) ->
+      let width_info = state.string_width state.pp_fragment s in
+      if prefix_consumed + width_info.consumed_bytes = String.length prefix +
 
+  else begin
+    let main = split_at state width_info s in
+    enqueue_string_as state (Size.of_int width_info.width) main;
+  end
 
 (* Routines for scan stack
    determine size of boxes. *)
@@ -631,7 +686,8 @@ let pp_print_as state isize s =
 
 
 let pp_print_string state s =
-  pp_print_as state (String.length s) s
+  let s =
+  pp_print_as state (state.string_width s) s
 
 let pp_print_bytes state s =
   pp_print_as state (Bytes.length s) (Bytes.to_string s)
@@ -693,7 +749,10 @@ let pp_print_custom_break state ~fits ~breaks =
   if state.pp_curr_depth < state.pp_max_boxes then
     let size = Size.of_int (- state.pp_right_total) in
     let token = Pp_break { fits; breaks } in
-    let length = String.length before + width + String.length after in
+    let length =
+      approximative_width state before + width
+      + approximative_width state after
+    in
     let elem = { size; token; length } in
     scan_push state true elem
 
@@ -929,6 +988,9 @@ let default_pp_mark_close_tag = function
 let default_pp_print_open_tag = ignore
 let default_pp_print_close_tag = ignore
 
+let default_string_width s =
+  { width = String.length s; consumed_bytes = String.length s}
+
 (* Building a formatter given its basic output functions.
    Other fields get reasonable default values. *)
 let pp_make_formatter f g h i j =
@@ -970,6 +1032,7 @@ let pp_make_formatter f g h i j =
     pp_mark_close_tag = default_pp_mark_close_tag;
     pp_print_open_tag = default_pp_print_open_tag;
     pp_print_close_tag = default_pp_print_close_tag;
+    string_width = default_string_width;
     pp_queue = pp_queue;
   }
 
@@ -1483,3 +1546,53 @@ let () = Domain.before_first_spawn (fun () ->
     {fs with out_string = buffered_out_string err_buf_key;
              out_flush = buffered_out_flush Stdlib.stderr err_buf_key};
 )
+
+
+(** Engine parameter redefinition *)
+
+type formatting_engine_parameters = { width_definition: width_definition }
+
+let get_width_definition x = x.width_definition
+let make_formatting_engine_parameter
+    ?(width_definition=default_string_width) () =
+  { width_definition }
+let update_formatting_engine_parameters
+    ?(width_definition=default_string_width)
+    (_r:formatting_engine_parameters) =
+  { width_definition }
+
+
+
+let pp_get_formatting_engine_parameters state =
+  { width_definition = state.string_width }
+
+let pp_set_formatting_engine_parameters state {width_definition} =
+  state.string_width <- width_definition
+
+let pp_update_formatting_engine_parameters state f =
+  pp_set_formatting_engine_parameters state
+  @@ f @@
+  pp_get_formatting_engine_parameters @@ state
+
+let unicode_width read s =
+  let rec width_at ~width ~pos ~slen s =
+    if pos = slen then width else
+      let decode = read s pos in
+        width_at
+          ~width:(width+1)
+          ~pos:(pos + Uchar.utf_decode_length decode)
+          ~slen
+          s
+  in
+  let width = width_at ~width:0 ~pos:0 ~slen:(String.length s) s in
+  { width; consumed_bytes = String.length s }
+
+let utf_width get fmt =
+  pp_update_formatting_engine_parameters fmt
+    (update_formatting_engine_parameters
+       ~width_definition:(unicode_width get)
+    )
+
+let utf8_scalar_width = utf_width String.get_utf_8_uchar
+let utf16be_scalar_width = utf_width String.get_utf_16be_uchar
+let utf16le_scalar_width  = utf_width String.get_utf_16le_uchar
