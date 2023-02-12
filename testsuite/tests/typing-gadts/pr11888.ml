@@ -54,6 +54,6 @@ Line 3, characters 0-30:
 3 | type 'b t += A: 'b -> 'b any t
     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: In the extension constructor
-         type 'b t += A : 'b0 -> 'b0 any t
-       the type variable 'b0 cannot be deduced from the type parameters.
+         type 'b t += A : 'b -> 'b any t
+       the type variable 'b cannot be deduced from the type parameters.
 |}]

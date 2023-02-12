@@ -2079,13 +2079,13 @@ let report_error ppf = function
                Printtyp.add_constructor_to_preparation c;
                fprintf ppf "@[<v>%s@;<1 2>%a@;"
                  "In the GADT constructor"
-                 (Printtyp.prepared_constructor ~local_names:false)
+                 Printtyp.prepared_constructor
                  c
            | Extension_constructor (id, e) ->
                Printtyp.add_extension_constructor_to_preparation e;
                fprintf ppf "@[<v>%s@;<1 2>%a@;"
                  "In the extension constructor"
-                 (Printtyp.prepared_extension_constructor id ~local_names:false)
+                 (Printtyp.prepared_extension_constructor id)
                  e
            end;
            begin match error with
