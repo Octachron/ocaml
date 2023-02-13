@@ -1527,49 +1527,35 @@ let extension_constructor_args_and_ret_type_subtree ext_args ext_ret_type =
   let args = tree_of_constructor_arguments ext_args in
   (args, ret)
 
-let isolated_extension_constructor_args_and_ret_type_subtree
-    ext_args ext_ret_type =
-  match ext_ret_type with
-  | None ->
-      extension_constructor_args_and_ret_type_subtree ext_args ext_ret_type
-  | Some _ ->
-      Names.with_local_names
-        (fun () ->
-           extension_constructor_args_and_ret_type_subtree
-             ext_args ext_ret_type
-        )
+(* When printing extension constructor, it is important to ensure that
+after printing the constructor, we are still in the scope of the constructor.
+For GADT constructor, this can be done by printing the type parameters inside
+their own isolated scope. This ensures that in
+{[
+   type 'b t += A: 'b -> 'b any t
+]}
+the type parameter `'b` is not bound when printing the type variable `'b` from
+the constructor definition from the type parameter.
 
-(* When printing extension constructor, we need to forget the naming decisions
-   of different parts of the extension constructor depending on the context.
-   For example, in
-   {[
-     type 'b t += A: 'b -> 'b any t
-   ]}
-   We can choose to either use local names for the right hand GADT constructor
-   (Isolated_gadt), or the left hand type parameters (Isolated_param).
-   Isolating the gadt constructor is the same behaviour as
-   [isolated_tree_of_constructor].
-   We would choose to isolate the type parameters if we want to refer to the
-   GADT variables from another part of the printing context.
-   *)
-type extension_constructor_scoping =
-  | Isolated_gadt
-  | Isolated_param
+Contrarily, for non-gadt constructor, we must keep the same scope for
+the type parameters and the constructor because a type constraint may
+have changed the name of the type parameter:
+{[
+type -'a t = .. constraint <x:'a. 'a t -> 'a> = 'a
+(* the universal 'a is here to steal the name 'a from the type parameter *)
+type 'a t = X of 'a
+]} *)
 
-let add_extension_constructor_to_preparation scoping ext =
-  begin match scoping with
-  | Isolated_gadt ->
-    let ty_params = filter_params ext.ext_type_params in
-    List.iter add_alias ty_params;
-    List.iter prepare_type ty_params;
-    List.iter add_printed_alias ty_params;
-  | Isolated_param -> ()
-  end;
+
+let add_extension_constructor_to_preparation ext =
+  let ty_params = filter_params ext.ext_type_params in
+  List.iter add_alias ty_params;
+  List.iter prepare_type ty_params;
   prepare_type_constructor_arguments ext.ext_args;
   Option.iter prepare_type ext.ext_ret_type
 
 let prepared_tree_of_extension_constructor
-    scoping id ext es
+   id ext es
   =
   let ty_name = Path.name ext.ext_type_path in
   let ty_params = filter_params ext.ext_type_params in
@@ -1578,25 +1564,23 @@ let prepared_tree_of_extension_constructor
     | Otyp_var (_, id) -> id
     | _ -> "?"
   in
+  let param_scope f =
+    match ext.ext_ret_type with
+    | None ->
+        (* normal constructor: same scope for parameters and the constructor *)
+        f ()
+    | Some _ ->
+        (* gadt constructor: isolated scope for the type parameters *)
+        Names.with_local_names f
+  in
   let ty_params =
-    let local_names =
-      match scoping with
-      | Isolated_param -> Names.with_local_names
-      | Isolated_gadt -> fun f -> f ()
-    in
-    local_names
+    param_scope
       (fun () ->
+         List.iter add_printed_alias ty_params;
          List.map (fun ty -> type_param (tree_of_typexp Type ty)) ty_params
       )
   in
   let name = Ident.name id in
-  let extension_constructor_args_and_ret_type_subtree =
-    match scoping with
-    | Isolated_gadt ->
-        isolated_extension_constructor_args_and_ret_type_subtree
-    | Isolated_param ->
-        extension_constructor_args_and_ret_type_subtree
-  in
   let args, ret =
     extension_constructor_args_and_ret_type_subtree
       ext.ext_args
@@ -1620,14 +1604,8 @@ let prepared_tree_of_extension_constructor
 
 let tree_of_extension_constructor id ext es =
   reset_except_context ();
-  add_extension_constructor_to_preparation Isolated_gadt ext;
-  prepared_tree_of_extension_constructor Isolated_gadt id ext es
-
-let prepared_tree_of_extension_constructor =
-  prepared_tree_of_extension_constructor Isolated_param
-
-let add_extension_constructor_to_preparation =
-  add_extension_constructor_to_preparation Isolated_param
+  add_extension_constructor_to_preparation ext;
+  prepared_tree_of_extension_constructor id ext es
 
 let extension_constructor id ppf ext =
   !Oprint.out_sig_item ppf (tree_of_extension_constructor id ext Text_first)
