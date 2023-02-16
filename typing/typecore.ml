@@ -5539,8 +5539,8 @@ let type_expression env sexp =
 (* Error report *)
 
 let spellcheck ppf unbound_name valid_names =
-  Misc.did_you_mean ppf (fun () ->
-    Misc.spellcheck valid_names unbound_name
+  Spellchecker.did_you_mean ppf (fun () ->
+    Spellchecker.spellcheck valid_names unbound_name
   )
 
 let spellcheck_idents ppf unbound valid_idents =

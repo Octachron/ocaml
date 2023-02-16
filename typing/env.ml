@@ -3516,17 +3516,17 @@ let print_path =
   ref ((fun _ _ -> assert false) : formatter -> Path.t -> unit)
 
 let spellcheck ppf extract env lid =
-  let choices ~path name = Misc.spellcheck (extract path env) name in
+  let choices ~path name = Spellchecker.spellcheck (extract path env) name in
   match lid with
     | Longident.Lapply _ -> ()
     | Longident.Lident s ->
-       Misc.did_you_mean ppf (fun () -> choices ~path:None s)
+       Spellchecker.did_you_mean ppf (fun () -> choices ~path:None s)
     | Longident.Ldot (r, s) ->
-       Misc.did_you_mean ppf (fun () -> choices ~path:(Some r) s)
+       Spellchecker.did_you_mean ppf (fun () -> choices ~path:(Some r) s)
 
 let spellcheck_name ppf extract env name =
-  Misc.did_you_mean ppf
-    (fun () -> Misc.spellcheck (extract env) name)
+  Spellchecker.did_you_mean ppf
+    (fun () -> Spellchecker.spellcheck (extract env) name)
 
 let extract_values path env =
   fold_values (fun name _ _ acc -> name :: acc) path env []

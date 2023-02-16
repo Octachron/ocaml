@@ -180,6 +180,13 @@ user_display/profile.cmx : \
     utils/misc.cmx \
     user_display/profile.cmi
 user_display/profile.cmi :
+user_display/spellchecker.cmo : \
+    utils/misc.cmi \
+    user_display/spellchecker.cmi
+user_display/spellchecker.cmx : \
+    utils/misc.cmx \
+    user_display/spellchecker.cmi
+user_display/spellchecker.cmi :
 user_display/styling.cmo : \
     user_display/styling.cmi
 user_display/styling.cmx : \
@@ -608,6 +615,7 @@ typing/env.cmo : \
     user_display/warnings.cmi \
     typing/types.cmi \
     typing/subst.cmi \
+    user_display/spellchecker.cmi \
     typing/shape.cmi \
     typing/predef.cmi \
     typing/persistent_env.cmi \
@@ -630,6 +638,7 @@ typing/env.cmx : \
     user_display/warnings.cmx \
     typing/types.cmx \
     typing/subst.cmx \
+    user_display/spellchecker.cmx \
     typing/shape.cmx \
     typing/predef.cmx \
     typing/persistent_env.cmx \
@@ -1390,6 +1399,7 @@ typing/typecore.cmo : \
     typing/typedtree.cmi \
     typing/typedecl.cmi \
     typing/subst.cmi \
+    user_display/spellchecker.cmi \
     typing/shape.cmi \
     typing/rec_check.cmi \
     typing/printtyp.cmi \
@@ -1424,6 +1434,7 @@ typing/typecore.cmx : \
     typing/typedtree.cmx \
     typing/typedecl.cmx \
     typing/subst.cmx \
+    user_display/spellchecker.cmx \
     typing/shape.cmx \
     typing/rec_check.cmx \
     typing/printtyp.cmx \
@@ -1851,6 +1862,7 @@ typing/types.cmi : \
 typing/typetexp.cmo : \
     typing/types.cmi \
     typing/typedtree.cmi \
+    user_display/spellchecker.cmi \
     typing/printtyp.cmi \
     typing/predef.cmi \
     parsing/pprintast.cmi \
@@ -1871,6 +1883,7 @@ typing/typetexp.cmo : \
 typing/typetexp.cmx : \
     typing/types.cmx \
     typing/typedtree.cmx \
+    user_display/spellchecker.cmx \
     typing/printtyp.cmx \
     typing/predef.cmx \
     parsing/pprintast.cmx \
@@ -6336,6 +6349,7 @@ toplevel/genprintval.cmi : \
 toplevel/topcommon.cmo : \
     typing/typedtree.cmi \
     bytecomp/symtable.cmi \
+    user_display/spellchecker.cmi \
     parsing/printast.cmi \
     typing/predef.cmi \
     parsing/pprintast.cmi \
@@ -6364,6 +6378,7 @@ toplevel/topcommon.cmo : \
 toplevel/topcommon.cmx : \
     typing/typedtree.cmx \
     bytecomp/symtable.cmx \
+    user_display/spellchecker.cmx \
     parsing/printast.cmx \
     typing/predef.cmx \
     parsing/pprintast.cmx \
@@ -7128,9 +7143,9 @@ tools/ocamlprof.cmi :
 tools/ocamltex.cmo : \
     toplevel/toploop.cmi \
     parsing/syntaxerr.cmi \
+    user_display/styling.cmi \
     parsing/parsetree.cmi \
     parsing/parse.cmi \
-    utils/misc.cmi \
     parsing/location.cmi \
     utils/load_path.cmi \
     parsing/lexer.cmi \
@@ -7143,9 +7158,9 @@ tools/ocamltex.cmo : \
 tools/ocamltex.cmx : \
     toplevel/toploop.cmx \
     parsing/syntaxerr.cmx \
+    user_display/styling.cmx \
     parsing/parsetree.cmi \
     parsing/parse.cmx \
-    utils/misc.cmx \
     parsing/location.cmx \
     utils/load_path.cmx \
     parsing/lexer.cmx \

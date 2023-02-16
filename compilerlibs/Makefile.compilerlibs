@@ -52,7 +52,8 @@ USER_DISPLAY = \
   user_display/terminfo.cmo \
   user_display/warnings.cmo \
   user_display/diffing.cmo \
-  user_display/diffing_with_keys.cmo
+  user_display/diffing_with_keys.cmo \
+  user_display/spellchecker.cmo
 USER_DISPLAY_CMI =
 
 PARSING = \

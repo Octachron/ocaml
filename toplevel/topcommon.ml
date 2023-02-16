@@ -338,8 +338,8 @@ let try_run_directive ppf dir_name pdir_arg =
   | None ->
       fprintf ppf "Unknown directive `%s'." dir_name;
       let directives = all_directive_names () in
-      Misc.did_you_mean ppf
-        (fun () -> Misc.spellcheck directives dir_name);
+      Spellchecker.did_you_mean ppf
+        (fun () -> Spellchecker.spellcheck directives dir_name);
       fprintf ppf "@.";
       false
   | Some d ->

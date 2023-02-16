@@ -18,7 +18,6 @@
 (* Typechecking of type expressions for the core language *)
 
 open Asttypes
-open Misc
 open Parsetree
 open Typedtree
 open Types
@@ -823,7 +822,8 @@ let report_error env ppf = function
   | Unbound_type_variable (name, in_scope_names) ->
     fprintf ppf "The type variable %s is unbound in this type declaration.@ %a"
       name
-      did_you_mean (fun () -> Misc.spellcheck in_scope_names name )
+      Spellchecker.did_you_mean
+      (fun () -> Spellchecker.spellcheck in_scope_names name )
   | No_type_wildcards ->
     fprintf ppf "A type wildcard \"_\" is not allowed in this type declaration."
   | Undefined_type_constructor p ->
@@ -879,7 +879,7 @@ let report_error env ppf = function
       begin match get_desc ty with
         | Tvar (Some s) ->
            (* PR#7012: help the user that wrote 'Foo instead of `Foo *)
-           Misc.did_you_mean ppf (fun () -> ["`" ^ s])
+           Spellchecker.did_you_mean ppf (fun () -> ["`" ^ s])
         | _ -> ()
       end
   | Variant_tags (lab1, lab2) ->

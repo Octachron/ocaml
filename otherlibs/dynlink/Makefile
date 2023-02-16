@@ -107,6 +107,7 @@ COMPILERLIBS_SOURCES=\
   typing/predef.ml \
   typing/datarepr.ml \
   file_formats/cmi_format.ml \
+  user_display/spellchecker.ml \
   typing/persistent_env.ml \
   typing/env.ml \
   lambda/debuginfo.ml \
