@@ -147,7 +147,7 @@ let print_updating_num_loc_lines ppf f arg =
   pp_set_formatter_out_functions ppf out_functions
 
 let setup_colors () =
-  Misc.Color.setup !Clflags.color
+  Styling.setup !Clflags.color
 
 (******************************************************************************)
 (* Printing locations, e.g. 'File "foo.ml", line 3, characters 10-12' *)
@@ -722,7 +722,7 @@ let is_quotable_loc loc =
 let error_style () =
   match !Clflags.error_style with
   | Some setting -> setting
-  | None -> Misc.Error_style.default_setting
+  | None -> Styling.Error_style.default_setting
 
 let batch_mode_printer : report_printer =
   let pp_loc _self report ppf loc =
@@ -735,12 +735,12 @@ let batch_mode_printer : report_printer =
     in
     let highlight ppf loc =
       match error_style () with
-      | Misc.Error_style.Contextual ->
+      | Styling.Error_style.Contextual ->
           if is_quotable_loc loc then
             highlight_quote ppf
               ~get_lines:lines_around_from_current_input
               tag [loc]
-      | Misc.Error_style.Short ->
+      | Styling.Error_style.Short ->
           ()
     in
     Format.fprintf ppf "@[<v>%a:@ %a@]" print_loc loc highlight loc

@@ -229,11 +229,11 @@ type 'a env_reader = {
   env_var : string;
 }
 
-val color : Misc.Color.setting option ref
-val color_reader : Misc.Color.setting env_reader
+val color : Styling.setting option ref
+val color_reader : Styling.setting env_reader
 
-val error_style : Misc.Error_style.setting option ref
-val error_style_reader : Misc.Error_style.setting env_reader
+val error_style : Styling.Error_style.setting option ref
+val error_style_reader : Styling.Error_style.setting env_reader
 
 val unboxed_types : bool ref
 

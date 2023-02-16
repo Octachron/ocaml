@@ -386,14 +386,14 @@ let color = ref None (* -color *)
 
 let color_reader = {
   parse = (function
-    | "auto" -> Some Misc.Color.Auto
-    | "always" -> Some Misc.Color.Always
-    | "never" -> Some Misc.Color.Never
+    | "auto" -> Some Styling.Auto
+    | "always" -> Some Styling.Always
+    | "never" -> Some Styling.Never
     | _ -> None);
   print = (function
-    | Misc.Color.Auto -> "auto"
-    | Misc.Color.Always -> "always"
-    | Misc.Color.Never -> "never");
+    | Styling.Auto -> "auto"
+    | Styling.Always -> "always"
+    | Styling.Never -> "never");
   usage = "expected \"auto\", \"always\" or \"never\"";
   env_var = "OCAML_COLOR";
 }
@@ -402,12 +402,12 @@ let error_style = ref None (* -error-style *)
 
 let error_style_reader = {
   parse = (function
-    | "contextual" -> Some Misc.Error_style.Contextual
-    | "short" -> Some Misc.Error_style.Short
+    | "contextual" -> Some Styling.Error_style.Contextual
+    | "short" -> Some Styling.Error_style.Short
     | _ -> None);
   print = (function
-    | Misc.Error_style.Contextual -> "contextual"
-    | Misc.Error_style.Short -> "short");
+    | Styling.Error_style.Contextual -> "contextual"
+    | Styling.Error_style.Short -> "short");
   usage = "expected \"contextual\" or \"short\"";
   env_var = "OCAML_ERROR_STYLE";
 }

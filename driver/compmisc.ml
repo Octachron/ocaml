@@ -84,7 +84,7 @@ let read_clflags_from_env () =
     Option.is_none !Clflags.color &&
     Option.is_some (Sys.getenv_opt "NO_COLOR")
   then
-    Clflags.color := Some Misc.Color.Never;
+    Clflags.color := Some Styling.Never;
   set_from_env Clflags.error_style Clflags.error_style_reader;
   ()
 

@@ -29,6 +29,7 @@ utils/ccomp.cmx : \
     utils/ccomp.cmi
 utils/ccomp.cmi :
 utils/clflags.cmo : \
+    user_display/styling.cmi \
     user_display/profile.cmi \
     utils/numbers.cmi \
     utils/misc.cmi \
@@ -36,6 +37,7 @@ utils/clflags.cmo : \
     utils/arg_helper.cmi \
     utils/clflags.cmi
 utils/clflags.cmx : \
+    user_display/styling.cmx \
     user_display/profile.cmx \
     utils/numbers.cmx \
     utils/misc.cmx \
@@ -43,8 +45,8 @@ utils/clflags.cmx : \
     utils/arg_helper.cmx \
     utils/clflags.cmi
 utils/clflags.cmi : \
-    user_display/profile.cmi \
-    utils/misc.cmi
+    user_display/styling.cmi \
+    user_display/profile.cmi
 utils/config.common.cmo :
 utils/config.common.cmx :
 utils/config.fixed.cmo :
@@ -152,18 +154,20 @@ utils/targetint.cmx : \
     utils/targetint.cmi
 utils/targetint.cmi :
 user_display/diffing.cmo : \
-    utils/misc.cmi \
+    user_display/styling.cmi \
     user_display/diffing.cmi
 user_display/diffing.cmx : \
-    utils/misc.cmx \
+    user_display/styling.cmx \
     user_display/diffing.cmi
 user_display/diffing.cmi : \
-    utils/misc.cmi
+    user_display/styling.cmi
 user_display/diffing_with_keys.cmo : \
+    user_display/styling.cmi \
     utils/misc.cmi \
     user_display/diffing.cmi \
     user_display/diffing_with_keys.cmi
 user_display/diffing_with_keys.cmx : \
+    user_display/styling.cmx \
     utils/misc.cmx \
     user_display/diffing.cmx \
     user_display/diffing_with_keys.cmi
@@ -176,6 +180,11 @@ user_display/profile.cmx : \
     utils/misc.cmx \
     user_display/profile.cmi
 user_display/profile.cmi :
+user_display/styling.cmo : \
+    user_display/styling.cmi
+user_display/styling.cmx : \
+    user_display/styling.cmi
+user_display/styling.cmi :
 user_display/terminfo.cmo : \
     user_display/terminfo.cmi
 user_display/terminfo.cmx : \
@@ -362,6 +371,7 @@ parsing/lexer.cmi : \
 parsing/location.cmo : \
     user_display/warnings.cmi \
     user_display/terminfo.cmi \
+    user_display/styling.cmi \
     utils/misc.cmi \
     utils/clflags.cmi \
     utils/build_path_prefix_map.cmi \
@@ -369,6 +379,7 @@ parsing/location.cmo : \
 parsing/location.cmx : \
     user_display/warnings.cmx \
     user_display/terminfo.cmx \
+    user_display/styling.cmx \
     utils/misc.cmx \
     utils/clflags.cmx \
     utils/build_path_prefix_map.cmx \
@@ -825,10 +836,10 @@ typing/includemod.cmi : \
 typing/includemod_errorprinter.cmo : \
     typing/types.cmi \
     typing/typedtree.cmi \
+    user_display/styling.cmi \
     typing/printtyp.cmi \
     typing/path.cmi \
     typing/oprint.cmi \
-    utils/misc.cmi \
     parsing/location.cmi \
     typing/includemod.cmi \
     typing/includecore.cmi \
@@ -841,10 +852,10 @@ typing/includemod_errorprinter.cmo : \
 typing/includemod_errorprinter.cmx : \
     typing/types.cmx \
     typing/typedtree.cmx \
+    user_display/styling.cmx \
     typing/printtyp.cmx \
     typing/path.cmx \
     typing/oprint.cmx \
-    utils/misc.cmx \
     parsing/location.cmx \
     typing/includemod.cmx \
     typing/includecore.cmx \
@@ -6027,6 +6038,7 @@ driver/compmisc.cmo : \
     user_display/warnings.cmi \
     typing/types.cmi \
     typing/typemod.cmi \
+    user_display/styling.cmi \
     utils/misc.cmi \
     parsing/location.cmi \
     utils/load_path.cmi \
@@ -6040,6 +6052,7 @@ driver/compmisc.cmx : \
     user_display/warnings.cmx \
     typing/types.cmx \
     typing/typemod.cmx \
+    user_display/styling.cmx \
     utils/misc.cmx \
     parsing/location.cmx \
     utils/load_path.cmx \

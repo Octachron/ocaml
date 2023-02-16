@@ -378,7 +378,7 @@ module Functor_suberror = struct
     let elt (x,param) =
       let sty = Diffing.(style @@ classify x) in
       Format.dprintf "%a%t%a"
-        Format.pp_open_stag (Misc.Color.Style sty)
+        Format.pp_open_stag (Styling.Style sty)
         (printer param)
         Format.pp_close_stag ()
     in

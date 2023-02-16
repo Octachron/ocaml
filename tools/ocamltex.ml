@@ -179,7 +179,7 @@ module Toplevel = struct
 
   let init () =
     Location.report_printer := (fun () -> report_printer);
-    Clflags.color := Some Misc.Color.Never;
+    Clflags.color := Some Styling.Never;
     Clflags.no_std_include := true;
     Compenv.last_include_dirs := [Filename.concat !repo_root "stdlib"];
     Compmisc.init_path ~auto_include:Load_path.no_auto_include ();

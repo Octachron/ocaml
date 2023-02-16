@@ -47,6 +47,7 @@ UTILS = \
 UTILS_CMI =
 
 USER_DISPLAY = \
+  user_display/styling.cmo \
   user_display/profile.cmo \
   user_display/terminfo.cmo \
   user_display/warnings.cmo \
