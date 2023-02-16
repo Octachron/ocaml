@@ -18,7 +18,7 @@ odoc.cmx : \
     odoc.cmi
 odoc.cmi :
 odoc_analyse.cmo : \
-    ../utils/warnings.cmi \
+    ../user_display/warnings.cmi \
     ../typing/types.cmi \
     ../typing/typemod.cmi \
     ../typing/typedtree.cmi \
@@ -45,7 +45,7 @@ odoc_analyse.cmo : \
     ../utils/clflags.cmi \
     odoc_analyse.cmi
 odoc_analyse.cmx : \
-    ../utils/warnings.cmx \
+    ../user_display/warnings.cmx \
     ../typing/types.cmx \
     ../typing/typemod.cmx \
     ../typing/typedtree.cmx \

@@ -81,10 +81,10 @@ COMPILERLIBS_SOURCES=\
   utils/local_store.ml \
   utils/load_path.ml \
   utils/clflags.ml \
-  utils/profile.ml \
+  user_display/profile.ml \
   utils/consistbl.ml \
-  utils/terminfo.ml \
-  utils/warnings.ml \
+  user_display/terminfo.ml \
+  user_display/warnings.ml \
   utils/int_replace_polymorphic_compare.ml \
   utils/lazy_backtrack.ml \
   parsing/location.ml \

@@ -20,7 +20,7 @@ include $(ROOTDIR)/Makefile.best_binaries
 include $(DOCGEN)/Makefile.docfiles
 
 DOC_COMPILERLIBS_DIRS= $(addprefix $(ROOTDIR)/,\
-  parsing utils typing bytecomp driver file_formats lambda)
+  parsing utils user_display typing bytecomp driver file_formats lambda)
 
 DOC_STDLIB_DIRS = $(addprefix $(ROOTDIR)/, stdlib \
   $(addprefix otherlibs/,$(ALL_OTHERLIBS)))

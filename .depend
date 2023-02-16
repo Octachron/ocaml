@@ -14,14 +14,14 @@ utils/build_path_prefix_map.cmx : \
     utils/build_path_prefix_map.cmi
 utils/build_path_prefix_map.cmi :
 utils/ccomp.cmo : \
-    utils/profile.cmi \
+    user_display/profile.cmi \
     utils/misc.cmi \
     utils/load_path.cmi \
     utils/config.cmi \
     utils/clflags.cmi \
     utils/ccomp.cmi
 utils/ccomp.cmx : \
-    utils/profile.cmx \
+    user_display/profile.cmx \
     utils/misc.cmx \
     utils/load_path.cmx \
     utils/config.cmx \
@@ -29,21 +29,21 @@ utils/ccomp.cmx : \
     utils/ccomp.cmi
 utils/ccomp.cmi :
 utils/clflags.cmo : \
-    utils/profile.cmi \
+    user_display/profile.cmi \
     utils/numbers.cmi \
     utils/misc.cmi \
     utils/config.cmi \
     utils/arg_helper.cmi \
     utils/clflags.cmi
 utils/clflags.cmx : \
-    utils/profile.cmx \
+    user_display/profile.cmx \
     utils/numbers.cmx \
     utils/misc.cmx \
     utils/config.cmx \
     utils/arg_helper.cmx \
     utils/clflags.cmi
 utils/clflags.cmi : \
-    utils/profile.cmi \
+    user_display/profile.cmi \
     utils/misc.cmi
 utils/config.common.cmo :
 utils/config.common.cmx :
@@ -74,24 +74,6 @@ utils/consistbl.cmx : \
     utils/consistbl.cmi
 utils/consistbl.cmi : \
     utils/misc.cmi
-utils/diffing.cmo : \
-    utils/misc.cmi \
-    utils/diffing.cmi
-utils/diffing.cmx : \
-    utils/misc.cmx \
-    utils/diffing.cmi
-utils/diffing.cmi : \
-    utils/misc.cmi
-utils/diffing_with_keys.cmo : \
-    utils/misc.cmi \
-    utils/diffing.cmi \
-    utils/diffing_with_keys.cmi
-utils/diffing_with_keys.cmx : \
-    utils/misc.cmx \
-    utils/diffing.cmx \
-    utils/diffing_with_keys.cmi
-utils/diffing_with_keys.cmi : \
-    utils/diffing.cmi
 utils/domainstate.cmo : \
     utils/domainstate.cmi
 utils/domainstate.cmx : \
@@ -150,13 +132,6 @@ utils/numbers.cmx : \
     utils/numbers.cmi
 utils/numbers.cmi : \
     utils/identifiable.cmi
-utils/profile.cmo : \
-    utils/misc.cmi \
-    utils/profile.cmi
-utils/profile.cmx : \
-    utils/misc.cmx \
-    utils/profile.cmi
-utils/profile.cmi :
 utils/strongly_connected_components.cmo : \
     utils/numbers.cmi \
     utils/misc.cmi \
@@ -176,18 +151,43 @@ utils/targetint.cmx : \
     utils/misc.cmx \
     utils/targetint.cmi
 utils/targetint.cmi :
-utils/terminfo.cmo : \
-    utils/terminfo.cmi
-utils/terminfo.cmx : \
-    utils/terminfo.cmi
-utils/terminfo.cmi :
-utils/warnings.cmo : \
+user_display/diffing.cmo : \
     utils/misc.cmi \
-    utils/warnings.cmi
-utils/warnings.cmx : \
+    user_display/diffing.cmi
+user_display/diffing.cmx : \
     utils/misc.cmx \
-    utils/warnings.cmi
-utils/warnings.cmi :
+    user_display/diffing.cmi
+user_display/diffing.cmi : \
+    utils/misc.cmi
+user_display/diffing_with_keys.cmo : \
+    utils/misc.cmi \
+    user_display/diffing.cmi \
+    user_display/diffing_with_keys.cmi
+user_display/diffing_with_keys.cmx : \
+    utils/misc.cmx \
+    user_display/diffing.cmx \
+    user_display/diffing_with_keys.cmi
+user_display/diffing_with_keys.cmi : \
+    user_display/diffing.cmi
+user_display/profile.cmo : \
+    utils/misc.cmi \
+    user_display/profile.cmi
+user_display/profile.cmx : \
+    utils/misc.cmx \
+    user_display/profile.cmi
+user_display/profile.cmi :
+user_display/terminfo.cmo : \
+    user_display/terminfo.cmi
+user_display/terminfo.cmx : \
+    user_display/terminfo.cmi
+user_display/terminfo.cmi :
+user_display/warnings.cmo : \
+    utils/misc.cmi \
+    user_display/warnings.cmi
+user_display/warnings.cmx : \
+    utils/misc.cmx \
+    user_display/warnings.cmi
+user_display/warnings.cmi :
 parsing/ast_helper.cmo : \
     parsing/syntaxerr.cmi \
     parsing/parsetree.cmi \
@@ -283,7 +283,7 @@ parsing/attr_helper.cmi : \
     parsing/location.cmi \
     parsing/asttypes.cmi
 parsing/builtin_attributes.cmo : \
-    utils/warnings.cmi \
+    user_display/warnings.cmi \
     parsing/parsetree.cmi \
     utils/misc.cmi \
     parsing/longident.cmi \
@@ -291,7 +291,7 @@ parsing/builtin_attributes.cmo : \
     parsing/asttypes.cmi \
     parsing/builtin_attributes.cmi
 parsing/builtin_attributes.cmx : \
-    utils/warnings.cmx \
+    user_display/warnings.cmx \
     parsing/parsetree.cmi \
     utils/misc.cmx \
     parsing/longident.cmx \
@@ -330,12 +330,12 @@ parsing/depend.cmi : \
     utils/misc.cmi \
     parsing/longident.cmi
 parsing/docstrings.cmo : \
-    utils/warnings.cmi \
+    user_display/warnings.cmi \
     parsing/parsetree.cmi \
     parsing/location.cmi \
     parsing/docstrings.cmi
 parsing/docstrings.cmx : \
-    utils/warnings.cmx \
+    user_display/warnings.cmx \
     parsing/parsetree.cmi \
     parsing/location.cmx \
     parsing/docstrings.cmi
@@ -343,14 +343,14 @@ parsing/docstrings.cmi : \
     parsing/parsetree.cmi \
     parsing/location.cmi
 parsing/lexer.cmo : \
-    utils/warnings.cmi \
+    user_display/warnings.cmi \
     parsing/parser.cmi \
     utils/misc.cmi \
     parsing/location.cmi \
     parsing/docstrings.cmi \
     parsing/lexer.cmi
 parsing/lexer.cmx : \
-    utils/warnings.cmx \
+    user_display/warnings.cmx \
     parsing/parser.cmx \
     utils/misc.cmx \
     parsing/location.cmx \
@@ -360,21 +360,21 @@ parsing/lexer.cmi : \
     parsing/parser.cmi \
     parsing/location.cmi
 parsing/location.cmo : \
-    utils/warnings.cmi \
-    utils/terminfo.cmi \
+    user_display/warnings.cmi \
+    user_display/terminfo.cmi \
     utils/misc.cmi \
     utils/clflags.cmi \
     utils/build_path_prefix_map.cmi \
     parsing/location.cmi
 parsing/location.cmx : \
-    utils/warnings.cmx \
-    utils/terminfo.cmx \
+    user_display/warnings.cmx \
+    user_display/terminfo.cmx \
     utils/misc.cmx \
     utils/clflags.cmx \
     utils/build_path_prefix_map.cmx \
     parsing/location.cmi
 parsing/location.cmi : \
-    utils/warnings.cmi
+    user_display/warnings.cmi
 parsing/longident.cmo : \
     utils/misc.cmi \
     parsing/longident.cmi
@@ -594,7 +594,7 @@ typing/datarepr.cmi : \
     typing/path.cmi \
     typing/ident.cmi
 typing/env.cmo : \
-    utils/warnings.cmi \
+    user_display/warnings.cmi \
     typing/types.cmi \
     typing/subst.cmi \
     typing/shape.cmi \
@@ -616,7 +616,7 @@ typing/env.cmo : \
     parsing/asttypes.cmi \
     typing/env.cmi
 typing/env.cmx : \
-    utils/warnings.cmx \
+    user_display/warnings.cmx \
     typing/types.cmx \
     typing/subst.cmx \
     typing/shape.cmx \
@@ -638,7 +638,7 @@ typing/env.cmx : \
     parsing/asttypes.cmi \
     typing/env.cmi
 typing/env.cmi : \
-    utils/warnings.cmi \
+    user_display/warnings.cmi \
     typing/types.cmi \
     typing/subst.cmi \
     typing/shape.cmi \
@@ -731,7 +731,7 @@ typing/includecore.cmo : \
     typing/ident.cmi \
     typing/errortrace.cmi \
     typing/env.cmi \
-    utils/diffing_with_keys.cmi \
+    user_display/diffing_with_keys.cmi \
     typing/ctype.cmi \
     parsing/builtin_attributes.cmi \
     typing/btype.cmi \
@@ -748,7 +748,7 @@ typing/includecore.cmx : \
     typing/ident.cmx \
     typing/errortrace.cmx \
     typing/env.cmx \
-    utils/diffing_with_keys.cmx \
+    user_display/diffing_with_keys.cmx \
     typing/ctype.cmx \
     parsing/builtin_attributes.cmx \
     typing/btype.cmx \
@@ -763,7 +763,7 @@ typing/includecore.cmi : \
     typing/ident.cmi \
     typing/errortrace.cmi \
     typing/env.cmi \
-    utils/diffing_with_keys.cmi
+    user_display/diffing_with_keys.cmi
 typing/includemod.cmo : \
     typing/types.cmi \
     typing/typedtree.cmi \
@@ -781,7 +781,7 @@ typing/includemod.cmo : \
     typing/includeclass.cmi \
     typing/ident.cmi \
     typing/env.cmi \
-    utils/diffing.cmi \
+    user_display/diffing.cmi \
     typing/ctype.cmi \
     file_formats/cmt_format.cmi \
     parsing/builtin_attributes.cmi \
@@ -804,7 +804,7 @@ typing/includemod.cmx : \
     typing/includeclass.cmx \
     typing/ident.cmx \
     typing/env.cmx \
-    utils/diffing.cmx \
+    user_display/diffing.cmx \
     typing/ctype.cmx \
     file_formats/cmt_format.cmx \
     parsing/builtin_attributes.cmx \
@@ -820,7 +820,7 @@ typing/includemod.cmi : \
     typing/includecore.cmi \
     typing/ident.cmi \
     typing/env.cmi \
-    utils/diffing.cmi \
+    user_display/diffing.cmi \
     typing/ctype.cmi
 typing/includemod_errorprinter.cmo : \
     typing/types.cmi \
@@ -835,7 +835,7 @@ typing/includemod_errorprinter.cmo : \
     typing/includeclass.cmi \
     typing/ident.cmi \
     typing/env.cmi \
-    utils/diffing.cmi \
+    user_display/diffing.cmi \
     utils/clflags.cmi \
     typing/includemod_errorprinter.cmi
 typing/includemod_errorprinter.cmx : \
@@ -851,7 +851,7 @@ typing/includemod_errorprinter.cmx : \
     typing/includeclass.cmx \
     typing/ident.cmx \
     typing/env.cmx \
-    utils/diffing.cmx \
+    user_display/diffing.cmx \
     utils/clflags.cmx \
     typing/includemod_errorprinter.cmi
 typing/includemod_errorprinter.cmi : \
@@ -901,7 +901,7 @@ typing/outcometree.cmi : \
     typing/type_immediacy.cmi \
     parsing/asttypes.cmi
 typing/parmatch.cmo : \
-    utils/warnings.cmi \
+    user_display/warnings.cmi \
     typing/types.cmi \
     typing/typedtree.cmi \
     typing/tast_iterator.cmi \
@@ -921,7 +921,7 @@ typing/parmatch.cmo : \
     parsing/asttypes.cmi \
     typing/parmatch.cmi
 typing/parmatch.cmx : \
-    utils/warnings.cmx \
+    user_display/warnings.cmx \
     typing/types.cmx \
     typing/typedtree.cmx \
     typing/tast_iterator.cmx \
@@ -981,7 +981,7 @@ typing/patterns.cmi : \
     typing/ident.cmi \
     parsing/asttypes.cmi
 typing/persistent_env.cmo : \
-    utils/warnings.cmi \
+    user_display/warnings.cmi \
     utils/misc.cmi \
     parsing/location.cmi \
     utils/load_path.cmi \
@@ -991,7 +991,7 @@ typing/persistent_env.cmo : \
     utils/clflags.cmi \
     typing/persistent_env.cmi
 typing/persistent_env.cmx : \
-    utils/warnings.cmx \
+    user_display/warnings.cmx \
     utils/misc.cmx \
     parsing/location.cmx \
     utils/load_path.cmx \
@@ -1067,7 +1067,7 @@ typing/printpat.cmi : \
     typing/typedtree.cmi \
     parsing/asttypes.cmi
 typing/printtyp.cmo : \
-    utils/warnings.cmi \
+    user_display/warnings.cmi \
     typing/types.cmi \
     typing/type_immediacy.cmi \
     typing/signature_group.cmi \
@@ -1090,7 +1090,7 @@ typing/printtyp.cmo : \
     parsing/asttypes.cmi \
     typing/printtyp.cmi
 typing/printtyp.cmx : \
-    utils/warnings.cmx \
+    user_display/warnings.cmx \
     typing/types.cmx \
     typing/type_immediacy.cmx \
     typing/signature_group.cmx \
@@ -1305,7 +1305,7 @@ typing/type_immediacy.cmx : \
 typing/type_immediacy.cmi : \
     parsing/parsetree.cmi
 typing/typeclass.cmo : \
-    utils/warnings.cmi \
+    user_display/warnings.cmi \
     typing/typetexp.cmi \
     typing/types.cmi \
     typing/typedtree.cmi \
@@ -1333,7 +1333,7 @@ typing/typeclass.cmo : \
     parsing/ast_helper.cmi \
     typing/typeclass.cmi
 typing/typeclass.cmx : \
-    utils/warnings.cmx \
+    user_display/warnings.cmx \
     typing/typetexp.cmx \
     typing/types.cmx \
     typing/typedtree.cmx \
@@ -1372,7 +1372,7 @@ typing/typeclass.cmi : \
     typing/ctype.cmi \
     parsing/asttypes.cmi
 typing/typecore.cmo : \
-    utils/warnings.cmi \
+    user_display/warnings.cmi \
     typing/untypeast.cmi \
     typing/typetexp.cmi \
     typing/types.cmi \
@@ -1406,7 +1406,7 @@ typing/typecore.cmo : \
     parsing/ast_helper.cmi \
     typing/typecore.cmi
 typing/typecore.cmx : \
-    utils/warnings.cmx \
+    user_display/warnings.cmx \
     typing/untypeast.cmx \
     typing/typetexp.cmx \
     typing/types.cmx \
@@ -1452,7 +1452,7 @@ typing/typecore.cmi : \
     typing/env.cmi \
     parsing/asttypes.cmi
 typing/typedecl.cmo : \
-    utils/warnings.cmi \
+    user_display/warnings.cmi \
     typing/typetexp.cmi \
     typing/types.cmi \
     typing/typedtree.cmi \
@@ -1487,7 +1487,7 @@ typing/typedecl.cmo : \
     parsing/ast_helper.cmi \
     typing/typedecl.cmi
 typing/typedecl.cmx : \
-    utils/warnings.cmx \
+    user_display/warnings.cmx \
     typing/typetexp.cmx \
     typing/types.cmx \
     typing/typedtree.cmx \
@@ -1681,7 +1681,7 @@ typing/typedtree.cmi : \
     typing/env.cmi \
     parsing/asttypes.cmi
 typing/typemod.cmo : \
-    utils/warnings.cmi \
+    user_display/warnings.cmi \
     typing/typetexp.cmi \
     typing/types.cmi \
     typing/typedtree.cmi \
@@ -1716,7 +1716,7 @@ typing/typemod.cmo : \
     parsing/asttypes.cmi \
     typing/typemod.cmi
 typing/typemod.cmx : \
-    utils/warnings.cmx \
+    user_display/warnings.cmx \
     typing/typetexp.cmx \
     typing/types.cmx \
     typing/typedtree.cmx \
@@ -2272,7 +2272,7 @@ asmcomp/asmgen.cmo : \
     asmcomp/scheduling.cmi \
     asmcomp/reload.cmi \
     asmcomp/reg.cmi \
-    utils/profile.cmi \
+    user_display/profile.cmi \
     asmcomp/proc.cmi \
     asmcomp/printmach.cmi \
     asmcomp/printlinear.cmi \
@@ -2315,7 +2315,7 @@ asmcomp/asmgen.cmx : \
     asmcomp/scheduling.cmx \
     asmcomp/reload.cmx \
     asmcomp/reg.cmx \
-    utils/profile.cmx \
+    user_display/profile.cmx \
     asmcomp/proc.cmx \
     asmcomp/printmach.cmx \
     asmcomp/printlinear.cmx \
@@ -2385,7 +2385,7 @@ asmcomp/asmlibrarian.cmx : \
 asmcomp/asmlibrarian.cmi :
 asmcomp/asmlink.cmo : \
     lambda/runtimedef.cmi \
-    utils/profile.cmi \
+    user_display/profile.cmi \
     utils/misc.cmi \
     parsing/location.cmi \
     utils/load_path.cmi \
@@ -2403,7 +2403,7 @@ asmcomp/asmlink.cmo : \
     asmcomp/asmlink.cmi
 asmcomp/asmlink.cmx : \
     lambda/runtimedef.cmx \
-    utils/profile.cmx \
+    user_display/profile.cmx \
     utils/misc.cmx \
     parsing/location.cmx \
     utils/load_path.cmx \
@@ -2426,7 +2426,7 @@ asmcomp/asmpackager.cmo : \
     typing/typemod.cmi \
     lambda/translmod.cmi \
     lambda/simplif.cmi \
-    utils/profile.cmi \
+    user_display/profile.cmi \
     utils/misc.cmi \
     parsing/location.cmi \
     utils/load_path.cmi \
@@ -2450,7 +2450,7 @@ asmcomp/asmpackager.cmx : \
     typing/typemod.cmx \
     lambda/translmod.cmx \
     lambda/simplif.cmx \
-    utils/profile.cmx \
+    user_display/profile.cmx \
     utils/misc.cmx \
     parsing/location.cmx \
     utils/load_path.cmx \
@@ -3305,7 +3305,7 @@ middle_end/compilation_unit.cmi : \
     utils/identifiable.cmi \
     typing/ident.cmi
 middle_end/compilenv.cmo : \
-    utils/warnings.cmi \
+    user_display/warnings.cmi \
     middle_end/symbol.cmi \
     middle_end/flambda/simple_value_approx.cmi \
     middle_end/flambda/base_types/set_of_closures_id.cmi \
@@ -3325,7 +3325,7 @@ middle_end/compilenv.cmo : \
     middle_end/clambda.cmi \
     middle_end/compilenv.cmi
 middle_end/compilenv.cmx : \
-    utils/warnings.cmx \
+    user_display/warnings.cmx \
     middle_end/symbol.cmx \
     middle_end/flambda/simple_value_approx.cmx \
     middle_end/flambda/base_types/set_of_closures_id.cmx \
@@ -3609,7 +3609,7 @@ lambda/runtimedef.cmx : \
     lambda/runtimedef.cmi
 lambda/runtimedef.cmi :
 lambda/simplif.cmo : \
-    utils/warnings.cmi \
+    user_display/warnings.cmi \
     lambda/tmc.cmi \
     typing/primitive.cmi \
     parsing/location.cmi \
@@ -3620,7 +3620,7 @@ lambda/simplif.cmo : \
     parsing/asttypes.cmi \
     lambda/simplif.cmi
 lambda/simplif.cmx : \
-    utils/warnings.cmx \
+    user_display/warnings.cmx \
     lambda/tmc.cmx \
     typing/primitive.cmx \
     parsing/location.cmx \
@@ -3639,7 +3639,7 @@ lambda/switch.cmx : \
     lambda/switch.cmi
 lambda/switch.cmi :
 lambda/tmc.cmo : \
-    utils/warnings.cmi \
+    user_display/warnings.cmi \
     parsing/location.cmi \
     lambda/lambda.cmi \
     typing/ident.cmi \
@@ -3647,7 +3647,7 @@ lambda/tmc.cmo : \
     parsing/asttypes.cmi \
     lambda/tmc.cmi
 lambda/tmc.cmx : \
-    utils/warnings.cmx \
+    user_display/warnings.cmx \
     parsing/location.cmx \
     lambda/lambda.cmx \
     typing/ident.cmx \
@@ -3657,7 +3657,7 @@ lambda/tmc.cmx : \
 lambda/tmc.cmi : \
     lambda/lambda.cmi
 lambda/translattribute.cmo : \
-    utils/warnings.cmi \
+    user_display/warnings.cmi \
     typing/typedtree.cmi \
     parsing/parsetree.cmi \
     utils/misc.cmi \
@@ -3667,7 +3667,7 @@ lambda/translattribute.cmo : \
     utils/config.cmi \
     lambda/translattribute.cmi
 lambda/translattribute.cmx : \
-    utils/warnings.cmx \
+    user_display/warnings.cmx \
     typing/typedtree.cmx \
     parsing/parsetree.cmi \
     utils/misc.cmx \
@@ -3984,7 +3984,7 @@ file_formats/linear_format.cmi : \
     asmcomp/linear.cmi \
     asmcomp/cmm.cmi
 middle_end/closure/closure.cmo : \
-    utils/warnings.cmi \
+    user_display/warnings.cmi \
     lambda/switch.cmi \
     lambda/simplif.cmi \
     middle_end/semantics_of_primitives.cmi \
@@ -4006,7 +4006,7 @@ middle_end/closure/closure.cmo : \
     parsing/asttypes.cmi \
     middle_end/closure/closure.cmi
 middle_end/closure/closure.cmx : \
-    utils/warnings.cmx \
+    user_display/warnings.cmx \
     lambda/switch.cmx \
     lambda/simplif.cmx \
     middle_end/semantics_of_primitives.cmx \
@@ -4563,7 +4563,7 @@ middle_end/flambda/flambda_iterators.cmi : \
     middle_end/symbol.cmi \
     middle_end/flambda/flambda.cmi
 middle_end/flambda/flambda_middle_end.cmo : \
-    utils/warnings.cmi \
+    user_display/warnings.cmi \
     middle_end/variable.cmi \
     middle_end/flambda/un_anf.cmi \
     middle_end/symbol.cmi \
@@ -4571,7 +4571,7 @@ middle_end/flambda/flambda_middle_end.cmo : \
     middle_end/flambda/remove_unused_program_constructs.cmi \
     middle_end/flambda/remove_unused_closure_vars.cmi \
     middle_end/flambda/ref_to_variables.cmi \
-    utils/profile.cmi \
+    user_display/profile.cmi \
     middle_end/printclambda.cmi \
     utils/misc.cmi \
     parsing/location.cmi \
@@ -4598,7 +4598,7 @@ middle_end/flambda/flambda_middle_end.cmo : \
     middle_end/backend_intf.cmi \
     middle_end/flambda/flambda_middle_end.cmi
 middle_end/flambda/flambda_middle_end.cmx : \
-    utils/warnings.cmx \
+    user_display/warnings.cmx \
     middle_end/variable.cmx \
     middle_end/flambda/un_anf.cmx \
     middle_end/symbol.cmx \
@@ -4606,7 +4606,7 @@ middle_end/flambda/flambda_middle_end.cmx : \
     middle_end/flambda/remove_unused_program_constructs.cmx \
     middle_end/flambda/remove_unused_closure_vars.cmx \
     middle_end/flambda/ref_to_variables.cmx \
-    utils/profile.cmx \
+    user_display/profile.cmx \
     middle_end/printclambda.cmx \
     utils/misc.cmx \
     parsing/location.cmx \
@@ -4890,7 +4890,7 @@ middle_end/flambda/initialize_symbol_to_let_symbol.cmx : \
 middle_end/flambda/initialize_symbol_to_let_symbol.cmi : \
     middle_end/flambda/flambda.cmi
 middle_end/flambda/inline_and_simplify.cmo : \
-    utils/warnings.cmi \
+    user_display/warnings.cmi \
     middle_end/variable.cmi \
     middle_end/flambda/base_types/var_within_closure.cmi \
     middle_end/flambda/unbox_specialised_args.cmi \
@@ -4933,7 +4933,7 @@ middle_end/flambda/inline_and_simplify.cmo : \
     middle_end/flambda/allocated_const.cmi \
     middle_end/flambda/inline_and_simplify.cmi
 middle_end/flambda/inline_and_simplify.cmx : \
-    utils/warnings.cmx \
+    user_display/warnings.cmx \
     middle_end/variable.cmx \
     middle_end/flambda/base_types/var_within_closure.cmx \
     middle_end/flambda/unbox_specialised_args.cmx \
@@ -5924,8 +5924,8 @@ middle_end/flambda/base_types/var_within_closure.cmx : \
 middle_end/flambda/base_types/var_within_closure.cmi : \
     middle_end/flambda/base_types/closure_element.cmi
 driver/compenv.cmo : \
-    utils/warnings.cmi \
-    utils/profile.cmi \
+    user_display/warnings.cmi \
+    user_display/profile.cmi \
     utils/misc.cmi \
     parsing/location.cmi \
     utils/config.cmi \
@@ -5933,8 +5933,8 @@ driver/compenv.cmo : \
     utils/ccomp.cmi \
     driver/compenv.cmi
 driver/compenv.cmx : \
-    utils/warnings.cmx \
-    utils/profile.cmx \
+    user_display/warnings.cmx \
+    user_display/profile.cmx \
     utils/misc.cmx \
     parsing/location.cmx \
     utils/config.cmx \
@@ -5947,7 +5947,7 @@ driver/compile.cmo : \
     typing/typedtree.cmi \
     lambda/translmod.cmi \
     lambda/simplif.cmi \
-    utils/profile.cmi \
+    user_display/profile.cmi \
     lambda/printlambda.cmi \
     bytecomp/printinstr.cmi \
     utils/misc.cmi \
@@ -5961,7 +5961,7 @@ driver/compile.cmx : \
     typing/typedtree.cmx \
     lambda/translmod.cmx \
     lambda/simplif.cmx \
-    utils/profile.cmx \
+    user_display/profile.cmx \
     lambda/printlambda.cmx \
     bytecomp/printinstr.cmx \
     utils/misc.cmx \
@@ -5978,12 +5978,12 @@ driver/compile.cmi : \
     driver/compile_common.cmi \
     utils/clflags.cmi
 driver/compile_common.cmo : \
-    utils/warnings.cmi \
+    user_display/warnings.cmi \
     typing/typemod.cmi \
     typing/typedtree.cmi \
     typing/typecore.cmi \
     typing/shape.cmi \
-    utils/profile.cmi \
+    user_display/profile.cmi \
     typing/printtyped.cmi \
     typing/printtyp.cmi \
     parsing/printast.cmi \
@@ -5999,12 +5999,12 @@ driver/compile_common.cmo : \
     parsing/builtin_attributes.cmi \
     driver/compile_common.cmi
 driver/compile_common.cmx : \
-    utils/warnings.cmx \
+    user_display/warnings.cmx \
     typing/typemod.cmx \
     typing/typedtree.cmx \
     typing/typecore.cmx \
     typing/shape.cmx \
-    utils/profile.cmx \
+    user_display/profile.cmx \
     typing/printtyped.cmx \
     typing/printtyp.cmx \
     parsing/printast.cmx \
@@ -6024,7 +6024,7 @@ driver/compile_common.cmi : \
     parsing/parsetree.cmi \
     typing/env.cmi
 driver/compmisc.cmo : \
-    utils/warnings.cmi \
+    user_display/warnings.cmi \
     typing/types.cmi \
     typing/typemod.cmi \
     utils/misc.cmi \
@@ -6037,7 +6037,7 @@ driver/compmisc.cmo : \
     utils/clflags.cmi \
     driver/compmisc.cmi
 driver/compmisc.cmx : \
-    utils/warnings.cmx \
+    user_display/warnings.cmx \
     typing/types.cmx \
     typing/typemod.cmx \
     utils/misc.cmx \
@@ -6068,8 +6068,8 @@ driver/main.cmx : \
     driver/main.cmi
 driver/main.cmi :
 driver/main_args.cmo : \
-    utils/warnings.cmi \
-    utils/profile.cmi \
+    user_display/warnings.cmi \
+    user_display/profile.cmi \
     utils/misc.cmi \
     parsing/location.cmi \
     utils/config.cmi \
@@ -6077,8 +6077,8 @@ driver/main_args.cmo : \
     utils/clflags.cmi \
     driver/main_args.cmi
 driver/main_args.cmx : \
-    utils/warnings.cmx \
-    utils/profile.cmx \
+    user_display/warnings.cmx \
+    user_display/profile.cmx \
     utils/misc.cmx \
     parsing/location.cmx \
     utils/config.cmx \
@@ -6087,8 +6087,8 @@ driver/main_args.cmx : \
     driver/main_args.cmi
 driver/main_args.cmi :
 driver/maindriver.cmo : \
-    utils/warnings.cmi \
-    utils/profile.cmi \
+    user_display/warnings.cmi \
+    user_display/profile.cmi \
     driver/makedepend.cmi \
     driver/main_args.cmi \
     parsing/location.cmi \
@@ -6102,8 +6102,8 @@ driver/maindriver.cmo : \
     bytecomp/bytelibrarian.cmi \
     driver/maindriver.cmi
 driver/maindriver.cmx : \
-    utils/warnings.cmx \
-    utils/profile.cmx \
+    user_display/warnings.cmx \
+    user_display/profile.cmx \
     driver/makedepend.cmx \
     driver/main_args.cmx \
     parsing/location.cmx \
@@ -6148,7 +6148,7 @@ driver/optcompile.cmo : \
     typing/typedtree.cmi \
     lambda/translmod.cmi \
     lambda/simplif.cmi \
-    utils/profile.cmi \
+    user_display/profile.cmi \
     lambda/printlambda.cmi \
     utils/misc.cmi \
     lambda/lambda.cmi \
@@ -6164,7 +6164,7 @@ driver/optcompile.cmx : \
     typing/typedtree.cmx \
     lambda/translmod.cmx \
     lambda/simplif.cmx \
-    utils/profile.cmx \
+    user_display/profile.cmx \
     lambda/printlambda.cmx \
     utils/misc.cmx \
     lambda/lambda.cmx \
@@ -6196,8 +6196,8 @@ driver/optmain.cmx : \
     driver/optmain.cmi
 driver/optmain.cmi :
 driver/optmaindriver.cmo : \
-    utils/warnings.cmi \
-    utils/profile.cmi \
+    user_display/warnings.cmi \
+    user_display/profile.cmi \
     asmcomp/proc.cmi \
     driver/optcompile.cmi \
     driver/makedepend.cmi \
@@ -6216,8 +6216,8 @@ driver/optmaindriver.cmo : \
     asmcomp/arch.cmi \
     driver/optmaindriver.cmi
 driver/optmaindriver.cmx : \
-    utils/warnings.cmx \
-    utils/profile.cmx \
+    user_display/warnings.cmx \
+    user_display/profile.cmx \
     asmcomp/proc.cmx \
     driver/optcompile.cmx \
     driver/makedepend.cmx \
@@ -6237,8 +6237,8 @@ driver/optmaindriver.cmx : \
     driver/optmaindriver.cmi
 driver/optmaindriver.cmi :
 driver/pparse.cmo : \
-    utils/warnings.cmi \
-    utils/profile.cmi \
+    user_display/warnings.cmi \
+    user_display/profile.cmi \
     parsing/parsetree.cmi \
     parsing/parse.cmi \
     utils/misc.cmi \
@@ -6250,8 +6250,8 @@ driver/pparse.cmo : \
     parsing/ast_invariants.cmi \
     driver/pparse.cmi
 driver/pparse.cmx : \
-    utils/warnings.cmx \
-    utils/profile.cmx \
+    user_display/warnings.cmx \
+    user_display/profile.cmx \
     parsing/parsetree.cmi \
     parsing/parse.cmx \
     utils/misc.cmx \
@@ -6377,7 +6377,7 @@ toplevel/topcommon.cmx : \
     parsing/ast_helper.cmx \
     toplevel/topcommon.cmi
 toplevel/topcommon.cmi : \
-    utils/warnings.cmi \
+    user_display/warnings.cmi \
     typing/types.cmi \
     typing/typedtree.cmi \
     typing/path.cmi \
@@ -6390,7 +6390,7 @@ toplevel/topcommon.cmi : \
     toplevel/genprintval.cmi \
     typing/env.cmi
 toplevel/topdirs.cmo : \
-    utils/warnings.cmi \
+    user_display/warnings.cmi \
     typing/types.cmi \
     toplevel/topprinters.cmi \
     toplevel/toploop.cmi \
@@ -6415,7 +6415,7 @@ toplevel/topdirs.cmo : \
     parsing/ast_helper.cmi \
     toplevel/topdirs.cmi
 toplevel/topdirs.cmx : \
-    utils/warnings.cmx \
+    user_display/warnings.cmx \
     typing/types.cmx \
     toplevel/topprinters.cmx \
     toplevel/toploop.cmx \
@@ -6445,7 +6445,7 @@ toplevel/topeval.cmi : \
     toplevel/topcommon.cmi \
     parsing/parsetree.cmi
 toplevel/toploop.cmo : \
-    utils/warnings.cmi \
+    user_display/warnings.cmi \
     typing/typetexp.cmi \
     toplevel/topeval.cmi \
     toplevel/topcommon.cmi \
@@ -6461,7 +6461,7 @@ toplevel/toploop.cmo : \
     typing/btype.cmi \
     toplevel/toploop.cmi
 toplevel/toploop.cmx : \
-    utils/warnings.cmx \
+    user_display/warnings.cmx \
     typing/typetexp.cmx \
     toplevel/topeval.cmi \
     toplevel/topcommon.cmx \
@@ -6477,7 +6477,7 @@ toplevel/toploop.cmx : \
     typing/btype.cmx \
     toplevel/toploop.cmi
 toplevel/toploop.cmi : \
-    utils/warnings.cmi \
+    user_display/warnings.cmi \
     typing/types.cmi \
     typing/path.cmi \
     parsing/parsetree.cmi \
@@ -6518,7 +6518,7 @@ toplevel/trace.cmi : \
     parsing/longident.cmi \
     typing/env.cmi
 toplevel/byte/topeval.cmo : \
-    utils/warnings.cmi \
+    user_display/warnings.cmi \
     typing/types.cmi \
     typing/typemod.cmi \
     typing/typedtree.cmi \
@@ -6553,7 +6553,7 @@ toplevel/byte/topeval.cmo : \
     bytecomp/bytegen.cmi \
     toplevel/byte/topeval.cmi
 toplevel/byte/topeval.cmx : \
-    utils/warnings.cmx \
+    user_display/warnings.cmx \
     typing/types.cmx \
     typing/typemod.cmx \
     typing/typedtree.cmx \
@@ -6657,7 +6657,7 @@ toplevel/byte/trace.cmi : \
     parsing/longident.cmi \
     typing/env.cmi
 toplevel/native/topeval.cmo : \
-    utils/warnings.cmi \
+    user_display/warnings.cmi \
     typing/types.cmi \
     typing/typemod.cmi \
     typing/typedtree.cmi \
@@ -6687,7 +6687,7 @@ toplevel/native/topeval.cmo : \
     asmcomp/asmlink.cmi \
     toplevel/native/topeval.cmi
 toplevel/native/topeval.cmx : \
-    utils/warnings.cmx \
+    user_display/warnings.cmx \
     typing/types.cmx \
     typing/typemod.cmx \
     typing/typedtree.cmx \
@@ -7100,13 +7100,13 @@ tools/ocamloptp.cmx : \
     tools/ocamloptp.cmi
 tools/ocamloptp.cmi :
 tools/ocamlprof.cmo : \
-    utils/warnings.cmi \
+    user_display/warnings.cmi \
     parsing/parsetree.cmi \
     parsing/parse.cmi \
     parsing/location.cmi \
     tools/ocamlprof.cmi
 tools/ocamlprof.cmx : \
-    utils/warnings.cmx \
+    user_display/warnings.cmx \
     parsing/parsetree.cmi \
     parsing/parse.cmx \
     parsing/location.cmx \

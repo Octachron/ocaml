@@ -137,7 +137,7 @@ etex-files: $(FILES)
 	$(TEXQUOTE) < $< > $*.texquote_error.tex
 	mv $*.texquote_error.tex $@
 
-cmds/warnings-help.etex: $(ROOTDIR)/utils/warnings.ml $(ROOTDIR)/ocamlc
+cmds/warnings-help.etex: $(ROOTDIR)/user_display/warnings.ml $(ROOTDIR)/ocamlc
 	(echo "% This file is generated from (ocamlc -warn-help)";\
 	 echo "% according to a rule in manual/src/Makefile.";\
 	 echo "% In particular, the reference to documentation sections";\

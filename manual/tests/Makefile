@@ -23,7 +23,7 @@ cross-reference-checker: cross_reference_checker.ml
 check-cross-references: cross-reference-checker
 	$(OCAMLRUN) ./cross-reference-checker \
 	  -auxfile $(MANUAL)/texstuff/manual.aux \
-	  $(ROOTDIR)/utils/warnings.ml \
+	  $(ROOTDIR)/user_display/warnings.ml \
 	  $(ROOTDIR)/driver/main_args.ml \
 	  $(ROOTDIR)/lambda/translmod.ml
 

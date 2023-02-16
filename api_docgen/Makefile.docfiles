@@ -59,12 +59,14 @@ libref_TEXT=Ocaml_operators Format_tutorial
 libref_C=$(call capitalize,$(libref))
 
 PARSING_MLIS := $(notdir $(wildcard $(ROOTDIR)/parsing/*.mli))
+DISPLAY_MLIS := $(notdir $(wildcard $(ROOTDIR)/user_display/*.mli))
 UTILS_MLIS := $(notdir $(wildcard $(ROOTDIR)/utils/*.mli))
 DRIVER_MLIS := pparse.mli
 
 compilerlibref_MLIS= \
   $(PARSING_MLIS) \
   $(UTILS_MLIS) \
+  $(DISPLAY_MLIS) \
   $(DRIVER_MLIS)
 compilerlibref=$(compilerlibref_MLIS:%.mli=%)
 compilerlibref_TEXT=Compiler_libs

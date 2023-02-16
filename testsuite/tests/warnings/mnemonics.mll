@@ -39,7 +39,7 @@ let ocamlsrcdir = Sys.getenv "ocamlsrcdir"
 let ocamlrun = Sys.getenv "ocamlrun"
 
 let constructors =
-  let ic = open_in Filename.(concat ocamlsrcdir (concat "utils" "warnings.ml")) in
+  let ic = open_in Filename.(concat ocamlsrcdir (concat "user_display" "warnings.ml")) in
   Fun.protect ~finally:(fun () -> close_in_noerr ic)
     (fun () ->
        let lexbuf = Lexing.from_channel ic in

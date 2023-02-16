@@ -113,6 +113,7 @@ let compilerlibs_subdirs =
   "parsing";
   "toplevel";
   "typing";
+  "user_display";
   "utils";
 ]
 

@@ -32,9 +32,9 @@ include stdlib/StdlibModules
 CAMLC = $(BOOT_OCAMLC) $(BOOT_STDLIBFLAGS) -use-prims runtime/primitives
 CAMLOPT=$(OCAMLRUN) ./ocamlopt$(EXE) $(STDLIBFLAGS) -I otherlibs/dynlink
 ARCHES=amd64 arm64 power s390x riscv
-VPATH = utils parsing typing bytecomp file_formats lambda middle_end \
-  middle_end/closure middle_end/flambda middle_end/flambda/base_types \
-  asmcomp driver toplevel tools
+VPATH = utils user_display parsing typing bytecomp file_formats lambda \
+  middle_end middle_end/closure middle_end/flambda \
+  middle_end/flambda/base_types asmcomp driver toplevel tools
 INCLUDES = $(addprefix -I ,$(VPATH))
 
 ifeq "$(strip $(NATDYNLINKOPTS))" ""
@@ -1554,7 +1554,8 @@ endif
 	$(V_OCAMLOPT)$(COMPILE_NATIVE_MODULE) -c $<
 
 partialclean::
-	for d in utils parsing typing bytecomp asmcomp middle_end file_formats \
+	for d in utils user_display parsing typing bytecomp asmcomp middle_end \
+           file_formats \
            lambda middle_end/closure middle_end/flambda \
            middle_end/flambda/base_types \
            driver toplevel toplevel/byte toplevel/native tools; do \
@@ -1564,7 +1565,8 @@ partialclean::
 
 .PHONY: depend
 depend: beforedepend
-	$(V_GEN)(for d in utils parsing typing bytecomp asmcomp middle_end \
+	$(V_GEN)(for d in utils user_display parsing typing bytecomp asmcomp \
+         middle_end \
          lambda file_formats middle_end/closure middle_end/flambda \
          middle_end/flambda/base_types \
          driver toplevel toplevel/byte toplevel/native lex tools; \
@@ -1650,6 +1652,7 @@ endif
 	$(INSTALL_PROG) $(ocamlyacc_PROGRAM)$(EXE) "$(INSTALL_BINDIR)"
 	$(INSTALL_DATA) \
 	   utils/*.cmi \
+     user_display/*.cmi \
 	   parsing/*.cmi \
 	   typing/*.cmi \
 	   bytecomp/*.cmi \
@@ -1664,6 +1667,7 @@ endif
 ifeq "$(INSTALL_SOURCE_ARTIFACTS)" "true"
 	$(INSTALL_DATA) \
 	   utils/*.cmt utils/*.cmti utils/*.mli \
+	   user_display/*.cmt user_display/*.cmti user_display/*.mli \
 	   parsing/*.cmt parsing/*.cmti parsing/*.mli \
 	   typing/*.cmt typing/*.cmti typing/*.mli \
 	   file_formats/*.cmt file_formats/*.cmti file_formats/*.mli \
@@ -1825,7 +1829,7 @@ ifeq "$(BOOTSTRAPPING_FLEXDLL)" "true"
 	  $(LN) flexlink.opt$(EXE) flexlink$(EXE)
 endif
 	$(INSTALL_DATA) \
-	   utils/*.cmx parsing/*.cmx typing/*.cmx bytecomp/*.cmx \
+	   utils/*.cmx user_display/*.cmx parsing/*.cmx typing/*.cmx bytecomp/*.cmx \
 	   toplevel/*.cmx toplevel/native/*.cmx \
 	   toplevel/native/tophooks.cmi \
 	   file_formats/*.cmx \
@@ -1852,7 +1856,8 @@ endif
 install-compiler-sources:
 ifeq "$(INSTALL_SOURCE_ARTIFACTS)" "true"
 	$(INSTALL_DATA) \
-	   utils/*.ml parsing/*.ml typing/*.ml bytecomp/*.ml driver/*.ml \
+	   utils/*.ml user_display/*.ml parsing/*.ml typing/*.ml bytecomp/*.ml \
+           driver/*.ml \
            file_formats/*.ml \
            lambda/*.ml \
 	   toplevel/*.ml toplevel/byte/*.ml \
