@@ -109,6 +109,7 @@ let type_ident = wrap Parser.parse_mty_longident
 (* The code has been moved here so that one can reuse Pprintast.tyvar *)
 
 module Style = Misc.Style
+module Format = Format_doc
 
 let prepare_error err =
   let open Syntaxerr in
@@ -138,7 +139,7 @@ let prepare_error err =
       Location.errorf ~loc
         "In this scoped type, variable %a \
          is reserved for the local type %a."
-        (Style.as_inline_code Pprintast.tyvar) var
+        (Style.as_inline_code Pprintast.doc_tyvar) var
         Style.inline_code var
   | Other loc ->
       Location.errorf ~loc "Syntax error"

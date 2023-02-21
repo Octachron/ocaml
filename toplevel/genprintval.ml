@@ -154,15 +154,19 @@ module Make(O : OBJ)(EVP : EVALPATH with type valu = O.t) = struct
     ] : (Path.t * printer) list)
 
     let exn_printer ppf path exn =
-      fprintf ppf "<printer %a raised an exception: %s>" Printtyp.path path
+      Format_doc.fprintf ppf "<printer %a raised an exception: %s>"
+        Printtyp.path path
         (Printexc.to_string exn)
 
     let out_exn path exn =
       Oval_printer (fun ppf -> exn_printer ppf path exn)
 
+    let approx_printer f ppf x = Format_doc.approx (fun ppf -> f ppf x) ppf
+
     let install_printer path ty fn =
       let print_val ppf obj =
-        try fn ppf obj with exn -> exn_printer ppf path exn in
+        try approx_printer fn ppf obj with
+        | exn -> exn_printer ppf path exn in
       let printer obj = Oval_printer (fun ppf -> print_val ppf obj) in
       printers := (path, Simple (ty, printer)) :: !printers
 
@@ -175,7 +179,8 @@ module Make(O : OBJ)(EVP : EVALPATH with type valu = O.t) = struct
         | Zero fn ->
             let out_printer obj =
               let printer ppf =
-                try fn ppf obj with exn -> exn_printer ppf function_path exn in
+                try approx_printer fn ppf obj with
+                | exn -> exn_printer ppf function_path exn in
               Oval_printer printer in
             Zero out_printer
         | Succ fn ->
@@ -612,7 +617,8 @@ module Make(O : OBJ)(EVP : EVALPATH with type valu = O.t) = struct
       | _ ->
           (fun _obj ->
             let printer ppf =
-              fprintf ppf "<internal error: incorrect arity for '%a'>"
+              Format_doc.fprintf ppf
+                "<internal error: incorrect arity for '%a'>"
                 Printtyp.path path in
             Oval_printer printer)
 

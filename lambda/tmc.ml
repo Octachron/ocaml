@@ -994,6 +994,7 @@ let rewrite t =
   traverse ctx t
 
 module Style = Misc.Style
+module Format = Format_doc
 
 let () =
   Location.register_error_of_exn

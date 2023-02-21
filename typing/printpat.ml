@@ -18,6 +18,7 @@
 open Asttypes
 open Typedtree
 open Types
+module Format = Format_doc
 open Format
 
 let is_cons = function
@@ -99,7 +100,7 @@ let rec pretty_val : type k . _ -> k general_pattern -> _ = fun ppf v ->
   | Tpat_lazy v ->
       fprintf ppf "@[<2>lazy@ %a@]" pretty_arg v
   | Tpat_alias (v, x,_,_) ->
-      fprintf ppf "@[(%a@ as %a)@]" pretty_val v Ident.print x
+      fprintf ppf "@[(%a@ as %s)@]" pretty_val v (Ident.name x)
   | Tpat_value v ->
       fprintf ppf "%a" pretty_val (v :> pattern)
   | Tpat_exception v ->
@@ -144,18 +145,24 @@ and pretty_lvals ppf = function
       fprintf ppf "%s=%a;@ %a"
         lbl.lbl_name pretty_val v pretty_lvals rest
 
+let top_pretty ppf v =
+  fprintf ppf "@[%a@]@?" pretty_val v
+
 let pretty_pat ppf p =
-  fprintf ppf "@[%a@]" pretty_val p
+  top_pretty ppf p ;
+  pp_print_flush ppf ()
+
+let pretty_pat ppf x = compat pretty_pat ppf x
 
 type 'k matrix = 'k general_pattern list list
 
 let pretty_line ppf line =
-  Format.fprintf ppf "@[";
+  fprintf ppf "@[";
   List.iter (fun p ->
-    Format.fprintf ppf "<%a>@ "
-      pretty_val p
-  ) line;
-  Format.fprintf ppf "@]"
+    Format_doc.fprintf ppf " <";
+    top_pretty ppf p;
+    Format_doc.fprintf ppf ">";
+  ) line
 
 let pretty_matrix ppf (pss : 'k matrix) =
   Format.fprintf ppf "@[<v 2>  %a@]"

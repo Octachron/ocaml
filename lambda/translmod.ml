@@ -1657,6 +1657,7 @@ let transl_store_package component_names target_name coercion =
 
 (* Error report *)
 
+module Format = Format_doc
 open Format
 module Style = Misc.Style
 
@@ -1674,7 +1675,7 @@ let explanation_submsg (id, unsafe_info) =
   | Unnamed -> assert false (* can't be part of a cycle. *)
   | Unsafe {reason;loc;subid} ->
       let print fmt =
-        let printer = Format.dprintf fmt
+        let printer = Format.doc_printf fmt
             Style.inline_code (Ident.name id)
             Style.inline_code (Ident.name subid) in
         Location.mkloc printer loc in

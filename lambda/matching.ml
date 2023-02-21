@@ -93,7 +93,10 @@ open Types
 open Typedtree
 open Lambda
 open Parmatch
-open Printpat
+
+let pretty_line = Format_doc.compat Printpat.pretty_line
+let pretty_matrix = Format_doc.compat Printpat.pretty_matrix
+let pretty_pat = Printpat.pretty_pat
 
 module Scoped_location = Debuginfo.Scoped_location
 

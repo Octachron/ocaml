@@ -19,7 +19,7 @@ open Path
 open Asttypes
 open Parsetree
 open Types
-open Format
+open Format_doc
 
 module Style = Misc.Style
 
@@ -2128,6 +2128,8 @@ let simplify_app_summary app_view = match app_view.arg with
     | false, Some p -> Includemod.Error.Named p, mty
     | false, None   -> Includemod.Error.Anonymous, mty
 
+let not_principal msg = Warnings.Not_principal (Format_doc.Immutable.msg msg)
+
 let rec type_module ?(alias=false) sttn funct_body anchor env smod =
   Builtin_attributes.warning_scope smod.pmod_attributes
     (fun () -> type_module_aux ~alias sttn funct_body anchor env smod)
@@ -2254,7 +2256,7 @@ and type_module_aux ~alias sttn funct_body anchor env smod =
               not (Typecore.generalizable (Btype.generic_level-1) exp.exp_type)
             then
               Location.prerr_warning smod.pmod_loc
-                (Warnings.Not_principal "this module unpacking");
+                (not_principal "this module unpacking");
             modtype_of_package env smod.pmod_loc p fl
         | Tvar _ ->
             raise (Typecore.Error
@@ -3043,7 +3045,7 @@ let type_implementation target initial_env ast =
         Typecore.force_delayed_checks ();
         let shape = Shape_reduce.local_reduce Env.empty shape in
         Printtyp.wrap_printing_env ~error:false initial_env
-          (fun () -> fprintf std_formatter "%a@."
+          Format.(fun () -> fprintf std_formatter "%a@."
               (Printtyp.printed_signature @@ Unit_info.source_file target)
               simple_sg
           );
@@ -3240,8 +3242,8 @@ let report_error ~loc _env = function
         "@[This module is not a functor; it has type@ %a@]"
         (Style.as_inline_code modtype) mty
   | Not_included errs ->
-      let main = Includemod_errorprinter.err_msgs errs in
-      Location.errorf ~loc "@[<v>Signature mismatch:@ %t@]" main
+      Location.errorf ~loc "@[<v>Signature mismatch:@ %a@]"
+        Includemod_errorprinter.err_msgs errs
   | Cannot_eliminate_dependency mty ->
       Location.errorf ~loc
         "@[This functor has type@ %a@ \
@@ -3260,26 +3262,25 @@ let report_error ~loc _env = function
         Style.inline_code "with"
         (Style.as_inline_code longident) lid
   | With_mismatch(lid, explanation) ->
-      let main = Includemod_errorprinter.err_msgs explanation in
       Location.errorf ~loc
         "@[<v>\
            @[In this %a constraint, the new definition of %a@ \
              does not match its original definition@ \
              in the constrained signature:@]@ \
-         %t@]"
+         %a@]"
         Style.inline_code "with"
-        (Style.as_inline_code longident) lid main
+        (Style.as_inline_code longident) lid
+        Includemod_errorprinter.err_msgs explanation
   | With_makes_applicative_functor_ill_typed(lid, path, explanation) ->
-      let main = Includemod_errorprinter.err_msgs explanation in
       Location.errorf ~loc
         "@[<v>\
            @[This %a constraint on %a makes the applicative functor @ \
              type %a ill-typed in the constrained signature:@]@ \
-         %t@]"
+         %a@]"
         Style.inline_code "with"
         (Style.as_inline_code longident) lid
         Style.inline_code (Path.name path)
-        main
+        Includemod_errorprinter.err_msgs explanation
   | With_changes_module_alias(lid, id, path) ->
       Location.errorf ~loc
         "@[<v>\
@@ -3299,7 +3300,7 @@ let report_error ~loc _env = function
         [ 12; 7; 3 ]
       in
       let pp_constraint ppf () =
-        Format.fprintf ppf "%s := %a"
+        fprintf ppf "%s := %a"
           (Path.name p) Printtyp.modtype mty
       in
       Location.errorf ~loc
