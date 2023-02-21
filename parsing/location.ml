@@ -119,9 +119,9 @@ let echo_eof () =
   incr num_loc_lines
 
 (* This is used by the toplevel and the report printers below. *)
-let separate_new_message ppf =
+let separate_new_message ppf () =
   if not (is_first_message ()) then begin
-    Format.pp_print_newline ppf ();
+    Format_doc.pp_print_newline ppf ();
     incr num_loc_lines
   end
 
@@ -146,8 +146,14 @@ let print_updating_num_loc_lines ppf f arg =
   pp_print_flush ppf ();
   pp_set_formatter_out_functions ppf out_functions
 
+(** {1 Printing setup }*)
+
 let setup_tags () =
   Misc.Style.setup !Clflags.color
+
+module Real_format = Format
+module Format = Format_doc
+module Fmt = Format
 
 (******************************************************************************)
 (* Printing locations, e.g. 'File "foo.ml", line 3, characters 10-12' *)
@@ -213,7 +219,7 @@ let print_filename ppf file =
    Some of the information (filename, line number or characters numbers) in the
    location might be invalid; in which case we do not print it.
  *)
-let print_loc ppf loc =
+let print_loc (type i) (ppf: i Format.formatter) loc =
   setup_tags ();
   let file_valid = function
     | "_none_" ->
@@ -272,6 +278,12 @@ let print_loc ppf loc =
 let print_locs ppf locs =
   Format.pp_print_list ~pp_sep:(fun ppf () -> Format.fprintf ppf ",@ ")
     print_loc ppf locs
+
+module Compat = struct
+  let print_filename = Format_doc.compat print_filename
+  let print_loc = Format_doc.compat print_loc
+  let print_locs = Format_doc.compat print_locs
+end
 
 (******************************************************************************)
 (* An interval set structure; additionally, it stores user-provided information
@@ -363,7 +375,8 @@ end
    If [locs] is empty, this function is a no-op.
 *)
 let highlight_terminfo lb ppf locs =
-  Format.pp_print_flush ppf ();  (* avoid mixing Format and normal output *)
+(* avoid mixing Format and normal output *)
+  Real_format.pp_print_flush ppf ();
   (* Char 0 is at offset -lb.lex_abs_pos in lb.lex_buffer. *)
   let pos0 = -lb.lex_abs_pos in
   (* Do nothing if the buffer does not contain the whole phrase. *)
@@ -529,7 +542,7 @@ let highlight_quote ppf
         Format.fprintf ppf "@}@,"
     | _ ->
         (* Multi-line error *)
-        Misc.pp_two_columns ~sep:"|" ~max_lines ppf
+        Format.pp_two_columns ~sep:"|" ~max_lines ppf
         @@ List.map (fun (line, line_nb, line_start_cnum) ->
           let line = String.mapi (fun i car ->
             if ISet.mem iset ~pos:(line_start_cnum + i) then car else '.'
@@ -633,10 +646,12 @@ let lines_around_from_current_input ~start_pos ~end_pos =
 (******************************************************************************)
 (* Reporting errors and warnings *)
 
-type msg = (Format.formatter -> unit) loc
+type msg = Format_doc.t loc
 
 let msg ?(loc = none) fmt =
-  Format.kdprintf (fun txt -> { loc; txt }) fmt
+  Format.kfprintf (fun ppf -> { loc; txt = Format.doc ppf })
+    (Format.make_doc (ref Format_doc.empty))
+    fmt
 
 type report_kind =
   | Report_error
@@ -653,23 +668,22 @@ type report = {
 
 type report_printer = {
   (* The entry point *)
-  pp : report_printer ->
-    Format.formatter -> report -> unit;
+  pp : report_printer -> (Real_format.formatter as 'fmt) -> report -> unit;
 
-  pp_report_kind : report_printer -> report ->
-    Format.formatter -> report_kind -> unit;
-  pp_main_loc : report_printer -> report ->
-    Format.formatter -> t -> unit;
-  pp_main_txt : report_printer -> report ->
-    Format.formatter -> (Format.formatter -> unit) -> unit;
-  pp_submsgs : report_printer -> report ->
-    Format.formatter -> msg list -> unit;
-  pp_submsg : report_printer -> report ->
-    Format.formatter -> msg -> unit;
-  pp_submsg_loc : report_printer -> report ->
-    Format.formatter -> t -> unit;
-  pp_submsg_txt : report_printer -> report ->
-    Format.formatter -> (Format.formatter -> unit) -> unit;
+  pp_report_kind :
+    report_printer -> report -> 'fmt -> report_kind -> unit;
+  pp_main_loc : 'impl.
+    report_printer -> report -> 'fmt -> t -> unit;
+  pp_main_txt :'impl.
+    report_printer -> report -> 'fmt -> Format_doc.t -> unit;
+  pp_submsgs : 'impl.
+    report_printer -> report -> 'fmt -> msg list -> unit;
+  pp_submsg : 'impl.
+    report_printer -> report -> 'fmt -> msg -> unit;
+  pp_submsg_loc : 'impl.
+    report_printer -> report -> 'fmt -> t -> unit;
+  pp_submsg_txt : 'impl.
+    report_printer -> report -> 'fmt -> Format_doc.t -> unit;
 }
 
 let is_dummy_loc loc =
@@ -707,6 +721,7 @@ let error_style () =
   | None -> Misc.Error_style.default_setting
 
 let batch_mode_printer : report_printer =
+  let module Format = Real_format in
   let pp_loc _self report ppf loc =
     let tag = match report.kind with
       | Report_warning_as_error _
@@ -725,12 +740,13 @@ let batch_mode_printer : report_printer =
       | Misc.Error_style.Short ->
           ()
     in
-    Format.fprintf ppf "@[<v>%a:@ %a@]" print_loc loc highlight loc
+    Format.fprintf ppf "@[<v>%a:@ %a@]" Compat.print_loc loc
+      (Format_doc.compat highlight) loc
   in
-  let pp_txt ppf txt = Format.fprintf ppf "@[%t@]" txt in
+  let pp_txt ppf txt = Format.fprintf ppf "@[%a@]" Format_doc.format txt in
   let pp self ppf report =
     setup_tags ();
-    separate_new_message ppf;
+    Format_doc.compat separate_new_message ppf ();
     (* Make sure we keep [num_loc_lines] updated.
        The tabulation box is here to give submessage the option
        to be aligned with the main message box
@@ -796,7 +812,7 @@ let terminfo_toplevel_printer (lb: lexbuf): report_printer =
   let pp_main_loc _ _ _ _ = () in
   let pp_submsg_loc _ _ ppf loc =
     if not loc.loc_ghost then
-      Format.fprintf ppf "%a:@ " print_loc loc in
+      Real_format.fprintf ppf "%a:@ " Compat.print_loc loc in
   { batch_mode_printer with pp; pp_main_loc; pp_submsg_loc }
 
 let best_toplevel_printer () =
@@ -829,6 +845,9 @@ let report_error ppf err =
   print_report ppf err
 
 let mkerror loc sub txt =
+  let ppf = Format.make_doc @@ ref Format_doc.empty in
+  let () = txt ppf in
+  let txt = Format.doc ppf in
   { kind = Report_error; main = { loc; txt }; sub }
 
 let errorf ?(loc = none) ?(sub = []) =
@@ -851,7 +870,7 @@ let default_warning_alert_reporter report mk (loc: t) w : report option =
   match report w with
   | `Inactive -> None
   | `Active { Warnings.id; message; is_error; sub_locs } ->
-      let msg_of_str str = fun ppf -> Format.pp_print_string ppf str in
+      let msg_of_str str = Format_doc.(empty |> Immutable.string str) in
       let kind = mk is_error id in
       let main = { loc; txt = msg_of_str message } in
       let sub = List.map (fun (loc, sub_message) ->
@@ -871,7 +890,8 @@ let default_warning_reporter =
 let warning_reporter = ref default_warning_reporter
 let report_warning loc w = !warning_reporter loc w
 
-let formatter_for_warnings = ref Format.err_formatter
+let formatter_for_warnings =
+  ref (Real_format.err_formatter)
 
 let print_warning loc ppf w =
   match report_warning loc w with
@@ -921,7 +941,7 @@ let auto_include_alert lib =
       Style.inline_code ("-package " ^ lib) in
   let alert =
     {Warnings.kind="ocaml_deprecated_auto_include"; use=none; def=none;
-     message = Format.asprintf "@[@\n%a@]" Format.pp_print_text message}
+     message = Real_format.(asprintf "@[@\n%a@]" pp_print_text message)}
   in
   prerr_alert none alert
 
@@ -935,9 +955,9 @@ let deprecated_script_alert program =
       Style.inline_code (program ^ " script-file.ml")
       Style.inline_code (program ^ " ./script-file")
   in
+  let message = Real_format.(asprintf "@[@\n%a@]" pp_print_text message) in
   let alert =
-    {Warnings.kind="ocaml_deprecated_cli"; use=none; def=none;
-     message = Format.asprintf "@[@\n%a@]" Format.pp_print_text message}
+    {Warnings.kind="ocaml_deprecated_cli"; use=none; def=none; message }
   in
   prerr_alert none alert
 

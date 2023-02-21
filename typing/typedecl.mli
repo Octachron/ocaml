@@ -16,8 +16,6 @@
 (* Typing of type definitions and primitive definitions *)
 
 open Types
-open Format
-
 val transl_type_decl:
     Env.t -> Asttypes.rec_flag -> Parsetree.type_declaration list ->
     Typedtree.type_declaration list * Env.t * Shape.t list
@@ -108,4 +106,4 @@ type error =
 
 exception Error of Location.t * error
 
-val report_error: formatter -> error -> unit
+val report_error: (error, 'impl) Format_doc.printer

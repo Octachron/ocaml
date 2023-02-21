@@ -59,10 +59,11 @@ NATOBJS=native/dynlink_compilerlibs.cmx dynlink_types.cmx \
 #
 # The modules needed from compilerlibs have to be recompiled so that the
 # -for-pack option can be specified.  Packing without such option having been
-# specified, as used to be performed in this Makefile, is currently permitted
-# for bytecode (but may be disallowed in the future) but not native.
+# specified, as used to be performed in this Makefile, is c
+# # urrently permitted
+# # for bytecode (but may be disallowed in the future) but not native.
 
-# .mli files from compilerlibs that don't have a corresponding .ml file.
+# # .mli files from compilerlibs that don't have a corresponding .ml file.
 COMPILERLIBS_INTFS=\
   parsing/asttypes.mli \
   parsing/parsetree.mli \
@@ -76,6 +77,7 @@ COMPILERLIBS_SOURCES=\
   utils/binutils.ml \
   utils/config.ml \
   utils/build_path_prefix_map.ml \
+  utils/format_doc.ml \
   utils/misc.ml \
   utils/identifiable.ml \
   utils/numbers.ml \
@@ -136,6 +138,7 @@ MINI_COMPILERLIBS_SOURCES=\
   utils/binutils.ml \
   utils/config.ml \
   utils/build_path_prefix_map.ml \
+  utils/format_doc.ml \
   utils/misc.ml
 
 # Rules to make a local copy of the .ml and .mli files required.  We also

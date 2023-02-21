@@ -57,8 +57,7 @@ val check : t -> error option
     - Some implementation appear
       before their dependencies *)
 
-open Format
 
 val report_error
-  :  print_filename:(formatter -> string -> unit)
-  -> formatter -> error -> unit
+  :  print_filename:(string,'i) Format_doc.printer
+  -> (error,'i) Format_doc.printer

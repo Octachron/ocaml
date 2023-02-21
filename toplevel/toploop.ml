@@ -393,7 +393,7 @@ let loop ppf =
       Config.version
       (if Topeval.implementation_label = "" then "" else " - ")
       Topeval.implementation_label
-      Misc.Style.inline_code "#help;;";
+      (Format_doc.compat Misc.Style.inline_code) "#help;;";
   begin
     try initialize_toplevel_env ()
     with Env.Error _ | Typetexp.Error _ as exn ->

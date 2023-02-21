@@ -27,7 +27,8 @@ module Uid = struct
     let compare (x : t) y = compare x y
     let hash (x : t) = Hashtbl.hash x
 
-    let print fmt = function
+    let print fmt =
+      function
       | Internal -> Format.pp_print_string fmt "<internal>"
       | Predef name -> Format.fprintf fmt "<predef:%s>" name
       | Compilation_unit s -> Format.pp_print_string fmt s

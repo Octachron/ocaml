@@ -288,8 +288,10 @@ let tyvar_of_name s =
   else
     "'" ^ s
 
-let tyvar ppf s =
-  Format.fprintf ppf "%s" (tyvar_of_name s)
+let doc_tyvar ppf s =
+  Format_doc.fprintf ppf "%s" (tyvar_of_name s)
+
+let tyvar = Format_doc.format_printer doc_tyvar
 
 let tyvar_loc f str = tyvar f str.txt
 let string_quot f x = pp f "`%a" ident_of_name x

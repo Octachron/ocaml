@@ -14,6 +14,8 @@
 (**************************************************************************)
 
 module Style = Misc.Style
+module Real_format = Format
+module Format = Format_doc
 
 module Context = struct
   type pos =
@@ -213,7 +215,7 @@ let show_locs ppf (loc1, loc2) =
 
 let dmodtype mty =
   let tmty = Printtyp.tree_of_modtype mty in
-  Format.dprintf "%a" !Oprint.out_module_type tmty
+  Format.dprintf "%a" Oprint.(print out_module_type) tmty
 
 let space ppf () = Format.fprintf ppf "@ "
 
@@ -264,8 +266,8 @@ module With_shorthand = struct
 
   let make side pos =
     match side with
-    | Got -> Format.sprintf "$S%d" pos
-    | Expected -> Format.sprintf "$T%d" pos
+    | Got -> Real_format.sprintf "$S%d" pos
+    | Expected -> Real_format.sprintf "$T%d" pos
     | Unneeded -> "..."
 
   (** Add shorthands to a patch *)
@@ -592,17 +594,16 @@ let coalesce msgs =
   | before ->
       let ctx ppf =
         Format.pp_print_list ~pp_sep:space
-          (fun ppf x -> x.Location.txt ppf)
+          (fun ppf x -> Format.pp_doc ppf x.Location.txt)
           ppf before in
       ctx
 
 let subcase_list l ppf = match l with
   | [] -> ()
   | _ :: _ ->
+      let pp_msg ppf lmsg = Format.pp_doc ppf lmsg.Location.txt in
       Format.fprintf ppf "@;<1 -2>@[%a@]"
-        (Format.pp_print_list ~pp_sep:space
-           (fun ppf f -> f.Location.txt ppf)
-        )
+        (Format.pp_print_list ~pp_sep:space pp_msg)
         (List.rev l)
 
 (* Printers for leaves *)
@@ -611,10 +612,10 @@ let core env id x =
   | Err.Value_descriptions diff ->
       Format.dprintf "@[<v>@[<hv>%s:@;<1 2>%a@ %s@;<1 2>%a@]%a%a%t@]"
         "Values do not match"
-        !Oprint.out_sig_item
+        Oprint.(print out_sig_item)
         (Printtyp.tree_of_value_description id diff.got)
         "is not included in"
-        !Oprint.out_sig_item
+        Oprint.(print out_sig_item)
         (Printtyp.tree_of_value_description id diff.expected)
         (Includecore.report_value_mismatch
            "the first" "the second" env) diff.symptom
@@ -623,10 +624,10 @@ let core env id x =
   | Err.Type_declarations diff ->
       Format.dprintf "@[<v>@[<hv>%s:@;<1 2>%a@ %s@;<1 2>%a@]%a%a%t@]"
         "Type declarations do not match"
-        !Oprint.out_sig_item
+        Oprint.(print out_sig_item)
         (Printtyp.tree_of_type_declaration id diff.got Trec_first)
         "is not included in"
-        !Oprint.out_sig_item
+        Oprint.(print out_sig_item)
         (Printtyp.tree_of_type_declaration id diff.expected Trec_first)
         (Includecore.report_type_mismatch
            "the first" "the second" "declaration" env) diff.symptom
@@ -635,10 +636,10 @@ let core env id x =
   | Err.Extension_constructors diff ->
       Format.dprintf "@[<v>@[<hv>%s:@;<1 2>%a@ %s@;<1 2>%a@]@ %a%a%t@]"
         "Extension declarations do not match"
-        !Oprint.out_sig_item
+        Oprint.(print out_sig_item)
         (Printtyp.tree_of_extension_constructor id diff.got Text_first)
         "is not included in"
-        !Oprint.out_sig_item
+        Oprint.(print out_sig_item)
         (Printtyp.tree_of_extension_constructor id diff.expected Text_first)
         (Includecore.report_extension_constructor_mismatch
            "the first" "the second" "declaration" env) diff.symptom
@@ -648,9 +649,9 @@ let core env id x =
       Format.dprintf
         "@[<hv 2>Class type declarations do not match:@ \
          %a@;<1 -2>does not match@ %a@]@ %a%t"
-        !Oprint.out_sig_item
+        Oprint.(print out_sig_item)
         (Printtyp.tree_of_cltype_declaration id diff.got Trec_first)
-        !Oprint.out_sig_item
+        Oprint.(print out_sig_item)
         (Printtyp.tree_of_cltype_declaration id diff.expected Trec_first)
         (Includeclass.report_error Type_scheme) diff.symptom
         Printtyp.Conflicts.print_explanations
@@ -660,8 +661,8 @@ let core env id x =
       Format.dprintf
         "@[<hv 2>Class declarations do not match:@ \
          %a@;<1 -2>does not match@ %a@]@ %a%t"
-        !Oprint.out_sig_item t1
-        !Oprint.out_sig_item t2
+        Oprint.(print out_sig_item) t1
+        Oprint.(print out_sig_item) t2
         (Includeclass.report_error Type_scheme) symptom
         Printtyp.Conflicts.print_explanations
 
@@ -676,22 +677,22 @@ let module_types {Err.got=mty1; expected=mty2} =
   Format.dprintf
     "@[<hv 2>Modules do not match:@ \
      %a@;<1 -2>is not included in@ %a@]"
-    !Oprint.out_module_type (Printtyp.tree_of_modtype mty1)
-    !Oprint.out_module_type (Printtyp.tree_of_modtype mty2)
+    Oprint.(print out_module_type) (Printtyp.tree_of_modtype mty1)
+    Oprint.(print out_module_type) (Printtyp.tree_of_modtype mty2)
 
 let eq_module_types {Err.got=mty1; expected=mty2} =
   Format.dprintf
     "@[<hv 2>Module types do not match:@ \
      %a@;<1 -2>is not equal to@ %a@]"
-    !Oprint.out_module_type (Printtyp.tree_of_modtype mty1)
-    !Oprint.out_module_type (Printtyp.tree_of_modtype mty2)
+    Oprint.(print out_module_type) (Printtyp.tree_of_modtype mty1)
+    Oprint.(print out_module_type) (Printtyp.tree_of_modtype mty2)
 
 let module_type_declarations id {Err.got=d1 ; expected=d2} =
   Format.dprintf
     "@[<hv 2>Module type declarations do not match:@ \
      %a@;<1 -2>does not match@ %a@]"
-    !Oprint.out_sig_item (Printtyp.tree_of_modtype_declaration id d1)
-    !Oprint.out_sig_item (Printtyp.tree_of_modtype_declaration id d2)
+    Oprint.(print out_sig_item) (Printtyp.tree_of_modtype_declaration id d1)
+    Oprint.(print out_sig_item) (Printtyp.tree_of_modtype_declaration id d2)
 
 let interface_mismatch ppf (diff: _ Err.diff) =
   Format.fprintf ppf
@@ -897,14 +898,13 @@ let all env = function
 
 (* General error reporting *)
 
-let err_msgs (env, err) =
+let err_msgs ppf (env, err) =
   Printtyp.Conflicts.reset();
   Printtyp.wrap_printing_env ~error:true env
-    (fun () -> coalesce @@ all env err)
+    (fun () -> (coalesce @@ all env err)  ppf)
 
 let report_error err =
-  let main = err_msgs err in
-  Location.errorf ~loc:Location.(in_file !input_name) "%t" main
+  Location.errorf ~loc:Location.(in_file !input_name) "%a" err_msgs err
 
 let report_apply_error ~loc env (app_name, mty_f, args) =
   let d = Functor_suberror.App.patch env ~f:mty_f ~args in

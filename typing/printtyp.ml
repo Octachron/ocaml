@@ -17,7 +17,6 @@
 
 open Misc
 open Ctype
-open Format
 open Longident
 open Path
 open Asttypes
@@ -25,14 +24,23 @@ open Types
 open Btype
 open Outcometree
 
+module Final_format = Format
 module String = Misc.Stdlib.String
 module Sig_component_kind = Shape.Sig_component_kind
 module Style = Misc.Style
 
 (* Print a long identifier *)
-let longident = Pprintast.longident
 
-let () = Env.print_longident := longident
+module Format = Format_doc
+open Format_doc
+
+let rec longident ppf = function
+  | Lident s -> pp_print_string ppf s
+  | Ldot(p, s) -> fprintf ppf "%a.%s" longident p s
+  | Lapply(p1, p2) -> fprintf ppf "%a(%a)" longident p1 longident p2
+
+
+let () = Env.print_longident := { Format_doc.printer = longident }
 
 (* Print an identifier avoiding name collisions *)
 
@@ -433,16 +441,16 @@ let tree_of_path ?disambiguation namespace p =
     (rewrite_double_underscore_paths !printing_env p)
 
 let path ppf p =
-  !Oprint.out_ident ppf (tree_of_path None p)
+  Oprint.(print out_ident) ppf (tree_of_path None p)
 
 let string_of_path p =
-  Format.asprintf "%a" path p
+  Final_format.asprintf "%a" (Format.format_printer path) p
 
 let strings_of_paths namespace p =
   let trees = List.map (tree_of_path namespace) p in
-  List.map (Format.asprintf "%a" !Oprint.out_ident) trees
+  List.map (Format.asprintf "%a" !Oprint.out_ident.printer) trees
 
-let () = Env.print_path := path
+let () = Env.print_path := { Format_doc.printer = path }
 
 (* Print a recursive annotation *)
 
@@ -453,6 +461,14 @@ let tree_of_rec = function
 
 (* Print a raw type expression, with sharing *)
 
+let string_of_label = function
+    Nolabel -> ""
+  | Labelled s -> s
+  | Optional s -> "?"^s
+
+module Raw = struct
+  open Final_format
+  let path = Format_doc.format_printer path
 let raw_list pr ppf = function
     [] -> fprintf ppf "[]"
   | a :: l ->
@@ -482,11 +498,6 @@ let rec list_of_memo = function
 let print_name ppf = function
     None -> fprintf ppf "None"
   | Some name -> fprintf ppf "\"%s\"" name
-
-let string_of_label = function
-    Nolabel -> ""
-  | Labelled s -> s
-  | Optional s -> "?"^s
 
 let visited = ref []
 let rec raw_type ppf ty =
@@ -575,8 +586,10 @@ let raw_type_expr ppf t =
   visited := []; kind_vars := []; kind_count := 0;
   raw_type ppf t;
   visited := []; kind_vars := []
+end
+let raw_type_expr = Raw.raw_type_expr
 
-let () = Btype.print_raw := raw_type_expr
+let () = Btype.print_raw := Raw.raw_type_expr
 
 (* Normalize paths *)
 
@@ -833,13 +846,16 @@ let printer_iter_type_expr f ty =
   | _ ->
       Btype.iter_type_expr f ty
 
+let quoted_ident ppf x =
+  Style.as_inline_code Oprint.(print out_ident) ppf x
+
 module Internal_names : sig
 
   val reset : unit -> unit
 
   val add : Path.t -> unit
 
-  val print_explanations : Env.t -> Format.formatter -> unit
+  val print_explanations : Env.t -> 'i Format.formatter -> unit
 
 end = struct
 
@@ -881,7 +897,7 @@ end = struct
             fprintf ppf
               "@ @[<2>@{<hint>Hint@}:@ %a@ is an existential type@ \
                bound by the constructor@ %a.@]"
-              (Style.as_inline_code !Oprint.out_ident) out_ident
+              quoted_ident out_ident
               Style.inline_code constr
         | out_ident :: out_idents ->
             fprintf ppf
@@ -889,9 +905,9 @@ end = struct
                bound by the constructor@ %a.@]"
               (Format.pp_print_list
                  ~pp_sep:(fun ppf () -> fprintf ppf ",@ ")
-                 (Style.as_inline_code !Oprint.out_ident))
+                 quoted_ident)
               (List.rev out_idents)
-              (Style.as_inline_code !Oprint.out_ident) out_ident
+              quoted_ident out_ident
               Style.inline_code constr)
       constrs
 
@@ -1325,7 +1341,7 @@ and tree_of_typfields mode rest = function
       (field :: fields, rest)
 
 let typexp mode ppf ty =
-  !Oprint.out_type ppf (tree_of_typexp mode ty)
+  Oprint.(print out_type) ppf (tree_of_typexp mode ty)
 
 let prepared_type_expr ppf ty = typexp Type ppf ty
 
@@ -1356,7 +1372,7 @@ let type_path ppf p =
   let (p', s) = best_type_path p in
   let p'' = if (s = Id) then p' else p in
   let t = tree_of_best_type_path p p'' in
-  !Oprint.out_ident ppf t
+  Oprint.(print out_ident) ppf t
 
 let tree_of_type_scheme ty =
   prepare_for_printing [ty];
@@ -1564,7 +1580,7 @@ let add_constructor_to_preparation c =
   Option.iter prepare_type c.cd_res
 
 let prepared_constructor ppf c =
-  !Oprint.out_constr ppf (tree_of_single_constructor c)
+  Oprint.(print out_constr) ppf (tree_of_single_constructor c)
 
 let constructor ppf c =
   reset_except_context ();
@@ -1574,7 +1590,7 @@ let constructor ppf c =
 let label ppf l =
   reset_except_context ();
   prepare_type l.ld_type;
-  !Oprint.out_label ppf (tree_of_label l)
+  Oprint.(print out_label) ppf (tree_of_label l)
 
 let tree_of_type_declaration id decl rs =
   Osig_type (tree_of_type_decl id decl, tree_of_rec rs)
@@ -1583,18 +1599,18 @@ let tree_of_prepared_type_declaration id decl rs =
   Osig_type (tree_of_prepared_type_decl id decl, tree_of_rec rs)
 
 let type_declaration id ppf decl =
-  !Oprint.out_sig_item ppf (tree_of_type_declaration id decl Trec_first)
+  Oprint.(print out_sig_item) ppf (tree_of_type_declaration id decl Trec_first)
 
 let add_type_declaration_to_preparation id decl =
   add_type_decl_to_preparation id decl
 
 let prepared_type_declaration id ppf decl =
-  !Oprint.out_sig_item ppf
+  Oprint.(print out_sig_item) ppf
     (tree_of_prepared_type_declaration id decl Trec_first)
 
 let constructor_arguments ppf a =
   let tys = tree_of_constructor_arguments a in
-  !Oprint.out_type ppf (Otyp_tuple tys)
+  Oprint.(print out_type) ppf (Otyp_tuple tys)
 
 (* Print an extension declaration *)
 
@@ -1684,10 +1700,11 @@ let tree_of_extension_constructor id ext es =
   prepared_tree_of_extension_constructor id ext es
 
 let extension_constructor id ppf ext =
-  !Oprint.out_sig_item ppf (tree_of_extension_constructor id ext Text_first)
+  Oprint.(print out_sig_item) ppf
+    (tree_of_extension_constructor id ext Text_first)
 
 let prepared_extension_constructor id ppf ext =
-  !Oprint.out_sig_item ppf
+  Oprint.(print out_sig_item) ppf
     (prepared_tree_of_extension_constructor id ext Text_first)
 
 let extension_only_constructor id ppf ext =
@@ -1701,7 +1718,7 @@ let extension_only_constructor id ppf ext =
       ext.ext_ret_type
   in
   Format.fprintf ppf "@[<hv>%a@]"
-    !Oprint.out_constr {
+    Oprint.(print out_constr) {
       ocstr_name = name;
       ocstr_args = args;
       ocstr_return_type = ret;
@@ -1727,7 +1744,7 @@ let tree_of_value_description id decl =
   Osig_value vd
 
 let value_description id ppf decl =
-  !Oprint.out_sig_item ppf (tree_of_value_description id decl)
+  Oprint.(print out_sig_item) ppf (tree_of_value_description id decl)
 
 (* Print a class type *)
 
@@ -1832,7 +1849,7 @@ let rec tree_of_class_type mode params =
 let class_type ppf cty =
   reset ();
   prepare_class_type [] cty;
-  !Oprint.out_class_type ppf (tree_of_class_type Type [] cty)
+  Oprint.(print out_class_type) ppf (tree_of_class_type Type [] cty)
 
 let tree_of_class_param param variance =
   let ot_variance =
@@ -1868,7 +1885,7 @@ let tree_of_class_declaration id cl rs =
      tree_of_rec rs)
 
 let class_declaration id ppf cl =
-  !Oprint.out_sig_item ppf (tree_of_class_declaration id cl Trec_first)
+  Oprint.(print out_sig_item) ppf (tree_of_class_declaration id cl Trec_first)
 
 let tree_of_cltype_declaration id cl rs =
   let params = cl.clty_params in
@@ -1898,7 +1915,7 @@ let tree_of_cltype_declaration id cl rs =
      tree_of_rec rs)
 
 let cltype_declaration id ppf cl =
-  !Oprint.out_sig_item ppf (tree_of_cltype_declaration id cl Trec_first)
+  Oprint.(print out_sig_item) ppf (tree_of_cltype_declaration id cl Trec_first)
 
 (* Print a module type *)
 
@@ -2083,16 +2100,16 @@ let rec functor_parameters ~sep custom_printer = function
         (functor_param ~sep ~custom_printer id q)
 and functor_param ~sep ~custom_printer id q =
   match id with
-  | None -> functor_parameters ~sep custom_printer q
+  | None -> functor_parameters ~sep custom_printer  q
   | Some id ->
       Naming_context.with_arg id
         (fun () -> functor_parameters ~sep custom_printer q)
 
 
 
-let modtype ppf mty = !Oprint.out_module_type ppf (tree_of_modtype mty)
+let modtype ppf mty = Oprint.(print out_module_type) ppf (tree_of_modtype mty)
 let modtype_declaration id ppf decl =
-  !Oprint.out_sig_item ppf (tree_of_modtype_declaration id decl)
+  Oprint.(print out_sig_item) ppf (tree_of_modtype_declaration id decl)
 
 (* For the toplevel: merge with tree_of_signature? *)
 
@@ -2106,7 +2123,7 @@ let print_items showval env x =
 (* Print a signature body (used by -i when compiling a .ml) *)
 
 let print_signature ppf tree =
-  fprintf ppf "@[<v>%a@]" !Oprint.out_signature tree
+  fprintf ppf "@[<v>%a@]" Oprint.(print out_signature) tree
 
 let signature ppf sg =
   fprintf ppf "%a" print_signature (tree_of_signature sg)
@@ -2119,12 +2136,16 @@ let printed_signature sourcefile ppf sg =
   if Warnings.(is_active @@ Erroneous_printed_signature "")
   && Conflicts.exists ()
   then begin
-    let conflicts = Format.asprintf "%t" Conflicts.print_explanations in
+    let printer ppf =
+      Conflicts.print_explanations (Format_doc.make_formatter ppf)
+    in
+    let conflicts = Final_format.asprintf "%t" printer in
     Location.prerr_warning (Location.in_file sourcefile)
       (Warnings.Erroneous_printed_signature conflicts);
     Warnings.check_fatal ()
   end;
-  fprintf ppf "%a" print_signature t
+  Final_format.fprintf ppf "%a"
+    (Format_doc.format_printer print_signature) t
 
 (* Trace-specific printing *)
 
@@ -2180,12 +2201,18 @@ let trees_of_type_expansion mode Errortrace.{ty = t; expanded = t'} =
     else Diff(first,second)
   end
 
+let pp_type ppf t =
+  Style.as_inline_code Oprint.(print out_type) ppf t
+
+let quoted_ident ppf t =
+  Style.as_inline_code Oprint.(print out_ident) ppf t
+
 let type_expansion ppf = function
-  | Same t -> Style.as_inline_code !Oprint.out_type ppf t
+  | Same t -> pp_type ppf t
   | Diff(t,t') ->
       fprintf ppf "@[<2>%a@ =@ %a@]"
-        (Style.as_inline_code !Oprint.out_type) t
-        (Style.as_inline_code !Oprint.out_type) t'
+        pp_type t
+        pp_type t'
 
 let trees_of_trace mode =
   List.map (Errortrace.map_diff (trees_of_type_expansion mode))
@@ -2195,11 +2222,11 @@ let trees_of_type_path_expansion (tp,tp') =
     Diff(tree_of_path (Some Type) tp, tree_of_path (Some Type) tp')
 
 let type_path_expansion ppf = function
-  | Same p -> Style.as_inline_code !Oprint.out_ident ppf p
+  | Same p -> quoted_ident ppf p
   | Diff(p,p') ->
       fprintf ppf "@[<2>%a@ =@ %a@]"
-        (Style.as_inline_code !Oprint.out_ident) p
-        (Style.as_inline_code !Oprint.out_ident) p'
+       quoted_ident p
+       quoted_ident p'
 
 let rec trace fst txt ppf = function
   | {Errortrace.got; expected} :: rem ->
@@ -2261,9 +2288,9 @@ let rec filter_trace keep_last = function
   | Errortrace.Diff d :: rem -> d :: filter_trace keep_last rem
   | _ :: rem -> filter_trace keep_last rem
 
-let type_path_list =
+let type_path_list ppf l =
   Format.pp_print_list ~pp_sep:(fun ppf () -> Format.pp_print_break ppf 2 0)
-    type_path_expansion
+    type_path_expansion ppf l
 
 (* Hide variant name and var, to force printing the expanded type *)
 let hide_variant_name t =
@@ -2290,13 +2317,13 @@ let may_prepare_expansion compact (Errortrace.{ty; expanded} as ty_exp) =
   | _ -> prepare_expansion ty_exp
 
 let print_path p =
-  Format.dprintf "%a" !Oprint.out_ident (tree_of_path (Some Type) p)
+  Format.dprintf "%a" Oprint.(print out_ident) (tree_of_path (Some Type) p)
 
 let print_tag ppf s = Style.inline_code ppf ("`" ^ s)
 
-let print_tags =
+let print_tags ppf tags  =
   let comma ppf () = Format.fprintf ppf ",@ " in
-  Format.pp_print_list ~pp_sep:comma print_tag
+  Format.pp_print_list ~pp_sep:comma print_tag ppf tags
 
 let is_unit env ty =
   match get_desc (Ctype.expand_head env ty) with
@@ -2312,7 +2339,8 @@ let unifiable env ty1 ty2 =
   Btype.backtrack snap;
   res
 
-let explanation_diff env t3 t4 : (Format.formatter -> unit) option =
+
+let explanation_diff env t3 t4  =
   match get_desc t3, get_desc t4 with
   | Tarrow (_, ty1, ty2, _), _
     when is_unit env ty1 && unifiable env ty2 t4 ->
@@ -2324,7 +2352,7 @@ let explanation_diff env t3 t4 : (Format.formatter -> unit) option =
   | _, Tarrow (_, ty1, ty2, _)
     when is_unit env ty1 && unifiable env t3 ty2 ->
       Some (fun ppf ->
-        fprintf ppf
+          fprintf ppf
           "@,@[@{<hint>Hint@}: Did you forget to wrap the expression using \
            %a?@]"
           Style.inline_code "fun () ->"
@@ -2458,7 +2486,7 @@ let explanation (type variety) intro prev env
       match context, kind, prev with
       | Some ctx, _, _ ->
         reserve_names ctx;
-        dprintf "@[%t@;<1 2>%a@]" intro
+        dprintf "@[%a@;<1 2>%a@]" pp_doc intro
           (Style.as_inline_code type_expr_with_reserved_names) ctx
       | None, Univ _, Some(Errortrace.Incompatible_fields {name; diff}) ->
         explain_incompatible_fields name diff
@@ -2497,7 +2525,7 @@ let explanation (type variety) intro prev env
 let mismatch intro env trace =
   Errortrace.explain trace (fun ~prev h -> explanation intro prev env h)
 
-let explain mis ppf =
+let explain mis ppf  =
   match mis with
   | None -> ()
   | Some explain -> explain ppf
@@ -2531,9 +2559,9 @@ let head_error_printer mode txt_got txt_but = function
   | None -> ignore
   | Some d ->
       let d = Errortrace.map_diff (trees_of_type_expansion mode) d in
-      dprintf "%t@;<1 2>%a@ %t@;<1 2>%a"
-        txt_got type_expansion d.Errortrace.got
-        txt_but type_expansion d.Errortrace.expected
+      dprintf "%a@;<1 2>%a@ %a@;<1 2>%a"
+        pp_doc txt_got type_expansion d.Errortrace.got
+        pp_doc txt_but type_expansion d.Errortrace.expected
 
 let warn_on_missing_defs env ppf = function
   | None -> ()
@@ -2543,7 +2571,8 @@ let warn_on_missing_defs env ppf = function
       warn_on_missing_def env ppf te2
 
 (* [subst] comes out of equality, and is [[]] otherwise *)
-let error trace_format mode subst env tr txt1 ppf txt2 ty_expect_explanation =
+let error (type i) trace_format mode subst env tr txt1 (ppf: i formatter)
+    txt2 ty_expect_explanation =
   reset ();
   (* We want to substitute in the opposite order from [Eqtype] *)
   Names.add_subst (List.map (fun (ty1,ty2) -> ty2,ty1) subst);
@@ -2566,10 +2595,10 @@ let error trace_format mode subst env tr txt1 ppf txt2 ty_expect_explanation =
       let tr = trees_of_trace mode tr in
       fprintf ppf
         "@[<v>\
-          @[%t%t@]%a%t\
+          @[%t%a@]%a%t\
          @]"
         head_error
-        ty_expect_explanation
+        pp_doc ty_expect_explanation
         (trace false (incompatibility_phrase trace_format)) tr
         (explain mis);
       if env <> Env.empty
@@ -2583,7 +2612,7 @@ let error trace_format mode subst env tr txt1 ppf txt2 ty_expect_explanation =
 
 let report_error trace_format ppf mode env tr
       ?(subst = [])
-      ?(type_expected_explanation = fun _ -> ())
+      ?(type_expected_explanation = Format_doc.empty)
       txt1 txt2 =
   wrap_printing_env ~error:true env (fun () ->
     error trace_format mode subst env tr txt1 ppf txt2
@@ -2677,7 +2706,7 @@ module Subtype = struct
         (trace filter_subtype_trace subtype_get_diff true keep_first txt1)
         tr_sub;
       if tr_unif = [] then fprintf ppf "@]" else
-        let mis = mismatch (dprintf "Within this type") env tr_unif in
+        let mis = mismatch (doc_printf "Within this type") env tr_unif in
         fprintf ppf "%a%t%t@]"
           (trace filter_trace unification_get_diff false
              (mis = None) "is not compatible with type") tr_unif
@@ -2694,18 +2723,18 @@ let report_ambiguous_type_error ppf env tp0 tpl txt1 txt2 txt3 =
       [] -> assert false
     | [tp] ->
         fprintf ppf
-          "@[%t@;<1 2>%a@ \
-             %t@;<1 2>%a\
+          "@[%a@;<1 2>%a@ \
+             %a@;<1 2>%a\
            @]"
-          txt1 type_path_expansion (trees_of_type_path_expansion tp)
-          txt3 type_path_expansion tp0
+          pp_doc txt1 type_path_expansion (trees_of_type_path_expansion tp)
+          pp_doc txt3 type_path_expansion tp0
     | _ ->
         fprintf ppf
-          "@[%t@;<1 2>@[<hv>%a@]\
-             @ %t@;<1 2>%a\
+          "@[%a@;<1 2>@[<hv>%a@]\
+             @ %a@;<1 2>%a\
            @]"
-          txt2 type_path_list (List.map trees_of_type_path_expansion tpl)
-          txt3 type_path_expansion tp0)
+          pp_doc txt2 type_path_list (List.map trees_of_type_path_expansion tpl)
+          pp_doc txt3 type_path_expansion tp0)
 
 (* Adapt functions to exposed interface *)
 let tree_of_path = tree_of_path None
@@ -2715,3 +2744,15 @@ let type_expansion mode ppf ty_exp =
 let tree_of_type_declaration ident td rs =
   with_hidden_items [{hide=true; ident}]
     (fun () -> tree_of_type_declaration ident td rs)
+
+(** Compatibility module for Format printers *)
+module Compat = struct
+  let longident = Format_doc.compat longident
+  let path = Format_doc.compat path
+  let type_expr = Format_doc.compat type_expr
+  let shared_type_scheme = Format_doc.compat shared_type_scheme
+  let signature = Format_doc.compat signature
+  let class_type = Format_doc.compat class_type
+  let modtype = Format_doc.compat modtype
+  let string_of_label = string_of_label
+end

@@ -199,6 +199,10 @@ type error =
   | Wrong_expected_kind of wrong_kind_sort * wrong_kind_context * type_expr
   | Expr_not_a_record_type of type_expr
 
+
+let not_principal fmt =
+  Format_doc.Immutable.kmsg (fun x -> Warnings.Not_principal x) fmt
+
 exception Error of Location.t * Env.t * error
 exception Error_forward of Location.error
 
@@ -910,7 +914,7 @@ let solve_Ppat_construct ~refine tps penv loc constr no_existentials
           generalize_structure t2;
           if not (fully_generic t1 && fully_generic t2) then
             let msg =
-              Format.asprintf
+              Format_doc.doc_printf
                 "typing this pattern requires considering@ %a@ and@ %a@ as \
                 equal.@,\
                 But the knowledge of these types"
@@ -1126,7 +1130,7 @@ end) = struct
       Printtyp.Conflicts.reset ();
       let paths = ambiguous_types env lbl rest in
       let expansion =
-        Format.asprintf "%t" Printtyp.Conflicts.print_explanations in
+        Format_doc.asprintf "%t" Printtyp.Conflicts.print_explanations in
       if paths <> [] then
         warn lid.loc
           (Warnings.Ambiguous_name ([Longident.last lid.txt],
@@ -1137,8 +1141,7 @@ end) = struct
   let warn_non_principal warn lid =
     let name = Datatype_kind.label_name kind in
     warn lid.loc
-      (Warnings.Not_principal
-         ("this type-based " ^ name ^ " disambiguation"))
+      (not_principal "this type-based %s disambiguation" name)
 
   (* we selected a name out of the lexical scope *)
   let warn_out_of_scope warn lid env tpath =
@@ -1385,7 +1388,7 @@ let disambiguate_lid_a_list loc closed env usage expected_type lid_a_list =
   in
   if !w_pr then
     Location.prerr_warning loc
-      (Warnings.Not_principal "this type-based record disambiguation")
+      (not_principal  "this type-based record disambiguation")
   else begin
     match List.rev !w_amb with
       (_,types,ex)::_ as amb ->
@@ -3307,7 +3310,7 @@ and type_expect_
       | Tconstr(path, _, _) when Path.same path fmt6_path ->
         if !Clflags.principal && get_level ty_exp <> generic_level then
           Location.prerr_warning loc
-            (Warnings.Not_principal "this coercion to format6");
+            (not_principal "this coercion to format6");
         true
       | _ -> false
     in
@@ -3901,7 +3904,7 @@ and type_expect_
         | Tpoly (ty, tl) ->
             if !Clflags.principal && get_level typ <> generic_level then
               Location.prerr_warning loc
-                (Warnings.Not_principal "this use of a polymorphic method");
+                (not_principal "this use of a polymorphic method");
             snd (instance_poly ~fixed:false tl ty)
         | Tvar _ ->
             let ty' = newvar () in
@@ -4168,7 +4171,7 @@ and type_expect_
                 < Btype.generic_level
             then
               Location.prerr_warning loc
-                (Warnings.Not_principal "this module packing");
+                (not_principal "this module packing");
             (p, fl)
         | Tvar _ ->
             raise (Error (loc, env, Cannot_infer_signature))
@@ -4361,7 +4364,7 @@ and type_coerce
             force (); force' ();
             if not gen && !Clflags.principal then
               Location.prerr_warning loc
-                (Warnings.Not_principal "this ground coercion");
+                (not_principal "this ground coercion");
           with Subtype err ->
             (* prerr_endline "coercion failed"; *)
             raise (Error (loc, env, Not_subtype err))
@@ -5329,7 +5332,7 @@ and type_application env funct sargs =
             (fun () -> type_argument env sarg ty ty0)
           else begin
             may_warn sarg.pexp_loc
-              (Warnings.Not_principal "using an optional argument here");
+              (not_principal "using an optional argument here");
             (fun () -> option_some env (type_argument env sarg
                                           (extract_option_type env ty)
                                           (extract_option_type env ty0)))
@@ -5368,7 +5371,7 @@ and type_application env funct sargs =
             | Some (l', sarg, commuted, remaining_sargs) ->
                 if commuted then begin
                   may_warn sarg.pexp_loc
-                    (Warnings.Not_principal "commuting this argument")
+                    (not_principal "commuting this argument")
                 end;
                 if not optional && is_optional l' then
                   Location.prerr_warning sarg.pexp_loc
@@ -6323,7 +6326,8 @@ let spellcheck ppf unbound_name valid_names =
 let spellcheck_idents ppf unbound valid_idents =
   spellcheck ppf (Ident.name unbound) (List.map Ident.name valid_idents)
 
-open Format
+open Format_doc
+module Format = Format_doc
 
 let longident = Printtyp.longident
 
@@ -6393,8 +6397,8 @@ let report_pattern_type_clash_hints pat diff =
   | Some (Ppat_constant const) -> report_literal_type_constraint const diff
   | _ -> []
 
-let report_type_expected_explanation expl ppf =
-  let because expl_str = fprintf ppf "@ because it is in %s" expl_str in
+let report_type_expected_explanation expl =
+  let because expl_str = doc_printf "@ because it is in %s" expl_str in
   match expl with
   | If_conditional ->
       because "the condition of an if-statement"
@@ -6417,10 +6421,10 @@ let report_type_expected_explanation expl ppf =
   | When_guard ->
       because "a when-guard"
 
-let report_type_expected_explanation_opt expl ppf =
+let report_type_expected_explanation_opt expl =
   match expl with
-  | None -> ()
-  | Some expl -> report_type_expected_explanation expl ppf
+  | None -> Format_doc.empty
+  | Some expl -> report_type_expected_explanation expl
 
 let report_unification_error ~loc ?sub env err
     ?type_expected_explanation txt1 txt2 =
@@ -6430,11 +6434,11 @@ let report_unification_error ~loc ?sub env err
   ) ()
 
 let report_this_function ppf funct =
-  if Typedtree.exp_is_nominal funct then
-    let pexp = Untypeast.untype_expression funct in
+  match Typedtree.nominal_exp_doc Printtyp.longident funct with
+  | None -> Format.fprintf ppf "This function"
+  | Some name ->
     Format.fprintf ppf "The function %a"
-      (Style.as_inline_code Pprintast.expression) pexp
-  else Format.fprintf ppf "This function"
+      (Style.as_inline_code Format.pp_doc) name
 
 let report_too_many_arg_error ~funct ~func_ty ~previous_arg_loc
     ~extra_arg_loc ~returns_unit loc =
@@ -6466,7 +6470,10 @@ let report_too_many_arg_error ~funct ~func_ty ~previous_arg_loc
      @ It is applied to too many arguments@]"
     report_this_function funct Printtyp.type_expr func_ty
 
-let report_error ~loc env = function
+let msg = Format.doc_printf
+
+let report_error ~loc env =
+  function
   | Constructor_arity_mismatch(lid, expected, provided) ->
       Location.errorf ~loc
        "@[The constructor %a@ expects %i argument(s),@ \
@@ -6474,27 +6481,20 @@ let report_error ~loc env = function
        (Style.as_inline_code longident) lid expected provided
   | Label_mismatch(lid, err) ->
       report_unification_error ~loc env err
-        (function ppf ->
-           fprintf ppf "The record field %a@ belongs to the type"
+        (msg "The record field %a@ belongs to the type"
                    (Style.as_inline_code longident) lid)
-        (function ppf ->
-           fprintf ppf "but is mixed here with fields of type")
+        (msg "but is mixed here with fields of type")
   | Pattern_type_clash (err, pat) ->
       let diff = type_clash_of_trace err.trace in
       let sub = report_pattern_type_clash_hints pat diff in
       report_unification_error ~loc ~sub env err
-        (function ppf ->
-          fprintf ppf "This pattern matches values of type")
-        (function ppf ->
-          fprintf ppf "but a pattern was expected which matches values of \
-                       type");
+        (msg "This pattern matches values of type")
+        (msg "but a pattern was expected which matches values of type");
   | Or_pattern_type_clash (id, err) ->
       report_unification_error ~loc env err
-        (function ppf ->
-          fprintf ppf "The variable %a on the left-hand side of this \
+        (msg "The variable %a on the left-hand side of this \
                        or-pattern has type" Style.inline_code (Ident.name id))
-        (function ppf ->
-          fprintf ppf "but on the right-hand side it has type")
+        (msg "but on the right-hand side it has type")
   | Multiply_bound_variable name ->
       Location.errorf ~loc
         "Variable %a is bound several times in this matching"
@@ -6514,10 +6514,8 @@ let report_error ~loc env = function
       report_unification_error ~loc ~sub env err
         ~type_expected_explanation:
           (report_type_expected_explanation_opt explanation)
-        (function ppf ->
-           fprintf ppf "This expression has type")
-        (function ppf ->
-           fprintf ppf "but an expression was expected of type");
+        (msg "This expression has type")
+        (msg "but an expression was expected of type");
   | Function_arity_type_clash {
       syntactic_arity; type_constraint; trace = { trace };
     } ->
@@ -6616,10 +6614,10 @@ let report_error ~loc env = function
               (Style.as_inline_code Printtyp.type_path) type_path;
           end else begin
             fprintf ppf
-              "@[@[<2>%s type@ %a%t@]@ \
+              "@[@[<2>%s type@ %a%a@]@ \
                There is no %s %a within type %a@]"
               eorp (Style.as_inline_code Printtyp.type_expr) ty
-              (report_type_expected_explanation_opt explanation)
+              pp_doc (report_type_expected_explanation_opt explanation)
               (Datatype_kind.label_name kind)
               Style.inline_code name.txt
               (Style.as_inline_code Printtyp.type_path) type_path;
@@ -6631,17 +6629,14 @@ let report_error ~loc env = function
       let name = Datatype_kind.label_name kind in
       Location.error_of_printer ~loc (fun ppf () ->
         Printtyp.report_ambiguous_type_error ppf env tp tpl
-          (function ppf ->
-             fprintf ppf "The %s %a@ belongs to the %s type"
+          (msg "The %s %a@ belongs to the %s type"
                name (Style.as_inline_code longident) lid
               type_name)
-          (function ppf ->
-             fprintf ppf "The %s %a@ belongs to one of the following %s types:"
+          (msg "The %s %a@ belongs to one of the following %s types:"
                name (Style.as_inline_code longident) lid type_name)
-          (function ppf ->
-             fprintf ppf "but a %s was expected belonging to the %s type"
+          (msg "but a %s was expected belonging to the %s type"
                name type_name)
-      ) ()
+        ) ()
   | Invalid_format msg ->
       Location.errorf ~loc "%s" msg
   | Not_an_object (ty, explanation) ->
@@ -6649,7 +6644,7 @@ let report_error ~loc env = function
       fprintf ppf "This expression is not an object;@ \
                    it has type %a"
         (Style.as_inline_code Printtyp.type_expr) ty;
-      report_type_expected_explanation_opt explanation ppf
+      pp_doc ppf @@ report_type_expected_explanation_opt explanation
     ) ()
   | Undefined_method (ty, me, valid_methods) ->
       Location.error_of_printer ~loc (fun ppf () ->
@@ -6693,14 +6688,16 @@ let report_error ~loc env = function
         Style.inline_code v
   | Coercion_failure (ty_exp, err, b) ->
       Location.error_of_printer ~loc (fun ppf () ->
+          let intro =
+            let ty_exp = Printtyp.prepare_expansion ty_exp in
+            doc_printf "This expression cannot be coerced to type@;<1 2>%a;@ \
+                        it has type"
+              (Style.as_inline_code @@ Printtyp.type_expansion Type) ty_exp
+          in
         Printtyp.report_unification_error ppf env err
-          (function ppf ->
-             let ty_exp = Printtyp.prepare_expansion ty_exp in
-             fprintf ppf "This expression cannot be coerced to type@;<1 2>%a;@ \
-                          it has type"
-             (Style.as_inline_code @@ Printtyp.type_expansion Type) ty_exp)
-          (function ppf ->
-             fprintf ppf "but is here used with type");
+
+          intro
+          (Format.doc_printf "but is here used with type");
         if b then
           fprintf ppf
             ".@.@[<hov>This simple coercion was not fully general.@ \
@@ -6711,15 +6708,15 @@ let report_error ~loc env = function
   | Not_a_function (ty, explanation) ->
       Location.errorf ~loc
         "This expression should not be a function,@ \
-         the expected type is@ %a%t"
+         the expected type is@ %a%a"
         (Style.as_inline_code Printtyp.type_expr) ty
-        (report_type_expected_explanation_opt explanation)
+        pp_doc (report_type_expected_explanation_opt explanation)
   | Too_many_arguments (ty, explanation) ->
       Location.errorf ~loc
         "This function expects too many arguments,@ \
-         it should have type@ %a%t"
+         it should have type@ %a%a"
         (Style.as_inline_code Printtyp.type_expr) ty
-        (report_type_expected_explanation_opt explanation)
+        pp_doc (report_type_expected_explanation_opt explanation)
   | Abstract_wrong_label {got; expected; expected_type; explanation} ->
       let label ~long ppf = function
         | Nolabel -> fprintf ppf "unlabeled"
@@ -6734,10 +6731,10 @@ let report_error ~loc env = function
         | _                       -> false
       in
       Location.errorf ~loc
-        "@[<v>@[<2>This function should have type@ %a%t@]@,\
+        "@[<v>@[<2>This function should have type@ %a%a@]@,\
          @[but its first argument is %a@ instead of %s%a@]@]"
         (Style.as_inline_code Printtyp.type_expr) expected_type
-        (report_type_expected_explanation_opt explanation)
+        pp_doc (report_type_expected_explanation_opt explanation)
         (label ~long:true) got
         (if second_long then "being " else "")
         (label ~long:second_long) expected
@@ -6770,8 +6767,8 @@ let report_error ~loc env = function
         This is only allowed when the real type is known."
   | Less_general (kind, err) ->
       report_unification_error ~loc env err
-        (fun ppf -> fprintf ppf "This %s has type" kind)
-        (fun ppf -> fprintf ppf "which is less general than")
+        (Format.doc_printf "This %s has type" kind)
+        (Format.doc_printf "which is less general than")
   | Modules_not_allowed ->
       Location.errorf ~loc "Modules are not allowed in this pattern."
   | Cannot_infer_signature ->
@@ -6835,7 +6832,7 @@ let report_error ~loc env = function
         "@[%s@ %s@ @[%a@]@]"
         "This match case could not be refuted."
         "Here is an example of a value that would reach it:"
-        (Style.as_inline_code Printpat.pretty_val) pat
+        (Style.as_inline_code Printpat.top_pretty) pat
   | Invalid_extension_constructor_payload ->
       Location.errorf ~loc
         "Invalid %a payload, a constructor is expected."
@@ -6865,22 +6862,16 @@ let report_error ~loc env = function
         "This kind of recursive class expression is not allowed"
   | Letop_type_clash(name, err) ->
       report_unification_error ~loc env err
-        (function ppf ->
-          fprintf ppf "The operator %a has type" Style.inline_code name)
-        (function ppf ->
-          fprintf ppf "but it was expected to have type")
+        (msg "The operator %a has type" Style.inline_code name)
+        (msg "but it was expected to have type")
   | Andop_type_clash(name, err) ->
       report_unification_error ~loc env err
-        (function ppf ->
-          fprintf ppf "The operator %a has type" Style.inline_code name)
-        (function ppf ->
-          fprintf ppf "but it was expected to have type")
+        (msg "The operator %a has type" Style.inline_code name)
+        (msg "but it was expected to have type")
   | Bindings_type_clash(err) ->
       report_unification_error ~loc env err
-        (function ppf ->
-          fprintf ppf "These bindings have type")
-        (function ppf ->
-          fprintf ppf "but bindings were expected of type")
+        (Format.doc_printf "These bindings have type")
+        (Format.doc_printf  "but bindings were expected of type")
   | Unbound_existential (ids, ty) ->
       let pp_ident ppf id = pp_print_string ppf (Ident.name id) in
       let pp_type ppf (ids,ty)=
@@ -6927,9 +6918,9 @@ let report_error ~loc env = function
       in
       Location.errorf ~loc
         "This %s should not be a %s,@ \
-         the expected type is@ %a%t"
+         the expected type is@ %a%a"
         ctx sort (Style.as_inline_code Printtyp.type_expr) ty
-        (report_type_expected_explanation_opt explanation)
+        pp_doc (report_type_expected_explanation_opt explanation)
   | Expr_not_a_record_type ty ->
       Location.errorf ~loc
         "This expression has type %a@ \
