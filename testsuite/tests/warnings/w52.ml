@@ -11,6 +11,7 @@ Line 1, characters 38-43:
 Warning 52 [fragile-literal-pattern]: Code should not depend on the actual values of
 this constructor's arguments. They are only for information
 and may change in future versions. (See manual section 13.5)
+
 |}];;
 
 let () = try () with Match_failure ("Any",_,_) -> ();;
@@ -21,6 +22,7 @@ Line 1, characters 35-46:
 Warning 52 [fragile-literal-pattern]: Code should not depend on the actual values of
 this constructor's arguments. They are only for information
 and may change in future versions. (See manual section 13.5)
+
 |}];;
 
 let () = try () with Match_failure (_,0,_) -> ();;
@@ -31,6 +33,7 @@ Line 1, characters 35-42:
 Warning 52 [fragile-literal-pattern]: Code should not depend on the actual values of
 this constructor's arguments. They are only for information
 and may change in future versions. (See manual section 13.5)
+
 |}];;
 
 type t =
@@ -56,6 +59,7 @@ Line 2, characters 7-17:
 Warning 52 [fragile-literal-pattern]: Code should not depend on the actual values of
 this constructor's arguments. They are only for information
 and may change in future versions. (See manual section 13.5)
+
 val f : t -> unit = <fun>
 |}];;
 
@@ -69,6 +73,7 @@ Line 2, characters 8-10:
 Warning 52 [fragile-literal-pattern]: Code should not depend on the actual values of
 this constructor's arguments. They are only for information
 and may change in future versions. (See manual section 13.5)
+
 val g : t -> unit = <fun>
 |}];;
 
@@ -96,5 +101,6 @@ Line 2, characters 7-34:
 Warning 52 [fragile-literal-pattern]: Code should not depend on the actual values of
 this constructor's arguments. They are only for information
 and may change in future versions. (See manual section 13.5)
+
 val j : t -> unit = <fun>
 |}];;

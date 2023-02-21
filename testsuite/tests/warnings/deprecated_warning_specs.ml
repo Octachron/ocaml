@@ -14,6 +14,7 @@ like 'ath', is deprecated.
 Use the equivalent signed form: -f-r-a-g-i-l-e-m-a-t-h.
 Hint: Enabling or disabling a warning by its mnemonic name requires a + or - prefix.
 Hint: Did you make a spelling mistake when using a mnemonic name?
+
 |}]
 
 [@@@warning "ab-cdg+efh"]
@@ -25,6 +26,7 @@ Alert ocaml_deprecated_cli: Setting a warning with a sequence of lowercase or up
 like 'fh', is deprecated.
 Use the equivalent signed form: -a-b-c-d-g+e-f-h.
 Hint: Enabling or disabling a warning by its mnemonic name requires a + or - prefix.
+
 |}]
 
 
