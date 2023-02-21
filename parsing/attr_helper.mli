@@ -38,4 +38,4 @@ val has_no_payload_attribute : string list -> attributes -> bool
 
 exception Error of Location.t * error
 
-val report_error: Format.formatter -> error -> unit
+val report_error: 'impl Format_doc.formatter -> error -> unit

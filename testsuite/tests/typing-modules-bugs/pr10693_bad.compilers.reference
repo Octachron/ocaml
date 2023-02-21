@@ -23,7 +23,7 @@ Error: Signature mismatch:
            val x : X.t option
            module M : functor (Y : Dep) -> sig val x : X.t option end
          end
-       In module M.M:
+       In module M/2.M:
        Modules do not match:
          functor (X : Dep) ->
            sig
@@ -32,7 +32,7 @@ Error: Signature mismatch:
            end
        is not included in
          functor (Y : Dep) -> sig val x : X.t option end
-       In module M.M:
+       In module M/2.M:
        Modules do not match:
          sig
            val x : X.t option
@@ -40,7 +40,7 @@ Error: Signature mismatch:
          end
        is not included in
          sig val x : X.t option end
-       In module M.M:
+       In module M/3.M:
        Values do not match:
          val x : X.t option
        is not included in

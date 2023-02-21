@@ -956,7 +956,7 @@ let () =
 
 (* Error report *)
 
-open Format
+open Format_doc
 
 let report_error ppf = function
   | Tags (lab1, lab2) ->

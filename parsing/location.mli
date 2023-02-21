@@ -20,7 +20,7 @@
 
 *)
 
-open Format
+module Fmt = Format_doc
 
 type t = Warnings.loc = {
   loc_start: Lexing.position;
@@ -88,7 +88,7 @@ val input_phrase_buffer: Buffer.t option ref
 (** {1 Toplevel-specific functions} *)
 
 val echo_eof: unit -> unit
-val separate_new_message: formatter -> unit
+val separate_new_message: (unit,_) Format_doc.printer
 val reset: unit -> unit
 
 
@@ -169,25 +169,29 @@ val show_filename: string -> string
     (** In -absname mode, return the absolute path for this filename.
         Otherwise, returns the filename unchanged. *)
 
-val print_filename: formatter -> string -> unit
+module Compat: sig
+  val print_filename: Format.formatter -> string -> unit
+  val print_loc: Format.formatter -> t -> unit
+  val print_locs: Format.formatter -> t list -> unit
+end
 
-val print_loc: formatter -> t -> unit
-val print_locs: formatter -> t list -> unit
-
+val print_filename: (string, 'impl) Format_doc.printer
+val print_loc: (t, 'impl) Format_doc.printer
+val print_locs: (t list, 'impl) Format_doc.printer
 
 (** {1 Toplevel-specific location highlighting} *)
 
 val highlight_terminfo:
-  Lexing.lexbuf -> formatter -> t list -> unit
+  Lexing.lexbuf -> Format.formatter -> t list -> unit
 
 
 (** {1 Reporting errors and warnings} *)
 
 (** {2 The type of reports and report printers} *)
 
-type msg = (Format.formatter -> unit) loc
+type msg = Format_doc.t loc
 
-val msg: ?loc:t -> ('a, Format.formatter, unit, msg) format4 -> 'a
+val msg: ?loc:t -> ('a, Fmt.rdoc Fmt.formatter, unit, msg) format4 -> 'a
 
 type report_kind =
   | Report_error
@@ -204,23 +208,22 @@ type report = {
 
 type report_printer = {
   (* The entry point *)
-  pp : report_printer ->
-    Format.formatter -> report -> unit;
+  pp : report_printer -> (Format.formatter as 'fmt) -> report -> unit;
 
-  pp_report_kind : report_printer -> report ->
-    Format.formatter -> report_kind -> unit;
-  pp_main_loc : report_printer -> report ->
-    Format.formatter -> t -> unit;
-  pp_main_txt : report_printer -> report ->
-    Format.formatter -> (Format.formatter -> unit) -> unit;
-  pp_submsgs : report_printer -> report ->
-    Format.formatter -> msg list -> unit;
-  pp_submsg : report_printer -> report ->
-    Format.formatter -> msg -> unit;
-  pp_submsg_loc : report_printer -> report ->
-    Format.formatter -> t -> unit;
-  pp_submsg_txt : report_printer -> report ->
-    Format.formatter -> (Format.formatter -> unit) -> unit;
+  pp_report_kind :
+    report_printer -> report -> 'fmt -> report_kind -> unit;
+  pp_main_loc : 'impl.
+    report_printer -> report -> 'fmt -> t -> unit;
+  pp_main_txt :'impl.
+    report_printer -> report -> 'fmt -> Format_doc.t -> unit;
+  pp_submsgs : 'impl.
+    report_printer -> report -> 'fmt -> msg list -> unit;
+  pp_submsg : 'impl.
+    report_printer -> report -> 'fmt -> msg -> unit;
+  pp_submsg_loc : 'impl.
+    report_printer -> report -> 'fmt -> t -> unit;
+  pp_submsg_txt : 'impl.
+    report_printer -> report -> 'fmt -> Format_doc.t -> unit;
 }
 (** A printer for [report]s, defined using open-recursion.
     The goal is to make it easy to define new printers by re-using code from
@@ -238,7 +241,7 @@ val best_toplevel_printer: unit -> report_printer
 
 (** {2 Printing a [report]} *)
 
-val print_report: formatter -> report -> unit
+val print_report: Format.formatter -> report -> unit
 (** Display an error or warning report. *)
 
 val report_printer: (unit -> report_printer) ref
@@ -268,9 +271,9 @@ val default_warning_reporter: t -> Warnings.t -> report option
 
 (** {2 Printing warnings} *)
 
-val formatter_for_warnings : formatter ref
+val formatter_for_warnings : Format.formatter ref
 
-val print_warning: t -> formatter -> Warnings.t -> unit
+val print_warning: t -> Format.formatter -> Warnings.t -> unit
 (** Prints a warning. This is simply the composition of [report_warning] and
    [print_report]. *)
 
@@ -294,7 +297,7 @@ val default_alert_reporter: t -> Warnings.alert -> report option
 
 (** {2 Printing alerts} *)
 
-val print_alert: t -> formatter -> Warnings.alert -> unit
+val print_alert: t -> Format.formatter -> Warnings.alert -> unit
 (** Prints an alert. This is simply the composition of [report_alert] and
    [print_report]. *)
 
@@ -324,12 +327,12 @@ type error = report
 val error: ?loc:t -> ?sub:msg list -> string -> error
 
 val errorf: ?loc:t -> ?sub:msg list ->
-  ('a, Format.formatter, unit, error) format4 -> 'a
+  ('a, Fmt.rdoc Fmt.formatter, unit, error) format4 -> 'a
 
 val error_of_printer: ?loc:t -> ?sub:msg list ->
-  (formatter -> 'a -> unit) -> 'a -> error
+  (Fmt.rdoc Fmt.formatter -> 'a -> unit) -> 'a -> error
 
-val error_of_printer_file: (formatter -> 'a -> unit) -> 'a -> error
+val error_of_printer_file: (Fmt.rdoc Fmt.formatter -> 'a -> unit) -> 'a -> error
 
 
 (** {1 Automatically reporting errors for raised exceptions} *)
@@ -353,7 +356,7 @@ exception Already_displayed_error
    printed. The exception will be caught, but nothing will be printed *)
 
 val raise_errorf: ?loc:t -> ?sub:msg list ->
-  ('a, Format.formatter, unit, 'b) format4 -> 'a
+  ('a, Fmt.rdoc Fmt.formatter, unit, 'b) format4 -> 'a
 
-val report_exception: formatter -> exn -> unit
+val report_exception: Format.formatter -> exn -> unit
 (** Reraise the exception if it is unknown. *)

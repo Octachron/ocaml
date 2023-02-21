@@ -1677,6 +1677,7 @@ let transl_store_package component_names target_name coercion =
 
 (* Error report *)
 
+module Format = Format_doc
 open Format
 
 let print_cycle ppf cycle =
@@ -1693,7 +1694,9 @@ let explanation_submsg (id, unsafe_info) =
   | Unnamed -> assert false (* can't be part of a cycle. *)
   | Unsafe {reason;loc;subid} ->
       let print fmt =
-        let printer = Format.dprintf fmt (Ident.name id) (Ident.name subid) in
+        let printer = Format.doc_printf fmt
+             (Ident.name id)
+            (Ident.name subid) in
         Location.mkloc printer loc in
       match reason with
       | Unsafe_module_binding ->

@@ -202,8 +202,10 @@ type type_mismatch =
   | Unboxed_representation of position
   | Immediate of Type_immediacy.Violation.t
 
+module Format = Format_doc
+
 let report_primitive_mismatch first second ppf err =
-  let pr fmt = Format.fprintf ppf fmt in
+  let pr fmt = Format_doc.fprintf ppf fmt in
   match (err : primitive_mismatch) with
   | Name ->
       pr "The names of the primitives are not the same"
@@ -223,7 +225,7 @@ let report_primitive_mismatch first second ppf err =
         n (Misc.ordinal_suffix n)
 
 let report_value_mismatch first second env ppf err =
-  let pr fmt = Format.fprintf ppf fmt in
+  let pr fmt = Format_doc.fprintf ppf fmt in
   pr "@ ";
   match (err : value_mismatch) with
   | Primitive_mismatch pm ->
@@ -231,14 +233,16 @@ let report_value_mismatch first second env ppf err =
   | Not_a_primitive ->
       pr "The implementation is not a primitive."
   | Type trace ->
+      let msg = Format_doc.Immutable.msg in
       Printtyp.report_moregen_error ppf Type_scheme env trace
-        (fun ppf -> Format.fprintf ppf "The type")
-        (fun ppf -> Format.fprintf ppf "is not compatible with the type")
+        (msg "The type")
+        (msg "is not compatible with the type")
 
 let report_type_inequality env ppf err =
+  let msg = Format_doc.Immutable.msg in
   Printtyp.report_equality_error ppf Type_scheme env err
-    (fun ppf -> Format.fprintf ppf "The type")
-    (fun ppf -> Format.fprintf ppf "is not equal to the type")
+    (msg "The type")
+    (msg "is not equal to the type")
 
 let report_privacy_mismatch ppf err =
   let singular, item =

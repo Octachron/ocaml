@@ -172,6 +172,9 @@ and find_label lbl env ty path tydesc pos = function
 (* Error report *)
 
 open Format
+let pp_path ppf p = Format_doc.compat Printtyp.path ppf p
+let pp_longident ppf l = Format_doc.compat Printtyp.longident ppf l
+let pp_type_expr ppf ty = Format_doc.compat Printtyp.type_expr ppf ty
 
 let report_error ppf = function
   | Unbound_identifier id ->
@@ -181,15 +184,15 @@ let report_error ppf = function
         "@[The module path %a is not yet initialized.@ \
            Please run program forward@ \
            until its initialization code is executed.@]@."
-      Printtyp.path path
+      pp_path path
   | Unbound_long_identifier lid ->
-      fprintf ppf "@[Unbound identifier %a@]@." Printtyp.longident lid
+      fprintf ppf "@[Unbound identifier %a@]@." pp_longident lid
   | Unknown_name n ->
       fprintf ppf "@[Unknown value name $%i@]@." n
   | Tuple_index(ty, len, pos) ->
       fprintf ppf
         "@[Cannot extract field number %i from a %i-tuple of type@ %a@]@."
-        pos len Printtyp.type_expr ty
+        pos len pp_type_expr ty
   | Array_index(len, pos) ->
       fprintf ppf
         "@[Cannot extract element number %i from an array of length %i@]@."
@@ -206,13 +209,13 @@ let report_error ppf = function
   | Wrong_item_type(ty, pos) ->
       fprintf ppf
         "@[Cannot extract item number %i from a value of type@ %a@]@."
-        pos Printtyp.type_expr ty
+        pos pp_type_expr ty
   | Wrong_label(ty, lbl) ->
       fprintf ppf
         "@[The record type@ %a@ has no label named %s@]@."
-        Printtyp.type_expr ty lbl
+        pp_type_expr ty lbl
   | Not_a_record ty ->
       fprintf ppf
-        "@[The type@ %a@ is not a record type@]@." Printtyp.type_expr ty
+        "@[The type@ %a@ is not a record type@]@." pp_type_expr ty
   | No_result ->
       fprintf ppf "@[No result available at current program event@]@."

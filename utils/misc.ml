@@ -617,18 +617,21 @@ let spellcheck env name =
   let env = List.sort_uniq (fun s1 s2 -> String.compare s2 s1) env in
   fst (List.fold_left (compare name) ([], max_int) env)
 
+
 let did_you_mean ppf get_choices =
+  let open Format_doc in
   (* flush now to get the error report early, in the (unheard of) case
      where the search in the get_choices function would take a bit of
      time; in the worst case, the user has seen the error, she can
      interrupt the process before the spell-checking terminates. *)
-  Format.fprintf ppf "@?";
+  fprintf ppf "@?";
   match get_choices () with
   | [] -> ()
   | choices ->
-     let rest, last = split_last choices in
-     Format.fprintf ppf "@\n@{<hint>Hint@}: Did you mean %s%s%s?@?"
-       (String.concat ", " rest)
+    let rest, last = split_last choices in
+    let comma ppf () = fprintf ppf ", " in
+     fprintf ppf "@\n@{<hint>Hint@}: Did you mean %a%s%s?@?"
+       (pp_print_list ~pp_sep:comma pp_print_string) rest
        (if rest = [] then "" else " or ")
        last
 
@@ -826,27 +829,6 @@ let delete_eol_spaces src =
   let stop = loop 0 0 in
   Bytes.sub_string dst 0 stop
 
-let pp_two_columns ?(sep = "|") ?max_lines ppf (lines: (string * string) list) =
-  let left_column_size =
-    List.fold_left (fun acc (s, _) -> Int.max acc (String.length s)) 0 lines in
-  let lines_nb = List.length lines in
-  let ellipsed_first, ellipsed_last =
-    match max_lines with
-    | Some max_lines when lines_nb > max_lines ->
-        let printed_lines = max_lines - 1 in (* the ellipsis uses one line *)
-        let lines_before = printed_lines / 2 + printed_lines mod 2 in
-        let lines_after = printed_lines / 2 in
-        (lines_before, lines_nb - lines_after - 1)
-    | _ -> (-1, -1)
-  in
-  Format.fprintf ppf "@[<v>";
-  List.iteri (fun k (line_l, line_r) ->
-    if k = ellipsed_first then Format.fprintf ppf "...@,";
-    if ellipsed_first <= k && k <= ellipsed_last then ()
-    else Format.fprintf ppf "%*s %s %s@," left_column_size line_l sep line_r
-  ) lines;
-  Format.fprintf ppf "@]"
-
 (* showing configuration and configuration variables *)
 let show_config_and_exit () =
   Config.print_config stdout;
@@ -903,15 +885,15 @@ let debug_prefix_map_flags () =
         []
   end
 
-let print_if ppf flag printer arg =
-  if !flag then Format.fprintf ppf "%a@." printer arg;
-  arg
-
 let print_see_manual ppf manual_section =
-  let open Format in
+  let open Format_doc in
   fprintf ppf "(see manual section %a)"
     (pp_print_list ~pp_sep:(fun f () -> pp_print_char f '.') pp_print_int)
     manual_section
+
+let print_if ppf flag printer arg =
+  if !flag then Format.fprintf ppf "%a@." printer arg;
+  arg
 
 
 type filepath = string

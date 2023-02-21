@@ -41,11 +41,11 @@
  (modules_without_implementation
    annot asttypes cmo_format outcometree parsetree)
  (modules
-   ;; UTILS
-   config build_path_prefix_map misc identifiable numbers arg_helper clflags
-   profile terminfo ccomp warnings consistbl strongly_connected_components
-   targetint load_path int_replace_polymorphic_compare binutils local_store
-   lazy_backtrack diffing diffing_with_keys unit_info
+   ;; UTILS config build_path_prefix_map misc identifiable numbers arg_helper
+   clflags profile terminfo ccomp format_doc warnings consistbl
+   strongly_connected_components targetint load_path
+   int_replace_polymorphic_compare binutils local_store lazy_backtrack diffing
+   diffing_with_keys unit_info
 
    ;; PARSING
    location longident docstrings syntaxerr ast_helper camlinternalMenhirLib

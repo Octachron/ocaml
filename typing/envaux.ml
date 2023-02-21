@@ -101,7 +101,7 @@ let env_of_only_summary env =
 
 (* Error report *)
 
-open Format
+open Format_doc
 
 let report_error ppf = function
   | Module_not_found p ->

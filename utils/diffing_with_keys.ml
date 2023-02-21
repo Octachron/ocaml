@@ -29,6 +29,8 @@ type ('l,'r,'diff) change =
   | Insert of {pos:int; insert:'r}
   | Delete of {pos:int; delete:'l}
 
+module Format = Format_doc
+
 let prefix ppf x =
   let kind = match x with
     | Change _ | Swap _ | Move _ -> Diffing.Modification
@@ -53,7 +55,7 @@ let prefix ppf x =
 
 (** To detect [move] and [swaps], we are using the fact that
     there are 2-cycles in the graph of name renaming.
-    - [Change (x,y,_) is then an edge from
+    - [Change (x,y,_)] is then an edge from
       [key_left x] to [key_right y].
     - [Insert x] is an edge between the special node epsilon and
       [key_left x]

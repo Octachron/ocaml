@@ -447,7 +447,7 @@ let require_global global_ident =
 
 (* Error report *)
 
-open Format
+open Format_doc
 
 let report_error ppf = function
   | Not_a_unit_info filename ->

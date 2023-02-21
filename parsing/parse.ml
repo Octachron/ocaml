@@ -132,7 +132,7 @@ let prepare_error err =
       Location.errorf ~loc
         "In this scoped type, variable %a \
          is reserved for the local type %s."
-        Pprintast.tyvar var var
+        Pprintast.doc_tyvar var var
   | Other loc ->
       Location.errorf ~loc "Syntax error"
   | Ill_formed_ast (loc, s) ->

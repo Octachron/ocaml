@@ -76,7 +76,7 @@ let restore filename =
 
 (* Error report *)
 
-open Format
+open Format_doc
 
 let report_error ppf = function
   | Wrong_format filename ->

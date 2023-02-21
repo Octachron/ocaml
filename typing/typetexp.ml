@@ -854,8 +854,9 @@ let transl_type_scheme env styp =
 
 (* Error report *)
 
-open Format
+open Format_doc
 open Printtyp
+let pp_type ppf ty = Oprint.(print out_type) ppf ty
 
 let report_error env ppf = function
   | Unbound_type_variable (name, in_scope_names) ->
@@ -873,7 +874,7 @@ let report_error env ppf = function
         but is here applied to %i argument(s)@]"
       longident lid expected provided
   | Bound_type_variable name ->
-    fprintf ppf "Already bound type parameter %a" Pprintast.tyvar name
+    fprintf ppf "Already bound type parameter %a" Pprintast.doc_tyvar name
   | Recursive_type ->
     fprintf ppf "This type is recursive"
   | Unbound_row_variable lid ->
@@ -881,17 +882,15 @@ let report_error env ppf = function
          anywhere so it's unclear how it should be handled *)
       fprintf ppf "Unbound row variable in #%a" longident lid
   | Type_mismatch trace ->
+      let msg = Format_doc.Immutable.msg in
       Printtyp.report_unification_error ppf Env.empty trace
-        (function ppf ->
-           fprintf ppf "This type")
-        (function ppf ->
-           fprintf ppf "should be an instance of type")
+        (msg "This type")
+        (msg "should be an instance of type")
   | Alias_type_mismatch trace ->
+      let msg = Format_doc.Immutable.msg in
       Printtyp.report_unification_error ppf Env.empty trace
-        (function ppf ->
-           fprintf ppf "This alias is bound to type")
-        (function ppf ->
-           fprintf ppf "but is used as an instance of type")
+        (msg "This alias is bound to type")
+        (msg "but is used as an instance of type")
   | Present_has_conjunction l ->
       fprintf ppf "The present constructor %s has a conjunctive type" l
   | Present_has_no_type l ->
@@ -907,9 +906,9 @@ let report_error env ppf = function
         Printtyp.prepare_for_printing [ty; ty'];
         fprintf ppf "@[<hov>%s %a@ %s@ %a@]"
           "This variant type contains a constructor"
-          !Oprint.out_type (tree_of_typexp Type ty)
+          pp_type (tree_of_typexp Type ty)
           "which should be"
-           !Oprint.out_type (tree_of_typexp Type ty'))
+           pp_type (tree_of_typexp Type ty'))
   | Not_a_variant ty ->
       fprintf ppf
         "@[The type %a@ does not expand to a polymorphic variant type@]"
@@ -929,7 +928,7 @@ let report_error env ppf = function
   | Cannot_quantify (name, v) ->
       fprintf ppf
         "@[<hov>The universal type variable %a cannot be generalized:@ "
-        Pprintast.tyvar name;
+        Pprintast.doc_tyvar name;
       if Btype.is_Tvar v then
         fprintf ppf "it escapes its scope"
       else if Btype.is_Tunivar v then

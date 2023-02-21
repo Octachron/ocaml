@@ -124,7 +124,7 @@ Error: Signature mismatch:
        Constructors do not match:
          A of T.t
        is not the same as:
-         A of T.t
+         A of T/2.t
        The type T.t is not equal to the type T/2.t
        Line 5, characters 6-34:
          Definition of module T

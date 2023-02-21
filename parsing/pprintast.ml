@@ -267,13 +267,15 @@ let iter_loc f ctxt {txt; loc = _} = f ctxt txt
 
 let constant_string f s = pp f "%S" s
 
-let tyvar ppf s =
+let doc_tyvar ppf s =
   if String.length s >= 2 && s.[1] = '\'' then
     (* without the space, this would be parsed as
        a character literal *)
-    Format.fprintf ppf "' %s" s
+    Format_doc.fprintf ppf "' %s" s
   else
-    Format.fprintf ppf "'%s" s
+    Format_doc.fprintf ppf "'%s" s
+
+let tyvar = Format_doc.compat doc_tyvar
 
 let tyvar_loc f str = tyvar f str.txt
 let string_quot f x = pp f "`%s" x

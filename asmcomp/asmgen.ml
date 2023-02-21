@@ -309,6 +309,7 @@ let compile_implementation_linear target =
       linear_gen_implementation (Unit_info.source_file target))
 
 (* Error report *)
+let fprintf = Format_doc.fprintf
 
 let report_error ppf = function
   | Assembler_error file ->

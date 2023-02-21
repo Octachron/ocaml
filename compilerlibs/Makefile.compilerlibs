@@ -27,6 +27,7 @@
 UTILS = \
   utils/config.cmo \
   utils/build_path_prefix_map.cmo \
+  utils/format_doc.cmo \
   utils/misc.cmo \
   utils/identifiable.cmo \
   utils/numbers.cmo \

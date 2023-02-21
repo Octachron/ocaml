@@ -94,7 +94,7 @@ let output_cmi filename oc cmi =
 
 (* Error report *)
 
-open Format
+open Format_doc
 
 let report_error ppf = function
   | Not_an_interface filename ->

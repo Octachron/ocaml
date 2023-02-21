@@ -25,7 +25,7 @@ open Ast_helper
 
 let parse_toplevel_phrase = ref Parse.toplevel_phrase
 let parse_use_file = ref Parse.use_file
-let print_location = Location.print_loc
+let print_location = Location.Compat.print_loc
 let print_error = Location.print_report
 let print_warning = Location.print_warning
 let input_name = Location.input_name
@@ -335,7 +335,7 @@ let try_run_directive ppf dir_name pdir_arg =
   | None ->
       fprintf ppf "Unknown directive `%s'." dir_name;
       let directives = all_directive_names () in
-      Misc.did_you_mean ppf
+      Format_doc.compat Misc.did_you_mean ppf
         (fun () -> Misc.spellcheck directives dir_name);
       fprintf ppf "@.";
       false
@@ -381,6 +381,7 @@ let try_run_directive ppf dir_name pdir_arg =
 (* Overriding exception printers with toplevel-specific ones *)
 
 let loading_hint_printer ppf s =
+  let open Format_doc in
   Symtable.report_error ppf (Symtable.Undefined_global s);
   let find_with_ext ext =
     try Some (Load_path.find_normalized (s ^ ext)) with Not_found -> None

@@ -40,7 +40,7 @@ let class_declarations env cty1 cty2 =
         cty1.cty_params cty1.cty_type
         cty2.cty_params cty2.cty_type
 
-open Format
+open Format_doc
 open Ctype
 
 (*
@@ -50,6 +50,7 @@ let rec hide_params = function
 *)
 
 let include_err mode ppf =
+  let msg fmt = Format_doc.Immutable.msg fmt in
   function
   | CM_Virtual_class ->
       fprintf ppf "A class cannot be changed from virtual to concrete"
@@ -58,10 +59,8 @@ let include_err mode ppf =
         "The classes do not have the same number of type parameters"
   | CM_Type_parameter_mismatch (env, err) ->
       Printtyp.report_equality_error ppf mode env err
-        (function ppf ->
-          fprintf ppf "A type parameter has type")
-        (function ppf ->
-          fprintf ppf "but is expected to have type")
+        (msg "A type parameter has type")
+        (msg "but is expected to have type")
   | CM_Class_type_mismatch (env, cty1, cty2) ->
       Printtyp.wrap_printing_env ~error:true env (fun () ->
         fprintf ppf
@@ -71,22 +70,16 @@ let include_err mode ppf =
           Printtyp.class_type cty2)
   | CM_Parameter_mismatch (env, err) ->
       Printtyp.report_moregen_error ppf mode env err
-        (function ppf ->
-          fprintf ppf "A parameter has type")
-        (function ppf ->
-          fprintf ppf "but is expected to have type")
+        (msg "A parameter has type")
+        (msg "but is expected to have type")
   | CM_Val_type_mismatch (lab, env, err) ->
       Printtyp.report_comparison_error ppf mode env err
-        (function ppf ->
-          fprintf ppf "The instance variable %s@ has type" lab)
-        (function ppf ->
-          fprintf ppf "but is expected to have type")
+        (msg "The instance variable %s@ has type" lab)
+        (msg "but is expected to have type")
   | CM_Meth_type_mismatch (lab, env, err) ->
       Printtyp.report_comparison_error ppf mode env err
-        (function ppf ->
-          fprintf ppf "The method %s@ has type" lab)
-        (function ppf ->
-          fprintf ppf "but is expected to have type")
+        (msg "The method %s@ has type" lab)
+        (msg "but is expected to have type")
   | CM_Non_mutable_value lab ->
       fprintf ppf
        "@[The non-mutable instance variable %s cannot become mutable@]" lab

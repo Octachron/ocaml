@@ -977,6 +977,8 @@ let rewrite t =
   let ctx = { specialized = Ident.Map.empty } in
   traverse ctx t
 
+module Format = Format_doc
+
 let () =
   Location.register_error_of_exn
     (function

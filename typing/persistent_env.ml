@@ -233,23 +233,23 @@ let check_pers_struct penv f ~loc name =
       let warn = Warnings.No_cmi_file(name, None) in
         Location.prerr_warning loc warn
   | Cmi_format.Error err ->
-      let msg = Format.asprintf "%a" Cmi_format.report_error err in
+      let msg = Format.asprintf "%a"
+          (Format_doc.compat Cmi_format.report_error) err in
       let warn = Warnings.No_cmi_file(name, Some msg) in
         Location.prerr_warning loc warn
   | Error err ->
       let msg =
         match err with
         | Illegal_renaming(name, ps_name, filename) ->
-            Format.asprintf
+            Format_doc.doc_printf
               " %a@ contains the compiled interface for @ \
                %s when %s was expected"
               Location.print_filename filename ps_name name
         | Inconsistent_import _ -> assert false
         | Need_recursive_types name ->
-            Format.sprintf
-              "%s uses recursive types"
-              name
+            Format_doc.doc_printf "%s uses recursive types" name
       in
+      let msg = Format_doc.(asprintf "%a" pp_doc) msg in
       let warn = Warnings.No_cmi_file(name, Some msg) in
         Location.prerr_warning loc warn
 
@@ -337,7 +337,7 @@ let save_cmi penv psig pm =
     ~exceptionally:(fun () -> remove_file filename)
 
 let report_error ppf =
-  let open Format in
+  let open Format_doc in
   function
   | Illegal_renaming(modname, ps_name, filename) -> fprintf ppf
       "Wrong file naming: %a@ contains the compiled interface for@ \

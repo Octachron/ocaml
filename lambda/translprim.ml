@@ -868,7 +868,7 @@ let transl_primitive_application loc p env ty path exp args arg_exps =
 
 (* Error report *)
 
-open Format
+open Format_doc
 
 let report_error ppf = function
   | Unknown_builtin_primitive prim_name ->

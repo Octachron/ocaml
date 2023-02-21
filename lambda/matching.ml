@@ -93,8 +93,10 @@ open Types
 open Typedtree
 open Lambda
 open Parmatch
-open Printf
-open Printpat
+
+let pretty_line = Format_doc.format_printer Printpat.pretty_line
+let pretty_matrix = Format_doc.format_printer Printpat.pretty_matrix
+let pretty_pat = Printpat.pretty_pat
 
 module Scoped_location = Debuginfo.Scoped_location
 
@@ -976,7 +978,7 @@ let erase_pm pm =
 let pretty_cases cases =
   List.iter
     (fun (ps, _l) ->
-      List.iter (fun p -> Format.eprintf " %a%!" top_pretty p) ps;
+      List.iter (fun p -> Format.eprintf " %a%!" pretty_pat p) ps;
       Format.eprintf "\n")
     cases
 
@@ -998,7 +1000,7 @@ let rec pretty_precompiled = function
       pretty_matrix Format.err_formatter x.or_matrix;
       List.iter
         (fun { exit = i; pm; _ } ->
-          eprintf "++ Handler %d ++\n" i;
+          Format.eprintf "++ Handler %d ++\n" i;
           pretty_pm pm)
         x.handlers
 
@@ -1006,7 +1008,7 @@ let pretty_precompiled_res first nexts =
   pretty_precompiled first;
   List.iter
     (fun (e, pmh) ->
-      eprintf "** DEFAULT %d **\n" e;
+      Format.eprintf "** DEFAULT %d **\n" e;
       pretty_precompiled pmh)
     nexts
 
@@ -1729,8 +1731,7 @@ let drop_expr_arg _head _arg rem = rem
 let get_key_constant caller = function
   | { pat_desc = Tpat_constant cst } -> cst
   | p ->
-      Format.eprintf "BAD: %s" caller;
-      pretty_pat p;
+      Format.eprintf "BAD: %s %a" caller pretty_pat p;
       assert false
 
 let get_pat_args_constant = drop_pat_arg
@@ -2688,16 +2689,16 @@ let mk_failaction_pos partial seen ctx defs =
         defs
     in
     if dbg then (
-      eprintf "POSITIVE JUMPS [%i]:\n" (List.length fail_pats);
+      Format.eprintf "POSITIVE JUMPS [%i]:\n" (List.length fail_pats);
       Jumps.eprintf jmps
     );
     (None, fail, jmps)
   ) else (
     (* Too many non-matched constructors -> reduced information *)
-    if dbg then eprintf "POS->NEG!!!\n%!";
+    if dbg then Format.eprintf "POS->NEG!!!\n%!";
     let fail, jumps = mk_failaction_neg partial ctx defs in
     if dbg then
-      eprintf "FAIL: %s\n"
+      Format.eprintf "FAIL: %s\n"
         ( match fail with
         | None -> "<none>"
         | Some lam -> string_of_lam lam
@@ -3776,7 +3777,7 @@ let flatten_simple_pattern size (p : Simple.pattern) =
          Since the PM is well typed, none of these cases are possible. *)
       let msg =
         Format.fprintf Format.str_formatter
-          "Matching.flatten_pattern: got '%a'" top_pretty (General.erase p);
+          "Matching.flatten_pattern: got '%a'" pretty_pat (General.erase p);
         Format.flush_str_formatter ()
       in
       fatal_error msg

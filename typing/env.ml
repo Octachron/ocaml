@@ -3496,15 +3496,18 @@ let env_of_only_summary env_from_summary env =
 
 (* Error report *)
 
-open Format
+open Format_doc
 
 (* Forward declarations *)
 
-let print_longident =
-  ref ((fun _ _ -> assert false) : formatter -> Longident.t -> unit)
+let print_longident : Longident.t generic_printer ref =
+  ref { printer = (fun _ _ -> assert false) }
 
-let print_path =
-  ref ((fun _ _ -> assert false) : formatter -> Path.t -> unit)
+let pp_longident ppf l = !print_longident.printer ppf l
+
+let print_path: Path.t generic_printer ref =
+  ref { printer = fun _ _ -> assert false }
+let pp_path ppf l = !print_path.printer ppf l
 
 let spellcheck ppf extract env lid =
   let choices ~path name = Misc.spellcheck (extract path env) name in
@@ -3544,7 +3547,7 @@ let extract_instance_variables env =
 
 let report_lookup_error _loc env ppf = function
   | Unbound_value(lid, hint) -> begin
-      fprintf ppf "Unbound value %a" !print_longident lid;
+      fprintf ppf "Unbound value %a" pp_longident lid;
       spellcheck ppf extract_values env lid;
       match hint with
       | No_hint -> ()
@@ -3558,46 +3561,46 @@ let report_lookup_error _loc env ppf = function
             line
     end
   | Unbound_type lid ->
-      fprintf ppf "Unbound type constructor %a" !print_longident lid;
+      fprintf ppf "Unbound type constructor %a" pp_longident lid;
       spellcheck ppf extract_types env lid;
   | Unbound_module lid -> begin
-      fprintf ppf "Unbound module %a" !print_longident lid;
+      fprintf ppf "Unbound module %a" pp_longident lid;
        match find_modtype_by_name lid env with
       | exception Not_found -> spellcheck ppf extract_modules env lid;
       | _ ->
          fprintf ppf
            "@.@[@{<hint>Hint@}: There is a module type named %a, %s@]"
-           !print_longident lid
+           pp_longident lid
            "but module types are not modules"
     end
   | Unbound_constructor lid ->
-      fprintf ppf "Unbound constructor %a" !print_longident lid;
+      fprintf ppf "Unbound constructor %a" pp_longident lid;
       spellcheck ppf extract_constructors env lid;
   | Unbound_label lid ->
-      fprintf ppf "Unbound record field %a" !print_longident lid;
+      fprintf ppf "Unbound record field %a" pp_longident lid;
       spellcheck ppf extract_labels env lid;
   | Unbound_class lid -> begin
-      fprintf ppf "Unbound class %a" !print_longident lid;
+      fprintf ppf "Unbound class %a" pp_longident lid;
       match find_cltype_by_name lid env with
       | exception Not_found -> spellcheck ppf extract_classes env lid;
       | _ ->
          fprintf ppf
            "@.@[@{<hint>Hint@}: There is a class type named %a, %s@]"
-           !print_longident lid
+           pp_longident lid
            "but classes are not class types"
     end
   | Unbound_modtype lid -> begin
-      fprintf ppf "Unbound module type %a" !print_longident lid;
+      fprintf ppf "Unbound module type %a" pp_longident lid;
       match find_module_by_name lid env with
       | exception Not_found -> spellcheck ppf extract_modtypes env lid;
       | _ ->
          fprintf ppf
            "@.@[@{<hint>Hint@}: There is a module named %a, %s@]"
-           !print_longident lid
+           pp_longident lid
            "but modules are not module types"
     end
   | Unbound_cltype lid ->
-      fprintf ppf "Unbound class type %a" !print_longident lid;
+      fprintf ppf "Unbound class type %a" pp_longident lid;
       spellcheck ppf extract_cltypes env lid;
   | Unbound_instance_variable s ->
       fprintf ppf "Unbound instance variable %s" s;
@@ -3609,34 +3612,34 @@ let report_lookup_error _loc env ppf = function
       fprintf ppf
         "The instance variable %a@ \
          cannot be accessed from the definition of another instance variable"
-        !print_longident lid
+        pp_longident lid
   | Masked_self_variable lid ->
       fprintf ppf
         "The self variable %a@ \
          cannot be accessed from the definition of an instance variable"
-        !print_longident lid
+        pp_longident lid
   | Masked_ancestor_variable lid ->
       fprintf ppf
         "The ancestor variable %a@ \
          cannot be accessed from the definition of an instance variable"
-        !print_longident lid
+        pp_longident lid
   | Illegal_reference_to_recursive_module ->
      fprintf ppf "Illegal recursive module reference"
   | Structure_used_as_functor lid ->
       fprintf ppf "@[The module %a is a structure, it cannot be applied@]"
-        !print_longident lid
+        pp_longident lid
   | Abstract_used_as_functor lid ->
       fprintf ppf "@[The module %a is abstract, it cannot be applied@]"
-        !print_longident lid
+        pp_longident lid
   | Functor_used_as_structure lid ->
       fprintf ppf "@[The module %a is a functor, \
-                   it cannot have any components@]" !print_longident lid
+                   it cannot have any components@]" pp_longident lid
   | Abstract_used_as_structure lid ->
       fprintf ppf "@[The module %a is abstract, \
-                   it cannot have any components@]" !print_longident lid
+                   it cannot have any components@]" pp_longident lid
   | Generative_used_as_applicative lid ->
       fprintf ppf "@[The functor %a is generative,@ it@ cannot@ be@ \
-                   applied@ in@ type@ expressions@]" !print_longident lid
+                   applied@ in@ type@ expressions@]" pp_longident lid
   | Cannot_scrape_alias(lid, p) ->
       let cause =
         if Current_unit_name.is_path p then "is the current compilation unit"
@@ -3644,7 +3647,7 @@ let report_lookup_error _loc env ppf = function
       in
       fprintf ppf
         "The module %a is an alias for module %a, which %s"
-        !print_longident lid !print_path p cause
+        pp_longident lid pp_path p cause
 
 let report_error ppf = function
   | Missing_module(_, path1, path2) ->

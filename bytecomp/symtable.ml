@@ -414,7 +414,7 @@ let empty_global_map = GlobalMap.empty
 
 (* Error report *)
 
-open Format
+open Format_doc
 
 let report_error ppf = function
   | Undefined_global s ->

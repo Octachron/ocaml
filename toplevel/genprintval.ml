@@ -154,7 +154,8 @@ module Make(O : OBJ)(EVP : EVALPATH with type valu = O.t) = struct
     ] : (Path.t * printer) list)
 
     let exn_printer ppf path exn =
-      fprintf ppf "<printer %a raised an exception: %s>" Printtyp.path path
+      fprintf ppf "<printer %a raised an exception: %s>"
+        (Format_doc.compat Printtyp.path) path
         (Printexc.to_string exn)
 
     let out_exn path exn =
@@ -613,7 +614,7 @@ module Make(O : OBJ)(EVP : EVALPATH with type valu = O.t) = struct
           (fun _obj ->
             let printer ppf =
               fprintf ppf "<internal error: incorrect arity for '%a'>"
-                Printtyp.path path in
+                Printtyp.Compat.path path in
             Oval_printer printer)
 
 
