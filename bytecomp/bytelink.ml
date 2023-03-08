@@ -736,7 +736,7 @@ let link objfiles output_name =
 
 (* Error report *)
 
-open Format
+open Format_doc.Compat
 
 let report_error ppf = function
   | File_not_found name ->

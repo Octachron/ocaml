@@ -325,7 +325,7 @@ let package_files ~ppf_dump initial_env files targetfile =
 
 (* Error report *)
 
-open Format
+open Format_doc.Compat
 
 let report_error ppf = function
     Forward_reference(file, ident) ->

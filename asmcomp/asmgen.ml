@@ -308,8 +308,9 @@ let compile_implementation_linear output_prefix ~progname =
       linear_gen_implementation progname)
 
 (* Error report *)
-
-let report_error ppf = function
+let report_error ppf =
+  let fprintf = Format_doc.Compat.fprintf in
+  function
   | Assembler_error file ->
       fprintf ppf "Assembler error, input left in file %a"
         Location.print_filename file

@@ -27,6 +27,7 @@
 UTILS = \
   utils/config.cmo \
   utils/build_path_prefix_map.cmo \
+  utils/format_doc.cmo \
   utils/misc.cmo \
   utils/identifiable.cmo \
   utils/numbers.cmo \
@@ -87,11 +88,11 @@ TYPING = \
   typing/persistent_env.cmo \
   typing/env.cmo \
   typing/errortrace.cmo \
-  typing/typedtree.cmo \
   typing/signature_group.cmo \
-  typing/printtyped.cmo \
   typing/ctype.cmo \
   typing/printtyp.cmo \
+  typing/typedtree.cmo \
+  typing/printtyped.cmo \
   typing/includeclass.cmo \
   typing/mtype.cmo \
   typing/envaux.cmo \

@@ -37,6 +37,7 @@ let prefix ppf x =
   in
   let style k ppf inner =
     let sty = Diffing.style k in
+    let module Format = Format_doc.Compat in
     Format.pp_open_stag ppf (Misc.Color.Style sty);
     Format.kfprintf (fun ppf -> Format.pp_close_stag ppf () ) ppf inner
   in

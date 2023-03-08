@@ -64,6 +64,7 @@ command_line.cmo : \
     input_handling.cmi \
     history.cmi \
     frames.cmi \
+    ../utils/format_doc.cmi \
     events.cmi \
     eval.cmi \
     ../typing/envaux.cmi \
@@ -102,6 +103,7 @@ command_line.cmx : \
     input_handling.cmx \
     history.cmx \
     frames.cmx \
+    ../utils/format_doc.cmx \
     events.cmx \
     eval.cmx \
     ../typing/envaux.cmx \
@@ -285,6 +287,7 @@ loadprinter.cmo : \
     ../parsing/longident.cmi \
     ../utils/load_path.cmi \
     ../typing/ident.cmi \
+    ../utils/format_doc.cmi \
     ../typing/env.cmi \
     ../otherlibs/dynlink/dynlink.cmi \
     ../typing/ctype.cmi \
@@ -300,6 +303,7 @@ loadprinter.cmx : \
     ../parsing/longident.cmx \
     ../utils/load_path.cmx \
     ../typing/ident.cmx \
+    ../utils/format_doc.cmx \
     ../typing/env.cmx \
     ../otherlibs/dynlink/dynlink.cmi \
     ../typing/ctype.cmx \
@@ -321,6 +325,7 @@ main.cmo : \
     ../utils/load_path.cmi \
     input_handling.cmi \
     frames.cmi \
+    ../utils/format_doc.cmi \
     exec.cmi \
     debugger_config.cmi \
     ../utils/config.cmi \
@@ -343,6 +348,7 @@ main.cmx : \
     ../utils/load_path.cmx \
     input_handling.cmx \
     frames.cmx \
+    ../utils/format_doc.cmx \
     exec.cmx \
     debugger_config.cmx \
     ../utils/config.cmx \
@@ -399,6 +405,7 @@ printval.cmo : \
     ../typing/outcometree.cmi \
     ../typing/oprint.cmi \
     ../toplevel/genprintval.cmi \
+    ../utils/format_doc.cmi \
     ../typing/env.cmi \
     debugcom.cmi \
     printval.cmi
@@ -410,6 +417,7 @@ printval.cmx : \
     ../typing/outcometree.cmi \
     ../typing/oprint.cmx \
     ../toplevel/genprintval.cmx \
+    ../utils/format_doc.cmx \
     ../typing/env.cmx \
     debugcom.cmx \
     printval.cmi

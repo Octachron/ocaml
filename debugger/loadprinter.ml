@@ -136,6 +136,7 @@ let remove_printer lid =
 (* Error report *)
 
 open Format
+module Printtyp = Printtyp.Compat
 
 let report_error ppf = function
   | Load_failure e ->

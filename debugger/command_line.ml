@@ -512,7 +512,7 @@ let print_command depth ppf lexbuf =
       env_of_event !selected_event
     with
     | Envaux.Error msg ->
-        Envaux.report_error ppf msg;
+        Format_doc.compat Envaux.report_error ppf msg;
         raise Toplevel
   in
   List.iter (print_expr depth !selected_event env ppf) exprs
@@ -529,7 +529,7 @@ let instr_address ppf lexbuf =
       env_of_event !selected_event
     with
     | Envaux.Error msg ->
-        Envaux.report_error ppf msg;
+        Format_doc.compat Envaux.report_error ppf msg;
         raise Toplevel
   in
   let print_addr expr =
@@ -618,7 +618,7 @@ let instr_break ppf lexbuf =
             env_of_event !selected_event
           with
           | Envaux.Error msg ->
-              Envaux.report_error ppf msg;
+              Format_doc.compat Envaux.report_error ppf msg;
               raise Toplevel
         in
         begin try

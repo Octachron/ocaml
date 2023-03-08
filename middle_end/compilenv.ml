@@ -439,7 +439,7 @@ let require_global global_ident =
 
 (* Error report *)
 
-open Format
+open Format_doc.Compat
 
 let report_error ppf = function
   | Not_a_unit_info filename ->

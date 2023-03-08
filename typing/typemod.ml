@@ -2247,7 +2247,7 @@ and type_module_aux ~alias sttn funct_body anchor env smod =
               not (Typecore.generalizable (Btype.generic_level-1) exp.exp_type)
             then
               Location.prerr_warning smod.pmod_loc
-                (Warnings.Not_principal "this module unpacking");
+                (Warnings.Not_principal (Format_doc.Immutable.msg "this module unpacking"));
             modtype_of_package env smod.pmod_loc p fl
         | Tvar _ ->
             raise (Typecore.Error
@@ -3228,8 +3228,8 @@ let report_error ~loc _env = function
       Location.errorf ~loc
         "@[This module is not a functor; it has type@ %a@]" modtype mty
   | Not_included errs ->
-      let main = Includemod_errorprinter.err_msgs errs in
-      Location.errorf ~loc "@[<v>Signature mismatch:@ %t@]" main
+      Location.errorf ~loc "@[<v>Signature mismatch:@ %a@]"
+        Includemod_errorprinter.err_msgs errs
   | Cannot_eliminate_dependency mty ->
       Location.errorf ~loc
         "@[This functor has type@ %a@ \
@@ -3245,22 +3245,20 @@ let report_error ~loc _env = function
         "@[The signature constrained by `with' has no component named %a@]"
         longident lid
   | With_mismatch(lid, explanation) ->
-      let main = Includemod_errorprinter.err_msgs explanation in
       Location.errorf ~loc
         "@[<v>\
            @[In this `with' constraint, the new definition of %a@ \
              does not match its original definition@ \
              in the constrained signature:@]@ \
-           %t@]"
-        longident lid main
+           %a@]"
+        longident lid  Includemod_errorprinter.err_msgs explanation
   | With_makes_applicative_functor_ill_typed(lid, path, explanation) ->
-      let main = Includemod_errorprinter.err_msgs explanation in
       Location.errorf ~loc
         "@[<v>\
            @[This `with' constraint on %a makes the applicative functor @ \
              type %s ill-typed in the constrained signature:@]@ \
-           %t@]"
-        longident lid (Path.name path) main
+           %a@]"
+        longident lid (Path.name path) Includemod_errorprinter.err_msgs explanation
   | With_changes_module_alias(lid, id, path) ->
       Location.errorf ~loc
         "@[<v>\

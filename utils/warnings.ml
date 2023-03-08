@@ -52,7 +52,7 @@ type t =
   | Implicit_public_methods of string list  (* 15 *)
   | Unerasable_optional_argument            (* 16 *)
   | Undeclared_virtual_method of string     (* 17 *)
-  | Not_principal of string                 (* 18 *)
+  | Not_principal of Format_doc.t           (* 18 *)
   | Non_principal_labels of string          (* 19 *)
   | Ignored_extra_argument                  (* 20 *)
   | Nonreturning_statement                  (* 21 *)
@@ -932,7 +932,7 @@ let message = function
       ^ String.concat " " l ^ "."
   | Unerasable_optional_argument -> "this optional argument cannot be erased."
   | Undeclared_virtual_method m -> "the virtual method "^m^" is not declared."
-  | Not_principal s -> s^" is not principal."
+  | Not_principal msg -> Format_doc.Compat.asprintf "%a is not principal." Format_doc.Compat.pp_doc msg
   | Non_principal_labels s -> s^" without principality."
   | Ignored_extra_argument -> "this argument will not be used by the function."
   | Nonreturning_statement ->

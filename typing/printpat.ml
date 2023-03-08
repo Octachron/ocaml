@@ -18,6 +18,8 @@
 open Asttypes
 open Typedtree
 open Types
+module Real_format = Format
+module Format = Format_doc.Compat
 open Format
 
 let is_cons = function
@@ -99,7 +101,7 @@ let rec pretty_val : type k . _ -> k general_pattern -> _ = fun ppf v ->
   | Tpat_lazy v ->
       fprintf ppf "@[<2>lazy@ %a@]" pretty_arg v
   | Tpat_alias (v, x,_) ->
-      fprintf ppf "@[(%a@ as %a)@]" pretty_val v Ident.print x
+      fprintf ppf "@[(%a@ as %s)@]" pretty_val v (Ident.name x)
   | Tpat_value v ->
       fprintf ppf "%a" pretty_val (v :> pattern)
   | Tpat_exception v ->
@@ -148,16 +150,16 @@ let top_pretty ppf v =
   fprintf ppf "@[%a@]@?" pretty_val v
 
 let pretty_pat p =
-  top_pretty Format.str_formatter p ;
-  prerr_string (Format.flush_str_formatter ())
+  format_printer top_pretty Real_format.str_formatter p ;
+  prerr_string (Real_format.flush_str_formatter ())
 
 type 'k matrix = 'k general_pattern list list
 
 let pretty_line fmt =
   List.iter (fun p ->
-    Format.fprintf fmt " <";
+    Format_doc.Compat.fprintf fmt " <";
     top_pretty fmt p;
-    Format.fprintf fmt ">";
+    Format_doc.Compat.fprintf fmt ">";
   )
 
 let pretty_matrix fmt (pss : 'k matrix) =

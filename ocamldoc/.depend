@@ -40,6 +40,7 @@ odoc_analyse.cmo : \
     odoc_ast.cmi \
     ../parsing/location.cmi \
     ../parsing/lexer.cmi \
+    ../utils/format_doc.cmi \
     ../typing/env.cmi \
     ../driver/compmisc.cmi \
     ../utils/clflags.cmi \
@@ -67,6 +68,7 @@ odoc_analyse.cmx : \
     odoc_ast.cmx \
     ../parsing/location.cmx \
     ../parsing/lexer.cmx \
+    ../utils/format_doc.cmx \
     ../typing/env.cmx \
     ../driver/compmisc.cmx \
     ../utils/clflags.cmx \
@@ -665,11 +667,13 @@ odoc_parser.cmi : \
 odoc_print.cmo : \
     ../typing/types.cmi \
     ../typing/printtyp.cmi \
+    ../utils/format_doc.cmi \
     ../typing/btype.cmi \
     odoc_print.cmi
 odoc_print.cmx : \
     ../typing/types.cmx \
     ../typing/printtyp.cmx \
+    ../utils/format_doc.cmx \
     ../typing/btype.cmx \
     odoc_print.cmi
 odoc_print.cmi : \
@@ -807,6 +811,7 @@ odoc_str.cmo : \
     odoc_extension.cmi \
     odoc_exception.cmi \
     odoc_class.cmi \
+    ../utils/format_doc.cmi \
     ../parsing/asttypes.cmi \
     odoc_str.cmi
 odoc_str.cmx : \
@@ -821,6 +826,7 @@ odoc_str.cmx : \
     odoc_extension.cmx \
     odoc_exception.cmx \
     odoc_class.cmx \
+    ../utils/format_doc.cmx \
     ../parsing/asttypes.cmi \
     odoc_str.cmi
 odoc_str.cmi : \

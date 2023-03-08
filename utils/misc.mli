@@ -25,7 +25,8 @@
 val fatal_error: string -> 'a
   (** Raise the [Fatal_error] exception with the given string. *)
 
-val fatal_errorf: ('a, Format.formatter, unit, 'b) format4 -> 'a
+val fatal_errorf:
+  ('a, Format.formatter, unit, 'b) format4 -> 'a
   (** Format the arguments according to the given format string
       and raise [Fatal_error] with the resulting string. *)
 
@@ -399,6 +400,7 @@ module LongString :
     val input_bytes : in_channel -> int -> t
   end
 
+
 (** {1 Spell checking and ``did you mean'' suggestions} *)
 
 val edit_distance : string -> string -> int -> int option
@@ -419,7 +421,9 @@ val spellcheck : string list -> string -> string list
     list of suggestions taken from [env], that are close enough to
     [name] that it may be a typo for one of them. *)
 
-val did_you_mean : Format.formatter -> (unit -> string list) -> unit
+
+val did_you_mean :
+  'any Format_doc.Compat.formatter -> (unit -> string list) -> unit
 (** [did_you_mean ppf get_choices] hints that the user may have meant
     one of the option returned by calling [get_choices]. It does nothing
     if the returned list is empty.
@@ -493,32 +497,6 @@ end
 val print_if :
   Format.formatter -> bool ref -> (Format.formatter -> 'a -> unit) -> 'a -> 'a
 (** [print_if ppf flag fmt x] prints [x] with [fmt] on [ppf] if [b] is true. *)
-
-val pp_two_columns :
-  ?sep:string -> ?max_lines:int ->
-  Format.formatter -> (string * string) list -> unit
-(** [pp_two_columns ?sep ?max_lines ppf l] prints the lines in [l] as two
-   columns separated by [sep] ("|" by default). [max_lines] can be used to
-   indicate a maximum number of lines to print -- an ellipsis gets inserted at
-   the middle if the input has too many lines.
-
-   Example:
-
-    {v pp_two_columns ~max_lines:3 Format.std_formatter [
-      "abc", "hello";
-      "def", "zzz";
-      "a"  , "bllbl";
-      "bb" , "dddddd";
-    ] v}
-
-    prints
-
-    {v
-    abc | hello
-    ...
-    bb  | dddddd
-    v}
-*)
 
 (** {1 Displaying configuration variables} *)
 

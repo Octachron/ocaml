@@ -1827,7 +1827,7 @@ let check_recmod_typedecl env loc recmod_ids path decl =
 
 (**** Error report ****)
 
-open Format
+open Format_doc.Compat
 
 let explain_unbound_gen ppf tv tl typ kwd pr =
   try
@@ -1897,6 +1897,7 @@ module Reaching_path = struct
           List.iter Printtyp.add_type_to_preparation [ty1; ty2]
     ) path
 
+  module Format = Format_doc.Compat
   let pp ppf reaching_path =
     let pp_step ppf = function
       | Expands_to (ty, body) ->
@@ -1955,10 +1956,11 @@ let report_error ppf = function
            "the original" "this" "definition" env)
         err
   | Constraint_failed (env, err) ->
+      let msg = Format_doc.Immutable.msg in
       fprintf ppf "@[<v>Constraints are not satisfied in this type.@ ";
       Printtyp.report_unification_error ppf env err
-        (fun ppf -> fprintf ppf "Type")
-        (fun ppf -> fprintf ppf "should be an instance of");
+        (msg "Type")
+        (msg "should be an instance of");
       fprintf ppf "@]"
   | Non_regular { definition; used_as; defined_as; reaching_path } ->
       let reaching_path = Reaching_path.simplify reaching_path in
@@ -1971,8 +1973,8 @@ let report_error ppf = function
          All uses need to match the definition for the recursive type \
          to be regular.@]"
         (Path.name definition)
-        !Oprint.out_type (Printtyp.tree_of_typexp Type defined_as)
-        !Oprint.out_type (Printtyp.tree_of_typexp Type used_as)
+        Oprint.(print out_type) (Printtyp.tree_of_typexp Type defined_as)
+        Oprint.(print out_type) (Printtyp.tree_of_typexp Type used_as)
         (fun pp ->
            let is_expansion = function Expands_to _ -> true | _ -> false in
            if List.exists is_expansion reaching_path then
@@ -1980,17 +1982,17 @@ let report_error ppf = function
              Reaching_path.pp_colon reaching_path
            else fprintf pp ".@ ")
   | Inconsistent_constraint (env, err) ->
+      let msg = Format_doc.Immutable.msg in
       fprintf ppf "@[<v>The type constraints are not consistent.@ ";
       Printtyp.report_unification_error ppf env err
-        (fun ppf -> fprintf ppf "Type")
-        (fun ppf -> fprintf ppf "is not compatible with type");
+        (msg "Type")
+        (msg "is not compatible with type");
       fprintf ppf "@]"
   | Type_clash (env, err) ->
+      let msg = Format_doc.Immutable.msg in
       Printtyp.report_unification_error ppf env err
-        (function ppf ->
-           fprintf ppf "This type constructor expands to type")
-        (function ppf ->
-           fprintf ppf "but is used here with type")
+        (msg "This type constructor expands to type")
+        (msg "but is used here with type")
   | Null_arity_external ->
       fprintf ppf "External identifiers must be functions"
   | Missing_native_external ->
@@ -2039,12 +2041,11 @@ let report_error ppf = function
            "the type" "this extension" "definition" env)
         err
   | Rebind_wrong_type (lid, env, err) ->
+      let msg = Format_doc.Immutable.msg in
       Printtyp.report_unification_error ppf env err
-        (function ppf ->
-           fprintf ppf "The constructor %a@ has type"
-             Printtyp.longident lid)
-        (function ppf ->
-           fprintf ppf "but was expected to be of type")
+        (msg  "The constructor %t@ has type"
+             (doc_printer Printtyp.longident lid))
+        (msg "but was expected to be of type")
   | Rebind_mismatch (lid, p, p') ->
       fprintf ppf
         "@[%s@ %a@ %s@ %s@ %s@ %s@ %s@]"
@@ -2142,7 +2143,7 @@ let report_error ppf = function
          it should not occur deeply into its type.@]"
         (match kind with Unboxed -> "@unboxed" | Untagged -> "@untagged")
   | Immediacy (Typedecl_immediacy.Bad_immediacy_attribute violation) ->
-      fprintf ppf "@[%a@]" Format.pp_print_text
+      fprintf ppf "@[%a@]" Format_doc.Compat.pp_print_text
         (match violation with
          | Type_immediacy.Violation.Not_always_immediate ->
              "Types marked with the immediate attribute must be \
@@ -2158,7 +2159,7 @@ let report_error ppf = function
             fprintf ppf "an unnamed existential variable"
         | Some str ->
             fprintf ppf "the existential variable %a"
-              Pprintast.tyvar str in
+              Pprintast.doc_tyvar str in
       fprintf ppf "@[This type cannot be unboxed because@ \
                    it might contain both float and non-float values,@ \
                    depending on the instantiation of %a.@ \
@@ -2170,7 +2171,7 @@ let report_error ppf = function
       fprintf ppf
         "@[GADT case syntax cannot be used in a 'nonrec' block.@]"
   | Invalid_private_row_declaration ty ->
-      Format.fprintf ppf
+      Format_doc.Compat.fprintf ppf
         "@[<hv>This private row type declaration is invalid.@ \
          The type expression on the right-hand side reduces to@;<1 2>%a@ \
          which does not have a free row type variable.@]@,\

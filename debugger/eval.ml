@@ -172,6 +172,7 @@ and find_label lbl env ty path tydesc pos = function
 (* Error report *)
 
 open Format
+module Printtyp = Printtyp.Compat
 
 let report_error ppf = function
   | Unbound_identifier id ->

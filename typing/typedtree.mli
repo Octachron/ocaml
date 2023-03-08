@@ -825,6 +825,6 @@ val pat_bound_idents_full:
 val split_pattern:
   computation general_pattern -> pattern option * pattern option
 
-(** Whether an expression looks nice as the subject of a sentence in a error
-    message. *)
-val exp_is_nominal : expression -> bool
+(** Returns a format document if the expression reads nicely as the subject of a
+    sentence in a error message. *)
+val nominal_exp_doc : expression -> Format_doc.t option

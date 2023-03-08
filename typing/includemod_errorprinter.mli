@@ -13,5 +13,5 @@
 (*                                                                        *)
 (**************************************************************************)
 
-val err_msgs: Includemod.explanation -> Format.formatter -> unit
+val err_msgs: (Includemod.explanation, 'impl) Format_doc.Compat.printer
 val register: unit -> unit
