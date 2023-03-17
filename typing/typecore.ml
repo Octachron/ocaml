@@ -2937,7 +2937,7 @@ and type_expect_
       | Tconstr(path, _, _) when Path.same path fmt6_path ->
         if !Clflags.principal && get_level ty_exp <> generic_level then
           Location.prerr_warning loc
-            (Warnings.Not_principal (Format_doc.Immutable.msg "this coercion to format6"));
+            (not_principal "this coercion to format6");
         true
       | _ -> false
     in
@@ -3477,7 +3477,7 @@ and type_expect_
                   force (); force' ();
                   if not gen && !Clflags.principal then
                     Location.prerr_warning loc
-                      (Warnings.Not_principal (Format_doc.Immutable.msg "this ground coercion"));
+                      (not_principal "this ground coercion");
                 with Subtype err ->
                   (* prerr_endline "coercion failed"; *)
                   raise (Error(loc, env, Not_subtype err))
