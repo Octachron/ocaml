@@ -213,6 +213,7 @@ let print_filename ppf file =
    Some of the information (filename, line number or characters numbers) in the
    location might be invalid; in which case we do not print it.
  *)
+
 let print_loc ppf loc =
   setup_tags ();
   let file_valid = function
@@ -860,6 +861,13 @@ let default_report_printer () : report_printer =
     batch_mode_printer
 
 let report_printer = ref default_report_printer
+
+let log_report log report =
+  let open Error_report in
+  log.%[["kind"]] <- report.kind;
+  log.%[["main"]] <- report.main;
+  log.%[["sub"]] <- report.main;
+
 
 let print_report ppf report =
   let printer = !report_printer () in

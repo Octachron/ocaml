@@ -6,7 +6,7 @@ type 'a log_scheme
 
 module New_scheme(): sig
   type id
-  val init: unit -> id log_scheme
+  val scheme: id log_scheme
 end
 
 
@@ -15,16 +15,21 @@ type doc = Format.formatter -> unit
 
 type !'a log
 
+
+type _ extension = ..
+
+
 type 'a printer =
   | Int: int printer
   | String: string printer
   | Doc: doc printer
+  | Option: 'a printer -> 'a option printer
   | List: 'a printer -> 'a list printer
-  | Multiple: 'a printer -> 'a printer
   | Pair: 'a printer * 'b printer -> ('a * 'b) printer
   | Triple: 'a printer * 'b printer * 'c printer -> ('a * 'b * 'c) printer
   | Quadruple: 'a printer * 'b printer * 'c printer * 'd printer -> ('a * 'b * 'c * 'd) printer
-  | Custom: ('b -> 'a) * 'a printer -> 'b printer
+  | Custom: { id :'b extension; pull: ('b -> 'a); default: 'a printer} ->
+      'b printer
   | Sublog: 'id log_scheme -> 'id log printer
 
 type ('a,'b) key
@@ -62,10 +67,15 @@ val flush: 'id log -> unit
 val create: device -> version -> 'a log_scheme -> 'a log
 val detach: ('b log, 'a) key -> 'a log ->  'b log
 
-val fmt: Format.formatter -> device
+
+
+type format_extension_printer =
+  { extension: 'b. 'b extension -> (Format.formatter -> 'b -> unit) option}
+
+val make_fmt: format_extension_printer -> Format.formatter -> device
 
 val set: ('a,'b) key  -> 'a -> 'b log -> unit
-val (.![]<-): 'b log -> ('a,'b) key -> 'a -> unit
+val (.%[]<-): 'b log -> ('a,'b) key -> 'a -> unit
 
 
 val fmt : (string,'a) key -> 'a log -> ('b, Format.formatter, unit) format -> 'b
