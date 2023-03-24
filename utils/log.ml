@@ -14,6 +14,7 @@ type 'a printer =
   | String: string printer
   | Doc: doc printer
   | List: 'a printer -> 'a list printer
+  | Option: 'a printer -> 'a option printer
   | Pair: 'a printer * 'b printer -> ('a * 'b) printer
   | Triple: 'a printer * 'b printer * 'c printer -> ('a * 'b * 'c) printer
   | Quadruple: 'a printer * 'b printer * 'c printer * 'd printer ->
@@ -31,14 +32,13 @@ and key_metadata =
         deprecation: version option } ->
       key_metadata
 and 'a log_scheme = {
-  mutable version: version;
+  mutable scheme_version: version;
   mutable infinitesimal_version:int;
   mutable keys: key_metadata Keys.t
 }
 and 'a log = {
   device: device;
-  version: version;
-  scheme: 'a log_scheme;
+  version: version
 }
 and device = {
   print: 'a. key:string list -> 'a printer -> 'a -> unit;
@@ -49,8 +49,8 @@ and device = {
 
 module New_scheme() = struct
   type id
-  let init () =
-    { version = first_version;
+  let scheme =
+    { scheme_version = first_version;
       infinitesimal_version = 0;
       keys = Keys.empty
     }
@@ -60,7 +60,6 @@ let flush log = log.device.flush ()
 
 type error =
   | Duplicate_key of string list
-  | Deprecation_non_existing_key of string list
   | Time_travel of version * version
 exception Error of error
 let error e = raise (Error e)
@@ -73,7 +72,7 @@ let new_key ~path scheme typ =
   if Keys.mem path scheme.keys then error (Duplicate_key path);
   scheme.infinitesimal_version <- succ scheme.infinitesimal_version;
   let metadata = Key_metadata {
-    version=scheme.version;
+    version=scheme.scheme_version;
     infinitesimal_version = scheme.infinitesimal_version;
     deprecation=None;
     typ
@@ -90,27 +89,37 @@ let (.!()) scheme key =
 
 let deprecate_key key scheme =
   let Key_metadata r = scheme.!(key) in
-  scheme.!(key) <- Key_metadata { r with deprecation = Some scheme.version }
+  scheme.!(key) <- Key_metadata { r with deprecation = Some scheme.scheme_version }
 
 (** {1:log_scheme_versionning  Current version of the log } *)
 
-let version scheme = scheme.version
+let version scheme = scheme.scheme_version
 
 let name_version scheme version =
-  if version <= scheme.version then error (Time_travel (version, scheme.version))
+  let sv = scheme.scheme_version in
+  if version <= sv  then error (Time_travel (version, sv))
+  else (
+    scheme.scheme_version <- version;
+    scheme.infinitesimal_version <- 0
+  )
+
 let version_range key scheme =
   let Key_metadata r =  scheme.!(key) in
   { introduction = r.version; deprecation = r.deprecation }
 
 (** {1:log_creation }*)
 
-let create device version scheme = { device; version; scheme }
-let detach key log = log.device.sub ~key
+let create device version _scheme = { device; version }
+let detach key (log: _ log) =
+  let device = log.device.sub ~key:key.path in
+  let version = log.version in
+  { device; version }
 
-type extension_printer =
+type format_extension_printer =
   { extension: 'b. 'b extension -> (Format.formatter -> 'b -> unit) option}
 
-let rec fmt_print : type a. extension_printer -> key:string list -> a printer -> Format.formatter -> a -> unit =
+let rec fmt_print : type a. format_extension_printer
+  -> key:string list -> a printer -> Format.formatter -> a -> unit =
   fun {extension} ~key printer ppf x ->
   match printer with
   | Int -> Format.pp_print_int ppf x
@@ -142,11 +151,17 @@ let rec fmt_print : type a. extension_printer -> key:string list -> a printer ->
   |  List elt ->
       Format.pp_print_list (fmt_print {extension} ~key elt) ppf x
   | Sublog _ -> ()
+  | Option elt ->
+      begin match x with
+      | None -> ()
+      | Some x ->
+          fmt_print {extension} ~key elt ppf x
+      end
 
 
-let rec fmt ext ppf = {
+let rec make_fmt ext ppf = {
   flush = Format.pp_print_newline ppf;
-  sub = (fun ~key:_ -> fmt ext ppf);
+  sub = (fun ~key:_ -> make_fmt ext ppf);
   print = (fun ~key ty x -> fmt_print ext ~key ty ppf x)
 }
 

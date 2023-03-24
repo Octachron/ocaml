@@ -131,43 +131,6 @@ let print_updating_num_loc_lines ppf f arg =
 let setup_colors () =
   Misc.Color.setup !Clflags.color
 
-(******************************************************************************)
-(* Printing locations, e.g. 'File "foo.ml", line 3, characters 10-12' *)
-
-let rewrite_absolute_path path =
-  match Misc.get_build_path_prefix_map () with
-  | None -> path
-  | Some map -> Build_path_prefix_map.rewrite map path
-
-let absolute_path s = (* This function could go into Filename *)
-  let open Filename in
-  let s =
-    if not (is_relative s) then s
-    else (rewrite_absolute_path (concat (Sys.getcwd ()) s))
-  in
-  (* Now simplify . and .. components *)
-  let rec aux s =
-    let base = basename s in
-    let dir = dirname s in
-    if dir = s then dir
-    else if base = current_dir_name then aux dir
-    else if base = parent_dir_name then dirname (aux dir)
-    else concat (aux dir) base
-  in
-  aux s
-
-let show_filename file =
-  if !Clflags.absname then absolute_path file else file
-
-let print_filename ppf file =
-  Format.pp_print_string ppf (show_filename file)
-
-(* Best-effort printing of the text describing a location, of the form
-   'File "foo.ml", line 3, characters 10-12'.
-
-   Some of the information (filename, line number or characters numbers) in the
-   location might be invalid; in which case we do not print it.
- *)
 let print_loc ppf loc =
   setup_colors ();
   let file_valid = function
@@ -814,6 +777,13 @@ let default_report_printer () : report_printer =
     batch_mode_printer
 
 let report_printer = ref default_report_printer
+
+let log_report log report =
+  let open Error_report in
+  log.%[["kind"]] <- report.kind;
+  log.%[["main"]] <- report.main;
+  log.%[["sub"]] <- report.main;
+
 
 let print_report ppf report =
   let printer = !report_printer () in
