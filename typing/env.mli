@@ -447,9 +447,10 @@ type error =
 exception Error of error
 
 
-val report_error: Format_doc.Compat.doc_fmt -> error -> unit
+val report_error: Format_doc.doc_fmt -> error -> unit
 
-val report_lookup_error: Location.t -> t -> Format_doc.Compat.doc_fmt -> lookup_error -> unit
+val report_lookup_error:
+  Location.t -> t -> Format_doc.doc_fmt -> lookup_error -> unit
 
 val in_signature: bool -> t -> t
 
@@ -480,9 +481,9 @@ val strengthen:
 (* Forward declaration to break mutual recursion with Ctype. *)
 val same_constr: (t -> type_expr -> type_expr -> bool) ref
 (* Forward declaration to break mutual recursion with Printtyp. *)
-val print_longident: Longident.t Format_doc.Compat.generic_printer ref
+val print_longident: Longident.t Format_doc.generic_printer ref
 (* Forward declaration to break mutual recursion with Printtyp. *)
-val print_path: Path.t Format_doc.Compat.generic_printer ref
+val print_path: Path.t Format_doc.generic_printer ref
 
 
 (** Folds *)

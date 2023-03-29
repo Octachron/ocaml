@@ -19,7 +19,7 @@ open Asttypes
 open Typedtree
 open Types
 module Real_format = Format
-module Format = Format_doc.Compat
+module Format = Format_doc
 open Format
 
 let is_cons = function
@@ -157,9 +157,9 @@ type 'k matrix = 'k general_pattern list list
 
 let pretty_line fmt =
   List.iter (fun p ->
-    Format_doc.Compat.fprintf fmt " <";
+    Format_doc.fprintf fmt " <";
     top_pretty fmt p;
-    Format_doc.Compat.fprintf fmt ">";
+    Format_doc.fprintf fmt ">";
   )
 
 let pretty_matrix fmt (pss : 'k matrix) =

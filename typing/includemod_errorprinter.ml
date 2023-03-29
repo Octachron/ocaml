@@ -14,7 +14,7 @@
 (**************************************************************************)
 
 module Real_format = Format
-module Format = Format_doc.Compat
+module Format = Format_doc
 
 module Context = struct
   type pos =

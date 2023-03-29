@@ -815,7 +815,7 @@ let transl_type_scheme env styp =
 
 (* Error report *)
 
-open Format_doc.Compat
+open Format_doc
 open Printtyp
 
 let report_error env ppf = function

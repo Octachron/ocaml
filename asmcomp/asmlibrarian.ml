@@ -69,7 +69,7 @@ let create_archive file_list lib_name =
        then raise(Error(Archiver_error archive_name));
     )
 
-open Format_doc.Compat
+open Format_doc
 
 let report_error ppf = function
   | File_not_found name ->

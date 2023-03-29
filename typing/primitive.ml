@@ -17,7 +17,7 @@
 
 open Misc
 open Parsetree
-module Format = Format_doc.Compat
+module Format = Format_doc
 
 type boxed_integer = Pnativeint | Pint32 | Pint64
 

@@ -25,4 +25,4 @@ type error = Tags of string * string
 
 exception Error of Location.t * error
 
-val report_error: (error,'impl) Format_doc.Compat.printer
+val report_error: (error,'impl) Format_doc.printer

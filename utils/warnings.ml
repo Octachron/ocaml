@@ -932,7 +932,9 @@ let message = function
       ^ String.concat " " l ^ "."
   | Unerasable_optional_argument -> "this optional argument cannot be erased."
   | Undeclared_virtual_method m -> "the virtual method "^m^" is not declared."
-  | Not_principal msg -> Format_doc.Compat.asprintf "%a is not principal." Format_doc.Compat.pp_doc msg
+  | Not_principal msg ->
+      Format_doc.asprintf "%a is not principal."
+        Format_doc.pp_doc msg
   | Non_principal_labels s -> s^" without principality."
   | Ignored_extra_argument -> "this argument will not be used by the function."
   | Nonreturning_statement ->

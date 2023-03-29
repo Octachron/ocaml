@@ -90,7 +90,7 @@ type error =
 
 exception Error of Location.t * Env.t * error
 
-val report_error: Env.t -> (error,'impl) Format_doc.Compat.printer
+val report_error: Env.t -> (error,'impl) Format_doc.printer
 
 (* Support for first-class modules. *)
 val transl_modtype_longident:  (* from Typemod *)

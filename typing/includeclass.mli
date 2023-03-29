@@ -29,4 +29,5 @@ val class_declarations:
   class_match_failure list
 
 val report_error :
-  Printtyp.type_or_scheme -> (class_match_failure list, 'impl) Format_doc.Compat.printer
+  Printtyp.type_or_scheme ->
+  (class_match_failure list, 'impl) Format_doc.printer

@@ -58,7 +58,7 @@ type 'a full_class = {
   req: 'a Typedtree.class_infos;
 }
 
-open Format_doc.Compat
+open Format_doc
 
 
 type kind =
@@ -1966,12 +1966,15 @@ let approx_class_declarations env sdecls =
 
 (* Error report *)
 
-open Format_doc.Compat
+open Format_doc
 
 let non_virtual_string_of_kind = function
   | Object -> "object"
   | Class -> "non-virtual class"
   | Class_type -> "non-virtual class type"
+
+let out_type ppf t = Oprint.(print out_type) ppf t
+let out_type_args ppf t = Oprint.(print out_type_args) ppf t
 
 let report_error env ppf = function
   | Repeated_parameter ->
@@ -2022,9 +2025,9 @@ let report_error env ppf = function
       Printtyp.prepare_for_printing [abbrev; actual; expected];
       fprintf ppf "@[The abbreviation@ %a@ expands to type@ %a@ \
        but is used with type@ %a@]"
-        Oprint.(print out_type) (Printtyp.tree_of_typexp Type abbrev)
-        Oprint.(print out_type) (Printtyp.tree_of_typexp Type actual)
-        Oprint.(print out_type) (Printtyp.tree_of_typexp Type expected)
+        out_type (Printtyp.tree_of_typexp Type abbrev)
+        out_type (Printtyp.tree_of_typexp Type actual)
+        out_type (Printtyp.tree_of_typexp Type expected)
   | Constructor_type_mismatch (c, err) ->
       let msg = Format_doc.Immutable.msg in
       Printtyp.report_unification_error ppf env err
@@ -2065,17 +2068,17 @@ let report_error env ppf = function
         "@[The abbreviation %a@ is used with parameter(s)@ %a@ \
            which are incompatible with constraint(s)@ %a@]"
         Printtyp.ident id
-        Oprint.(print out_type_args) (List.map (Printtyp.tree_of_typexp Type) params)
-        Oprint.(print out_type_args) (List.map (Printtyp.tree_of_typexp Type) cstrs)
+        out_type_args (List.map (Printtyp.tree_of_typexp Type) params)
+        out_type_args (List.map (Printtyp.tree_of_typexp Type) cstrs)
   | Bad_class_type_parameters (id, params, cstrs) ->
       Printtyp.prepare_for_printing (params @ cstrs);
       fprintf ppf
         "@[The class type #%a@ is used with parameter(s)@ %a,@ \
-           whereas the class type definition@ constrains@ \
-           those parameters to be@ %a@]"
+         whereas the class type definition@ constrains@ \
+         those parameters to be@ %a@]"
         Printtyp.ident id
-       Oprint.(print out_type_args) (List.map (Printtyp.tree_of_typexp Type) params)
-        Oprint.(print out_type_args)(List.map (Printtyp.tree_of_typexp Type) cstrs)
+        out_type_args (List.map (Printtyp.tree_of_typexp Type) params)
+        out_type_args(List.map (Printtyp.tree_of_typexp Type) cstrs)
   | Class_match_failure error ->
       Includeclass.report_error Type ppf error
   | Unbound_val lab ->
@@ -2093,8 +2096,8 @@ let report_error env ppf = function
         fprintf ppf
           "The method %s@ has type@;<1 2>%a@ where@ %a@ is unbound"
           meth
-          Oprint.(print out_type) (Printtyp.tree_of_typexp Type meth_ty)
-          Oprint.(print out_type) (Printtyp.tree_of_typexp Type ty0)
+          out_type (Printtyp.tree_of_typexp Type meth_ty)
+          out_type (Printtyp.tree_of_typexp Type ty0)
       in
       fprintf ppf
         "@[<v>@[Some type variables are unbound in this type:@;<1 2>%a@]@ \

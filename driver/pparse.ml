@@ -13,7 +13,7 @@
 (*                                                                        *)
 (**************************************************************************)
 
-open Format_doc.Compat
+open Format_doc
 
 type error =
   | CannotRun of string

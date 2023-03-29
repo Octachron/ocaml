@@ -203,10 +203,10 @@ type type_mismatch =
   | Immediate of Type_immediacy.Violation.t
 
 
-module Format = Format_doc.Compat
+module Format = Format_doc
 
 let report_primitive_mismatch first second ppf err =
-  let pr fmt = Format_doc.Compat.fprintf ppf fmt in
+  let pr fmt = Format_doc.fprintf ppf fmt in
   match (err : primitive_mismatch) with
   | Name ->
       pr "The names of the primitives are not the same"
@@ -226,7 +226,7 @@ let report_primitive_mismatch first second ppf err =
         n (Misc.ordinal_suffix n)
 
 let report_value_mismatch first second env ppf err =
-  let pr fmt = Format_doc.Compat.fprintf ppf fmt in
+  let pr fmt = Format_doc.fprintf ppf fmt in
   pr "@ ";
   match (err : value_mismatch) with
   | Primitive_mismatch pm ->

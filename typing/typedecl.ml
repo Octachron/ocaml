@@ -1827,7 +1827,7 @@ let check_recmod_typedecl env loc recmod_ids path decl =
 
 (**** Error report ****)
 
-open Format_doc.Compat
+open Format_doc
 
 let explain_unbound_gen ppf tv tl typ kwd pr =
   try
@@ -1897,7 +1897,7 @@ module Reaching_path = struct
           List.iter Printtyp.add_type_to_preparation [ty1; ty2]
     ) path
 
-  module Format = Format_doc.Compat
+  module Format = Format_doc
   let pp ppf reaching_path =
     let pp_step ppf = function
       | Expands_to (ty, body) ->
@@ -2143,7 +2143,7 @@ let report_error ppf = function
          it should not occur deeply into its type.@]"
         (match kind with Unboxed -> "@unboxed" | Untagged -> "@untagged")
   | Immediacy (Typedecl_immediacy.Bad_immediacy_attribute violation) ->
-      fprintf ppf "@[%a@]" Format_doc.Compat.pp_print_text
+      fprintf ppf "@[%a@]" Format_doc.pp_print_text
         (match violation with
          | Type_immediacy.Violation.Not_always_immediate ->
              "Types marked with the immediate attribute must be \
@@ -2171,7 +2171,7 @@ let report_error ppf = function
       fprintf ppf
         "@[GADT case syntax cannot be used in a 'nonrec' block.@]"
   | Invalid_private_row_declaration ty ->
-      Format_doc.Compat.fprintf ppf
+      Format_doc.fprintf ppf
         "@[<hv>This private row type declaration is invalid.@ \
          The type expression on the right-hand side reduces to@;<1 2>%a@ \
          which does not have a free row type variable.@]@,\

@@ -45,7 +45,7 @@ type error =
   | Asm_generation of string * Emitaux.error
 
 exception Error of error
-val report_error: (error,'impl) Format_doc.Compat.printer
+val report_error: (error,'impl) Format_doc.printer
 
 val compile_unit
    : output_prefix:string

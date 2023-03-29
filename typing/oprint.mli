@@ -15,10 +15,10 @@
 
 open Outcometree
 
-type 'a printer = 'a Format_doc.Compat.generic_printer ref
+type 'a printer = 'a Format_doc.generic_printer ref
 type 'a toplevel_printer = (Format.formatter -> 'a -> unit) ref
 
-val print: 'a printer -> ('a,'impl) Format_doc.Compat.printer
+val print: 'a printer -> ('a,'impl) Format_doc.printer
 val out_ident: out_ident printer
 val out_value : out_value toplevel_printer
 val out_label : (string * bool * out_type ) printer

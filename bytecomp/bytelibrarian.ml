@@ -113,7 +113,7 @@ let create_archive file_list lib_name =
        output_binary_int outchan pos_toc;
     )
 
-open Format_doc.Compat
+open Format_doc
 
 let report_error ppf = function
   | File_not_found name ->

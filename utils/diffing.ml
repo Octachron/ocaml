@@ -43,7 +43,7 @@ let style = function
 
 let prefix ppf (pos, p) =
   let sty = style p in
-  let module Format = Format_doc.Compat in
+  let module Format = Format_doc in
   Format.pp_open_stag ppf (Misc.Color.Style sty);
   Format.fprintf ppf "%i. " pos;
   Format.pp_close_stag ppf ()

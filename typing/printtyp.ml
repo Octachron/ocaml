@@ -30,8 +30,8 @@ module Sig_component_kind = Shape.Sig_component_kind
 
 (* Print a long identifier *)
 
-module Format = Format_doc.Compat
-open Format_doc.Compat
+module Format = Format_doc
+open Format_doc
 
 let rec longident ppf = function
   | Lident s -> pp_print_string ppf s
@@ -39,7 +39,7 @@ let rec longident ppf = function
   | Lapply(p1, p2) -> fprintf ppf "%a(%a)" longident p1 longident p2
 
 
-let () = Env.print_longident := { Format_doc.Compat.printer = longident }
+let () = Env.print_longident := { Format_doc.printer = longident }
 
 (* Print an identifier avoiding name collisions *)
 
@@ -442,7 +442,7 @@ let strings_of_paths namespace p =
   let trees = List.map (tree_of_path namespace) p in
   List.map (Format.asprintf "%a" !Oprint.out_ident.printer) trees
 
-let () = Env.print_path := { Format_doc.Compat.printer = path }
+let () = Env.print_path := { Format_doc.printer = path }
 
 (* Print a recursive annotation *)
 
@@ -460,7 +460,7 @@ let string_of_label = function
 
 module Raw = struct
   open Final_format
-  let path = Format_doc.Compat.format_printer path
+  let path = Format_doc.format_printer path
 let raw_list pr ppf = function
     [] -> fprintf ppf "[]"
   | a :: l ->
@@ -1619,7 +1619,8 @@ let tree_of_extension_constructor id ext es =
   prepared_tree_of_extension_constructor id ext es
 
 let extension_constructor id ppf ext =
-  Oprint.(print out_sig_item) ppf (tree_of_extension_constructor id ext Text_first)
+  Oprint.(print out_sig_item) ppf
+    (tree_of_extension_constructor id ext Text_first)
 
 let prepared_extension_constructor id ppf ext =
   Oprint.(print out_sig_item) ppf
@@ -2054,16 +2055,16 @@ let printed_signature sourcefile ppf sg =
   if Warnings.(is_active @@ Erroneous_printed_signature "")
   && Conflicts.exists ()
   then begin
-    let conflicts =
-      Final_format.asprintf "%t"
-        (fun ppf -> Conflicts.print_explanations (Format_doc.Compat.make_formatter ppf))
+    let printer ppf =
+      Conflicts.print_explanations (Format_doc.make_formatter ppf)
     in
+    let conflicts = Final_format.asprintf "%t" printer in
     Location.prerr_warning (Location.in_file sourcefile)
       (Warnings.Erroneous_printed_signature conflicts);
     Warnings.check_fatal ()
   end;
   Final_format.fprintf ppf "%a"
-    (Format_doc.Compat.format_printer print_signature) t
+    (Format_doc.format_printer print_signature) t
 
 (* Trace-specific printing *)
 
@@ -2455,7 +2456,8 @@ let warn_on_missing_defs env ppf = function
       warn_on_missing_def env ppf te2
 
 (* [subst] comes out of equality, and is [[]] otherwise *)
-let error (type i) trace_format mode subst env tr txt1 (ppf: i formatter) txt2 ty_expect_explanation =
+let error (type i) trace_format mode subst env tr txt1 (ppf: i formatter)
+    txt2 ty_expect_explanation =
   reset ();
   (* We want to substitute in the opposite order from [Eqtype] *)
   Names.add_subst (List.map (fun (ty1,ty2) -> ty2,ty1) subst);

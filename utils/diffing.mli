@@ -79,7 +79,7 @@ type change_kind =
   | Insertion
   | Modification
   | Preservation
-val prefix: (int * change_kind, 'impl) Format_doc.Compat.printer
+val prefix: (int * change_kind, 'impl) Format_doc.printer
 val style: change_kind -> Misc.Color.style list
 
 

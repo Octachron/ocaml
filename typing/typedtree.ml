@@ -856,19 +856,19 @@ let split_pattern pat =
 
 
 let nominal_exp_doc t =
-  let longident l = Format_doc.Compat.doc_printer Printtyp.longident l.Location.txt in
+  let longident l = Format_doc.doc_printer Printtyp.longident l.Location.txt in
   let rec nominal_exp_doc doc exp =
     match exp.exp_desc with
     | _ when exp.exp_attributes <> [] -> None
     | Texp_ident (_,l,_) ->
         Some (longident l doc)
     | Texp_instvar (_,_,s) ->
-        Some (Format_doc.string s.Location.txt doc)
+        Some (Format_doc.Immutable.string s.Location.txt doc)
     | Texp_constant _ -> assert false
     | Texp_variant (lbl, None) ->
         Some (Format_doc.Immutable.printf "`%s" lbl doc)
     | Texp_construct (l, _, []) ->
-        Some (Format_doc.Compat.doc_printer Printtyp.longident l.Location.txt doc)
+        Some (Format_doc.doc_printer Printtyp.longident l.Location.txt doc)
     | Texp_field (parent, lbl, _) ->
         Option.map
           (Format_doc.Immutable.printf ".%t" (longident lbl))

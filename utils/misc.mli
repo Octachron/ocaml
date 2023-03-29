@@ -423,7 +423,7 @@ val spellcheck : string list -> string -> string list
 
 
 val did_you_mean :
-  'any Format_doc.Compat.formatter -> (unit -> string list) -> unit
+  'any Format_doc.formatter -> (unit -> string list) -> unit
 (** [did_you_mean ppf get_choices] hints that the user may have meant
     one of the option returned by calling [get_choices]. It does nothing
     if the returned list is empty.

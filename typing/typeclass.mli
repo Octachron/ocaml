@@ -123,7 +123,7 @@ type error =
 exception Error of Location.t * Env.t * error
 exception Error_forward of Location.error
 
-val report_error : Env.t -> (error, _) Format_doc.Compat.printer
+val report_error : Env.t -> (error, _) Format_doc.printer
 
 (* Forward decl filled in by Typemod.type_open_descr *)
 val type_open_descr :

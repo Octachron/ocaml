@@ -308,7 +308,7 @@ let rec print_coercion ppf c =
         Printtyp.raw_type_expr pc_type
   | Tcoerce_alias (_, p, c) ->
       pr "@[<2>alias %a@ (%a)@]"
-        (Format_doc.Compat.format_printer Printtyp.path) p
+        (Format_doc.compat Printtyp.path) p
         print_coercion c
 and print_coercion2 ppf (n, c) =
   Format.fprintf ppf "@[%d,@ %a@]" n print_coercion c

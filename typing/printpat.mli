@@ -18,10 +18,10 @@
 val pretty_const
     : Asttypes.constant -> string
 val top_pretty
-    : ('k Typedtree.general_pattern, 'impl) Format_doc.Compat.printer
+    : ('k Typedtree.general_pattern, 'impl) Format_doc.printer
 val pretty_pat
     : 'k Typedtree.general_pattern -> unit
 val pretty_line
-    : ('k Typedtree.general_pattern list, 'impl) Format_doc.Compat.printer
+    : ('k Typedtree.general_pattern list, 'impl) Format_doc.printer
 val pretty_matrix
-    : ('k Typedtree.general_pattern list list, 'impl) Format_doc.Compat.printer
+    : ('k Typedtree.general_pattern list list, 'impl) Format_doc.printer

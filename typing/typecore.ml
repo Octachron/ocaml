@@ -759,7 +759,7 @@ let solve_Ppat_construct ~refine env loc constr no_existentials
           generalize_structure t2;
           if not (fully_generic t1 && fully_generic t2) then
             let msg =
-              Format_doc.Compat.doc_printf
+              Format_doc.doc_printf
                 "typing this pattern requires considering@ %a@ and@ %a@ as \
                 equal.@,\
                 But the knowledge of these types"
@@ -988,7 +988,7 @@ end) = struct
       Printtyp.Conflicts.reset ();
       let paths = ambiguous_types env lbl rest in
       let expansion =
-        Format_doc.Compat.asprintf "%t" Printtyp.Conflicts.print_explanations in
+        Format_doc.asprintf "%t" Printtyp.Conflicts.print_explanations in
       if paths <> [] then
         warn lid.loc
           (Warnings.Ambiguous_name ([Longident.last lid.txt],
@@ -5538,8 +5538,8 @@ let spellcheck ppf unbound_name valid_names =
 let spellcheck_idents ppf unbound valid_idents =
   spellcheck ppf (Ident.name unbound) (List.map Ident.name valid_idents)
 
-open Format_doc.Compat
-module Format = Format_doc.Compat
+open Format_doc
+module Format = Format_doc
 
 let longident = Printtyp.longident
 
@@ -5781,14 +5781,15 @@ let report_error ~loc env =
       let type_name = Datatype_kind.type_name kind in
       let name = Datatype_kind.label_name kind in
       Location.error_of_printer ~loc (fun ppf () ->
-        Printtyp.report_ambiguous_type_error ppf env tp tpl
-          (Format.doc_printf"The %s %a@ belongs to the %s type"
+          Printtyp.report_ambiguous_type_error ppf env tp tpl
+            (Format.doc_printf"The %s %a@ belongs to the %s type"
                name longident lid type_name)
-          (Format.doc_printf "The %s %a@ belongs to one of the following %s types:"
+            (Format.doc_printf
+               "The %s %a@ belongs to one of the following %s types:"
                name longident lid type_name)
-          (Format.doc_printf "but a %s was expected belonging to the %s type"
+            (Format.doc_printf "but a %s was expected belonging to the %s type"
                name type_name)
-      ) ()
+        ) ()
   | Invalid_format msg ->
       Location.errorf ~loc "%s" msg
   | Not_an_object (ty, explanation) ->

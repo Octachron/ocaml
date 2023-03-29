@@ -16,7 +16,7 @@
 (**************************************************************************)
 
 open Types
-open Format_doc.Compat
+open Format_doc
 
 type position = First | Second
 

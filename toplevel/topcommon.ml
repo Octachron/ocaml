@@ -384,7 +384,7 @@ let try_run_directive ppf dir_name pdir_arg =
 (* Overriding exception printers with toplevel-specific ones *)
 
 let loading_hint_printer ppf s =
-  let open Format_doc.Compat in
+  let open Format_doc in
   Symtable.report_error ppf (Symtable.Undefined_global s);
   let find_with_ext ext =
     try Some (Load_path.find_uncap (s ^ ext)) with Not_found -> None

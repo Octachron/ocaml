@@ -309,7 +309,7 @@ let compile_implementation_linear output_prefix ~progname =
 
 (* Error report *)
 let report_error ppf =
-  let fprintf = Format_doc.Compat.fprintf in
+  let fprintf = Format_doc.fprintf in
   function
   | Assembler_error file ->
       fprintf ppf "Assembler error, input left in file %a"

@@ -15,7 +15,7 @@
 
 (* Printing functions *)
 
-open Format_doc.Compat
+open Format_doc
 open Types
 open Outcometree
 
@@ -177,8 +177,8 @@ val tree_of_modtype_declaration:
 *)
 val functor_parameters:
   sep:(unit, 'impl) printer ->
-  ('b -> 'impl Format_doc.Compat.formatter -> unit) ->
-  (Ident.t option * 'b) list -> 'impl Format_doc.Compat.formatter -> unit
+  ('b -> 'impl Format_doc.formatter -> unit) ->
+  (Ident.t option * 'b) list -> 'impl Format_doc.formatter -> unit
 
 type type_or_scheme = Type | Type_scheme
 

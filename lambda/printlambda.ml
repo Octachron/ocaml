@@ -113,7 +113,7 @@ let record_rep ppf r =
   | Record_float -> fprintf ppf "float"
   | Record_extension path ->
       fprintf ppf "ext(%a)"
-        (Format_doc.Compat.format_printer Printtyp.path) path
+        (Format_doc.format_printer Printtyp.path) path
 
 let block_shape ppf shape = match shape with
   | None | Some [] -> ()

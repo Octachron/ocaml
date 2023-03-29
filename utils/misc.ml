@@ -583,12 +583,12 @@ let did_you_mean ppf get_choices =
      where the search in the get_choices function would take a bit of
      time; in the worst case, the user has seen the error, she can
      interrupt the process before the spell-checking terminates. *)
-  Format_doc.Compat.fprintf ppf "@?";
+  Format_doc.fprintf ppf "@?";
   match get_choices () with
   | [] -> ()
   | choices ->
      let rest, last = split_last choices in
-     Format_doc.Compat.fprintf ppf "@\n@{<hint>Hint@}: Did you mean %s%s%s?@?"
+     Format_doc.fprintf ppf "@\n@{<hint>Hint@}: Did you mean %s%s%s?@?"
        (String.concat ", " rest)
        (if rest = [] then "" else " or ")
        last

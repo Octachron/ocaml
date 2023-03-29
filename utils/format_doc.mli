@@ -51,50 +51,54 @@ val fold: ('acc -> element -> 'acc) -> 'acc -> doc -> 'acc
 
 module Immutable: sig
   type ('a,'b) fmt = ('a, doc, doc,'b) format4
+
   type printer = doc -> doc
+
   val printf: ('a, printer) fmt -> 'a
   val msg: ('a,doc) fmt -> 'a
   val kmsg: (doc -> 'b) -> ('a,'b) fmt -> 'a
   val kprintf: (doc -> 'b) -> ('a, doc -> 'b) fmt -> 'a
+
+  val open_box: box_type -> int -> printer
+  val close_box: printer
+
+  val text: string -> printer
+  val string: string -> printer
+  val bytes: bytes -> printer
+  val with_size: int -> printer
+
+  val int: int -> printer
+  val float: float -> printer
+  val char: char -> printer
+  val bool: bool -> printer
+
+  val space: printer
+  val cut: printer
+  val break: spaces:int -> indent:int -> printer
+
+  val custom_break:
+    fits:(string * int * string as 'a) -> breaks:'a -> printer
+  val force_newline: printer
+  val if_newline: printer
+
+  val flush: printer
+  val force_stop: printer
+
+  val open_tbox: printer
+  val set_tab: printer
+  val tab: printer
+  val tab_break: width:int -> offset:int -> printer
+  val close_tbox: printer
+
+  val open_tag: stag -> printer
+  val close_tag: printer
+
+  val list:
+    ?sep:(doc->doc) -> ('a -> printer) -> 'a list -> printer
+
+  val option: ?none:(doc->doc) -> ('a -> doc -> doc) -> 'a option -> doc -> doc
+
 end
-
-
-val open_box: box_type -> int -> Immutable.printer
-val close_box: Immutable.printer
-
-val text: string -> Immutable.printer
-val string: string -> Immutable.printer
-val bytes: bytes -> Immutable.printer
-val with_size: int -> Immutable.printer
-
-val int: int -> Immutable.printer
-val float: float -> Immutable.printer
-val char: char -> Immutable.printer
-val bool: bool -> Immutable.printer
-
-val space: Immutable.printer
-val cut: Immutable.printer
-val break: spaces:int -> indent:int -> Immutable.printer
-
-val custom_break:
-  fits:(string * int * string as 'a) -> breaks:'a -> Immutable.printer
-val force_newline: Immutable.printer
-val if_newline: Immutable.printer
-
-val flush: Immutable.printer
-val force_stop: Immutable.printer
-
-val open_tbox: Immutable.printer
-val set_tab: Immutable.printer
-val tab: Immutable.printer
-val tab_break: width:int -> offset:int -> Immutable.printer
-val close_tbox: Immutable.printer
-
-val open_tag: stag -> Immutable.printer
-val close_tag: Immutable.printer
-
-val list:
-  ?sep:(doc->doc) -> ('a -> Immutable.printer) -> 'a list -> Immutable.printer
 
  (*
 val iter: ?sep:(doc -> doc)
@@ -108,7 +112,6 @@ val seq: ?sep:(doc->doc) -> ('a -> doc -> 'doc) -> 'a Seq.t -> doc -> doc
 
 val text: string -> doc -> doc
 
-val option: ?none:(doc->doc) -> ('a -> doc -> doc) -> 'a option -> doc -> doc
 val result: ok:('a -> doc -> doc) -> error:('b -> doc -> doc) ->
   ('a,'b) result -> doc -> doc
 
@@ -125,80 +128,79 @@ module Ref: sig
   val kprintf: (doc ref -> 'b) -> doc ref -> ('a, 'b) fmt -> 'a
 end
 
+type _ formatter
+type rdoc
+type doc_fmt = rdoc formatter
 
 
-module Compat: sig
+type ('a,'impl) printer = 'impl formatter -> 'a -> unit
+type 'a final_printer = ('a, Format.formatter) printer
+type 'a generic_printer = { printer: 'impl. ('a,'impl) printer }
 
-  type _ formatter
-  type rdoc
-  type doc_fmt = rdoc formatter
+val make_formatter: Format.formatter -> Format.formatter formatter
+val formatter_of_out_channel: out_channel -> Format.formatter formatter
+val make_doc: doc ref -> doc_fmt
+val compat: ('a,Format.formatter) printer -> Format.formatter -> 'a -> unit
 
-  val make_formatter: Format.formatter -> Format.formatter formatter
-  val formatter_of_out_channel: out_channel -> Format.formatter formatter
-  val make_doc: doc ref -> doc_fmt
-
-  val doc: doc_fmt -> doc
-  val formatter: Format.formatter formatter -> Format.formatter
-
-
-  val fprintf : 'impl formatter -> ('a,'impl formatter,unit) format -> 'a
-  val kfprintf:
-    ('impl formatter -> 'a) -> 'impl formatter ->
-    ('b, 'impl formatter, unit, 'a) format4 -> 'b
+val doc: doc_fmt -> doc
+val formatter: Format.formatter formatter -> Format.formatter
 
 
-  val asprintf :  ('a, Format.formatter formatter, unit, string) format4 -> 'a
-  val kasprintf : (string -> 'a) ->
-    ('b, Format.formatter formatter, unit, 'a) format4 -> 'b
+val fprintf : 'impl formatter -> ('a,'impl formatter,unit) format -> 'a
+val kfprintf:
+  ('impl formatter -> 'a) -> 'impl formatter ->
+  ('b, 'impl formatter, unit, 'a) format4 -> 'b
 
 
-  val dprintf : ('a,'impl formatter, unit, 'impl formatter -> unit) format4 -> 'a
-  val kdprintf:
-    (('impl formatter -> unit) -> 'a) ->
-    ('b, 'impl formatter, unit, 'a) format4 -> 'b
-
-  val doc_printf: ('a, rdoc formatter, unit, doc) format4 -> 'a
+val asprintf :  ('a, Format.formatter formatter, unit, string) format4 -> 'a
+val kasprintf : (string -> 'a) ->
+  ('b, Format.formatter formatter, unit, 'a) format4 -> 'b
 
 
-  type ('a,'impl) printer = 'impl formatter -> 'a -> unit
-  type 'a final_printer = ('a, Format.formatter) printer
-  type 'a generic_printer = { printer: 'impl. ('a,'impl) printer }
+val dprintf : ('a,'impl formatter, unit, 'impl formatter -> unit) format4 -> 'a
+val kdprintf:
+  (('impl formatter -> unit) -> 'a) ->
+  ('b, 'impl formatter, unit, 'a) format4 -> 'b
 
-  val format_printer: 'a final_printer -> Format.formatter -> 'a -> unit
-  val doc_printer:('a, rdoc) printer -> 'a -> Immutable.printer
-
-
-  val pp_doc: (doc,_) printer
-
-  val pp_print_string: (string,_) printer
-  val pp_print_text: (string,_) printer
-  val pp_print_char: (char,_) printer
-  val pp_print_int: (int,_) printer
-  val pp_print_float: (float,_) printer
+val doc_printf: ('a, rdoc formatter, unit, doc) format4 -> 'a
 
 
-  val pp_print_list:
-    ?pp_sep:(unit,'impl) printer -> ('a,'impl) printer -> ('a list, 'impl) printer
+
+val format_printer: 'a final_printer -> Format.formatter -> 'a -> unit
+val doc_printer:('a, rdoc) printer -> 'a -> Immutable.printer
 
 
-  val pp_print_option:
-    ?none:(unit,'impl) printer -> ('a,'impl) printer -> ('a option, 'impl) printer
-  val pp_open_stag: (Format.stag,_) printer
-  val pp_close_stag: (unit,_) printer
+val pp_doc: (doc,_) printer
 
-  val pp_open_box: (int,_) printer
-  val pp_close_box: (unit,_) printer
-
-  val pp_print_space: (unit,_) printer
-  val pp_print_cut: (unit,_) printer
-  val pp_print_break: _ formatter -> int -> int -> unit
+val pp_print_string: (string,_) printer
+val pp_print_text: (string,_) printer
+val pp_print_char: (char,_) printer
+val pp_print_int: (int,_) printer
+val pp_print_float: (float,_) printer
 
 
-  val pp_open_tbox: (unit,_) printer
-  val pp_close_tbox: (unit,_) printer
-  val pp_set_tab: (unit,_) printer
-  val pp_print_tab: (unit,_) printer
-  val pp_print_tbreak: 'impl formatter -> int -> int -> unit
+val pp_print_list:
+  ?pp_sep:(unit,'impl) printer -> ('a,'impl) printer -> ('a list, 'impl) printer
+
+
+val pp_print_option:
+  ?none:(unit,'impl) printer -> ('a,'impl) printer -> ('a option, 'impl) printer
+val pp_open_stag: (Format.stag,_) printer
+val pp_close_stag: (unit,_) printer
+
+val pp_open_box: (int,_) printer
+val pp_close_box: (unit,_) printer
+
+val pp_print_space: (unit,_) printer
+val pp_print_cut: (unit,_) printer
+val pp_print_break: _ formatter -> int -> int -> unit
+
+
+val pp_open_tbox: (unit,_) printer
+val pp_close_tbox: (unit,_) printer
+val pp_set_tab: (unit,_) printer
+val pp_print_tab: (unit,_) printer
+val pp_print_tbreak: 'impl formatter -> int -> int -> unit
 
 
 (** {1 Compiler output} *)
@@ -229,8 +231,3 @@ val pp_two_columns :
     bb  | dddddd
     v}
 *)
-
-end
-
-
-val compat: ('a,Format.formatter) Compat.printer -> Format.formatter -> 'a -> unit

@@ -276,7 +276,7 @@ let package_files ~ppf_dump initial_env files targetcmx ~backend =
 
 (* Error report *)
 
-open Format_doc.Compat
+open Format_doc
 
 let report_error ppf = function
     Illegal_renaming(name, file, id) ->

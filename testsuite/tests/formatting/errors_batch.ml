@@ -2,7 +2,7 @@
    include ocamlcommon
 *)
 
-module Fmt = Format_doc.Compat
+module Fmt = Format_doc
 
 let () =
   let open Location in

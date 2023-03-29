@@ -20,7 +20,7 @@
 
 *)
 
-module Fmt = Format_doc.Compat
+module Fmt = Format_doc
 
 type t = Warnings.loc = {
   loc_start: Lexing.position;
@@ -110,9 +110,9 @@ module Compat: sig
   val print_locs: Format.formatter -> t list -> unit
 end
 
-val print_filename: (string, 'impl) Format_doc.Compat.printer
-val print_loc: (t, 'impl) Format_doc.Compat.printer
-val print_locs: (t list, 'impl) Format_doc.Compat.printer
+val print_filename: (string, 'impl) Format_doc.printer
+val print_loc: (t, 'impl) Format_doc.printer
+val print_locs: (t list, 'impl) Format_doc.printer
 
 (** {1 Toplevel-specific location highlighting} *)
 

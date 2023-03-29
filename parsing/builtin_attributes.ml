@@ -39,7 +39,7 @@ let error_of_extension ext =
         | PStr([{pstr_desc=Pstr_eval
                      ({pexp_desc=Pexp_constant(Pconst_string(msg,_,_))}, _)}
                ]) ->
-            { Location.loc; txt = Format_doc.(text msg empty) }
+            { Location.loc; txt = Format_doc.(Immutable.text msg empty) }
         | _ ->
             let txt =
               pmsg "Invalid syntax for sub-message of extension '%s'." main_txt
@@ -60,7 +60,7 @@ let error_of_extension ext =
                   ({pexp_desc=Pexp_constant(Pconst_string(msg,_,_))}, _)}::
              inner) ->
           let sub = List.map (submessage_from loc txt) inner in
-          Location.error_of_printer ~loc ~sub Format_doc.Compat.pp_print_text msg
+          Location.error_of_printer ~loc ~sub Format_doc.pp_print_text msg
       | _ ->
           Location.errorf ~loc "Invalid syntax for extension '%s'." txt
       end

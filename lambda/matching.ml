@@ -95,9 +95,9 @@ open Lambda
 open Parmatch
 open Printf
 
-let pretty_line = Format_doc.Compat.format_printer Printpat.pretty_line
-let pretty_matrix = Format_doc.Compat.format_printer Printpat.pretty_matrix
-let top_pretty = Format_doc.Compat.format_printer Printpat.top_pretty
+let pretty_line = Format_doc.format_printer Printpat.pretty_line
+let pretty_matrix = Format_doc.format_printer Printpat.pretty_matrix
+let top_pretty = Format_doc.format_printer Printpat.top_pretty
 let pretty_pat = Printpat.pretty_pat
 
 

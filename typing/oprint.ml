@@ -17,7 +17,7 @@ open Outcometree
 
 exception Ellipsis
 
-open Format_doc.Compat
+open Format_doc
 
 
 let print ref x = !ref.printer x
@@ -349,12 +349,13 @@ and print_simple_out_type: type i. (out_type,i) printer = fun ppf ->
       fprintf ppf ")@]"
   | Otyp_attribute (t, attr) ->
       fprintf ppf "@[<1>(%a [@@%s])@]" print_out_type t attr.oattr_name
-and print_record_decl: type i. ((string * bool * Outcometree.out_type) list, i) printer =
+and print_record_decl: type i.
+  ((string * bool * Outcometree.out_type) list, i) printer =
   fun ppf lbls ->
   fprintf ppf "{%a@;<1 -2>}"
     (print_list_init print_out_label (fun ppf -> fprintf ppf "@ ")) lbls
-and print_fields: type i. _ -> ((string * out_type) list, i) printer = fun rest ppf ->
-  function
+and print_fields: type i. _ -> ((string * out_type) list, i) printer =
+  fun rest ppf -> function
     [] ->
       begin match rest with
         Some non_gen -> fprintf ppf "%s.." (if non_gen then "_" else "")
@@ -377,7 +378,8 @@ and print_row_field: type i. (_, i) printer = fun ppf (l, opt_amp, tyl) ->
   in
   fprintf ppf "@[<hv 2>`%s%t%a@]" l pr_of (print_typlist print_out_type " &")
     tyl
-and print_typlist: type i. (out_type,i) printer -> string -> (out_type list,i) printer =
+and print_typlist: type i.
+  (out_type,i) printer -> string -> (out_type list,i) printer =
   fun print_elem sep ppf ->
   function
     [] -> ()
@@ -473,10 +475,12 @@ let out_class_type = ref { printer = print_out_class_type }
 
 (* Signature *)
 
-let out_module_type = ref { printer = (fun _ -> failwith "Oprint.out_module_type")}
+let out_module_type =
+  ref { printer = (fun _ -> failwith "Oprint.out_module_type")}
 let out_sig_item = ref  { printer = (fun _ -> failwith "Oprint.out_sig_item")}
 let out_signature = ref { printer = (fun _ -> failwith "Oprint.out_signature")}
-let out_type_extension = ref { printer = (fun _ -> failwith "Oprint.out_type_extension")}
+let out_type_extension =
+  ref { printer = (fun _ -> failwith "Oprint.out_type_extension")}
 let out_functor_parameters =
   ref { printer = (fun _ -> failwith "Oprint.out_functor_parameters")}
 
@@ -601,7 +605,8 @@ and print_out_signature ppf =
           otyext_constructors = exts;
           otyext_private = ext.oext_private }
       in
-        fprintf ppf "%a@ %a" (print out_type_extension) te print_out_signature items
+      fprintf ppf "%a@ %a" (print out_type_extension) te
+        print_out_signature items
   | item :: items ->
       fprintf ppf "%a@ %a" (print out_sig_item) item print_out_signature items
 and print_out_sig_item ppf =

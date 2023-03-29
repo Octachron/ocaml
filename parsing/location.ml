@@ -134,7 +134,7 @@ let setup_colors () =
   Misc.Color.setup !Clflags.color
 
 module Real_format = Format
-module Format = Format_doc.Compat
+module Format = Format_doc
 module Fmt = Format
 
 (******************************************************************************)
@@ -330,7 +330,8 @@ end
    If [locs] is empty, this function is a no-op.
 *)
 let highlight_terminfo lb ppf locs =
-  Real_format.pp_print_flush ppf ();  (* avoid mixing Format and normal output *)
+(* avoid mixing Format and normal output *)
+  Real_format.pp_print_flush ppf ();
   (* Char 0 is at offset -lb.lex_abs_pos in lb.lex_buffer. *)
   let pos0 = -lb.lex_abs_pos in
   (* Do nothing if the buffer does not contain the whole phrase. *)
@@ -868,7 +869,7 @@ let default_warning_alert_reporter report mk (loc: t) w : report option =
   match report w with
   | `Inactive -> None
   | `Active { Warnings.id; message; is_error; sub_locs } ->
-      let msg_of_str str = Format_doc.(empty |> string str) in
+      let msg_of_str str = Format_doc.(empty |> Immutable.string str) in
       let kind = mk is_error id in
       let main = { loc; txt = msg_of_str message } in
       let sub = List.map (fun (loc, sub_message) ->
@@ -931,7 +932,7 @@ let auto_include_alert lib =
     ocamlbuild, or using -package %s for ocamlfind)." lib lib lib lib lib in
   let alert =
     {Warnings.kind="ocaml_deprecated_auto_include"; use=none; def=none;
-     message = Real_format.asprintf "@[@\n%a@]" Real_format.pp_print_text message}
+     message = Real_format.(asprintf "@[@\n%a@]" pp_print_text message)}
   in
   prerr_alert none alert
 
@@ -942,9 +943,9 @@ let deprecated_script_alert program =
     (%s script-file.ml) or qualify the basename (%s ./script-file)"
     program program program program
   in
+  let message = Real_format.(asprintf "@[@\n%a@]" pp_print_text message) in
   let alert =
-    {Warnings.kind="ocaml_deprecated_cli"; use=none; def=none;
-     message = Real_format.asprintf "@[@\n%a@]" Real_format.pp_print_text message}
+    {Warnings.kind="ocaml_deprecated_cli"; use=none; def=none; message }
   in
   prerr_alert none alert
 

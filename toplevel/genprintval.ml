@@ -155,7 +155,7 @@ module Make(O : OBJ)(EVP : EVALPATH with type valu = O.t) = struct
 
     let exn_printer ppf path exn =
       fprintf ppf "<printer %a raised an exception: %s>"
-        (Format_doc.Compat.format_printer Printtyp.path) path
+        (Format_doc.compat Printtyp.path) path
         (Printexc.to_string exn)
 
     let out_exn path exn =
