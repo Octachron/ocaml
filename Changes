@@ -754,6 +754,10 @@ OCaml 5.2.0 (13 May 2024)
 - #10652, #12720: fix evaluation order in presence of optional arguments
   (Jacques Garrigue, report by Leo White, review by Vincent Laviron)
 
+- #12195: Lower levels in checked module packages so that remaining weak
+  variables may not be unified with out-of-scope types.
+  (Chris Casinghino and Leo White, review by ???)
+
 - #12595, #12597: fix a race in `caml_clear_gc_stats_sample`
   (Gabriel Scherer, review by B. Szilvasy, report by B. Szilvasy)
 
