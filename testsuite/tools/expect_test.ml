@@ -222,6 +222,7 @@ let eval_expect_file _fname ~file_contents =
   in
   let buf = Buffer.create 1024 in
   let ppf = Format.formatter_of_buffer buf in
+
   let () = Misc.Color.set_color_tag_handling ppf in
   let exec_phrases phrases =
     let phrases =
@@ -365,7 +366,11 @@ let usage = "Usage: expect_test <options> [script-file [arguments]]\n\
              options are:"
 
 let () =
-  Clflags.color := Some Misc.Color.Never;
+(* Early disabling of colors in any output *)
+  let () =
+    Clflags.color := Some Misc.Color.Never;
+    Misc.Color.(setup @@ Some Never)
+  in
   try
     Arg.parse args main usage;
     Printf.eprintf "expect_test: no input file\n";
