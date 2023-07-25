@@ -18,32 +18,33 @@ type !'a log
 
 type _ extension = ..
 
+type 'a typ =
+  | Int: int typ
+  | String: string typ
+  | Doc: doc typ
+  | List: 'a typ -> 'a list typ
+  | Option: 'a typ -> 'a option typ
+  | Pair: 'a typ * 'b typ -> ('a * 'b) typ
+  | Triple: 'a typ * 'b typ * 'c typ -> ('a * 'b * 'c) typ
+  | Quadruple: 'a typ * 'b typ * 'c typ * 'd typ ->
+      ('a * 'b * 'c * 'd) typ
+  | Custom: { id :'b extension; pull: ('b -> 'a); default: 'a typ} ->
+      'b typ
+  | Sublog: 'id log_scheme -> 'id log typ
 
-type 'a printer =
-  | Int: int printer
-  | String: string printer
-  | Doc: doc printer
-  | Option: 'a printer -> 'a option printer
-  | List: 'a printer -> 'a list printer
-  | Pair: 'a printer * 'b printer -> ('a * 'b) printer
-  | Triple: 'a printer * 'b printer * 'c printer -> ('a * 'b * 'c) printer
-  | Quadruple: 'a printer * 'b printer * 'c printer * 'd printer -> ('a * 'b * 'c * 'd) printer
-  | Custom: { id :'b extension; pull: ('b -> 'a); default: 'a printer} ->
-      'b printer
-  | Sublog: 'id log_scheme -> 'id log printer
 
 type ('a,'b) key
 
 
 type device = {
-  print: 'a. key:string list -> 'a printer -> 'a -> unit;
-  sub: key:string list -> device;
+  print: 'a. key:string -> 'a typ -> 'a -> unit;
+  sub: key:string -> device;
   flush: unit -> unit
 }
 
 
-val new_key: path:string list ->
-  'id log_scheme -> 'a printer -> ('a,'id) key
+val new_key: string ->
+  'id log_scheme -> 'a typ -> ('a,'id) key
 
 val deprecate_key: ('a,'id) key -> 'id log_scheme -> unit
 

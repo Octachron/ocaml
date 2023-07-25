@@ -5,35 +5,34 @@ let first_version = { major = 0; minor = 0 }
 
 type doc = Format.formatter -> unit
 
-module Keys = Map.Make(struct type t = string list let compare = compare end)
+module Keys = Map.Make(struct type t = string let compare = compare end)
 
 type _ extension = ..
 
-type 'a printer =
-  | Int: int printer
-  | String: string printer
-  | Doc: doc printer
-  | List: 'a printer -> 'a list printer
-  | Option: 'a printer -> 'a option printer
-  | Pair: 'a printer * 'b printer -> ('a * 'b) printer
-  | Triple: 'a printer * 'b printer * 'c printer -> ('a * 'b * 'c) printer
-  | Quadruple: 'a printer * 'b printer * 'c printer * 'd printer ->
-      ('a * 'b * 'c * 'd) printer
-  | Custom: { id :'b extension; pull: ('b -> 'a); default: 'a printer} ->
-      'b printer
-  | Sublog: 'id log_scheme -> 'id log printer
+type 'a typ =
+  | Int: int typ
+  | String: string typ
+  | Doc: doc typ
+  | List: 'a typ -> 'a list typ
+  | Option: 'a typ -> 'a option typ
+  | Pair: 'a typ * 'b typ -> ('a * 'b) typ
+  | Triple: 'a typ * 'b typ * 'c typ -> ('a * 'b * 'c) typ
+  | Quadruple: 'a typ * 'b typ * 'c typ * 'd typ ->
+      ('a * 'b * 'c * 'd) typ
+  | Custom: { id :'b extension; pull: ('b -> 'a); default: 'a typ} ->
+      'b typ
+  | Sublog: 'id log_scheme -> 'id log typ
 
-and ('a,'b) key = { path: string list; typ: 'a printer }
+and ('a,'b) key = { name: string; typ: 'a typ }
 and key_metadata =
     Key_metadata:
-      { typ: 'a printer;
+      { typ: 'a typ;
         version:version;
-        infinitesimal_version:int;
         deprecation: version option } ->
       key_metadata
 and 'a log_scheme = {
   mutable scheme_version: version;
-  mutable infinitesimal_version:int;
+  mutable open_scheme:bool;
   mutable keys: key_metadata Keys.t
 }
 and 'a log = {
@@ -41,8 +40,8 @@ and 'a log = {
   version: version
 }
 and device = {
-  print: 'a. key:string list -> 'a printer -> 'a -> unit;
-  sub: key:string list -> device;
+  print: 'a. key:string -> 'a typ -> 'a -> unit;
+  sub: key:string -> device;
   flush: unit -> unit
 }
 
@@ -51,7 +50,7 @@ module New_scheme() = struct
   type id
   let scheme =
     { scheme_version = first_version;
-      infinitesimal_version = 0;
+      open_scheme = true;
       keys = Keys.empty
     }
 end
@@ -59,31 +58,32 @@ end
 let flush log = log.device.flush ()
 
 type error =
-  | Duplicate_key of string list
+  | Duplicate_key of string
   | Time_travel of version * version
+  | Sealed_version of version
 exception Error of error
 let error e = raise (Error e)
 
 
 let (.!()<-) scheme key metadata =
-  scheme.keys <- Keys.add key.path metadata scheme.keys
+  scheme.keys <- Keys.add key.name metadata scheme.keys
 
-let new_key ~path scheme typ =
-  if Keys.mem path scheme.keys then error (Duplicate_key path);
-  scheme.infinitesimal_version <- succ scheme.infinitesimal_version;
+let new_key name scheme typ =
+  if not scheme.open_scheme then
+    error (Sealed_version scheme.scheme_version)
+  else if Keys.mem name scheme.keys then error (Duplicate_key name);
   let metadata = Key_metadata {
     version=scheme.scheme_version;
-    infinitesimal_version = scheme.infinitesimal_version;
     deprecation=None;
     typ
   }
   in
-  let key = { path; typ } in
+  let key = { name; typ } in
   scheme.!(key) <- metadata;
   key
 
 let (.!()) scheme key =
-  match Keys.find_opt key.path scheme.keys with
+  match Keys.find_opt key.name scheme.keys with
   | Some x -> x
   | None -> assert false
 
@@ -95,12 +95,15 @@ let deprecate_key key scheme =
 
 let version scheme = scheme.scheme_version
 
+let seal_version scheme =
+  scheme.open_scheme <- false
+
 let name_version scheme version =
   let sv = scheme.scheme_version in
   if version <= sv  then error (Time_travel (version, sv))
   else (
     scheme.scheme_version <- version;
-    scheme.infinitesimal_version <- 0
+    scheme.open_scheme <- true
   )
 
 let version_range key scheme =
@@ -111,7 +114,7 @@ let version_range key scheme =
 
 let create device version _scheme = { device; version }
 let detach key (log: _ log) =
-  let device = log.device.sub ~key:key.path in
+  let device = log.device.sub ~key:key.name in
   let version = log.version in
   { device; version }
 
@@ -119,7 +122,7 @@ type format_extension_printer =
   { extension: 'b. 'b extension -> (Format.formatter -> 'b -> unit) option}
 
 let rec fmt_print : type a. format_extension_printer
-  -> key:string list -> a printer -> Format.formatter -> a -> unit =
+  -> key:string -> a typ -> Format.formatter -> a -> unit =
   fun {extension} ~key printer ppf x ->
   match printer with
   | Int -> Format.pp_print_int ppf x
@@ -167,7 +170,7 @@ let rec make_fmt ext ppf = {
 
 
 let set key x log =
-  log.device.print ~key:key.path key.typ x
+  log.device.print ~key:key.name key.typ x
 
 let (.%[]<-) log key x = set key x log
 
