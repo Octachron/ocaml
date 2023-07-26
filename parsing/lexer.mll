@@ -354,7 +354,7 @@ let () =
           None
     )
 
-let metaocaml_lexing = ref false (* if we are lexing MetaOCaml code *) (* NNN *)
+let lex_metaocaml_braces = ref false
 
 }
 
@@ -421,8 +421,8 @@ rule token = parse
       { UNDERSCORE }
   | "~"
       { TILDE }
-  | ".<" { metaocaml_lexing := !Clflags.metaocaml_mode; DOTLESS }     (* NNN *)
-  | ".~"                                                              (* NNN *)
+  | ".<" { lex_metaocaml_braces := !Clflags.metaocaml_mode; DOTLESS }
+  | ".~"
       { if !Clflags.metaocaml_mode then DOTTILDE
         else error lexbuf
          (Reserved_sequence (".~", Some "is reserved for use in MetaOCaml")) }
@@ -616,7 +616,7 @@ rule token = parse
   | ['>'] symbolcharnodot symbolchar * as op    (* NNN exclude ">." case *)
             { INFIXOP0 op }                     (* NNN *)
   (* NNN remaining case is ">." followed possibly by zero or more symbolchar *)
-  | ">."    { if !metaocaml_lexing then GREATERDOT else       (* NNN *)
+  | ">."    { if !lex_metaocaml_braces then GREATERDOT else       (* NNN *)
               INFIXOP0 (">." ^ symbolchars lexbuf) }          (* NNN *)
   | ['@' '^'] symbolchar * as op
             { INFIXOP1 op }
@@ -915,7 +915,7 @@ and skip_hash_bang = parse
     is_in_string := false;
     comment_start_loc := [];
     comment_list := [];
-    metaocaml_lexing := false;  (* NNN *)
+    lex_metaocaml_braces := false;
     match !preprocessor with
     | None -> ()
     | Some (init, _preprocess) -> init ()
