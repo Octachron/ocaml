@@ -703,9 +703,6 @@ let mk_directive ~loc name arg =
    string that will not trigger a syntax error; see how [not_expecting]
    is used in the definition of [type_variance]. */
 
-%token DOTLESS                ".<"  /* NNN */
-%token GREATERDOT             ">."  /* NNN */
-%token DOTTILDE               ".~"  /* NNN */
 %token AMPERAMPER             "&&"
 %token AMPERSAND              "&"
 %token AND                    "and"
@@ -729,6 +726,8 @@ let mk_directive ~loc name arg =
 %token DONE                   "done"
 %token DOT                    "."
 %token DOTDOT                 ".."
+%token DOTLESS                ".<"
+%token DOTTILDE               ".~"
 %token DOWNTO                 "downto"
 %token ELSE                   "else"
 %token END                    "end"
@@ -745,6 +744,7 @@ let mk_directive ~loc name arg =
 %token GREATER                ">"
 %token GREATERRBRACE          ">}"
 %token GREATERRBRACKET        ">]"
+%token GREATERDOT             ">."
 %token IF                     "if"
 %token IN                     "in"
 %token INCLUDE                "include"
@@ -894,11 +894,11 @@ The precedences must be listed from low to high.
 %nonassoc below_DOT
 %nonassoc DOT DOTOP
 /* Finally, the first tokens of simple_expr are above everything else. */
-%nonassoc BACKQUOTE BANG BEGIN CHAR FALSE FLOAT INT OBJECT
+%nonassoc BACKQUOTE BANG BEGIN CHAR DOTLESS DOTTILDE FALSE FLOAT INT OBJECT
           LBRACE LBRACELESS LBRACKET LBRACKETBAR LIDENT LPAREN
           NEW PREFIXOP STRING TRUE UIDENT
           LBRACKETPERCENT QUOTED_STRING_EXPR
-          DOTLESS DOTTILDE             /* NNN */
+
 
 
 /* Entry points */
@@ -2499,6 +2499,7 @@ simple_expr:
       { mk_indexop_expr user_indexing_operators ~loc:$sloc $1 }
   | indexop_error (DOT, seq_expr) { $1 }
   | indexop_error (qualified_dotop, expr_semi_list) { $1 }
+  | metaocaml_expr { $1 }
   | simple_expr_attrs
     { let desc, attrs = $1 in
       mkexp_attrs ~loc:$sloc desc attrs }
@@ -2506,12 +2507,6 @@ simple_expr:
       { $1 }
 ;
 %inline simple_expr_attrs:
-  | DOTLESS e = seq_expr GREATERDOT                 /* NNN */
-    { (e.pexp_desc,
-       (Some  (mknoloc "metaocaml.bracket"),[])) }  /* NNN */
-  | DOTTILDE e = simple_expr                        /* NNN */
-    { (e.pexp_desc,
-       (Some (mknoloc "metaocaml.escape"), [])) }   /* NNN */
   | BEGIN ext = ext attrs = attributes e = seq_expr END
       { e.pexp_desc, (ext, attrs @ e.pexp_attributes) }
   | BEGIN ext_attributes END
@@ -2531,6 +2526,16 @@ simple_expr:
   | OBJECT ext_attributes class_structure error
       { unclosed "object" $loc($1) "end" $loc($4) }
 ;
+
+%inline metaocaml_expr:
+  | DOTTILDE e = simple_expr
+    { wrap_exp_attrs ~loc:$sloc e
+       (Some (mknoloc "metaocaml.escape"), []) }
+  | DOTLESS e = seq_expr GREATERDOT
+    { wrap_exp_attrs ~loc:$sloc e
+       (Some  (mknoloc "metaocaml.bracket"),[]) }
+;
+
 %inline simple_expr_:
   | mkrhs(val_longident)
       { Pexp_ident ($1) }
