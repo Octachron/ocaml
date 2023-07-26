@@ -188,6 +188,11 @@ let wrap_comment_lexer comment lexbuf =
 let error lexbuf e = raise (Error(e, Location.curr lexbuf))
 let error_loc loc e = raise (Error(e, loc))
 
+let metaocaml_only lexbuf tok =
+  if not !Clflags.metaocaml_mode then
+    error lexbuf
+      (Reserved_sequence (tok, Some "is reserved for use in MetaOCaml"))
+
 (* to translate escape sequences *)
 
 let digit_value c =
@@ -421,11 +426,12 @@ rule token = parse
       { UNDERSCORE }
   | "~"
       { TILDE }
-  | ".<" { lex_metaocaml_braces := !Clflags.metaocaml_mode; DOTLESS }
+  | ".<"
+      { metaocaml_only lexbuf ".<";
+        lex_metaocaml_braces := true;
+        DOTLESS }
   | ".~"
-      { if !Clflags.metaocaml_mode then DOTTILDE
-        else error lexbuf
-         (Reserved_sequence (".~", Some "is reserved for use in MetaOCaml")) }
+      { metaocaml_only lexbuf ".~"; DOTTILDE }
   | "~" raw_ident_escape (lowercase identchar * as name) ':'
       { LABEL name }
   | "~" (lowercase identchar * as name) ':'
