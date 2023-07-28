@@ -207,15 +207,15 @@ let show_filename file =
 let print_filename ppf file =
   Format.pp_print_string ppf (show_filename file)
 
-(* Best-effort printing of the text describing a location, of the form
-   'File "foo.ml", line 3, characters 10-12'.
+type loc_summary = {
+  filename:string option;
+  start_line: int option;
+  end_line: int option;
+  characters: (int * int) option
+}
 
-   Some of the information (filename, line number or characters numbers) in the
-   location might be invalid; in which case we do not print it.
- *)
-let print_loc ppf loc =
-  setup_tags ();
-  let file_valid = function
+let summarize_loc loc =
+    let file_valid = function
     | "_none_" ->
         (* This is a dummy placeholder, but we print it anyway to please editors
            that parse locations in error messages (e.g. Emacs). *)
@@ -223,6 +223,8 @@ let print_loc ppf loc =
     | "" | "//toplevel//" -> false
     | _ -> true
   in
+  let line_valid line = line > 0 in
+  let chars_valid ~startchar ~endchar = startchar <> -1 && endchar <> -1 in
   let line_valid line = line > 0 in
   let chars_valid ~startchar ~endchar = startchar <> -1 && endchar <> -1 in
 
@@ -236,35 +238,54 @@ let print_loc ppf loc =
   let endline = loc.loc_end.pos_lnum in
   let startchar = loc.loc_start.pos_cnum - loc.loc_start.pos_bol in
   let endchar = loc.loc_end.pos_cnum - loc.loc_end.pos_bol in
+  {
+    filename = if file_valid file then Some file else None;
+    start_line =  if line_valid startline then Some startline else None;
+    end_line = if line_valid endline then Some endline else None;
+    characters =
+      if chars_valid ~startchar ~endchar then Some (startchar,endchar)
+      else None
+  }
 
+
+(* Best-effort printing of the text describing a location, of the form
+   'File "foo.ml", line 3, characters 10-12'.
+
+   Some of the information (filename, line number or characters numbers) in the
+   location might be invalid; in which case we do not print it.
+ *)
+let print_loc ppf loc =
+  setup_tags ();
+  let summary = summarize_loc loc in
   let first = ref true in
   let capitalize s =
     if !first then (first := false; String.capitalize_ascii s)
     else s in
   let comma () =
     if !first then () else Format.fprintf ppf ", " in
-
   Format.fprintf ppf "@{<loc>";
 
-  if file_valid file then
-    Format.fprintf ppf "%s \"%a\"" (capitalize "file") print_filename file;
+  Option.iter
+    (Format.fprintf ppf "%s \"%a\"" (capitalize "file") print_filename)
+    summary.filename
+  ;
 
   (* Print "line 1" in the case of a dummy line number. This is to please the
      existing setup of editors that parse locations in error messages (e.g.
      Emacs). *)
   comma ();
-  let startline = if line_valid startline then startline else 1 in
-  let endline = if line_valid endline then endline else startline in
-  begin if startline = endline then
-    Format.fprintf ppf "%s %i" (capitalize "line") startline
+  let start_line = Option.value ~default:1 summary.start_line in
+  let end_line = Option.value ~default:start_line summary.end_line in
+  begin if start_line = end_line then
+    Format.fprintf ppf "%s %i" (capitalize "line") start_line
   else
-    Format.fprintf ppf "%s %i-%i" (capitalize "lines") startline endline
+    Format.fprintf ppf "%s %i-%i" (capitalize "lines") start_line end_line
   end;
 
-  if chars_valid ~startchar ~endchar then (
+  Option.iter ( fun (startchar,endchar) ->
     comma ();
     Format.fprintf ppf "%s %i-%i" (capitalize "characters") startchar endchar
-  );
+  ) summary.characters;
 
   Format.fprintf ppf "@}"
 
