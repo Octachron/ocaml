@@ -15,6 +15,7 @@ type doc = Format.formatter -> unit
 
 type !'a log
 
+type empty = Empty_tag
 
 type _ extension = ..
 
@@ -28,9 +29,20 @@ type 'a typ =
   | Triple: 'a typ * 'b typ * 'c typ -> ('a * 'b * 'c) typ
   | Quadruple: 'a typ * 'b typ * 'c typ * 'd typ ->
       ('a * 'b * 'c * 'd) typ
+  | Sum: 'a sum -> ('a,'b) sum_constr typ
   | Custom: { id :'b extension; pull: ('b -> 'a); default: 'a typ} ->
       'b typ
   | Sublog: 'id log_scheme -> 'id log typ
+
+and 'a sum =
+  | []: empty sum
+  | (::): (string * 'a typ) * 'b sum -> ('a * 'b) sum
+
+and ('a,'b) sum_index =
+  | Z : ('a * 'b, 'a) sum_index
+  | S: ('a, 'b) sum_index -> (_ * 'a,'b) sum_index
+
+and ('a,'b) sum_constr = Constr: ('a,'elt) sum_index * 'elt -> ('a,'elt) sum_constr
 
 
 type ('a,'b) key

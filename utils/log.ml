@@ -9,6 +9,8 @@ module Keys = Map.Make(struct type t = string let compare = compare end)
 
 type _ extension = ..
 
+type empty = Empty_tag
+
 type 'a typ =
   | Int: int typ
   | String: string typ
@@ -19,9 +21,21 @@ type 'a typ =
   | Triple: 'a typ * 'b typ * 'c typ -> ('a * 'b * 'c) typ
   | Quadruple: 'a typ * 'b typ * 'c typ * 'd typ ->
       ('a * 'b * 'c * 'd) typ
+  | Sum: 'a sum -> ('a,'b) sum_constr typ
   | Custom: { id :'b extension; pull: ('b -> 'a); default: 'a typ} ->
       'b typ
   | Sublog: 'id log_scheme -> 'id log typ
+
+
+and 'a sum =
+  | []: empty sum
+  | (::): (string * 'a typ) * 'b sum -> ('a * 'b) sum
+
+and ('a,'b) sum_index =
+  | Z : ('a * 'b, 'a) sum_index
+  | S: ('a, 'b) sum_index -> (_ * 'a,'b) sum_index
+
+and ('a,'b) sum_constr = Constr: ('a,'elt) sum_index * 'elt -> ('a,'elt) sum_constr
 
 and ('a,'b) key = { name: string; typ: 'a typ }
 and key_metadata =
@@ -153,6 +167,8 @@ let rec fmt_print : type a. format_extension_printer
       end
   |  List elt ->
       Format.pp_print_list (fmt_print {extension} ~key elt) ppf x
+  | Sum s ->
+      fmt_sum {extension} ~key s ppf x
   | Sublog _ -> ()
   | Option elt ->
       begin match x with
@@ -160,7 +176,17 @@ let rec fmt_print : type a. format_extension_printer
       | Some x ->
           fmt_print {extension} ~key elt ppf x
       end
-
+and fmt_sum: type s c.
+  format_extension_printer -> key:string -> s sum -> Format.formatter -> (s,c) sum_constr -> unit
+  =
+   fun {extension} ~key sum ppf c ->
+   match sum, c with
+   | (name, typ) :: _, Constr (Z,x) ->
+       Format.fprintf ppf "(%s %a)" name
+         (fmt_print {extension} ~key typ) x
+   | _ :: q, Constr (S n,x) ->
+       fmt_sum {extension} ~key q ppf (Constr (n,x))
+   | [], _ -> .
 
 let rec make_fmt ext ppf = {
   flush = Format.pp_print_newline ppf;
