@@ -35,7 +35,7 @@ type 'a typ =
   | Triple: 'a typ * 'b typ * 'c typ -> ('a * 'b * 'c) typ
   | Quadruple: 'a typ * 'b typ * 'c typ * 'd typ ->
       ('a * 'b * 'c * 'd) typ
-  | Sum: 'a sum -> ('a,'b) sum_constr typ
+  | Sum: 'a sum -> 'a sum_constr typ
   | Custom: { id :'b extension; pull: ('b -> 'a); default: 'a typ} ->
       'b typ
   | Sublog: 'id log_scheme -> 'id log typ
@@ -49,7 +49,7 @@ and ('a,'b) sum_index =
   | Z : ('a * 'b, 'a) sum_index
   | S: ('a, 'b) sum_index -> (_ * 'a,'b) sum_index
 
-and ('a,'b) sum_constr = Constr: ('a,'elt) sum_index * 'elt -> ('a,'elt) sum_constr
+and 'a sum_constr = Constr: ('a,'elt) sum_index * 'elt -> 'a sum_constr
 
 and ('a,'b) key = { name: string; typ: 'a typ }
 and key_metadata =
@@ -73,9 +73,20 @@ and device = {
   flush: unit -> unit
 }
 
+let c0 = Z
+let c1 = S c0
+let c2 = S c1
+let c3 = S c2
+let c4 = S c3
 
-module New_scheme() = struct
+module type Log_scheme = sig
   type id
+  type scheme = id log_scheme
+  val scheme: id log_scheme
+end
+module New_scheme() : Log_scheme = struct
+  type id
+  type scheme = id log_scheme
   let scheme =
     { scheme_version = first_version;
       open_scheme = true;
@@ -117,7 +128,8 @@ let (.!()) scheme key =
 
 let deprecate_key key scheme =
   let Key_metadata r = scheme.!(key) in
-  scheme.!(key) <- Key_metadata { r with deprecation = Some scheme.scheme_version }
+  scheme.!(key) <-
+    Key_metadata { r with deprecation = Some scheme.scheme_version }
 
 (** {1:log_scheme_versionning  Current version of the log } *)
 
@@ -191,7 +203,8 @@ let rec fmt_print : type a. format_extension_printer
           fmt_print {extension} ~key elt ppf x
       end
 and fmt_sum: type s c.
-  format_extension_printer -> key:string -> s sum -> Format.formatter -> (s,c) sum_constr -> unit
+  format_extension_printer -> key:string -> s sum -> Format.formatter ->
+  s sum_constr -> unit
   =
    fun {extension} ~key sum ppf c ->
    match sum, c with
@@ -216,3 +229,7 @@ let (.%[]<-) log key x = set key x log
 
 let fmt key log fmt =
   Format.kasprintf (fun s -> log.%[key] <- s ) fmt
+
+
+module Compiler = New_scheme ()
+module Error = New_scheme ()
