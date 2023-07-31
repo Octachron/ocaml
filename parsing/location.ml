@@ -669,6 +669,27 @@ type report = {
   sub : msg list;
 }
 
+module Elog = struct
+  open Log
+  let kind_typ = [
+    "Report_error", Int;
+    "Report_alert_as_error", String;
+    "Report_warning", String;
+    "Report_warning_as_error", String;
+    "Report_alert", String;
+  ]
+  type _ extension += Error_kind: report_kind extension
+  let pull = function
+    | Report_error -> Constr(c0,0)
+    | Report_warning w -> Constr(c1,w)
+    | Report_warning_as_error w -> Constr(c2,w)
+    | Report_alert w -> Constr(c3, w)
+    | Report_alert_as_error w -> Constr(c4, w)
+
+  let kind = new_key "kind" Error.scheme
+      (Custom { id = Error_kind; pull; default = Sum kind_typ })
+end
+
 type report_printer = {
   (* The entry point *)
   pp : report_printer ->
@@ -847,6 +868,7 @@ type error = report
 
 let report_error ppf err =
   print_report ppf err
+
 
 let mkerror loc sub txt =
   { kind = Report_error; main = { loc; txt }; sub }
