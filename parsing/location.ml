@@ -207,7 +207,7 @@ let show_filename file =
 let print_filename ppf file =
   Format.pp_print_string ppf (show_filename file)
 
-type loc_summary = {
+type summary = {
   filename:string option;
   start_line: int option;
   end_line: int option;
@@ -225,9 +225,6 @@ let summarize_loc loc =
   in
   let line_valid line = line > 0 in
   let chars_valid ~startchar ~endchar = startchar <> -1 && endchar <> -1 in
-  let line_valid line = line > 0 in
-  let chars_valid ~startchar ~endchar = startchar <> -1 && endchar <> -1 in
-
   let file =
     (* According to the comment in location.mli, if [pos_fname] is "", we must
        use [!input_name]. *)
@@ -254,9 +251,8 @@ let summarize_loc loc =
    Some of the information (filename, line number or characters numbers) in the
    location might be invalid; in which case we do not print it.
  *)
-let print_loc ppf loc =
+let print_loc ppf summary =
   setup_tags ();
-  let summary = summarize_loc loc in
   let first = ref true in
   let capitalize s =
     if !first then (first := false; String.capitalize_ascii s)
@@ -746,7 +742,9 @@ let batch_mode_printer : report_printer =
       | Misc.Error_style.Short ->
           ()
     in
-    Format.fprintf ppf "@[<v>%a:@ %a@]" print_loc loc highlight loc
+    Format.fprintf ppf "@[<v>%a:@ %a@]"
+      print_loc (summarize_loc loc)
+      highlight loc
   in
   let pp_txt ppf txt = Format.fprintf ppf "@[%t@]" txt in
   let pp self ppf report =
@@ -817,7 +815,7 @@ let terminfo_toplevel_printer (lb: lexbuf): report_printer =
   let pp_main_loc _ _ _ _ = () in
   let pp_submsg_loc _ _ ppf loc =
     if not loc.loc_ghost then
-      Format.fprintf ppf "%a:@ " print_loc loc in
+      Format.fprintf ppf "%a:@ " print_loc (summarize_loc loc) in
   { batch_mode_printer with pp; pp_main_loc; pp_submsg_loc }
 
 let best_toplevel_printer () =
