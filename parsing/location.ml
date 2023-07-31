@@ -667,6 +667,7 @@ type report = {
   kind : report_kind;
   main : msg;
   sub : msg list;
+  quotable_locs: t list option;
 }
 
 module Elog = struct
@@ -690,25 +691,14 @@ module Elog = struct
       (Custom { id = Error_kind; pull; default = Sum kind_typ })
 end
 
+type 'a printer = Format.formatter -> 'a -> unit
+type msg = Format.formatter -> unit
 type report_printer = {
-  (* The entry point *)
-  pp : report_printer ->
-    Format.formatter -> report -> unit;
-
-  pp_report_kind : report_printer -> report ->
-    Format.formatter -> report_kind -> unit;
-  pp_main_loc : report_printer -> report ->
-    Format.formatter -> t -> unit;
-  pp_main_txt : report_printer -> report ->
-    Format.formatter -> (Format.formatter -> unit) -> unit;
-  pp_submsgs : report_printer -> report ->
-    Format.formatter -> msg list -> unit;
-  pp_submsg : report_printer -> report ->
-    Format.formatter -> msg -> unit;
-  pp_submsg_loc : report_printer -> report ->
-    Format.formatter -> t -> unit;
-  pp_submsg_txt : report_printer -> report ->
-    Format.formatter -> (Format.formatter -> unit) -> unit;
+  pp_report_kind : report_kind printer;
+  pp_main_loc: (report_kind * t) printer;
+  pp_sub_loc : (report_kind * t) printer;
+  pp_msg : msg printer;
+  pp_quotable_locs: t list option printer;
 }
 
 let is_dummy_loc loc =
@@ -745,9 +735,39 @@ let error_style () =
   | Some setting -> setting
   | None -> Misc.Error_style.default_setting
 
+let pp_report reporter ppf report =
+  let pp_submsg kind ppf { loc; txt } =
+    Format.fprintf ppf "@[%a@ %a@]"
+      reporter.pp_sub_loc (kind,loc)
+      reporter.pp_msg txt
+  in
+  let pp_submsgs kind ppf msgs =
+    List.iter (fun msg ->
+      Format.fprintf ppf "@,%a" (pp_submsg kind) msg
+    ) msgs
+  in
+    setup_tags ();
+    separate_new_message ppf;
+    (* Make sure we keep [num_loc_lines] updated.
+       The tabulation box is here to give submessage the option
+       to be aligned with the main message box
+    *)
+    print_updating_num_loc_lines ppf (fun ppf () ->
+      reporter.pp_quotable_locs ppf report.quotable_locs;
+      Format.fprintf ppf "@[<v>%a%a%a: %a%a%a%a@]@."
+      Format.pp_open_tbox ()
+      reporter.pp_main_loc (report.kind, report.main.loc)
+      reporter.pp_report_kind report.kind
+      Format.pp_set_tab ()
+      reporter.pp_msg report.main.txt
+      (pp_submsgs report.kind) report.sub
+      Format.pp_close_tbox ()
+    ) ()
+
+
 let batch_mode_printer : report_printer =
-  let pp_loc _self report ppf loc =
-    let tag = match report.kind with
+  let pp_loc ppf (kind,loc) =
+    let tag = match kind with
       | Report_warning_as_error _
       | Report_alert_as_error _
       | Report_error -> "error"
@@ -768,26 +788,8 @@ let batch_mode_printer : report_printer =
       print_loc loc
       highlight loc
   in
-  let pp_txt ppf txt = Format.fprintf ppf "@[%t@]" txt in
-  let pp self ppf report =
-    setup_tags ();
-    separate_new_message ppf;
-    (* Make sure we keep [num_loc_lines] updated.
-       The tabulation box is here to give submessage the option
-       to be aligned with the main message box
-    *)
-    print_updating_num_loc_lines ppf (fun ppf () ->
-      Format.fprintf ppf "@[<v>%a%a%a: %a%a%a%a@]@."
-      Format.pp_open_tbox ()
-      (self.pp_main_loc self report) report.main.loc
-      (self.pp_report_kind self report) report.kind
-      Format.pp_set_tab ()
-      (self.pp_main_txt self report) report.main.txt
-      (self.pp_submsgs self report) report.sub
-      Format.pp_close_tbox ()
-    ) ()
-  in
-  let pp_report_kind _self _ ppf = function
+  let pp_msg ppf txt = Format.fprintf ppf "@[%t@]" txt in
+  let pp_report_kind ppf = function
     | Report_error -> Format.fprintf ppf "@{<error>Error@}"
     | Report_warning w -> Format.fprintf ppf "@{<warning>Warning@} %s" w
     | Report_warning_as_error w ->
@@ -796,49 +798,27 @@ let batch_mode_printer : report_printer =
     | Report_alert_as_error w ->
         Format.fprintf ppf "@{<error>Error@} (alert %s)" w
   in
-  let pp_main_loc self report ppf loc =
-    pp_loc self report ppf loc
-  in
-  let pp_main_txt _self _ ppf txt =
-    pp_txt ppf txt
-  in
-  let pp_submsgs self report ppf msgs =
-    List.iter (fun msg ->
-      Format.fprintf ppf "@,%a" (self.pp_submsg self report) msg
-    ) msgs
-  in
-  let pp_submsg self report ppf { loc; txt } =
-    Format.fprintf ppf "@[%a  %a@]"
-      (self.pp_submsg_loc self report) loc
-      (self.pp_submsg_txt self report) txt
-  in
-  let pp_submsg_loc self report ppf loc =
-    if not loc.loc_ghost then
-      pp_loc self report ppf loc
-  in
-  let pp_submsg_txt _self _ ppf loc =
-    pp_txt ppf loc
-  in
-  { pp; pp_report_kind; pp_main_loc; pp_main_txt;
-    pp_submsgs; pp_submsg; pp_submsg_loc; pp_submsg_txt }
+  let pp_quotable_locs _ _  = () in
+  let pp_main_loc = pp_loc and pp_sub_loc = pp_loc in
+  { pp_report_kind; pp_msg; pp_sub_loc; pp_main_loc; pp_quotable_locs }
+
+let make_quotable_locs main sub =
+    let sub_locs = List.map (fun { loc; _ } -> loc) sub in
+    let all_locs = main.loc :: sub_locs in
+    List.filter is_quotable_loc all_locs
 
 let terminfo_toplevel_printer (lb: lexbuf): report_printer =
-  let pp self ppf err =
-    setup_tags ();
+  let pp_quotable_locs ppf locs =
     (* Highlight all toplevel locations of the report, instead of displaying
        the main location. Do it now instead of in [pp_main_loc], to avoid
        messing with Format boxes. *)
-    let sub_locs = List.map (fun { loc; _ } -> loc) err.sub in
-    let all_locs = err.main.loc :: sub_locs in
-    let locs_highlighted = List.filter is_quotable_loc all_locs in
-    highlight_terminfo lb ppf locs_highlighted;
-    batch_mode_printer.pp self ppf err
+    Option.iter (highlight_terminfo lb ppf) locs
   in
-  let pp_main_loc _ _ _ _ = () in
-  let pp_submsg_loc _ _ ppf loc =
+  let pp_main_loc _ _ = () in
+  let pp_sub_loc ppf (_,loc) =
     if not loc.loc_ghost then
       Format.fprintf ppf "%a:@ " print_loc loc in
-  { batch_mode_printer with pp; pp_main_loc; pp_submsg_loc }
+  { batch_mode_printer with pp_main_loc; pp_sub_loc; pp_quotable_locs }
 
 let best_toplevel_printer () =
   setup_terminal ();
@@ -859,7 +839,7 @@ let report_printer = ref default_report_printer
 
 let print_report ppf report =
   let printer = !report_printer () in
-  printer.pp printer ppf report
+  pp_report printer ppf report
 
 (******************************************************************************)
 (* Reporting errors *)
@@ -871,7 +851,8 @@ let report_error ppf err =
 
 
 let mkerror loc sub txt =
-  { kind = Report_error; main = { loc; txt }; sub }
+  let quotable_locs = Some (make_quotable_locs { loc; txt } sub ) in
+  { kind = Report_error; main = { loc; txt }; sub; quotable_locs }
 
 let errorf ?(loc = none) ?(sub = []) =
   Format.kdprintf (mkerror loc sub)
@@ -899,7 +880,8 @@ let default_warning_alert_reporter report mk (loc: t) w : report option =
       let sub = List.map (fun (loc, sub_message) ->
         { loc; txt = msg_of_str sub_message }
       ) sub_locs in
-      Some { kind; main; sub }
+      let quotable_locs = Some (make_quotable_locs main sub) in
+      Some { kind; main; sub; quotable_locs }
 
 
 let default_warning_reporter =
