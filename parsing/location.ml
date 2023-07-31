@@ -251,7 +251,8 @@ let summarize_loc loc =
    Some of the information (filename, line number or characters numbers) in the
    location might be invalid; in which case we do not print it.
  *)
-let print_loc ppf summary =
+let print_loc ppf loc =
+  let summary = summarize_loc loc in
   setup_tags ();
   let first = ref true in
   let capitalize s =
@@ -743,7 +744,7 @@ let batch_mode_printer : report_printer =
           ()
     in
     Format.fprintf ppf "@[<v>%a:@ %a@]"
-      print_loc (summarize_loc loc)
+      print_loc loc
       highlight loc
   in
   let pp_txt ppf txt = Format.fprintf ppf "@[%t@]" txt in
@@ -815,7 +816,7 @@ let terminfo_toplevel_printer (lb: lexbuf): report_printer =
   let pp_main_loc _ _ _ _ = () in
   let pp_submsg_loc _ _ ppf loc =
     if not loc.loc_ghost then
-      Format.fprintf ppf "%a:@ " print_loc (summarize_loc loc) in
+      Format.fprintf ppf "%a:@ " print_loc loc in
   { batch_mode_printer with pp; pp_main_loc; pp_submsg_loc }
 
 let best_toplevel_printer () =
