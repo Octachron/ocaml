@@ -84,6 +84,7 @@ COMPILERLIBS_SOURCES=\
   utils/profile.ml \
   utils/consistbl.ml \
   utils/terminfo.ml \
+  utils/log.ml \
   utils/warnings.ml \
   utils/int_replace_polymorphic_compare.ml \
   utils/lazy_backtrack.ml \

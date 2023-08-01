@@ -97,6 +97,20 @@ utils/domainstate.cmo : \
 utils/domainstate.cmx : \
     utils/domainstate.cmi
 utils/domainstate.cmi :
+utils/error_report.cmo : \
+    utils/warnings.cmi \
+    utils/terminfo.cmi \
+    utils/misc.cmi \
+    utils/log.cmi \
+    utils/clflags.cmi \
+    utils/build_path_prefix_map.cmi
+utils/error_report.cmx : \
+    utils/warnings.cmx \
+    utils/terminfo.cmx \
+    utils/misc.cmx \
+    utils/log.cmx \
+    utils/clflags.cmx \
+    utils/build_path_prefix_map.cmx
 utils/identifiable.cmo : \
     utils/misc.cmi \
     utils/identifiable.cmi
@@ -130,6 +144,11 @@ utils/local_store.cmo : \
 utils/local_store.cmx : \
     utils/local_store.cmi
 utils/local_store.cmi :
+utils/log.cmo : \
+    utils/log.cmi
+utils/log.cmx : \
+    utils/log.cmi
+utils/log.cmi :
 utils/misc.cmo : \
     utils/config.cmi \
     utils/build_path_prefix_map.cmi \
@@ -305,8 +324,10 @@ parsing/builtin_attributes.cmi : \
     utils/misc.cmi \
     parsing/location.cmi
 parsing/camlinternalMenhirLib.cmo : \
+    utils/log.cmi \
     parsing/camlinternalMenhirLib.cmi
 parsing/camlinternalMenhirLib.cmx : \
+    utils/log.cmx \
     parsing/camlinternalMenhirLib.cmi
 parsing/camlinternalMenhirLib.cmi :
 parsing/depend.cmo : \
@@ -365,6 +386,7 @@ parsing/location.cmo : \
     utils/warnings.cmi \
     utils/terminfo.cmi \
     utils/misc.cmi \
+    utils/log.cmi \
     utils/clflags.cmi \
     utils/build_path_prefix_map.cmi \
     parsing/location.cmi
@@ -372,6 +394,7 @@ parsing/location.cmx : \
     utils/warnings.cmx \
     utils/terminfo.cmx \
     utils/misc.cmx \
+    utils/log.cmx \
     utils/clflags.cmx \
     utils/build_path_prefix_map.cmx \
     parsing/location.cmi

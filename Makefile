@@ -2129,6 +2129,7 @@ ocamlprof_SOURCES = \
   load_path.mli load_path.ml \
   clflags.mli clflags.ml \
   terminfo.mli terminfo.ml \
+  log.mli log.ml \
   warnings.mli warnings.ml \
   location.mli location.ml \
   longident.mli longident.ml \
@@ -2146,6 +2147,7 @@ ocamlcp_ocamloptp_SOURCES = \
   config.mli config.ml \
   build_path_prefix_map.mli build_path_prefix_map.ml \
   misc.mli misc.ml \
+  log.mli log.ml \
   profile.mli profile.ml \
   warnings.mli warnings.ml \
   identifiable.mli identifiable.ml \
