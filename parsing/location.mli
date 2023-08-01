@@ -200,29 +200,19 @@ type report = {
   kind : report_kind;
   main : msg;
   sub : msg list;
+  quotable_locs: t list option;
 }
 
+
+type 'a printer = Format.formatter -> 'a -> unit
 type report_printer = {
-  (* The entry point *)
-  pp : report_printer ->
-    Format.formatter -> report -> unit;
-
-  pp_report_kind : report_printer -> report ->
-    Format.formatter -> report_kind -> unit;
-  pp_main_loc : report_printer -> report ->
-    Format.formatter -> t -> unit;
-  pp_main_txt : report_printer -> report ->
-    Format.formatter -> (Format.formatter -> unit) -> unit;
-  pp_submsgs : report_printer -> report ->
-    Format.formatter -> msg list -> unit;
-  pp_submsg : report_printer -> report ->
-    Format.formatter -> msg -> unit;
-  pp_submsg_loc : report_printer -> report ->
-    Format.formatter -> t -> unit;
-  pp_submsg_txt : report_printer -> report ->
-    Format.formatter -> (Format.formatter -> unit) -> unit;
+  pp_report_kind : report_kind printer;
+  pp_main_loc: (report_kind * t) printer;
+  pp_sub_loc : (report_kind * t) printer;
+  pp_msg : (Format.formatter -> unit) printer;
+  pp_quotable_locs: t list option printer;
 }
-(** A printer for [report]s, defined using open-recursion.
+(** A printer for [report]s.
     The goal is to make it easy to define new printers by re-using code from
     existing ones.
 *)
@@ -237,6 +227,8 @@ val best_toplevel_printer: unit -> report_printer
 (** Detects the terminal capabilities and selects an adequate printer *)
 
 (** {2 Printing a [report]} *)
+
+val pp_report: report_printer -> formatter -> report -> unit
 
 val print_report: formatter -> report -> unit
 (** Display an error or warning report. *)

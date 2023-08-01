@@ -263,7 +263,9 @@ let print_loc ppf loc =
   Format.fprintf ppf "@{<loc>";
 
   Option.iter
-    (Format.fprintf ppf "%s \"%a\"" (capitalize "file") print_filename)
+    (fun f ->
+       Format.fprintf ppf "%s \"%a\"" (capitalize "file") print_filename f
+    )
     summary.filename
   ;
 
@@ -670,7 +672,7 @@ type report = {
   quotable_locs: t list option;
 }
 
-module Elog = struct
+module _ = struct[@warning "-unused-value-declaration"]
   open Log
   let kind_typ = [
     "Report_error", Int;
@@ -692,12 +694,11 @@ module Elog = struct
 end
 
 type 'a printer = Format.formatter -> 'a -> unit
-type msg = Format.formatter -> unit
 type report_printer = {
   pp_report_kind : report_kind printer;
   pp_main_loc: (report_kind * t) printer;
   pp_sub_loc : (report_kind * t) printer;
-  pp_msg : msg printer;
+  pp_msg : (Format.formatter -> unit) printer;
   pp_quotable_locs: t list option printer;
 }
 
@@ -737,7 +738,7 @@ let error_style () =
 
 let pp_report reporter ppf report =
   let pp_submsg kind ppf { loc; txt } =
-    Format.fprintf ppf "@[%a@ %a@]"
+    Format.fprintf ppf "@[%a  %a@]"
       reporter.pp_sub_loc (kind,loc)
       reporter.pp_msg txt
   in
@@ -799,7 +800,10 @@ let batch_mode_printer : report_printer =
         Format.fprintf ppf "@{<error>Error@} (alert %s)" w
   in
   let pp_quotable_locs _ _  = () in
-  let pp_main_loc = pp_loc and pp_sub_loc = pp_loc in
+  let pp_main_loc = pp_loc in
+  let pp_sub_loc ppf (_,loc as kloc) =
+    if not loc.loc_ghost then pp_loc ppf kloc
+  in
   { pp_report_kind; pp_msg; pp_sub_loc; pp_main_loc; pp_quotable_locs }
 
 let make_quotable_locs main sub =
