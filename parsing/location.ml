@@ -655,7 +655,7 @@ let lines_around_from_current_input ~start_pos ~end_pos =
 
 type msg = (Format.formatter -> unit) loc
 
-let msg ?(loc = none) fmt =
+Xlet msg ?(loc = none) fmt =
   Format.kdprintf (fun txt -> { loc; txt }) fmt
 
 type report_kind =
@@ -674,23 +674,25 @@ type report = {
 
 module _ = struct[@warning "-unused-value-declaration"]
   open Log
-  let kind_typ = [
-    "Report_error", Int;
-    "Report_alert_as_error", String;
-    "Report_warning", String;
-    "Report_warning_as_error", String;
-    "Report_alert", String;
-  ]
+  module Kind = New_def ()
+  let report_error = new_key "Report_error" Kind.scheme Int
+  let report_alert = new_key "Report_alert" Kind.scheme String
+  let report_alert_as_error = new_key "Report_alert_as_error" Kind.scheme String
+  let report_warning = new_key "Report_warning" Kind.scheme String
+  let report_warning_as_error =
+    new_key "Report_warning_as_error" Kind.scheme String
+
+  let (<$>) = constr
   type _ extension += Error_kind: report_kind extension
   let pull = function
-    | Report_error -> Constr(c0,0)
-    | Report_warning w -> Constr(c1,w)
-    | Report_warning_as_error w -> Constr(c2,w)
-    | Report_alert w -> Constr(c3, w)
-    | Report_alert_as_error w -> Constr(c4, w)
+    | Report_error -> report_error <$> 0
+    | Report_warning w -> report_warning <$> w
+    | Report_warning_as_error w -> report_warning_as_error <$> w
+    | Report_alert w -> report_alert <$> w
+    | Report_alert_as_error w -> report_alert_as_error <$> w
 
   let kind = new_key "kind" Error.scheme
-      (Custom { id = Error_kind; pull; default = Sum kind_typ })
+      (Custom { id = Error_kind; pull; default = Sum Kind.scheme })
 end
 
 type 'a printer = Format.formatter -> 'a -> unit

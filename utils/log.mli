@@ -17,20 +17,20 @@
     a structured log
 *)
 
-type 'a log_scheme
+type !'a def
 
-module type Log_scheme = sig
+module type Def = sig
   type id
-  type scheme = id log_scheme
-  val scheme: id log_scheme
+  type scheme = id def
+  val scheme: scheme
 end
-module New_scheme():Log_scheme
-
+module New_def():Def
 
 
 type doc = Format.formatter -> unit
 
 type !'a log
+type !'a sum
 
 type empty = Empty_tag
 
@@ -46,27 +46,11 @@ type 'a typ =
   | Triple: 'a typ * 'b typ * 'c typ -> ('a * 'b * 'c) typ
   | Quadruple: 'a typ * 'b typ * 'c typ * 'd typ ->
       ('a * 'b * 'c * 'd) typ
-  | Sum: 'a sum -> 'a sum_constr typ
+  | Sum: 'a def -> 'a sum typ
 
   | Custom: { id :'b extension; pull: ('b -> 'a); default: 'a typ} ->
       'b typ
-  | Sublog: 'id log_scheme -> 'id log typ
-
-and 'a sum =
-  | []: empty sum
-  | (::): (string * 'a typ) * 'b sum -> ('a * 'b) sum
-
-and ('a,'b) sum_index =
-  | Z : ('a * 'b, 'a) sum_index
-  | S: ('a, 'b) sum_index -> (_ * 'a,'b) sum_index
-
-and 'a sum_constr = Constr: ('a,'elt) sum_index * 'elt -> 'a sum_constr
-
-val c0: ('a* _, 'a) sum_index
-val c1: ( _ * ('a * _), 'a) sum_index
-val c2: ( _ * (_ * ('a * _)), 'a) sum_index
-val c3: ( _ * (_ * (_ * ('a * _))), 'a) sum_index
-val c4: ( _ * (_ * (_ * (_ * ('a * _)))), 'a) sum_index
+  | Sublog: 'id def -> 'id log typ
 
 type ('a,'b) key
 
@@ -79,9 +63,11 @@ type device = {
 
 
 val new_key: string ->
-  'id log_scheme -> 'a typ -> ('a,'id) key
+  'id def -> 'a typ -> ('a,'id) key
 
-val deprecate_key: ('a,'id) key -> 'id log_scheme -> unit
+val constr: ('a,'id) key -> 'a -> 'id sum
+
+val deprecate_key: ('a,'id) key -> 'id def -> unit
 
 
 
@@ -90,11 +76,11 @@ type version = { major:int; minor:int }
 
 type version_range = { introduction: version; deprecation: version option }
 
-val version: _ log_scheme -> version
-val name_version: _ log_scheme -> version -> unit
-val seal_version: _ log_scheme -> unit
+val version: _ def -> version
+val name_version: _ def -> version -> unit
+val seal_version: _ def -> unit
 
-val version_range: (_,'id) key -> 'id log_scheme -> version_range
+val version_range: (_,'id) key -> 'id def -> version_range
 
 
 (** {1:log_creation Log } *)
@@ -102,7 +88,7 @@ val version_range: (_,'id) key -> 'id log_scheme -> version_range
 
 val flush: 'id log -> unit
 
-val create: device -> version -> 'a log_scheme -> 'a log
+val create: device -> version -> 'a def -> 'a log
 val detach: ('b log, 'a) key -> 'a log ->  'b log
 
 
@@ -123,5 +109,5 @@ val fmt : (string,'a) key -> 'a log -> ('b, Format.formatter, unit) format -> 'b
 
 
 (** Compiler logs *)
-module Compiler: Log_scheme
-module Error: Log_scheme
+module Compiler: Def
+module Error: Def

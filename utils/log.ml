@@ -35,30 +35,21 @@ type 'a typ =
   | Triple: 'a typ * 'b typ * 'c typ -> ('a * 'b * 'c) typ
   | Quadruple: 'a typ * 'b typ * 'c typ * 'd typ ->
       ('a * 'b * 'c * 'd) typ
-  | Sum: 'a sum -> 'a sum_constr typ
+  | Sum: 'a def -> 'a sum typ
   | Custom: { id :'b extension; pull: ('b -> 'a); default: 'a typ} ->
       'b typ
-  | Sublog: 'id log_scheme -> 'id log typ
+  | Sublog: 'id def -> 'id log typ
 
-
-and 'a sum =
-  | []: empty sum
-  | (::): (string * 'a typ) * 'b sum -> ('a * 'b) sum
-
-and ('a,'b) sum_index =
-  | Z : ('a * 'b, 'a) sum_index
-  | S: ('a, 'b) sum_index -> (_ * 'a,'b) sum_index
-
-and 'a sum_constr = Constr: ('a,'elt) sum_index * 'elt -> 'a sum_constr
 
 and ('a,'b) key = { name: string; typ: 'a typ }
+and 'a sum = Constr: ('a,'b) key * 'a -> 'b sum
 and key_metadata =
     Key_metadata:
       { typ: 'a typ;
         version:version;
         deprecation: version option } ->
       key_metadata
-and 'a log_scheme = {
+and 'a def = {
   mutable scheme_version: version;
   mutable open_scheme:bool;
   mutable keys: key_metadata Keys.t
@@ -73,20 +64,15 @@ and device = {
   flush: unit -> unit
 }
 
-let c0 = Z
-let c1 = S c0
-let c2 = S c1
-let c3 = S c2
-let c4 = S c3
 
-module type Log_scheme = sig
+module type Def = sig
   type id
-  type scheme = id log_scheme
-  val scheme: id log_scheme
+  type scheme = id def
+  val scheme: scheme
 end
-module New_scheme() : Log_scheme = struct
+module New_def() : Def = struct
   type id
-  type scheme = id log_scheme
+  type scheme = id def
   let scheme =
     { scheme_version = first_version;
       open_scheme = true;
@@ -102,7 +88,6 @@ type error =
   | Sealed_version of version
 exception Error of error
 let error e = raise (Error e)
-
 
 let (.!()<-) scheme key metadata =
   scheme.keys <- Keys.add key.name metadata scheme.keys
@@ -120,6 +105,8 @@ let new_key name scheme typ =
   let key = { name; typ } in
   scheme.!(key) <- metadata;
   key
+
+let constr key x = Constr(key,x)
 
 let (.!()) scheme key =
   match Keys.find_opt key.name scheme.keys with
@@ -193,8 +180,8 @@ let rec fmt_print : type a. format_extension_printer
       end
   |  List elt ->
       Format.pp_print_list (fmt_print {extension} ~key elt) ppf x
-  | Sum s ->
-      fmt_sum {extension} ~key s ppf x
+  | Sum _ ->
+      fmt_sum {extension} ~key ppf x
   | Sublog _ -> ()
   | Option elt ->
       begin match x with
@@ -202,18 +189,13 @@ let rec fmt_print : type a. format_extension_printer
       | Some x ->
           fmt_print {extension} ~key elt ppf x
       end
-and fmt_sum: type s c.
-  format_extension_printer -> key:string -> s sum -> Format.formatter ->
-  s sum_constr -> unit
+and fmt_sum: type s.
+  format_extension_printer -> key:string -> Format.formatter ->
+  s sum -> unit
   =
-   fun {extension} ~key sum ppf c ->
-   match sum, c with
-   | (name, typ) :: _, Constr (Z,x) ->
-       Format.fprintf ppf "(%s %a)" name
-         (fmt_print {extension} ~key typ) x
-   | _ :: q, Constr (S n,x) ->
-       fmt_sum {extension} ~key q ppf (Constr (n,x))
-   | [], _ -> .
+   fun {extension} ~key ppf (Constr (k,x)) ->
+   Format.fprintf ppf "(%s %a)" k.name
+         (fmt_print {extension} ~key k.typ) x
 
 let rec make_fmt ext ppf = {
   flush = Format.pp_print_newline ppf;
@@ -231,5 +213,5 @@ let fmt key log fmt =
   Format.kasprintf (fun s -> log.%[key] <- s ) fmt
 
 
-module Compiler = New_scheme ()
-module Error = New_scheme ()
+module Compiler = New_def ()
+module Error = New_def ()
