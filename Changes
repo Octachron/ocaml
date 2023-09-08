@@ -1,3 +1,10 @@
+5.1.2 + i18n patches
+------------
+
+- #12389, centralize the handling of metadata for compilation units and
+  artifacts in preparation for better unicode support for OCaml source files.
+  (Florian Angeletti, review by Gabriel Scherer)
+
 OCaml 5.1.2
 -----------
 
@@ -12,13 +19,6 @@ OCaml 5.1.1 (8 December 2023)
 
 ### Standard library:
 
-* #12562, #12734, #12783: Remove the `Marshal.Compression` flag to the
-  `Marshal.to_*` functions introduced in 5.1 by #12006, as it cannot
-  be implemented without risking to link -lzstd with all
-  ocamlopt-generated executables.  The compilers are still able to use
-  ZSTD compression for compilation artefacts.
-  (Xavier Leroy and David Allsopp, report by Kate Deplaix, review by
-   Nicolás Ojeda Bär, Kate Deplaix, and Damien Doligez).
 
 ### Bug fixes:
 

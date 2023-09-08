@@ -90,6 +90,7 @@ COMPILERLIBS_SOURCES=\
   utils/lazy_backtrack.ml \
   utils/compression.ml \
   parsing/location.ml \
+  parsing/unit_info.ml \
   parsing/longident.ml \
   parsing/docstrings.ml \
   parsing/syntaxerr.ml \

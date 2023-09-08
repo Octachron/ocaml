@@ -401,7 +401,7 @@ let rec emit = function
 
 (* Emission to a file *)
 
-let to_file outchan unit_name objfile ~required_globals code =
+let to_file outchan artifact_info ~required_globals code =
   init();
   Fun.protect ~finally:clear (fun () ->
   output_string outchan cmo_magic_number;
@@ -412,8 +412,9 @@ let to_file outchan unit_name objfile ~required_globals code =
   LongString.output outchan !out_buffer 0 !out_position;
   let (pos_debug, size_debug) =
     if !Clflags.debug then begin
+      let filename = Unit_info.Artifact.filename artifact_info in
       debug_dirs := String.Set.add
-        (Filename.dirname (Location.absolute_path objfile))
+          (Filename.dirname (Location.absolute_path filename))
         !debug_dirs;
       let p = pos_out outchan in
       Compression.output_value outchan !events;
@@ -422,7 +423,7 @@ let to_file outchan unit_name objfile ~required_globals code =
     end else
       (0, 0) in
   let compunit =
-    { cu_name = unit_name;
+    { cu_name = Unit_info.Artifact.modname artifact_info;
       cu_pos = pos_code;
       cu_codesize = !out_position;
       cu_reloc = List.rev !reloc_info;
@@ -439,7 +440,8 @@ let to_file outchan unit_name objfile ~required_globals code =
        See doc-comment for [Types.abbrev_memo] *)
     Btype.cleanup_abbrev ();
     marshal_to_channel_with_possibly_32bit_compat
-      ~filename:objfile ~kind:"bytecode unit"
+      ~filename:(Unit_info.Artifact.filename artifact_info)
+      ~kind:"bytecode unit"
       outchan compunit
   in
   seek_out outchan pos_depl;
