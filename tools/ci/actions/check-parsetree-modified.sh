@@ -31,10 +31,13 @@ AUTH="authorization: Bearer $GITHUB_TOKEN"
 # We need all the commits in the PR to be available
 . tools/ci/actions/deepen-fetch.sh
 
+MSG="Check if parsetree.mli has been updated"
 COMMIT_RANGE="$MERGE_BASE..$PR_HEAD"
 
 LABEL='parsetree-change'
-
+echo -e "RANGE=$COMMIT_RANGE"
+DIFF=$(git diff "$COMMIT_RANGE" --name-only --exit-code parsing/parsetree.mli)
+echo -e "$DIFF"
 if git diff "$COMMIT_RANGE" --name-only --exit-code parsing/parsetree.mli \
    > /dev/null; then
   echo -e "The parsetree has been modified."
