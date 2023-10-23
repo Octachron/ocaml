@@ -48,9 +48,9 @@ type location_stack = Location.t list
 (** {1 Extension points} *)
 
 type attribute = {
-    attr_loc : Location.t;
     attr_name : string loc;
     attr_payload : payload;
+    attr_loc : Location.t;
   }
 (** Attributes such as [[\@id ARG]] and [[\@\@id ARG]].
 
