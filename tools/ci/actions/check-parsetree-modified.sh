@@ -38,7 +38,7 @@ LABEL='parsetree-change'
 echo -e "RANGE=$COMMIT_RANGE"
 DIFF=$(git diff "$COMMIT_RANGE" parsing/parsetree.mli)
 echo -e "$DIFF"
-if git diff "$COMMIT_RANGE" --name-only --exit-code parsing/parsetree.mli \
+if ! git diff "$COMMIT_RANGE" --name-only --exit-code parsing/parsetree.mli \
    > /dev/null; then
   echo -e "The parsetree has been modified."
   if curl --silent --header "$AUTH" "$API_URL/labels" | grep -q "$LABEL"; then
