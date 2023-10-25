@@ -1606,29 +1606,28 @@ let expand_abbrev_gen kind find_type_expansion env ty =
       let level = get_level ty in
       let scope = get_scope ty in
       let lookup_abbrev = proper_abbrevs args abbrev in
-      begin match find_expans kind path !lookup_abbrev with
-        Some ty' ->
+      let first_try =
+        match find_expans kind path !lookup_abbrev with
+        | Some ty' ->
           (* prerr_endline
             ("found a "^string_of_kind kind^" expansion for "^Path.name path);*)
           if level <> generic_level then
-            begin try
-              update_level env level ty'
+            try
+              update_level env level ty';
+              update_scope scope ty';
+              Ok ty'
             with Escape _ ->
-              (* XXX This should not happen.
-                 However, levels are not correctly restored after a
-                 typing error *)
-              ()
-            end;
-          begin try
-            update_scope scope ty';
-          with Escape _ ->
             (* XXX This should not happen.
                However, levels are not correctly restored after a
                typing error *)
-            ()
-          end;
-          ty'
-      | None ->
+              Error true
+          else  Ok ty'
+        | None -> Error false
+      in
+      begin match first_try with
+      | Ok x -> x
+      | Error forget ->
+          if forget then forget_abbrev lookup_abbrev path;
           match find_type_expansion path env with
           | exception Not_found ->
             (* another way to expand is to normalize the path itself *)
