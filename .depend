@@ -399,7 +399,8 @@ parsing/location.cmx : \
     utils/build_path_prefix_map.cmx \
     parsing/location.cmi
 parsing/location.cmi : \
-    utils/warnings.cmi
+    utils/warnings.cmi \
+    utils/log.cmi
 parsing/longident.cmo : \
     utils/misc.cmi \
     parsing/longident.cmi
@@ -6185,13 +6186,6 @@ driver/compmisc.cmi : \
     utils/load_path.cmi \
     typing/env.cmi \
     utils/clflags.cmi
-driver/errors.cmo : \
-    parsing/location.cmi \
-    driver/errors.cmi
-driver/errors.cmx : \
-    parsing/location.cmx \
-    driver/errors.cmi
-driver/errors.cmi :
 driver/main.cmo : \
     driver/maindriver.cmi \
     driver/main.cmi

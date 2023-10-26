@@ -35,6 +35,7 @@ let expand_position pos len =
 
 
 let prepare ppf =
+  let log = Location.log_on_formatter ppf in
   Topcommon.set_paths ();
   try
     let res =
@@ -43,7 +44,7 @@ let prepare ppf =
     Topcommon.run_hooks Topcommon.Startup;
     res
   with x ->
-    try Location.report_exception ppf x; false
+    try Location.log_exception log x; false
     with x ->
       Format.fprintf ppf "Uncaught exception: %s\n" (Printexc.to_string x);
       false

@@ -18,19 +18,14 @@
 *)
 
 type !'a def
-
-module type Def = sig
-  type id
-  type scheme = id def
-  val scheme: scheme
-end
-module New_def():Def
+type !'a log
+type 'a t = 'a log
 
 
 type doc = Format.formatter -> unit
 
-type !'a log
 type !'a sum
+type !'a prod
 
 type empty = Empty_tag
 
@@ -47,12 +42,21 @@ type 'a typ =
   | Quadruple: 'a typ * 'b typ * 'c typ * 'd typ ->
       ('a * 'b * 'c * 'd) typ
   | Sum: 'a def -> 'a sum typ
-
+  | Record: 'id def -> 'id prod typ
   | Custom: { id :'b extension; pull: ('b -> 'a); default: 'a typ} ->
       'b typ
-  | Sublog: 'id def -> 'id log typ
 
 type ('a,'b) key
+module type Def = sig
+  type id
+  type scheme = id def
+  type log = id t
+  type nonrec 'a key = ('a,id) key
+  val scheme: scheme
+  val new_key: string -> 'a typ -> 'a key
+end
+module New_def():Def
+
 
 
 type device = {
@@ -96,7 +100,7 @@ val detach: ('b log, 'a) key -> 'a log ->  'b log
 type format_extension_printer =
   { extension: 'b. 'b extension -> (Format.formatter -> 'b -> unit) option}
 
-val make_fmt: format_extension_printer -> Format.formatter -> device
+val make_fmt: version -> ?ext:format_extension_printer -> Format.formatter -> device
 
 val set: ('a,'b) key  -> 'a -> 'b log -> unit
 val (.%[]<-): 'b log -> ('a,'b) key -> 'a -> unit
@@ -108,6 +112,13 @@ val fmt : (string,'a) key -> 'a log -> ('b, Format.formatter, unit) format -> 'b
   *)
 
 
+module Record: sig
+  val make: 'a def -> 'a prod
+  val set: ('a, 'id) key -> 'id prod -> 'a -> unit
+  val (.%[]<-) : 'id prod ->  ('a, 'id) key  -> 'a -> unit
+end
+
 (** Compiler logs *)
 module Compiler: Def
 module Error: Def
+module Warnings: Def

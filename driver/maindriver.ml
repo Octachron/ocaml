@@ -110,10 +110,11 @@ let main argv ppf =
   | exception (Compenv.Exit_with_status n) ->
     n
   | exception Continue
-  | () ->
+  | _ ->
     Compmisc.with_ppf_dump ~file_prefix:"profile"
       (fun ppf -> Profile.print ppf !Clflags.profile_columns);
     0
   | exception x ->
-  Location.report_exception ppf x;
+    let log = Location.log_on_formatter ppf in
+  Location.log_exception log x;
   2

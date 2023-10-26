@@ -71,6 +71,7 @@ utils_SOURCES = $(addprefix utils/, \
   local_store.mli local_store.ml \
   load_path.mli load_path.ml \
   clflags.mli clflags.ml \
+  log.mli log.ml \
   profile.mli profile.ml \
   terminfo.mli terminfo.ml \
   ccomp.mli ccomp.ml \
@@ -204,7 +205,6 @@ ocamlbytecomp_SOURCES = \
   bytecomp/bytelink.mli bytecomp/bytelink.ml \
   bytecomp/bytelibrarian.mli bytecomp/bytelibrarian.ml \
   bytecomp/bytepackager.mli bytecomp/bytepackager.ml \
-  driver/errors.mli driver/errors.ml \
   driver/compile.mli driver/compile.ml \
   driver/maindriver.mli driver/maindriver.ml
 
@@ -263,7 +263,6 @@ asmcomp_SOURCES = \
   asmcomp/asmlink.mli asmcomp/asmlink.ml \
   asmcomp/asmlibrarian.mli asmcomp/asmlibrarian.ml \
   asmcomp/asmpackager.mli asmcomp/asmpackager.ml \
-  driver/opterrors.mli driver/opterrors.ml \
   driver/optcompile.mli driver/optcompile.ml \
   driver/optmaindriver.mli driver/optmaindriver.ml
 

@@ -235,8 +235,10 @@ let print_raw_dependencies source_file deps =
 
 (* Process one file *)
 
+let log = Location.log_on_formatter Format.err_formatter
+
 let print_exception exn =
-  Location.report_exception stderr exn
+  Location.log_exception log exn
 
 let report_err exn =
   Error_occurred.set ();
@@ -647,8 +649,9 @@ let run_main argv =
   | Compenv.Exit_with_status n ->
       n
   | exn ->
-      Location.report_exception stderr exn;
-      2
+    let log = Location.log_on_formatter stderr in
+    Location.log_exception log exn;
+    2
 
 
 let main () =

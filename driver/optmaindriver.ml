@@ -133,7 +133,8 @@ let main argv ppf =
   | exception (Compenv.Exit_with_status n) ->
     n
   | exception x ->
-    Location.report_exception ppf x;
+    let log = Location.log_on_formatter ppf in
+    Location.log_exception log x;
     2
   | () ->
       Compmisc.with_ppf_dump ~file_prefix:"profile"

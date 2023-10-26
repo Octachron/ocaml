@@ -260,7 +260,6 @@ val default_warning_reporter: t -> Warnings.t -> report option
 
 (** {2 Printing warnings} *)
 
-val formatter_for_warnings : formatter ref
 
 val print_warning: t -> formatter -> Warnings.t -> unit
 (** Prints a warning. This is simply the composition of [report_warning] and
@@ -347,5 +346,7 @@ exception Already_displayed_error
 val raise_errorf: ?loc:t -> ?sub:msg list ->
   ('a, Format.formatter, unit, 'b) format4 -> 'a
 
-val report_exception: formatter -> exn -> unit
-(** Reraise the exception if it is unknown. *)
+val log_exception: Log.Compiler.log -> exn -> unit
+(** Reraise the exception if it is unknown or log it. *)
+
+val log_on_formatter: Format.formatter -> Log.Compiler.log

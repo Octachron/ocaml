@@ -655,7 +655,7 @@ let lines_around_from_current_input ~start_pos ~end_pos =
 
 type msg = (Format.formatter -> unit) loc
 
-Xlet msg ?(loc = none) fmt =
+let msg ?(loc = none) fmt =
   Format.kdprintf (fun txt -> { loc; txt }) fmt
 
 type report_kind =
@@ -672,18 +672,66 @@ type report = {
   quotable_locs: t list option;
 }
 
-module _ = struct[@warning "-unused-value-declaration"]
+module Error_log = struct[@warning "-unused-value-declaration"]
+  type lc = t
   open Log
   module Kind = New_def ()
-  let report_error = new_key "Report_error" Kind.scheme Int
-  let report_alert = new_key "Report_alert" Kind.scheme String
-  let report_alert_as_error = new_key "Report_alert_as_error" Kind.scheme String
-  let report_warning = new_key "Report_warning" Kind.scheme String
+  let report_error = Kind.new_key "Report_error" Int
+  let report_alert = Kind.new_key  "Report_alert"  String
+  let report_alert_as_error = Kind.new_key "Report_alert_as_error" String
+  let report_warning = Kind.new_key "Report_warning" String
   let report_warning_as_error =
-    new_key "Report_warning_as_error" Kind.scheme String
+    Kind.new_key "Report_warning_as_error" String
 
   let (<$>) = constr
-  type _ extension += Error_kind: report_kind extension
+
+
+  type loc_summary = {
+    file: string option;
+    lines: int option * int option;
+    chars: (int * int) option
+  }
+
+
+  let loc_summary loc =
+    let line_valid line = if line > 0 then Some line else None in
+    let chars_valid ~startchar ~endchar =
+      if startchar <> -1 && endchar <> -1 then Some (startchar, endchar)
+      else None
+    in
+    let file =
+      (* According to the comment in location.mli, if [pos_fname] is "", we must
+         use [!input_name]. *)
+      if loc.loc_start.Lexing.pos_fname = "" then !input_name
+      else loc.loc_start.pos_fname
+    in
+    let file = match file with
+      | "_none_" ->
+          (* This is a dummy placeholder, but we print it anyway to please editors
+             that parse locations in error messages (e.g. Emacs). *)
+          Some file
+      | "" | "//toplevel//" -> None
+      | _ -> Some file
+    in
+
+    let chars = chars_valid
+        ~startchar:(loc.loc_start.pos_cnum - loc.loc_start.pos_bol)
+        ~endchar:(loc.loc_end.pos_cnum - loc.loc_end.pos_bol)
+    in
+    {
+      file;
+      lines = line_valid loc.loc_start.pos_lnum,
+              line_valid loc.loc_end.pos_lnum;
+      chars;
+    }
+
+
+  type _ extension +=
+    | Error_kind: report_kind extension
+    | Error: report extension
+    | Location: lc extension
+    | Msg: doc loc extension
+
   let pull = function
     | Report_error -> report_error <$> 0
     | Report_warning w -> report_warning <$> w
@@ -691,8 +739,57 @@ module _ = struct[@warning "-unused-value-declaration"]
     | Report_alert w -> report_alert <$> w
     | Report_alert_as_error w -> report_alert_as_error <$> w
 
-  let kind = new_key "kind" Error.scheme
+
+  let loc_typ =
+    Triple (Option String,
+            Pair (Option Int, Option Int),
+            Option (Pair (Int, Int))
+           )
+
+  let pull_loc l =
+    l.file, l.lines, l.chars
+
+  let loc_typ =
+    Custom {
+      id = Location;
+      pull = (fun l -> let l = loc_summary l in l.file, l.lines, l.chars);
+      default = loc_typ
+    }
+  let loc = Log.Error.new_key "loc" loc_typ
+
+  module Msg = New_def ()
+  let msg = Msg.new_key "msg" Doc
+  let msg_loc = Msg.new_key "loc" loc_typ
+  let msg_typ =
+    let pull m =
+      let open Log.Record in
+      let r = make Msg.scheme in
+      r.%[msg] <- m.txt;
+      r.%[msg_loc] <- m.loc;
+      r
+    in
+    Custom { id = Msg; pull; default = Record Msg.scheme }
+  let () = seal_version Msg.scheme
+
+  let kind = Log.Error.new_key "kind"
       (Custom { id = Error_kind; pull; default = Sum Kind.scheme })
+
+  let main = Log.Error.new_key "main" msg_typ
+  let sub = Log.Error.new_key "sub" Log.(List msg_typ)
+  let quotable_locs = Log.Error.new_key "quotable_locs" Log.(Option (List loc_typ))
+
+  let pull (report:report) =
+    let r = Log.Record.make Error.scheme in
+    let open Log.Record in
+    r.%[kind] <- report.kind;
+    r.%[main] <- report.main;
+    r.%[sub] <- report.sub;
+    r.%[quotable_locs] <- report.quotable_locs;
+    r
+
+  let key = Log.Compiler.new_key "error"
+      (Custom { id = Error; pull; default = Record Error.scheme })
+
 end
 
 type 'a printer = Format.formatter -> 'a -> unit
@@ -852,9 +949,6 @@ let print_report ppf report =
 
 type error = report
 
-let report_error ppf err =
-  print_report ppf err
-
 
 let mkerror loc sub txt =
   let quotable_locs = Some (make_quotable_locs { loc; txt } sub ) in
@@ -1003,15 +1097,17 @@ let () =
 
 external reraise : exn -> 'a = "%reraise"
 
-let report_exception ppf exn =
+let report_exception log exn =
   let rec loop n exn =
     match error_of_exn exn with
     | None -> reraise exn
     | Some `Already_displayed -> ()
-    | Some (`Ok err) -> report_error ppf err
+    | Some (`Ok err) -> log.Log.%[Error_log.key] <- err
     | exception exn when n > 0 -> loop (n-1) exn
   in
   loop 5 exn
+
+let log_exception = report_exception
 
 exception Error of error
 
@@ -1024,3 +1120,8 @@ let () =
 
 let raise_errorf ?(loc = none) ?(sub = []) =
   Format.kdprintf (fun txt -> raise (Error (mkerror loc sub txt)))
+
+let log_on_formatter ppf =
+  let version = Log.(version Compiler.scheme) in
+  let device = Log.make_fmt version ppf in
+  Log.create device version Log.Compiler.scheme

@@ -152,7 +152,9 @@ let prepare ppf =
     Topcommon.run_hooks Topcommon.Startup;
     res
   with x ->
-    try Location.report_exception ppf x; false
+    try
+      let log = Location.log_on_formatter ppf in
+      Location.log_exception log x; false
     with x ->
       Format.fprintf ppf "Uncaught exception: %s\n" (Printexc.to_string x);
       false

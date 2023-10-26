@@ -50,7 +50,9 @@ let use_lexbuf ppf ~wrap_in_module lb ~modpath ~filename =
     with
     | Exit -> false
     | Sys.Break -> fprintf ppf "Interrupted.@."; false
-    | x -> Location.report_exception ppf x; false)
+    | x ->
+        let log = Location.log_on_formatter ppf in
+        Location.log_exception log x; false)
 
 (** [~modpath] is used to determine the module name when [wrap_in_module]
     [~filepath] is the filesystem path to the input,
@@ -120,7 +122,8 @@ let run_script ppf name args =
   begin
     try toplevel_env := Compmisc.initial_env()
     with Env.Error _ | Typetexp.Error _ as exn ->
-      Location.report_exception ppf exn; raise (Compenv.Exit_with_status 2)
+      let log = Location.log_on_formatter ppf in
+      Location.log_exception log exn; raise (Compenv.Exit_with_status 2)
   end;
   Sys.interactive := false;
   run_hooks After_setup;
@@ -251,7 +254,7 @@ let is_blank_with_linefeed lb =
 (* Read and parse toplevel phrases, stop when a complete phrase has been
    parsed and the lexbuf contains and end of line with optional whitespace
    and comments. *)
-let rec get_phrases ppf lb phrs =
+let rec get_phrases log lb phrs =
   match !parse_toplevel_phrase lb with
   | phr ->
     if is_blank_with_linefeed lb then begin
@@ -260,9 +263,9 @@ let rec get_phrases ppf lb phrs =
       ignore (look_ahead ~print_warnings:true lb);
       List.rev (phr :: phrs)
     end else
-      get_phrases ppf lb (phr :: phrs)
+      get_phrases log lb (phr :: phrs)
   | exception Exit -> raise PPerror
-  | exception e -> Location.report_exception ppf e; []
+  | exception e -> Location.log_exception log e; []
 
 (* Type, compile and execute a phrase. *)
 let process_phrase ppf snap phr =
@@ -293,7 +296,8 @@ let process_phrases ppf snap phrs =
 
 let loop ppf =
   Clflags.debug := true;
-  Location.formatter_for_warnings := ppf;
+  (* TODO   Location.formatter_for_warnings := ppf; *)
+  let log = Location.log_on_formatter ppf in
   if not !Clflags.noversion then
     fprintf ppf "OCaml version %s%s%s@.Enter #help;; for help.@.@."
       Config.version
@@ -302,7 +306,7 @@ let loop ppf =
   begin
     try initialize_toplevel_env ()
     with Env.Error _ | Typetexp.Error _ as exn ->
-      Location.report_exception ppf exn; raise (Compenv.Exit_with_status 2)
+      Location.log_exception log exn; raise (Compenv.Exit_with_status 2)
   end;
   let lb = Lexing.from_function refill_lexbuf in
   Location.init lb "//toplevel//";
@@ -320,11 +324,11 @@ let loop ppf =
       Buffer.reset phrase_buffer;
       Location.reset();
       first_line := true;
-      let phrs = get_phrases ppf lb [] in
+      let phrs = get_phrases log lb [] in
       process_phrases ppf snap phrs
     with
     | End_of_file -> raise (Compenv.Exit_with_status 0)
     | Sys.Break -> fprintf ppf "Interrupted.@."; Btype.backtrack !snap
     | PPerror -> ()
-    | x -> Location.report_exception ppf x; Btype.backtrack !snap
+    | x -> Location.log_exception log x; Btype.backtrack !snap
   done
