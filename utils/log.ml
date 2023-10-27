@@ -55,7 +55,7 @@ and 'a def = {
   mutable keys: key_metadata Keys.t
 }
 and 'a prod = {
-    fields: 'a sum Keys.t
+    mutable fields: 'a sum Keys.t
   }
 
 type 'a log = {
@@ -64,7 +64,7 @@ type 'a log = {
 }
 and device = {
   print: 'a. key:string -> 'a typ -> 'a -> unit;
-  sub: key:string -> device;
+  sub: 'a 'b. key:('a prod,'b) key-> device;
   flush: unit -> unit
 }
 type 'a t = 'a log
@@ -166,7 +166,7 @@ let version_range key scheme =
 
 let create device version _scheme = { device; version }
 let detach key (log: _ log) =
-  let device = log.device.sub ~key:key.name in
+  let device = log.device.sub ~key in
   let version = log.version in
   { device; version }
 
@@ -210,7 +210,28 @@ let _version_key =
 module Error = New_def ()
 module Warnings = New_def ()
 
+module Store = struct
 
+  let print:
+    type s ty. s prod -> key:string -> ty typ -> ty -> unit =
+      fun store ~key ty x ->
+        store.fields <- Keys.add key (constr {name=key; typ=ty} x) store.fields
+
+
+  let rec make: type s. (s prod -> unit -> unit) -> device =
+    fun flush ->
+    let store = { fields = Keys.empty } in
+    let print ~key ty x = print store ~key ty x in
+    let flush_at_key ~key store =
+      print ~key:key.name key.typ store
+    in
+    {
+      flush=flush store;
+      print;
+      sub = (fun ~key -> make (fun store () -> flush_at_key ~key store ));
+    }
+
+end
 
 module Fmt = struct
 
@@ -380,7 +401,7 @@ module Fmt = struct
         Format.fprintf (proj ppf) "@[<v>"
       end in
     {
-      flush = (fun () -> Format.fprintf (proj ppf) ")@]@." );
+      flush = (fun () -> Format.fprintf (proj ppf) "@]@." );
       sub = (fun ~key:_ -> gen version ~ext proj ppf);
       print = (fun ~key ty x ->
           initialize ();

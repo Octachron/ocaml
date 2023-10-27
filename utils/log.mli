@@ -61,7 +61,7 @@ module New_def():Def
 
 type device = {
   print: 'a. key:string -> 'a typ -> 'a -> unit;
-  sub: key:string -> device;
+  sub: 'a 'b. key:('a prod, 'b) key -> device;
   flush: unit -> unit
 }
 
@@ -93,8 +93,12 @@ val version_range: (_,'id) key -> 'id def -> version_range
 val flush: 'id log -> unit
 
 val create: device -> version -> 'a def -> 'a log
-val detach: ('b log, 'a) key -> 'a log ->  'b log
+val detach: ('b prod, 'a) key -> 'a log ->  'b log
 
+
+module Store: sig
+  val make: ('a prod -> unit -> unit) -> device
+end
 
 module Fmt: sig
   type conv
