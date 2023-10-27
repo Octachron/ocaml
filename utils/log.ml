@@ -415,3 +415,18 @@ module Fmt = struct
   let make_ref version ?ext ppf =
     gen version ?ext (!) ppf
 end
+
+
+module Structured = struct
+  type t = Format.formatter -> device
+  let with_conv conv ppf =
+    let printer r () =
+      Format.fprintf ppf "%a@."
+      Fmt.(prod conv no_extension) r
+    in
+    Store.make printer
+
+  let sexp = with_conv Fmt.sexp
+  let json = with_conv Fmt.json
+
+end

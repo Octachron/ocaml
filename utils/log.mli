@@ -102,15 +102,18 @@ end
 
 module Fmt: sig
   type conv
-  val sexp: conv
-  val json: conv
-  val direct: conv
   type 'a printer = Format.formatter -> 'a -> unit
   type extension_printer =
     { extension: 'b. 'b extension -> 'b printer option}
   val make: version -> ?ext:extension_printer -> Format.formatter -> device
   val make_ref: version -> ?ext:extension_printer -> Format.formatter ref
     -> device
+end
+
+module Structured: sig
+  type t = Format.formatter -> device
+  val json:t
+  val sexp:t
 end
 
 val set: ('a,'b) key  -> 'a -> 'b log -> unit
