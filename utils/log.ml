@@ -215,68 +215,154 @@ module Warnings = New_def ()
 module Fmt = struct
 
   type 'a printer = Format.formatter -> 'a -> unit
+  type pr = Format.formatter -> unit
   type extension_printer =
   { extension: 'b. 'b extension -> 'b printer option}
 
-  let rec fmt_elt : type a. extension_printer
+  type list_convention = {
+    list_open: pr;
+    list_close: pr;
+    sep: pr;
+  }
+
+  type assoc = {
+    assoc_open:pr;
+    assoc_close: pr;
+    open_with_label: string printer;
+    label_sep: pr;
+    close_with_label: string printer
+  }
+
+  type conv = {
+    assoc:assoc;
+    list:list_convention;
+  }
+
+  let rec elt : type a. conv -> extension_printer
     -> a typ -> Format.formatter -> a -> unit =
-    fun {extension} typ ppf x ->
+    fun conv {extension} typ ppf x ->
     match typ with
     | Int -> Format.pp_print_int ppf x
     | String -> Format.pp_print_string ppf x
     | Doc -> x ppf
     | Pair (a,b) ->
         let x, y = x in
-        Format.fprintf ppf "@[(%a,@ %a)@]"
-          (fmt_elt {extension} a) x
-          (fmt_elt {extension} b) y
+        Format.fprintf ppf "%t%a%t%a%t"
+          conv.list.list_open
+          (elt conv {extension} a) x
+          conv.list.sep
+          (elt conv {extension} b) y
+          conv.list.list_close
     | Triple (a,b,c) ->
         let x, y, z = x in
-        Format.fprintf ppf "@[(%a,@ %a,@ %a)@]"
-          (fmt_elt {extension} a) x
-          (fmt_elt {extension} b) y
-          (fmt_elt {extension} c) z
+        Format.fprintf ppf "%t%a%t%a%t%a%t"
+          conv.list.list_open
+          (elt conv {extension} a) x
+          conv.list.sep
+          (elt conv {extension} b) y
+          conv.list.sep
+          (elt conv {extension} c) z
+          conv.list.list_close
     | Quadruple (a,b,c,d) ->
         let x, y, z ,w = x in
-        Format.fprintf ppf "@[(%a,@ %a,@ %a,@ %a)@]"
-          (fmt_elt {extension} a) x
-          (fmt_elt {extension} b) y
-          (fmt_elt {extension} c) z
-          (fmt_elt {extension} d) w
+        conv.list.list_open ppf;
+        (elt conv {extension} a) ppf x;
+        conv.list.sep ppf;
+        (elt conv {extension} b) ppf y;
+        conv.list.sep ppf;
+        (elt conv {extension} c) ppf z;
+        conv.list.sep ppf;
+        (elt conv {extension} d) ppf w;
+        conv.list.list_close ppf
     | Custom {pull; default; id } -> begin
         match extension id with
         | Some pr -> pr ppf x
-        | None -> fmt_elt {extension} default ppf (pull x)
+        | None -> elt  conv {extension} default ppf (pull x)
       end
-    |  List elt ->
-        Format.fprintf ppf "@[(%a)@]"
-          (Format.pp_print_list (fmt_elt {extension} elt)) x
+    |  List e ->
+        let pp_sep ppf () = conv.list.sep ppf in
+        conv.list.list_open ppf;
+        Format.pp_print_list ~pp_sep (elt conv {extension} e) ppf x;
+        conv.list.list_close ppf;
     | Sum _ ->
-        fmt_sum {extension} ppf x
+        fmt_sum  conv {extension} ppf x
     | Record _ ->
-        fmt_prod {extension} ppf x
-    | Option elt ->
+        prod conv {extension} ppf x
+    | Option e ->
         begin match x with
-        | None ->  Format.fprintf ppf "()"
-        | Some x ->
-            fmt_elt {extension} elt ppf x
+        | None ->  ()
+        | Some x -> elt conv {extension} e ppf x
         end
   and fmt_sum: type s.
-    extension_printer -> Format.formatter ->
+    conv -> extension_printer -> Format.formatter ->
     s sum -> unit
     =
-    fun {extension} ppf (Constr (k,x)) ->
-    Format.fprintf ppf "@[(%s %a)@]" k.name
-      (fmt_elt {extension} k.typ) x
-  and fmt_prod: type p.
-    extension_printer -> Format.formatter -> p prod -> unit
-    = fun extension ppf prod ->
+    fun conv {extension} ppf (Constr (k,x)) ->
+    conv.assoc.open_with_label ppf k.name;
+    conv.assoc.label_sep ppf;
+    (elt conv {extension} k.typ) ppf x;
+    conv.assoc.close_with_label ppf k.name;
+  and prod: type p.
+    conv -> extension_printer -> Format.formatter -> p prod -> unit
+    = fun conv extension ppf prod ->
+      conv.assoc.assoc_open ppf;
       Keys.iter (fun key (Constr(kt,x)) ->
-          fmt_print extension ~key kt.typ ppf x
-        ) prod.fields
-  and fmt_print: type a. extension_printer -> key:string -> a typ -> Format.formatter -> a -> unit =
-    fun extension ~key typ ppf x ->
-    Format.fprintf ppf "(%s %a)" key (fmt_elt extension typ) x
+          item conv extension ~key kt.typ ppf x
+        ) prod.fields;
+      conv.assoc.assoc_close ppf
+  and item: type a. conv -> extension_printer ->
+    key:string -> a typ -> Format.formatter -> a -> unit =
+    fun conv extension ~key typ ppf x ->
+    conv.assoc.open_with_label ppf key;
+    conv.assoc.label_sep ppf;
+    (elt conv extension typ) ppf x;
+    conv.assoc.close_with_label ppf key
+
+  let direct = {
+    list = {
+      list_open = ignore;
+      list_close = ignore;
+      sep = Format.dprintf "@ ";
+    };
+    assoc = {
+      assoc_open = ignore;
+      assoc_close = ignore;
+      open_with_label = (fun _ -> ignore);
+      label_sep = ignore;
+      close_with_label = (fun _ -> ignore);
+    }
+  }
+
+  let sexp =
+    let list_open = Format.dprintf "@[("
+    and list_close = Format.dprintf ")@]"
+    and sep = Format.dprintf "@ " in
+    {
+      list = {list_open; list_close; sep };
+      assoc = {
+        assoc_open = list_open;
+        assoc_close = list_close;
+        open_with_label = (fun ppf -> Format.fprintf ppf "@[(%s");
+        label_sep = sep;
+        close_with_label = (fun ppf _ -> Format.fprintf ppf "@]");
+      }
+    }
+
+  let json =
+    {
+      list = {
+        list_open=Format.dprintf "@[[";
+        list_close = Format.dprintf "]@]";
+        sep = Format.dprintf ",@ ";
+      };
+      assoc = {
+        assoc_open = Format.dprintf "@[{";
+        assoc_close = Format.dprintf "}@]";
+        open_with_label = (fun ppf -> Format.fprintf ppf "@[%S");
+        label_sep = Format.dprintf "@ =@ ";
+        close_with_label = (fun ppf _ -> Format.fprintf ppf "@]");
+      }
+    }
 
 
 
@@ -298,7 +384,7 @@ module Fmt = struct
       sub = (fun ~key:_ -> gen version ~ext proj ppf);
       print = (fun ~key ty x ->
           initialize ();
-          fmt_print ext ~key ty (proj ppf) x)
+          item direct ext ~key ty (proj ppf) x)
     }
 
 
