@@ -276,17 +276,25 @@ module Warnings = New_def ()
 
 let no_extension = { extension = fun _ -> None }
 
-let rec make_fmt version ?(ext=no_extension) ppf =
+let rec make_fmt_gen version ?(ext=no_extension) proj ppf =
   let init = ref false in
   let initialize () =
     if !init then ()
     else begin
       init := true;
-      Format.fprintf ppf "@[<v>(@ %a"
+      Format.fprintf (proj ppf) "@[<v>(@ %a"
         (fmt_elt ext version_typ) version
   end in
   {
-  flush = (fun () -> Format.fprintf ppf ")@]@." );
-  sub = (fun ~key:_ -> make_fmt version ~ext ppf);
-  print = (fun ~key ty x -> initialize (); fmt_print ext ~key ty ppf x)
+  flush = (fun () -> Format.fprintf (proj ppf) ")@]@." );
+  sub = (fun ~key:_ -> make_fmt_gen version ~ext proj ppf);
+  print = (fun ~key ty x ->
+      initialize ();
+      fmt_print ext ~key ty (proj ppf) x)
 }
+
+let make_fmt version ?ext ppf =
+  make_fmt_gen version ?ext Fun.id ppf
+
+let make_fmt_ref version ?ext ppf =
+  make_fmt_gen version ?ext (!) ppf

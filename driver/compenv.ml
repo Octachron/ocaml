@@ -74,7 +74,8 @@ type readenv_position =
 exception SyntaxError of string
 
 let print_error ppf msg =
-  Location.print_warning Location.none ppf
+  let log = Location.log_on_formatter ppf in
+  Location.log_warning Location.none log
     (Warnings.Bad_env_variable ("OCAMLPARAM", msg))
 
 let parse_args s =

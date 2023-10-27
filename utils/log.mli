@@ -101,6 +101,7 @@ type format_extension_printer =
   { extension: 'b. 'b extension -> (Format.formatter -> 'b -> unit) option}
 
 val make_fmt: version -> ?ext:format_extension_printer -> Format.formatter -> device
+val make_fmt_ref: version -> ?ext:format_extension_printer -> Format.formatter ref -> device
 
 val set: ('a,'b) key  -> 'a -> 'b log -> unit
 val (.%[]<-): 'b log -> ('a,'b) key -> 'a -> unit

@@ -260,14 +260,16 @@ val default_warning_reporter: t -> Warnings.t -> report option
 
 (** {2 Printing warnings} *)
 
+val formatter_for_warnings : formatter ref
+val log_for_warnings : Log.Compiler.log ref
 
-val print_warning: t -> formatter -> Warnings.t -> unit
+val log_warning: t -> Log.Compiler.log -> Warnings.t -> unit
 (** Prints a warning. This is simply the composition of [report_warning] and
    [print_report]. *)
 
 val prerr_warning: t -> Warnings.t -> unit
-(** Same as [print_warning], but uses [!formatter_for_warnings] as output
-   formatter. *)
+(** Same as [print_warning], but uses [!log_for_warnings] as output
+   log. *)
 
 (** {1 Reporting alerts} *)
 
@@ -285,12 +287,12 @@ val default_alert_reporter: t -> Warnings.alert -> report option
 
 (** {2 Printing alerts} *)
 
-val print_alert: t -> formatter -> Warnings.alert -> unit
+val log_alert: t -> Log.Compiler.log -> Warnings.alert -> unit
 (** Prints an alert. This is simply the composition of [report_alert] and
    [print_report]. *)
 
 val prerr_alert: t -> Warnings.alert -> unit
-(** Same as [print_alert], but uses [!formatter_for_warnings] as output
+(** Same as [print_alert], but uses [!log_for_warnings] as output
    formatter. *)
 
 val deprecated: ?def:t -> ?use:t -> t -> string -> unit

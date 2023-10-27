@@ -787,8 +787,13 @@ module Error_log = struct[@warning "-unused-value-declaration"]
     r.%[quotable_locs] <- report.quotable_locs;
     r
 
-  let key = Log.Compiler.new_key "error"
-      (Custom { id = Error; pull; default = Record Error.scheme })
+
+  let report_typ = Custom { id = Error; pull; default = Record Error.scheme }
+
+  let key = Log.Compiler.new_key "error" report_typ
+
+  let warnings = Log.Compiler.new_key "warnings" (List report_typ)
+  let alerts = Log.Compiler.new_key "alerts" (List report_typ)
 
 end
 
@@ -995,14 +1000,26 @@ let default_warning_reporter =
 let warning_reporter = ref default_warning_reporter
 let report_warning loc w = !warning_reporter loc w
 
-let formatter_for_warnings = ref Format.err_formatter
+let log_on_formatter ppf =
+  let version = Log.(version Compiler.scheme) in
+  let device = Log.make_fmt version ppf in
+  Log.create device version Log.Compiler.scheme
 
-let print_warning loc ppf w =
+let log_on_formatter_ref rppf =
+  let version = Log.(version Compiler.scheme) in
+  let device = Log.make_fmt_ref version rppf in
+  Log.create device version Log.Compiler.scheme
+
+
+let formatter_for_warnings = ref Format.err_formatter
+let log_for_warnings = ref (log_on_formatter_ref formatter_for_warnings)
+
+let log_warning loc log w =
   match report_warning loc w with
   | None -> ()
-  | Some report -> print_report ppf report
+  | Some report -> Log.( log.%[Error_log.warnings] <- [report])
 
-let prerr_warning loc w = print_warning loc !formatter_for_warnings w
+let prerr_warning loc w = log_warning loc !log_for_warnings w
 
 let default_alert_reporter =
   default_warning_alert_reporter
@@ -1015,12 +1032,12 @@ let default_alert_reporter =
 let alert_reporter = ref default_alert_reporter
 let report_alert loc w = !alert_reporter loc w
 
-let print_alert loc ppf w =
+let log_alert loc log w =
   match report_alert loc w with
   | None -> ()
-  | Some report -> print_report ppf report
+  | Some report -> Log.( log.%[Error_log.alerts] <- [report] )
 
-let prerr_alert loc w = print_alert loc !formatter_for_warnings w
+let prerr_alert loc w = log_alert loc !log_for_warnings w
 
 let alert ?(def = none) ?(use = none) ~kind loc message =
   prerr_alert loc {Warnings.kind; message; def; use}
@@ -1120,8 +1137,3 @@ let () =
 
 let raise_errorf ?(loc = none) ?(sub = []) =
   Format.kdprintf (fun txt -> raise (Error (mkerror loc sub txt)))
-
-let log_on_formatter ppf =
-  let version = Log.(version Compiler.scheme) in
-  let device = Log.make_fmt version ppf in
-  Log.create device version Log.Compiler.scheme

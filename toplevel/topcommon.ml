@@ -30,7 +30,7 @@ let parse_toplevel_phrase = ref Parse.toplevel_phrase
 let parse_use_file = ref Parse.use_file
 let print_location = Location.print_loc
 let print_error = Location.print_report
-let print_warning = Location.print_warning
+let log_warning = Location.log_warning
 let input_name = Location.input_name
 
 let parse_mod_use_file name lb =
