@@ -998,16 +998,16 @@ let error_extension: type a. a Log.extension -> a printer option = function
   | Error_log.Msg -> None
   | _ -> None
 
-let ext = { Log.extension = error_extension }
+let ext = { Log.Fmt.extension = error_extension }
 
 let log_on_formatter ppf =
   let version = Log.(version Compiler.scheme) in
-  let device = Log.make_fmt ~ext version ppf in
+  let device = Log.Fmt.make ~ext version ppf in
   Log.create device version Log.Compiler.scheme
 
 let log_on_formatter_ref rppf =
   let version = Log.(version Compiler.scheme) in
-  let device = Log.make_fmt_ref ~ext version rppf in
+  let device = Log.Fmt.make_ref ~ext version rppf in
   Log.create device version Log.Compiler.scheme
 
 

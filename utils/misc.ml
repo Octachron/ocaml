@@ -560,7 +560,6 @@ module Color = struct
   type setting = Auto | Always | Never
 
   let default_setting = Auto
-  let enabled = ref true
 
 end
 
@@ -658,50 +657,53 @@ module Style = struct
   let inline_code ppf s = as_inline_code Format.pp_print_string ppf s
 
   (* either prints the tag of [s] or delegates to [or_else] *)
-  let mark_open_tag ~or_else s =
+  let mark_open_tag ~color ~or_else s =
     try
       let style = style_of_tag s in
-      if !Color.enabled then ansi_of_style_l style.ansi else style.text_open
+      if color then ansi_of_style_l style.ansi else style.text_open
     with Not_found -> or_else s
 
-  let mark_close_tag ~or_else s =
+  let mark_close_tag ~color ~or_else s =
     try
       let style = style_of_tag s in
-      if !Color.enabled then ansi_of_style_l [Reset] else style.text_close
+      if color then ansi_of_style_l [Reset] else style.text_close
     with Not_found -> or_else s
 
   (* add tag handling to formatter [ppf] *)
-  let set_tag_handling ppf =
+  let set_tag_handling ~color ppf =
     let open Format in
     let functions = pp_get_formatter_stag_functions ppf () in
     let functions' = {functions with
-      mark_open_stag=(mark_open_tag ~or_else:functions.mark_open_stag);
-      mark_close_stag=(mark_close_tag ~or_else:functions.mark_close_stag);
+      mark_open_stag=(mark_open_tag ~color ~or_else:functions.mark_open_stag);
+      mark_close_stag=(mark_close_tag ~color ~or_else:functions.mark_close_stag);
     } in
     pp_set_mark_tags ppf true; (* enable tags *)
     pp_set_formatter_stag_functions ppf functions';
     ()
 
-  let setup =
-    let first = ref true in (* initialize only once *)
-    let formatter_l =
-      [Format.std_formatter; Format.err_formatter; Format.str_formatter]
-    in
-    let enable_color = function
+  let enable_color o =
+   let choose = function
       | Color.Auto -> Color.should_enable_color ()
       | Color.Always -> true
       | Color.Never -> false
-    in
+   in
+   match o with
+   | None -> choose Color.default_setting
+   | Some s -> choose s
+
+
+  let setup_on formatter_l =
+    let first = ref true in (* initialize only once *)
     fun o ->
       if !first then (
         first := false;
         Format.set_mark_tags true;
-        List.iter set_tag_handling formatter_l;
-        Color.enabled := (match o with
-          | Some s -> enable_color s
-          | None -> enable_color Color.default_setting)
-      );
-      ()
+        let color = enable_color o in
+        List.iter (set_tag_handling ~color) formatter_l
+      )
+
+   let setup = setup_on Format.[std_formatter; err_formatter; str_formatter]
+
 end
 
 let edit_distance a b cutoff =

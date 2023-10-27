@@ -97,20 +97,6 @@ utils/domainstate.cmo : \
 utils/domainstate.cmx : \
     utils/domainstate.cmi
 utils/domainstate.cmi :
-utils/error_report.cmo : \
-    utils/warnings.cmi \
-    utils/terminfo.cmi \
-    utils/misc.cmi \
-    utils/log.cmi \
-    utils/clflags.cmi \
-    utils/build_path_prefix_map.cmi
-utils/error_report.cmx : \
-    utils/warnings.cmx \
-    utils/terminfo.cmx \
-    utils/misc.cmx \
-    utils/log.cmx \
-    utils/clflags.cmx \
-    utils/build_path_prefix_map.cmx
 utils/identifiable.cmo : \
     utils/misc.cmi \
     utils/identifiable.cmi
@@ -145,8 +131,12 @@ utils/local_store.cmx : \
     utils/local_store.cmi
 utils/local_store.cmi :
 utils/log.cmo : \
+    utils/misc.cmi \
+    utils/clflags.cmi \
     utils/log.cmi
 utils/log.cmx : \
+    utils/misc.cmx \
+    utils/clflags.cmx \
     utils/log.cmi
 utils/log.cmi :
 utils/misc.cmo : \
@@ -6518,6 +6508,7 @@ toplevel/topcommon.cmi : \
     parsing/parsetree.cmi \
     typing/outcometree.cmi \
     parsing/longident.cmi \
+    utils/log.cmi \
     parsing/location.cmi \
     utils/load_path.cmi \
     typing/ident.cmi \
@@ -6617,6 +6608,7 @@ toplevel/toploop.cmi : \
     parsing/parsetree.cmi \
     typing/outcometree.cmi \
     parsing/longident.cmi \
+    utils/log.cmi \
     parsing/location.cmi \
     utils/load_path.cmi \
     typing/env.cmi

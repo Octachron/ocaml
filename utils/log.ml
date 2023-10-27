@@ -170,68 +170,6 @@ let detach key (log: _ log) =
   let version = log.version in
   { device; version }
 
-type format_extension_printer =
-  { extension: 'b. 'b extension -> (Format.formatter -> 'b -> unit) option}
-
-let rec fmt_elt : type a. format_extension_printer
-  -> a typ -> Format.formatter -> a -> unit =
-  fun {extension} typ ppf x ->
-  match typ with
-  | Int -> Format.pp_print_int ppf x
-  | String -> Format.pp_print_string ppf x
-  | Doc -> x ppf
-  | Pair (a,b) ->
-      let x, y = x in
-      Format.fprintf ppf "@[(%a,@ %a)@]"
-        (fmt_elt {extension} a) x
-        (fmt_elt {extension} b) y
-  | Triple (a,b,c) ->
-      let x, y, z = x in
-      Format.fprintf ppf "@[(%a,@ %a,@ %a)@]"
-        (fmt_elt {extension} a) x
-        (fmt_elt {extension} b) y
-        (fmt_elt {extension} c) z
-  | Quadruple (a,b,c,d) ->
-      let x, y, z ,w = x in
-      Format.fprintf ppf "@[(%a,@ %a,@ %a,@ %a)@]"
-        (fmt_elt {extension} a) x
-        (fmt_elt {extension} b) y
-        (fmt_elt {extension} c) z
-        (fmt_elt {extension} d) w
-  | Custom {pull; default; id } -> begin
-      match extension id with
-      | Some pr -> pr ppf x
-      | None -> fmt_elt {extension} default ppf (pull x)
-      end
-  |  List elt ->
-      Format.fprintf ppf "@[(%a)@]"
-      (Format.pp_print_list (fmt_elt {extension} elt)) x
-  | Sum _ ->
-      fmt_sum {extension} ppf x
-  | Record _ ->
-      fmt_prod {extension} ppf x
-  | Option elt ->
-      begin match x with
-      | None ->  Format.fprintf ppf "()"
-      | Some x ->
-          fmt_elt {extension} elt ppf x
-      end
-and fmt_sum: type s.
-  format_extension_printer -> Format.formatter ->
-  s sum -> unit
-  =
-   fun {extension} ppf (Constr (k,x)) ->
-   Format.fprintf ppf "@[(%s %a)@]" k.name
-         (fmt_elt {extension} k.typ) x
-and fmt_prod: type p.
-  format_extension_printer -> Format.formatter -> p prod -> unit
-  = fun extension ppf prod ->
-  Keys.iter (fun key (Constr(kt,x)) ->
-      fmt_print extension ~key kt.typ ppf x
-    ) prod.fields
-and fmt_print: type a. format_extension_printer -> key:string -> a typ -> Format.formatter -> a -> unit =
-  fun extension ~key typ ppf x ->
-  Format.fprintf ppf "(%s %a)" key (fmt_elt extension typ) x
 
 module Record = struct
   let (=:) = constr
@@ -273,27 +211,100 @@ module Error = New_def ()
 module Warnings = New_def ()
 
 
-let no_extension = { extension = fun _ -> None }
 
-let rec make_fmt_gen version ?(ext=no_extension) proj ppf =
-  let init = ref false in
-  let initialize () =
-    if !init then ()
-    else begin
-      init := true;
-      Format.fprintf (proj ppf) "@[<v>(@ %a"
-        (fmt_elt ext version_typ) version
-  end in
-  {
-  flush = (fun () -> Format.fprintf (proj ppf) ")@]@." );
-  sub = (fun ~key:_ -> make_fmt_gen version ~ext proj ppf);
-  print = (fun ~key ty x ->
-      initialize ();
-      fmt_print ext ~key ty (proj ppf) x)
-}
+module Fmt = struct
 
-let make_fmt version ?ext ppf =
-  make_fmt_gen version ?ext Fun.id ppf
+  type 'a printer = Format.formatter -> 'a -> unit
+  type extension_printer =
+  { extension: 'b. 'b extension -> 'b printer option}
 
-let make_fmt_ref version ?ext ppf =
-  make_fmt_gen version ?ext (!) ppf
+  let rec fmt_elt : type a. extension_printer
+    -> a typ -> Format.formatter -> a -> unit =
+    fun {extension} typ ppf x ->
+    match typ with
+    | Int -> Format.pp_print_int ppf x
+    | String -> Format.pp_print_string ppf x
+    | Doc -> x ppf
+    | Pair (a,b) ->
+        let x, y = x in
+        Format.fprintf ppf "@[(%a,@ %a)@]"
+          (fmt_elt {extension} a) x
+          (fmt_elt {extension} b) y
+    | Triple (a,b,c) ->
+        let x, y, z = x in
+        Format.fprintf ppf "@[(%a,@ %a,@ %a)@]"
+          (fmt_elt {extension} a) x
+          (fmt_elt {extension} b) y
+          (fmt_elt {extension} c) z
+    | Quadruple (a,b,c,d) ->
+        let x, y, z ,w = x in
+        Format.fprintf ppf "@[(%a,@ %a,@ %a,@ %a)@]"
+          (fmt_elt {extension} a) x
+          (fmt_elt {extension} b) y
+          (fmt_elt {extension} c) z
+          (fmt_elt {extension} d) w
+    | Custom {pull; default; id } -> begin
+        match extension id with
+        | Some pr -> pr ppf x
+        | None -> fmt_elt {extension} default ppf (pull x)
+      end
+    |  List elt ->
+        Format.fprintf ppf "@[(%a)@]"
+          (Format.pp_print_list (fmt_elt {extension} elt)) x
+    | Sum _ ->
+        fmt_sum {extension} ppf x
+    | Record _ ->
+        fmt_prod {extension} ppf x
+    | Option elt ->
+        begin match x with
+        | None ->  Format.fprintf ppf "()"
+        | Some x ->
+            fmt_elt {extension} elt ppf x
+        end
+  and fmt_sum: type s.
+    extension_printer -> Format.formatter ->
+    s sum -> unit
+    =
+    fun {extension} ppf (Constr (k,x)) ->
+    Format.fprintf ppf "@[(%s %a)@]" k.name
+      (fmt_elt {extension} k.typ) x
+  and fmt_prod: type p.
+    extension_printer -> Format.formatter -> p prod -> unit
+    = fun extension ppf prod ->
+      Keys.iter (fun key (Constr(kt,x)) ->
+          fmt_print extension ~key kt.typ ppf x
+        ) prod.fields
+  and fmt_print: type a. extension_printer -> key:string -> a typ -> Format.formatter -> a -> unit =
+    fun extension ~key typ ppf x ->
+    Format.fprintf ppf "(%s %a)" key (fmt_elt extension typ) x
+
+
+
+  let no_extension = { extension = fun _ -> None }
+
+  let rec gen version ?(ext=no_extension) proj ppf =
+
+    let init = ref false in
+    let initialize () =
+      if !init then ()
+      else begin
+        init := true;
+        let color = Misc.Style.enable_color !Clflags.color in
+        Misc.Style.set_tag_handling ~color (proj ppf);
+        Format.fprintf (proj ppf) "@[<v>"
+      end in
+    {
+      flush = (fun () -> Format.fprintf (proj ppf) ")@]@." );
+      sub = (fun ~key:_ -> gen version ~ext proj ppf);
+      print = (fun ~key ty x ->
+          initialize ();
+          fmt_print ext ~key ty (proj ppf) x)
+    }
+
+
+  let make version ?ext ppf =
+    gen version ?ext Fun.id ppf
+
+  let make_ref version ?ext ppf =
+    gen version ?ext (!) ppf
+end
