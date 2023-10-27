@@ -96,12 +96,13 @@ val create: device -> version -> 'a def -> 'a log
 val detach: ('b log, 'a) key -> 'a log ->  'b log
 
 
-
-type format_extension_printer =
-  { extension: 'b. 'b extension -> (Format.formatter -> 'b -> unit) option}
-
-val make_fmt: version -> ?ext:format_extension_printer -> Format.formatter -> device
-val make_fmt_ref: version -> ?ext:format_extension_printer -> Format.formatter ref -> device
+module Fmt: sig
+  type 'a printer = Format.formatter -> 'a -> unit
+  type extension_printer =
+    { extension: 'b. 'b extension -> 'b printer option}
+  val make: version -> ?ext:extension_printer -> Format.formatter -> device
+  val make_ref: version -> ?ext:extension_printer -> Format.formatter ref -> device
+end
 
 val set: ('a,'b) key  -> 'a -> 'b log -> unit
 val (.%[]<-): 'b log -> ('a,'b) key -> 'a -> unit
@@ -114,9 +115,8 @@ val fmt : (string,'a) key -> 'a log -> ('b, Format.formatter, unit) format -> 'b
 
 
 module Record: sig
-  val make: 'a def -> 'a prod
-  val set: ('a, 'id) key -> 'id prod -> 'a -> unit
-  val (.%[]<-) : 'id prod ->  ('a, 'id) key  -> 'a -> unit
+  val (=:): ('a,'b) key -> 'a -> 'b sum
+  val make: 'a sum list -> 'a prod
 end
 
 (** Compiler logs *)

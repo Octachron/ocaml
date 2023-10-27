@@ -55,7 +55,7 @@ and 'a def = {
   mutable keys: key_metadata Keys.t
 }
 and 'a prod = {
-    mutable fields: 'a sum Keys.t
+    fields: 'a sum Keys.t
   }
 
 type 'a log = {
@@ -234,9 +234,12 @@ and fmt_print: type a. format_extension_printer -> key:string -> a typ -> Format
   Format.fprintf ppf "(%s %a)" key (fmt_elt extension typ) x
 
 module Record = struct
-  let make _scheme = { fields = Keys.empty }
-  let set key f  x= f.fields <- Keys.add key.name (Constr(key,x)) f.fields
-  let (.%[]<-) f key x = set key f x
+  let (=:) = constr
+  let make fields =
+    let fields = List.fold_left (fun fields (Constr(k,_) as field) ->
+        Keys.add k.name field fields
+      ) Keys.empty fields
+        in { fields }
 end
 
 let set key x log =
@@ -259,11 +262,7 @@ module Compiler = New_def ()
 
 let version_typ =
   let pull v =
-    let open Record in
-    let r = Record.make V.scheme in
-    r.%[major] <- v.major;
-    r.%[minor] <- v.minor;
-    r
+    Record.(make [ major =: v.major; minor =: v.minor ] )
   in
   Custom { pull; id = Version; default = Record V.scheme}
 

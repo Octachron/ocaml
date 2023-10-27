@@ -685,7 +685,6 @@ module Error_log = struct[@warning "-unused-value-declaration"]
 
   let (<$>) = constr
 
-
   type loc_summary = {
     file: string option;
     lines: int option * int option;
@@ -761,13 +760,7 @@ module Error_log = struct[@warning "-unused-value-declaration"]
   let msg = Msg.new_key "msg" Doc
   let msg_loc = Msg.new_key "loc" loc_typ
   let msg_typ =
-    let pull m =
-      let open Log.Record in
-      let r = make Msg.scheme in
-      r.%[msg] <- m.txt;
-      r.%[msg_loc] <- m.loc;
-      r
-    in
+    let pull m = Log.Record.(make [ msg =: m.txt; msg_loc =: m.loc ]) in
     Custom { id = Msg; pull; default = Record Msg.scheme }
   let () = seal_version Msg.scheme
 
@@ -779,13 +772,13 @@ module Error_log = struct[@warning "-unused-value-declaration"]
   let quotable_locs = Log.Error.new_key "quotable_locs" Log.(Option (List loc_typ))
 
   let pull (report:report) =
-    let r = Log.Record.make Error.scheme in
     let open Log.Record in
-    r.%[kind] <- report.kind;
-    r.%[main] <- report.main;
-    r.%[sub] <- report.sub;
-    r.%[quotable_locs] <- report.quotable_locs;
-    r
+    make [
+      kind =: report.kind;
+      main =: report.main;
+      sub =: report.sub;
+      quotable_locs =: report.quotable_locs
+    ]
 
 
   let report_typ = Custom { id = Error; pull; default = Record Error.scheme }
@@ -1000,14 +993,21 @@ let default_warning_reporter =
 let warning_reporter = ref default_warning_reporter
 let report_warning loc w = !warning_reporter loc w
 
+let error_extension: type a. a Log.extension -> a printer option = function
+  | Error_log.Error -> Some print_report
+  | Error_log.Msg -> None
+  | _ -> None
+
+let ext = { Log.extension = error_extension }
+
 let log_on_formatter ppf =
   let version = Log.(version Compiler.scheme) in
-  let device = Log.make_fmt version ppf in
+  let device = Log.make_fmt ~ext version ppf in
   Log.create device version Log.Compiler.scheme
 
 let log_on_formatter_ref rppf =
   let version = Log.(version Compiler.scheme) in
-  let device = Log.make_fmt_ref version rppf in
+  let device = Log.make_fmt_ref ~ext version rppf in
   Log.create device version Log.Compiler.scheme
 
 
