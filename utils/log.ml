@@ -388,45 +388,60 @@ module Fmt = struct
 
 
   let no_extension = { extension = fun _ -> None }
+  let chain_extensions x y =
+    let chain ext =
+      match x.extension ext with
+      | None -> y.extension ext
+      |  Some _ as p -> p
+    in
+    { extension = chain }
 
-  let rec gen version ?(ext=no_extension) proj ppf =
+  let extensions = ref no_extension
+  let add_extension x =
+    extensions := chain_extensions x !extensions
 
+  let rec make color ppf =
+    let last_ppf = ref !ppf in
     let init = ref false in
     let initialize () =
-      if !init then ()
+      if !init && !ppf == !last_ppf then ()
       else begin
         init := true;
-        let color = Misc.Style.enable_color !Clflags.color in
-        Misc.Style.set_tag_handling ~color (proj ppf);
-        Format.fprintf (proj ppf) "@[<v>"
+        last_ppf := !ppf;
+        let color = Misc.Style.enable_color color in
+        Misc.Style.set_tag_handling ~color !ppf;
+        Format.fprintf !ppf "@[<v>"
       end in
     {
-      flush = (fun () -> Format.fprintf (proj ppf) "@]@." );
-      sub = (fun ~key:_ -> gen version ~ext proj ppf);
+      flush = (fun () -> Format.fprintf !ppf "@]@." );
+      sub = (fun ~key:_ -> make color ppf);
       print = (fun ~key ty x ->
           initialize ();
-          item direct ext ~key ty (proj ppf) x)
+          item direct !extensions ~key ty !ppf x)
     }
 
-
-  let make version ?ext ppf =
-    gen version ?ext Fun.id ppf
-
-  let make_ref version ?ext ppf =
-    gen version ?ext (!) ppf
 end
 
 
 module Structured = struct
-  type t = Format.formatter -> device
   let with_conv conv ppf =
     let printer r () =
-      Format.fprintf ppf "%a@."
+      Format.fprintf !ppf "%a@."
       Fmt.(prod conv no_extension) r
     in
     Store.make printer
 
-  let sexp = with_conv Fmt.sexp
-  let json = with_conv Fmt.json
+  let sexp _color ppf = with_conv Fmt.sexp ppf
+  let json _color ppf = with_conv Fmt.json ppf
 
+end
+
+module Backends = struct
+  type t = {
+    name:string;
+    make: Misc.Color.setting option -> Format.formatter ref -> device;
+  }
+  let fmt = { name="stderr"; make = Fmt.make }
+  let sexp = { name="sexp" ; make = Structured.sexp }
+  let json = { name = "json"; make = Structured.json }
 end

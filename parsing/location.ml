@@ -706,8 +706,8 @@ module Error_log = struct[@warning "-unused-value-declaration"]
     in
     let file = match file with
       | "_none_" ->
-          (* This is a dummy placeholder, but we print it anyway to please editors
-             that parse locations in error messages (e.g. Emacs). *)
+          (* This is a dummy placeholder, but we print it anyway to please
+             editors that parse locations in error messages (e.g. Emacs). *)
           Some file
       | "" | "//toplevel//" -> None
       | _ -> Some file
@@ -769,7 +769,8 @@ module Error_log = struct[@warning "-unused-value-declaration"]
 
   let main = Log.Error.new_key "main" msg_typ
   let sub = Log.Error.new_key "sub" Log.(List msg_typ)
-  let quotable_locs = Log.Error.new_key "quotable_locs" Log.(Option (List loc_typ))
+  let quotable_locs =
+    Log.Error.new_key "quotable_locs" Log.(Option (List loc_typ))
 
   let pull (report:report) =
     let open Log.Record in
@@ -998,18 +999,14 @@ let error_extension: type a. a Log.extension -> a printer option = function
   | Error_log.Msg -> None
   | _ -> None
 
-let ext = { Log.Fmt.extension = error_extension }
+let () =
+  Log.Fmt.add_extension { extension = error_extension }
 
-let log_on_formatter ppf =
+let log_on_formatter_ref ppf =
   let version = Log.(version Compiler.scheme) in
-  let device = Log.Fmt.make ~ext version ppf in
+  let device = Log.Backends.fmt.make !Clflags.color ppf in
   Log.create device version Log.Compiler.scheme
-
-let log_on_formatter_ref rppf =
-  let version = Log.(version Compiler.scheme) in
-  let device = Log.Fmt.make_ref ~ext version rppf in
-  Log.create device version Log.Compiler.scheme
-
+let log_on_formatter ppf = log_on_formatter_ref (ref ppf)
 
 let formatter_for_warnings = ref Format.err_formatter
 let log_for_warnings = ref (log_on_formatter_ref formatter_for_warnings)

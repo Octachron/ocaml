@@ -101,19 +101,20 @@ module Store: sig
 end
 
 module Fmt: sig
-  type conv
   type 'a printer = Format.formatter -> 'a -> unit
   type extension_printer =
     { extension: 'b. 'b extension -> 'b printer option}
-  val make: version -> ?ext:extension_printer -> Format.formatter -> device
-  val make_ref: version -> ?ext:extension_printer -> Format.formatter ref
-    -> device
+  val add_extension: extension_printer -> unit
 end
 
-module Structured: sig
-  type t = Format.formatter -> device
-  val json:t
-  val sexp:t
+module Backends : sig
+  type t = {
+    name:string;
+    make: Misc.Color.setting option -> Format.formatter ref -> device;
+  }
+  val fmt: t
+  val json: t
+  val sexp: t
 end
 
 val set: ('a,'b) key  -> 'a -> 'b log -> unit
