@@ -249,6 +249,7 @@ module Fmt = struct
   type assoc = {
     assoc_open:pr;
     assoc_close: pr;
+    sep: unit printer;
     open_with_label: string printer;
     label_sep: pr;
     close_with_label: string printer
@@ -306,7 +307,8 @@ module Fmt = struct
         Format.pp_print_list ~pp_sep (elt conv {extension} e) ppf x;
         conv.list.list_close ppf;
     | Sum _ ->
-        fmt_sum  conv {extension} ppf x
+        let Constr(kt,x) = x in
+        elt conv {extension} (Pair(String,kt.typ)) ppf (kt.name,x)
     | Record _ ->
         prod conv {extension} ppf x
     | Option e ->
@@ -314,22 +316,15 @@ module Fmt = struct
         | None ->  ()
         | Some x -> elt conv {extension} e ppf x
         end
-  and fmt_sum: type s.
-    conv -> extension_printer -> Format.formatter ->
-    s sum -> unit
-    =
-    fun conv {extension} ppf (Constr (k,x)) ->
-    conv.assoc.open_with_label ppf k.name;
-    conv.assoc.label_sep ppf;
-    (elt conv {extension} k.typ) ppf x;
-    conv.assoc.close_with_label ppf k.name;
   and prod: type p.
     conv -> extension_printer -> Format.formatter -> p prod -> unit
     = fun conv extension ppf prod ->
+      let field ppf (key, Constr(kt,x)) =
+        item conv extension ~key kt.typ ppf x
+      in
       conv.assoc.assoc_open ppf;
-      Keys.iter (fun key (Constr(kt,x)) ->
-          item conv extension ~key kt.typ ppf x
-        ) prod.fields;
+      Format.pp_print_seq ~pp_sep:conv.assoc.sep field ppf
+        (Keys.to_seq prod.fields);
       conv.assoc.assoc_close ppf
   and item: type a. conv -> extension_printer ->
     key:string -> a typ -> Format.formatter -> a -> unit =
@@ -350,6 +345,7 @@ module Fmt = struct
       assoc_close = ignore;
       open_with_label = (fun _ -> ignore);
       label_sep = ignore;
+      sep = (fun _ -> ignore);
       close_with_label = (fun _ -> ignore);
     }
   }
@@ -363,24 +359,26 @@ module Fmt = struct
       assoc = {
         assoc_open = list_open;
         assoc_close = list_close;
-        open_with_label = (fun ppf -> Format.fprintf ppf "@[(%s");
+        open_with_label = (fun ppf -> Format.fprintf ppf "@[<b 2>(%s");
+        sep = (fun ppf () -> sep ppf);
         label_sep = sep;
-        close_with_label = (fun ppf _ -> Format.fprintf ppf "@]");
+        close_with_label = (fun ppf _ -> Format.fprintf ppf ")@]");
       }
     }
 
   let json =
     {
       list = {
-        list_open=Format.dprintf "@[[";
-        list_close = Format.dprintf "]@]";
+        list_open=Format.dprintf "@[<b 2>[";
+        list_close = Format.dprintf "@,]@]";
         sep = Format.dprintf ",@ ";
       };
       assoc = {
-        assoc_open = Format.dprintf "@[{";
-        assoc_close = Format.dprintf "}@]";
-        open_with_label = (fun ppf -> Format.fprintf ppf "@[%S");
+        assoc_open = Format.dprintf "@[<b 2>{@ ";
+        assoc_close = Format.dprintf "@,}@]";
+        open_with_label = (fun ppf -> Format.fprintf ppf "@[<b 2>%S");
         label_sep = Format.dprintf "@ =@ ";
+        sep = (fun ppf () -> Format.fprintf ppf ",@ ");
         close_with_label = (fun ppf _ -> Format.fprintf ppf "@]");
       }
     }
