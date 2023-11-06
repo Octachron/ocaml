@@ -260,13 +260,32 @@ module Fmt = struct
     list:list_convention;
   }
 
+  let escape_string str =
+    let buf = Buffer.create (String.length str * 5 / 4) in
+    for i = 0 to String.length str - 1 do
+      match str.[i] with
+      | '\\' -> Buffer.add_string buf {|\\|}
+      | '\"' -> Buffer.add_string buf {|\"|}
+      | '\n' -> Buffer.add_string buf {|\n|}
+      | '\t' -> Buffer.add_string buf {|\t|}
+      | '\r' -> Buffer.add_string buf {|\r|}
+      | '\b' -> Buffer.add_string buf {|\b|}
+      | '\x00' .. '\x1F' | '\x7F' as c ->
+          Printf.bprintf buf "\\u%04X" (Char.code c)
+      | c -> Buffer.add_char buf c
+    done;
+    Buffer.contents buf
+
+
   let rec elt : type a. conv -> extension_printer
     -> a typ -> Format.formatter -> a -> unit =
     fun conv {extension} typ ppf x ->
     match typ with
     | Int -> Format.pp_print_int ppf x
-    | String -> Format.pp_print_string ppf x
-    | Doc -> x ppf
+    | String -> Format.fprintf ppf {|"%s"|} (escape_string x)
+    | Doc ->
+        let str = Format.asprintf "%t" x in
+        Format.fprintf ppf {|"%s"|} (escape_string str)
     | Pair (a,b) ->
         let x, y = x in
         Format.fprintf ppf "%t%a%t%a%t"
@@ -374,7 +393,7 @@ module Fmt = struct
         sep = Format.dprintf ",@ ";
       };
       assoc = {
-        assoc_open = Format.dprintf "@[<b 2>{@ ";
+        assoc_open = Format.dprintf "@[<hv 2>{@ ";
         assoc_close = Format.dprintf "@,}@]";
         open_with_label = (fun ppf -> Format.fprintf ppf "@[<b 2>%S");
         label_sep = Format.dprintf "@ =@ ";
