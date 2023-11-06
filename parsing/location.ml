@@ -1004,7 +1004,8 @@ let () =
 
 let log_on_formatter_ref ppf =
   let version = Log.(version Compiler.scheme) in
-  let device = Log.Backends.fmt.make !Clflags.color ppf in
+  let backend = Option.value ~default:Log.Backends.fmt !Clflags.log_format in
+  let device = backend.make !Clflags.color ppf in
   Log.create device version Log.Compiler.scheme
 let log_on_formatter ppf = log_on_formatter_ref (ref ppf)
 
