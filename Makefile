@@ -2126,9 +2126,9 @@ ocamlprof_SOURCES = \
   arg_helper.mli arg_helper.ml \
   local_store.mli local_store.ml \
   load_path.mli load_path.ml \
+  log.mli log.ml \
   clflags.mli clflags.ml \
   terminfo.mli terminfo.ml \
-  log.mli log.ml \
   warnings.mli warnings.ml \
   location.mli location.ml \
   longident.mli longident.ml \
@@ -2188,6 +2188,7 @@ ocamlmktop_SOURCES = \
   arg_helper.mli arg_helper.ml \
   local_store.mli local_store.ml \
   load_path.mli load_path.ml \
+  log.mli log.ml \
   clflags.mli clflags.ml \
   profile.mli profile.ml \
   ccomp.mli ccomp.ml \

@@ -236,6 +236,10 @@ val color_reader : Misc.Color.setting env_reader
 val error_style : Misc.Error_style.setting option ref
 val error_style_reader : Misc.Error_style.setting env_reader
 
+val log_format: Log.Backends.t option ref
+val log_format_reader :Log.Backends.t env_reader
+
+
 val unboxed_types : bool ref
 
 val insn_sched : bool ref

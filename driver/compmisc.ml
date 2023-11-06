@@ -96,6 +96,7 @@ let read_clflags_from_env () =
   if Option.is_none !Clflags.color && no_color () then
     Clflags.color := Some Misc.Color.Never;
   set_from_env Clflags.error_style Clflags.error_style_reader;
+  set_from_env Clflags.log_format Clflags.log_format_reader;
   ()
 
 let rec make_directory dir =
