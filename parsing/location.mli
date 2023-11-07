@@ -233,6 +233,8 @@ val pp_report: report_printer -> formatter -> report -> unit
 val print_report: formatter -> report -> unit
 (** Display an error or warning report. *)
 
+val log_report: Log.Compiler.log -> report -> unit
+
 val report_printer: (unit -> report_printer) ref
 (** Hook for redefining the printer of reports.
 

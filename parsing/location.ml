@@ -943,6 +943,8 @@ let print_report ppf report =
   let printer = !report_printer () in
   pp_report printer ppf report
 
+let log_report log report = log.Log.%[Error_log.key] <- report
+
 (******************************************************************************)
 (* Reporting errors *)
 

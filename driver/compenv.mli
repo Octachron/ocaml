@@ -42,7 +42,7 @@ type filename = string
 type readenv_position =
   Before_args | Before_compile of filename | Before_link
 
-val readenv : Format.formatter -> readenv_position -> unit
+val readenv : Log.Compiler.log -> readenv_position -> unit
 
 (* Deferred actions of the compiler, while parsing arguments *)
 
@@ -62,7 +62,7 @@ val impl : string -> unit
 val intf : string -> unit
 
 val process_deferred_actions :
-  Format.formatter *
+  Log.Compiler.log *
   (start_from:Clflags.Compiler_pass.t ->
    source_file:string -> output_prefix:string -> unit) *
   (* compile implementation *)

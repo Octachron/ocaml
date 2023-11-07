@@ -73,8 +73,7 @@ type readenv_position =
    or ':', '|', ';', ' ' or ',' *)
 exception SyntaxError of string
 
-let print_error ppf msg =
-  let log = Location.log_on_formatter ppf in
+let print_error log msg =
   Location.log_warning Location.none log
     (Warnings.Bad_env_variable ("OCAMLPARAM", msg))
 
@@ -112,7 +111,7 @@ let parse_args s =
   in
   iter false args [] []
 
-let setter ppf f name options s =
+let setter log f name options s =
   try
     let bool = match s with
       | "0" -> false
@@ -121,7 +120,7 @@ let setter ppf f name options s =
     in
     List.iter (fun b -> b := f bool) options
   with Not_found ->
-    Printf.ksprintf (print_error ppf)
+    Printf.ksprintf (print_error log)
       "bad value %s for %s" s name
 
 let int_setter ppf name option s =
@@ -148,12 +147,12 @@ let float_setter ppf name option s =
          ("OCAMLPARAM", Printf.sprintf "non-float parameter for \"%s\"" name))
 *)
 
-let check_bool ppf name s =
+let check_bool log name s =
   match s with
   | "0" -> false
   | "1" -> true
   | _ ->
-    Printf.ksprintf (print_error ppf)
+    Printf.ksprintf (print_error log)
       "bad value %s for %s" s name;
     false
 
@@ -371,6 +370,14 @@ let read_one_param ppf position name v =
       | Some setting -> error_style := Some setting
       end
 
+  | "log-format" ->
+      begin match log_format_reader.parse v with
+      | None ->
+          Printf.ksprintf (print_error ppf)
+            "bad value %s for \"log-format\", (%s)" v error_style_reader.usage
+      | Some backend -> log_format := Some backend
+      end
+
   | "intf-suffix" -> Config.interface_suffix := v
 
   | "I" -> begin
@@ -501,12 +508,12 @@ let scan_line ic =
        in
        { pattern; name; value })
 
-let load_config ppf filename =
+let load_config log filename =
   match open_in_bin filename with
   | exception e ->
       Location.errorf ~loc:(Location.in_file filename)
         "Cannot open file %s" (Printexc.to_string e)
-      |> Location.print_report ppf;
+      |> Location.log_report log;
       raise Exit
   | ic ->
       let sic = Scanf.Scanning.from_channel ic in
@@ -530,7 +537,7 @@ let load_config ppf filename =
               }
             in
             Location.errorf ~loc "Configuration file error %s" error
-            |> Location.print_report ppf;
+            |> Location.log_report log;
             close_in ic;
             raise Exit
         | line ->

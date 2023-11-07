@@ -70,8 +70,8 @@ utils_SOURCES = $(addprefix utils/, \
   arg_helper.mli arg_helper.ml \
   local_store.mli local_store.ml \
   load_path.mli load_path.ml \
-  clflags.mli clflags.ml \
   log.mli log.ml \
+  clflags.mli clflags.ml \
   profile.mli profile.ml \
   terminfo.mli terminfo.ml \
   ccomp.mli ccomp.ml \
