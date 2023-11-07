@@ -58,14 +58,6 @@ end
 module New_def():Def
 
 
-
-type device = {
-  print: 'a. key:string -> 'a typ -> 'a -> unit;
-  sub: 'a 'b. key:('a prod, 'b) key -> device;
-  flush: unit -> unit
-}
-
-
 val new_key: string ->
   'id def -> 'a typ -> ('a,'id) key
 
@@ -92,14 +84,14 @@ val version_range: (_,'id) key -> 'id def -> version_range
 
 val flush: 'id log -> unit
 
+(*
 val create: device -> version -> 'a def -> 'a log
 val detach: ('b prod, 'a) key -> 'a log ->  'b log
-
 
 module Store: sig
   val make: ('a prod -> unit -> unit) -> device
 end
-
+*)
 module Fmt: sig
   type 'a printer = Format.formatter -> 'a -> unit
   type extension_printer =
@@ -110,7 +102,9 @@ end
 module Backends : sig
   type t = {
     name:string;
-    make: Misc.Color.setting option -> Format.formatter ref -> device;
+    make:
+      'a. Misc.Color.setting option -> version -> Format.formatter ref ->
+      'a def -> 'a log;
   }
   val fmt: t
   val json: t

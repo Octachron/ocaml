@@ -58,15 +58,19 @@ and 'a prod = {
     mutable fields: 'a sum Keys.t
   }
 
-type 'a log = {
-  device: device;
-  version: version
-}
-and device = {
-  print: 'a. key:string -> 'a typ -> 'a -> unit;
-  sub: 'a 'b. key:('a prod,'b) key-> device;
-  flush: unit -> unit
-}
+type 'a log =
+  {
+    ppf: Format.formatter ref;
+    redirections: Format.formatter Keys.t;
+    version: version;
+    mode: 'a mode;
+  }
+[@@warning "-69"]
+and 'a mode =
+  | Direct of Misc.Color.setting option
+  | Store of 'a prod * printer
+and printer = { print: 'a. Format.formatter -> 'a prod -> unit; }
+
 type 'a t = 'a log
 
 type error =
@@ -126,8 +130,6 @@ module New_def() : Def = struct
     let new_key name ty = new_key name scheme ty
 end
 
-let flush log = log.device.flush ()
-
 
 let constr key x = Constr(key,x)
 
@@ -162,13 +164,6 @@ let version_range key scheme =
   let Key_metadata r =  scheme.!(key) in
   { introduction = r.version; deprecation = r.deprecation }
 
-(** {1:log_creation }*)
-
-let create device version _scheme = { device; version }
-let detach key (log: _ log) =
-  let device = log.device.sub ~key in
-  let version = log.version in
-  { device; version }
 
 
 module Record = struct
@@ -179,15 +174,6 @@ module Record = struct
       ) Keys.empty fields
         in { fields }
 end
-
-let set key x log =
-  log.device.print ~key:key.name key.typ x
-
-let (.%[]<-) log key x = set key x log
-
-let fmt key log fmt =
-  Format.kasprintf (fun s -> log.%[key] <- s ) fmt
-
 
 
 module V = New_def ()
@@ -212,24 +198,17 @@ module Warnings = New_def ()
 
 module Store = struct
 
-  let print:
+  let record:
     type s ty. s prod -> key:string -> ty typ -> ty -> unit =
       fun store ~key ty x ->
         store.fields <- Keys.add key (constr {name=key; typ=ty} x) store.fields
 
-
-  let rec make: type s. (s prod -> unit -> unit) -> device =
-    fun flush ->
-    let store = { fields = Keys.empty } in
-    let print ~key ty x = print store ~key ty x in
-    let flush_at_key ~key store =
-      print ~key:key.name key.typ store
-    in
-    {
-      flush=flush store;
-      print;
-      sub = (fun ~key -> make (fun store () -> flush_at_key ~key store ));
-    }
+(*
+  let print_key (type s) key {print} ppf (p:s prod) =
+    match Keys.find_opt key.name p.fields with
+    | None -> ()
+    | Some (Constr(k,x)) -> print k.typ ppf x
+*)
 
 end
 
@@ -403,7 +382,6 @@ module Fmt = struct
     }
 
 
-
   let no_extension = { extension = fun _ -> None }
   let chain_extensions x y =
     let chain ext =
@@ -417,46 +395,69 @@ module Fmt = struct
   let add_extension x =
     extensions := chain_extensions x !extensions
 
-  let rec make color ppf =
-    let last_ppf = ref !ppf in
-    let init = ref false in
-    let initialize () =
-      if !init && !ppf == !last_ppf then ()
-      else begin
-        init := true;
-        last_ppf := !ppf;
-        let color = Misc.Style.enable_color color in
-        Misc.Style.set_tag_handling ~color !ppf;
-        Format.fprintf !ppf "@[<v>"
-      end in
+
+  let init color ppf =
+    let color = Misc.Style.enable_color color in
+    Misc.Style.set_tag_handling ~color !ppf;
+    Format.fprintf !ppf "@[<v>"
+
+  let flush ppf = Format.fprintf ppf "@]@."
+
+
+  let make color version ppf _sch =
+    init color ppf;
     {
-      flush = (fun () -> Format.fprintf !ppf "@]@." );
-      sub = (fun ~key:_ -> make color ppf);
-      print = (fun ~key ty x ->
-          initialize ();
-          item direct !extensions ~key ty !ppf x)
+      ppf;
+      redirections = Keys.empty;
+      mode = Direct color;
+      version;
     }
 
 end
 
+let set key x log =
+  match log.mode with
+  | Direct _ ->
+    Fmt.(item direct !extensions) ~key:key.name key.typ !(log.ppf) x
+  | Store (st, _ ) ->
+      Store.record st ~key:key.name key.typ x
+
+let (.%[]<-) log key x = set key x log
+
+let fmt key log fmt =
+  Format.kasprintf (fun s -> log.%[key] <- s ) fmt
+
+let flush log =
+  let ppf = !(log.ppf) in
+  match log.mode with
+  | Direct _ -> Fmt.flush ppf;
+  | Store (st, pr) -> pr.print ppf st
+
+
+(** {1:log_creation }*)
 
 module Structured = struct
-  let with_conv conv ppf =
-    let printer r () =
-      Format.fprintf !ppf "%a@."
+  let with_conv conv version ppf =
+    let print ppf r =
+      Format.fprintf ppf "%a@."
       Fmt.(prod conv no_extension) r
     in
-    Store.make printer
+    { version;
+      ppf;
+      redirections = Keys.empty;
+      mode = Store ({fields=Keys.empty}, {print})
+    }
 
-  let sexp _color ppf = with_conv Fmt.sexp ppf
-  let json _color ppf = with_conv Fmt.json ppf
+  let sexp _color version ppf _sch = with_conv Fmt.sexp version ppf
+  let json _color version ppf _sch = with_conv Fmt.json version ppf
 
 end
 
 module Backends = struct
   type t = {
     name:string;
-    make: Misc.Color.setting option -> Format.formatter ref -> device;
+    make: 'a. Misc.Color.setting option -> version -> Format.formatter ref
+      -> 'a def -> 'a log;
   }
   let fmt = { name="stderr"; make = Fmt.make }
   let sexp = { name="sexp" ; make = Structured.sexp }

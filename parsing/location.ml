@@ -1007,8 +1007,7 @@ let () =
 let log_on_formatter_ref ppf =
   let version = Log.(version Compiler.scheme) in
   let backend = Option.value ~default:Log.Backends.fmt !Clflags.log_format in
-  let device = backend.make !Clflags.color ppf in
-  Log.create device version Log.Compiler.scheme
+  backend.make !Clflags.color version  ppf Log.Compiler.scheme
 let log_on_formatter ppf = log_on_formatter_ref (ref ppf)
 
 let formatter_for_warnings = ref Format.err_formatter
