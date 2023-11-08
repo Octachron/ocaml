@@ -1004,21 +1004,30 @@ let error_extension: type a. a Log.extension -> a printer option = function
 let () =
   Log.Fmt.add_extension { extension = error_extension }
 
-let log_on_formatter_ref ppf =
-  let version = Log.(version Compiler.scheme) in
-  let backend = Option.value ~default:Log.Backends.fmt !Clflags.log_format in
-  backend.make !Clflags.color version  ppf Log.Compiler.scheme
-let log_on_formatter ppf = log_on_formatter_ref (ref ppf)
 
 let formatter_for_warnings = ref Format.err_formatter
-let log_for_warnings = ref (log_on_formatter_ref formatter_for_warnings)
+let create_log_on_formatter_ref ppf =
+  let version = Log.(version Compiler.scheme) in
+  let backend = Option.value ~default:Log.Backends.fmt !Clflags.log_format in
+  let log = backend.make !Clflags.color version  ppf Log.Compiler.scheme in
+  Log.redirect log Error_log.warnings formatter_for_warnings;
+  log
+
+let current_log = ref (create_log_on_formatter_ref formatter_for_warnings)
+
+let log_on_formatter_ref ppf =
+  let log = create_log_on_formatter_ref ppf in
+  current_log := log;
+  log
+let log_on_formatter ppf = log_on_formatter_ref (ref ppf)
+
 
 let log_warning loc log w =
   match report_warning loc w with
   | None -> ()
   | Some report -> Log.( log.%[Error_log.warnings] <- [report])
 
-let prerr_warning loc w = log_warning loc !log_for_warnings w
+let prerr_warning loc w = log_warning loc !current_log w
 
 let default_alert_reporter =
   default_warning_alert_reporter
@@ -1036,7 +1045,7 @@ let log_alert loc log w =
   | None -> ()
   | Some report -> Log.( log.%[Error_log.alerts] <- [report] )
 
-let prerr_alert loc w = log_alert loc !log_for_warnings w
+let prerr_alert loc w = log_alert loc !current_log w
 
 let alert ?(def = none) ?(use = none) ~kind loc message =
   prerr_alert loc {Warnings.kind; message; def; use}

@@ -112,6 +112,7 @@ module Backends : sig
 end
 
 val set: ('a,'b) key  -> 'a -> 'b log -> unit
+val redirect: 'id log -> ('a,'id) key -> Format.formatter ref -> unit
 val (.%[]<-): 'b log -> ('a,'b) key -> 'a -> unit
 
 

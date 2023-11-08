@@ -263,7 +263,6 @@ val default_warning_reporter: t -> Warnings.t -> report option
 (** {2 Printing warnings} *)
 
 val formatter_for_warnings : formatter ref
-val log_for_warnings : Log.Compiler.log ref
 
 val log_warning: t -> Log.Compiler.log -> Warnings.t -> unit
 (** Prints a warning. This is simply the composition of [report_warning] and

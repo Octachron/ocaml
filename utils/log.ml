@@ -19,7 +19,9 @@ let first_version = { major = 0; minor = 0 }
 
 type doc = Format.formatter -> unit
 
-module Keys = Map.Make(struct type t = string let compare = compare end)
+module K = struct type t = string let compare = compare end
+module Keys = Map.Make(K)
+module Key_set = Set.Make(K)
 
 type _ extension = ..
 
@@ -58,10 +60,12 @@ and 'a prod = {
     mutable fields: 'a sum Keys.t
   }
 
+
+
 type 'a log =
   {
-    ppf: Format.formatter ref;
-    redirections: Format.formatter Keys.t;
+    default: Format.formatter ref;
+    mutable redirections: redirection Keys.t;
     version: version;
     mode: 'a mode;
   }
@@ -70,6 +74,10 @@ and 'a mode =
   | Direct of Misc.Color.setting option
   | Store of 'a prod * printer
 and printer = { print: 'a. Format.formatter -> 'a prod -> unit; }
+and redirection =
+  | Const of Format.formatter ref
+  | Detached: 'a log -> redirection
+[@@warning "-37"]
 
 type 'a t = 'a log
 
@@ -203,13 +211,43 @@ module Store = struct
       fun store ~key ty x ->
         store.fields <- Keys.add key (constr {name=key; typ=ty} x) store.fields
 
-(*
-  let print_key (type s) key {print} ppf (p:s prod) =
-    match Keys.find_opt key.name p.fields with
-    | None -> ()
-    | Some (Constr(k,x)) -> print k.typ ppf x
-*)
+  module Fmt_tbl = Hashtbl.Make(struct
+      type t = Format.formatter
+      let equal = (==)
+      let hash _ppf = 0
+    end)
 
+  let split log fields =
+    let default = !(log.default) in
+    let add_to_partition (default,others) k ppf =
+      let default = Key_set.remove k default in
+      let set =
+      match Fmt_tbl.find_opt others ppf with
+      | None -> Key_set.singleton k
+      | Some set -> Key_set.add k set
+      in
+      Fmt_tbl.replace others ppf set;
+      default, others
+   in
+   let keys = fields |> Keys.to_seq |> Seq.map fst |> Key_set.of_seq in
+   Keys.fold (fun k redirection partition ->
+        match redirection with
+        | Const ppf ->
+            if !ppf == default then partition else
+              add_to_partition partition k !ppf
+        | Detached _ -> assert false
+     )
+     log.redirections (keys, Fmt_tbl.create (Key_set.cardinal keys))
+
+  let subrecord key_set {fields} =
+    let st = { fields = Keys.empty } in
+    Key_set.iter (fun key ->
+        match Keys.find_opt key fields with
+        | None -> ()
+        | Some (Constr(typed_key,x)) ->
+            record st ~key typed_key.typ x
+      ) key_set;
+    st
 end
 
 module Fmt = struct
@@ -401,13 +439,14 @@ module Fmt = struct
     Misc.Style.set_tag_handling ~color !ppf;
     Format.fprintf !ppf "@[<v>"
 
+
   let flush ppf = Format.fprintf ppf "@]@."
 
 
   let make color version ppf _sch =
     init color ppf;
     {
-      ppf;
+      default=ppf;
       redirections = Keys.empty;
       mode = Direct color;
       version;
@@ -415,10 +454,21 @@ module Fmt = struct
 
 end
 
+let ppf log key =
+  match Keys.find_opt key.name log.redirections with
+  | None -> !(log.default)
+  | Some Const c -> !c
+  | Some Detached _d -> assert false
+
+let redirect log key ppf =
+  if ppf != log.default then
+    log.redirections <- Keys.add key.name (Const ppf) log.redirections
+
 let set key x log =
   match log.mode with
   | Direct _ ->
-    Fmt.(item direct !extensions) ~key:key.name key.typ !(log.ppf) x
+    let ppf = ppf log key in
+    Fmt.(item direct !extensions) ~key:key.name key.typ ppf x
   | Store (st, _ ) ->
       Store.record st ~key:key.name key.typ x
 
@@ -428,22 +478,28 @@ let fmt key log fmt =
   Format.kasprintf (fun s -> log.%[key] <- s ) fmt
 
 let flush log =
-  let ppf = !(log.ppf) in
+  let ppf = !(log.default) in
   match log.mode with
   | Direct _ -> Fmt.flush ppf;
-  | Store (st, pr) -> pr.print ppf st
+  | Store (st, pr) ->
+      let default, others = Store.split log st.fields in
+      pr.print ppf (Store.subrecord default st);
+      Store.Fmt_tbl.iter (fun ppf subset ->
+          pr.print ppf (Store.subrecord subset st)
+        ) others
 
 
 (** {1:log_creation }*)
 
 module Structured = struct
+
   let with_conv conv version ppf =
     let print ppf r =
       Format.fprintf ppf "%a@."
       Fmt.(prod conv no_extension) r
     in
     { version;
-      ppf;
+      default=ppf;
       redirections = Keys.empty;
       mode = Store ({fields=Keys.empty}, {print})
     }
