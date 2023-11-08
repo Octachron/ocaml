@@ -43,7 +43,7 @@ type 'a typ =
       'b typ
 
 
-and ('a,'b) key = { name: string; typ: 'a typ }
+and ('a,'b) key = { name: string; typ: 'a typ; id: 'a Type.Id.t }
 and 'a sum = Constr: ('a,'b) key * 'a -> 'b sum
 and key_metadata =
     Key_metadata:
@@ -113,7 +113,7 @@ let new_key name scheme typ =
     typ
   }
   in
-  let key = { name; typ } in
+  let key = { name; typ; id = Type.Id.make () } in
   scheme.!(key) <- metadata;
   key
 
@@ -207,9 +207,21 @@ module Warnings = New_def ()
 module Store = struct
 
   let record:
-    type s ty. s prod -> key:string -> ty typ -> ty -> unit =
-      fun store ~key ty x ->
-        store.fields <- Keys.add key (constr {name=key; typ=ty} x) store.fields
+    type ty s. s prod -> key:(ty,s) key -> ty -> unit =
+      fun store ~key x ->
+        let x =
+          match key.typ with
+          | List _ ->
+              begin match Keys.find_opt key.name store.fields with
+                | None -> x
+                | Some (Constr(k,y)) ->
+                    match Type.Id.provably_equal k.id key.id with
+                    | None -> x
+                    | Some Type.Equal -> (x @ y:ty)
+              end
+          | _ -> x
+        in
+        store.fields <- Keys.add key.name (constr key x) store.fields
 
   module Fmt_tbl = Hashtbl.Make(struct
       type t = Format.formatter
@@ -244,8 +256,8 @@ module Store = struct
     Key_set.iter (fun key ->
         match Keys.find_opt key fields with
         | None -> ()
-        | Some (Constr(typed_key,x)) ->
-            record st ~key typed_key.typ x
+        | Some (Constr(key,x)) ->
+            record st ~key x
       ) key_set;
     st
 end
@@ -469,8 +481,7 @@ let set key x log =
   | Direct _ ->
     let ppf = ppf log key in
     Fmt.(item direct !extensions) ~key:key.name key.typ ppf x
-  | Store (st, _ ) ->
-      Store.record st ~key:key.name key.typ x
+  | Store (st, _ ) -> Store.record st ~key x
 
 let (.%[]<-) log key x = set key x log
 
