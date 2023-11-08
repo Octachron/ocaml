@@ -1006,6 +1006,7 @@ let () =
 
 
 let formatter_for_warnings = ref Format.err_formatter
+
 let create_log_on_formatter_ref ppf =
   let version = Log.(version Compiler.scheme) in
   let backend = Option.value ~default:Log.Backends.fmt !Clflags.log_format in
@@ -1015,12 +1016,21 @@ let create_log_on_formatter_ref ppf =
 
 let current_log = ref (create_log_on_formatter_ref formatter_for_warnings)
 
-let log_on_formatter_ref ppf =
-  let log = create_log_on_formatter_ref ppf in
+
+let temporary_log () =
+  let version = Log.(version Compiler.scheme) in
+  let backend = Log.Backends.json (* this backend should never be printed *) in
+  let log =
+    backend.make None version (ref Format.err_formatter) Log.Compiler.scheme
+  in
   current_log := log;
   log
-let log_on_formatter ppf = log_on_formatter_ref (ref ppf)
 
+let log_on_formatter ~prev ppf =
+  let log = create_log_on_formatter_ref (ref ppf) in
+  current_log := log;
+  Option.iter (fun prev -> Log.replay prev log) prev;
+  log
 
 let log_warning loc log w =
   match report_warning loc w with

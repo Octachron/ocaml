@@ -140,7 +140,7 @@ let expand_position pos len =
     (* New last position *)
     first_nonexpanded_pos := pos + len + 2
 
-let prepare ppf =
+let prepare log ppf =
   Topcommon.set_paths ();
   try
     let res =
@@ -153,7 +153,6 @@ let prepare ppf =
     res
   with x ->
     try
-      let log = Location.log_on_formatter ppf in
       Location.log_exception log x; false
     with x ->
       Format.fprintf ppf "Uncaught exception: %s\n" (Printexc.to_string x);
@@ -162,7 +161,7 @@ let prepare ppf =
 let input_argument name =
   let filename = Toploop.filename_of_input name in
   let ppf = Format.err_formatter in
-  let log = Location.log_on_formatter ppf in
+  let log = Location.log_on_formatter ~prev:None ppf in
   if Filename.check_suffix filename ".cmo"
           || Filename.check_suffix filename ".cma"
   then preload_objects := filename :: !preload_objects
@@ -181,7 +180,7 @@ let input_argument name =
       in
       Compenv.readenv log Before_link;
       Compmisc.read_clflags_from_env ();
-      if prepare ppf && Toploop.run_script ppf name newargs
+      if prepare log ppf && Toploop.run_script ppf name newargs
       then raise (Compenv.Exit_with_status 0)
       else raise (Compenv.Exit_with_status 2)
     end
@@ -205,7 +204,7 @@ end)
 
 let main () =
   let ppf = Format.err_formatter in
-  let log = Location.log_on_formatter ppf in
+  let log = Location.temporary_log () in
   let program = "ocaml" in
   let display_deprecated_script_alert =
     Array.length !argv >= 2 && Topcommon.is_command_like_name !argv.(1)
@@ -218,7 +217,8 @@ let main () =
   Compenv.parse_arguments ~current argv file_argument program;
   Compenv.readenv log Before_link;
   Compmisc.read_clflags_from_env ();
-  if not (prepare ppf) then raise (Compenv.Exit_with_status 2);
+  let log = Location.log_on_formatter ~prev:(Some log) ppf in
+  if not (prepare log ppf) then raise (Compenv.Exit_with_status 2);
   Compmisc.init_path ();
   Toploop.loop Format.std_formatter
 

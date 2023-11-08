@@ -352,4 +352,8 @@ val raise_errorf: ?loc:t -> ?sub:msg list ->
 val log_exception: Log.Compiler.log -> exn -> unit
 (** Reraise the exception if it is unknown or log it. *)
 
-val log_on_formatter: Format.formatter -> Log.Compiler.log
+val log_on_formatter:
+  prev:Log.Compiler.log option -> Format.formatter -> Log.Compiler.log
+
+(** Store log events while waiting for log configuration*)
+val temporary_log: unit -> Log.Compiler.log

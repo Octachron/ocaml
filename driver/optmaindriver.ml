@@ -36,14 +36,13 @@ let backend = (module Backend : Backend_intf.S)
 
 module Options = Main_args.Make_optcomp_options (Main_args.Default.Optmain)
 
-let switch_log log ppf =
-  Log.flush !log;
-  log := Location.log_on_formatter ppf
+let main_log rlog ppf =
+  rlog := Location.log_on_formatter ~prev:(Some !rlog) ppf;
+  !rlog
 
 let process argv log ppf =
   let program = "ocamlopt" in
   Compenv.readenv !log Before_args;
-  switch_log log ppf;
   Clflags.add_arguments __LOC__ (Arch.command_line_options @ Options.list);
   Clflags.add_arguments __LOC__
     ["-depend", Arg.Unit Makedepend.main_from_option,
@@ -51,12 +50,12 @@ let process argv log ppf =
       (use 'ocamlopt -depend -help' for details)"];
   Compenv.parse_arguments (ref argv) Compenv.anonymous program;
   Compmisc.read_clflags_from_env ();
-  switch_log log ppf;
+  let log = main_log log ppf in
   if !Clflags.plugin then
     Compenv.fatal "-plugin is only supported up to OCaml 4.08.0";
   begin try
     Compenv.process_deferred_actions
-      (!log,
+      (log,
        Optcompile.implementation ~backend,
        Optcompile.interface,
        ".cmx",
@@ -68,7 +67,7 @@ let process argv log ppf =
       exit 2
     end
   end;
-  Compenv.readenv !log Before_link;
+  Compenv.readenv log Before_link;
   if
     List.length (List.filter (fun x -> !x)
                    [make_package; make_archive; shared;
@@ -138,7 +137,7 @@ let process argv log ppf =
 
 let main argv ppf =
   native_code := true;
-  let log = ref (Location.log_on_formatter ppf) in
+  let log = ref (Location.temporary_log ()) in
   match process argv log ppf with
   | exception (Compenv.Exit_with_status n) ->
       Log.flush !log;

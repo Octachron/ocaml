@@ -18,23 +18,22 @@ open Clflags
 
 module Options = Main_args.Make_bytecomp_options (Main_args.Default.Main)
 
-
-let switch_log log ppf =
-  Log.flush !log;
-  log := Location.log_on_formatter ppf
+let main_log rlog ppf =
+  let log = Location.log_on_formatter ~prev:(Some !rlog) ppf in
+  rlog := log;
+  log
 
 let process continue argv log ppf =
   let program = "ocamlc" in
   Compenv.readenv !log Before_args;
-  switch_log log ppf;
   Compenv.parse_arguments (ref argv) Compenv.anonymous program;
   Compmisc.read_clflags_from_env ();
-  switch_log log ppf;
+  let log = main_log log ppf in
   if !Clflags.plugin then
     Compenv.fatal "-plugin is only supported up to OCaml 4.08.0";
   begin try
     Compenv.process_deferred_actions
-      (!log,
+      (log,
        Compile.implementation,
        Compile.interface,
        ".cmo",
@@ -48,7 +47,7 @@ let process continue argv log ppf =
   end;
   if Clflags.(should_stop_after Compiler_pass.Lambda)
   then continue ();
-  Compenv.readenv !log Before_link;
+  Compenv.readenv log Before_link;
   if
     List.length
       (List.filter (fun x -> !x)
@@ -110,7 +109,7 @@ let process continue argv log ppf =
 
 
 let main argv ppf =
-  let log = ref (Location.log_on_formatter ppf) in
+  let log = ref (Location.temporary_log ()) in
   Clflags.add_arguments __LOC__ Options.list;
   Clflags.add_arguments __LOC__
     ["-depend", Arg.Unit Makedepend.main_from_option,

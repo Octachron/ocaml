@@ -114,7 +114,7 @@ end
 val set: ('a,'b) key  -> 'a -> 'b log -> unit
 val redirect: 'id log -> ('a,'id) key -> Format.formatter ref -> unit
 val (.%[]<-): 'b log -> ('a,'b) key -> 'a -> unit
-
+val replay: 'a log -> 'a log -> unit
 
 val fmt : (string,'a) key -> 'a log -> ('b, Format.formatter, unit) format -> 'b
   (** [logf key log fmt] records the output of [fmt] as

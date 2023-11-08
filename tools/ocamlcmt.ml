@@ -199,7 +199,7 @@ let main () =
     main ()
   with x ->
     Printf.eprintf "Exception in main ()\n%!";
-    let log = Location.log_on_formatter Format.err_formatter in
+    let log = Location.log_on_formatter ~prev:None Format.err_formatter in
     Location.log_exception log x;
     Format.fprintf Format.err_formatter "@.";
     exit 2

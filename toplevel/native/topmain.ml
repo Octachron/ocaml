@@ -34,8 +34,7 @@ let expand_position pos len =
     first_nonexpanded_pos := pos + len + 2
 
 
-let prepare ppf =
-  let log = Location.log_on_formatter ppf in
+let prepare log ppf =
   Topcommon.set_paths ();
   try
     let res =
@@ -52,6 +51,7 @@ let prepare ppf =
 let input_argument name =
   let filename = Toploop.filename_of_input name in
   let ppf = Format.err_formatter in
+  let log = Location.log_on_formatter ~prev:None ppf in
   if Filename.check_suffix filename ".cmxs"
     || Filename.check_suffix filename ".cmx"
     || Filename.check_suffix filename ".cmxa"
@@ -70,7 +70,7 @@ let input_argument name =
                               (Array.length !argv - !Arg.current)
       in
       Compmisc.read_clflags_from_env ();
-      if prepare ppf && Toploop.run_script ppf name newargs
+      if prepare log ppf && Toploop.run_script ppf name newargs
       then raise (Compenv.Exit_with_status 0)
       else raise (Compenv.Exit_with_status 2)
     end
@@ -95,7 +95,7 @@ end)
 
 let main () =
   let ppf = Format.err_formatter in
-  let log = Location.log_on_formatter ppf in
+  let log = Location.temporary_log () in
   Clflags.native_code := true;
   let program = "ocamlnat" in
   let display_deprecated_script_alert =
@@ -108,7 +108,8 @@ let main () =
   Clflags.add_arguments __LOC__ Options.list;
   Compenv.parse_arguments ~current argv file_argument program;
   Compmisc.read_clflags_from_env ();
-  if not (prepare Format.err_formatter) then raise (Compenv.Exit_with_status 2);
+  let log = Location.log_on_formatter ~prev:(Some log) ppf in
+  if not (prepare log ppf) then raise (Compenv.Exit_with_status 2);
   Compmisc.init_path ();
   Toploop.loop Format.std_formatter
 

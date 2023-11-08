@@ -146,8 +146,6 @@ let (.!()) scheme key =
   | Some x -> x
   | None -> assert false
 
-
-
 let deprecate_key key scheme =
   let Key_metadata r = scheme.!(key) in
   scheme.!(key) <-
@@ -499,6 +497,11 @@ let flush log =
           pr.print ppf (Store.subrecord subset st)
         ) others
 
+let replay source dest =
+  match source.mode with
+  | Direct _ -> ()
+  | Store (st,_) ->
+      Keys.iter (fun _ (Constr(key,x)) -> dest.%[key] <- x ) st.fields
 
 (** {1:log_creation }*)
 

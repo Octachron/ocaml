@@ -30,6 +30,7 @@ let filename_of_input = function
 
 let use_lexbuf ppf ~wrap_in_module lb ~modpath ~filename =
   Warnings.reset_fatal ();
+  let log = Location.log_on_formatter ~prev:None ppf in
   Location.init lb filename;
   (* Skip initial #! line if any *)
   Lexer.skip_hash_bang lb;
@@ -51,8 +52,9 @@ let use_lexbuf ppf ~wrap_in_module lb ~modpath ~filename =
     | Exit -> false
     | Sys.Break -> fprintf ppf "Interrupted.@."; false
     | x ->
-        let log = Location.log_on_formatter ppf in
-        Location.log_exception log x; false)
+        Location.log_exception log x;
+        Log.flush log;
+        false)
 
 (** [~modpath] is used to determine the module name when [wrap_in_module]
     [~filepath] is the filesystem path to the input,
@@ -117,13 +119,15 @@ let run_script ppf name args =
   Clflags.debug := true;
   override_sys_argv args;
   let filename = filename_of_input name in
+  let log = Location.log_on_formatter ~prev:None ppf in
   Compmisc.init_path ~dir:(Filename.dirname filename) ();
                    (* Note: would use [Filename.abspath] here, if we had it. *)
   begin
     try toplevel_env := Compmisc.initial_env()
     with Env.Error _ | Typetexp.Error _ as exn ->
-      let log = Location.log_on_formatter ppf in
-      Location.log_exception log exn; raise (Compenv.Exit_with_status 2)
+      Location.log_exception log exn;
+      Log.flush log;
+      raise (Compenv.Exit_with_status 2)
   end;
   Sys.interactive := false;
   run_hooks After_setup;
@@ -297,7 +301,7 @@ let process_phrases ppf snap phrs =
 let loop ppf =
   Clflags.debug := true;
   (* TODO   Location.formatter_for_warnings := ppf; *)
-  let log = Location.log_on_formatter ppf in
+  let log = Location.log_on_formatter ~prev:None ppf in
   if not !Clflags.noversion then
     fprintf ppf "OCaml version %s%s%s@.Enter #help;; for help.@.@."
       Config.version
