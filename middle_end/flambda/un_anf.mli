@@ -18,6 +18,6 @@
     work correctly. *)
 val apply
    : what:Symbol.t
-  -> ppf_dump:Format.formatter
+  -> log:Log.Debug.log
   -> Clambda.ulambda
   -> Clambda.ulambda

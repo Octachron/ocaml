@@ -97,17 +97,17 @@ let process argv log ppf =
   else if !make_package then begin
     Compmisc.init_path ();
     let target = Compenv.extract_output !output_name in
-    Compmisc.with_ppf_dump ~file_prefix:target (fun ppf_dump ->
-        Asmpackager.package_files ~ppf_dump (Compmisc.initial_env ())
-          (Compenv.get_objfiles ~with_ocamlparam:false) target ~backend);
+    let debug_log = Compmisc.debug_log ~file_prefix:target log in
+    Asmpackager.package_files ~log:debug_log (Compmisc.initial_env ())
+      (Compenv.get_objfiles ~with_ocamlparam:false) target ~backend;
     Warnings.check_fatal ();
-  end
+end
   else if !shared then begin
     Compmisc.init_path ();
     let target = Compenv.extract_output !output_name in
-    Compmisc.with_ppf_dump ~file_prefix:target (fun ppf_dump ->
-        Asmlink.link_shared ~ppf_dump
-          (Compenv.get_objfiles ~with_ocamlparam:false) target);
+    let debug_log = Compmisc.debug_log ~file_prefix:target log in
+    Asmlink.link_shared ~log:debug_log
+      (Compenv.get_objfiles ~with_ocamlparam:false) target;
     Warnings.check_fatal ();
   end
   else if not !Compenv.stop_early &&
@@ -128,9 +128,9 @@ let process argv log ppf =
         Compenv.default_output !output_name
     in
     Compmisc.init_path ();
-    Compmisc.with_ppf_dump ~file_prefix:target (fun ppf_dump ->
-        let objs = Compenv.get_objfiles ~with_ocamlparam:true in
-        Asmlink.link ~ppf_dump objs target);
+    let debug_log = Compmisc.debug_log ~file_prefix:target log in
+    let objs = Compenv.get_objfiles ~with_ocamlparam:true in
+    Asmlink.link ~log:debug_log objs target;
     Warnings.check_fatal ();
   end
 

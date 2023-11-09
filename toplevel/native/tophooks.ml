@@ -62,6 +62,8 @@ end
 let backend = (module Backend : Backend_intf.S)
 
 let load ppf phrase_name program =
+  let log = Location.log_on_formatter ~prev:None ppf in
+  let log = Log.detach log Log.Compiler.debug in
   let dll =
     if !Clflags.keep_asm_file then phrase_name ^ ext_dll
     else Filename.temp_file ("caml" ^ phrase_name) ext_dll
@@ -73,7 +75,7 @@ let load ppf phrase_name program =
   in
   Asmgen.compile_implementation ~toplevel:need_symbol
     ~backend ~prefixname:filename
-    ~middle_end ~ppf_dump:ppf program;
+    ~middle_end ~log program;
   Asmlink.call_linker_shared [filename ^ ext_obj] dll;
   Sys.remove (filename ^ ext_obj);
 

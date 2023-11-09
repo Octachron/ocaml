@@ -63,10 +63,10 @@ val intf : string -> unit
 
 val process_deferred_actions :
   Log.Compiler.log *
-  (start_from:Clflags.Compiler_pass.t ->
+  (log:Log.Compiler.log -> start_from:Clflags.Compiler_pass.t ->
    source_file:string -> output_prefix:string -> unit) *
   (* compile implementation *)
-  (source_file:string -> output_prefix:string -> unit) *
+  (log:Log.Compiler.log -> source_file:string -> output_prefix:string -> unit) *
   (* compile interface *)
   string * (* ocaml module extension *)
   string -> (* ocaml library extension *)

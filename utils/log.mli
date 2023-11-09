@@ -112,14 +112,22 @@ module Backends : sig
 end
 
 val set: ('a,'b) key  -> 'a -> 'b log -> unit
-val redirect: 'id log -> ('a,'id) key -> Format.formatter ref -> unit
+val redirect: 'id log -> ('a,'id) key ->
+  ?close:(unit -> unit) -> Format.formatter ref -> unit
 val (.%[]<-): 'b log -> ('a,'b) key -> 'a -> unit
 val replay: 'a log -> 'a log -> unit
+val detach: 'id log -> ('id2 prod, 'id) key -> 'id2 log
 
-val fmt : (string,'a) key -> 'a log -> ('b, Format.formatter, unit) format -> 'b
-  (** [logf key log fmt] records the output of [fmt] as
+val f : (string,'a) key -> 'a log -> ('b, Format.formatter, unit) format -> 'b
+  (** [fmt key log ppf] records the output of [ppf] as
       a string at key [key] in [log].
   *)
+
+val itemf :
+  (string list,'a) key -> 'a log -> ('b, Format.formatter, unit) format -> 'b
+
+
+
 
 
 module Record: sig
@@ -128,6 +136,36 @@ module Record: sig
 end
 
 (** Compiler logs *)
-module Compiler: Def
+module Debug: sig
+  include Def
+  val source: string key
+  val parsetree: string key
+  val typedtree: string key
+  val shape: string key
+  val instr: string key
+  val raw_lambda: string key
+  val lambda: string key
+  val flambda: string list key
+  val raw_flambda: string list key
+  val clambda: string list key
+  val raw_clambda: string list key
+  val cmm: string list key
+  val remove_free_vars_equal_to_args: string list key
+  val unbox_free_vars_of_closures: string list key
+  val unbox_closures:string list key
+  val unbox_specialised_args:string list key
+  val mach: string list key
+  val linear: string list key
+  val cmm_invariant: string key
+end
+
+module Compiler: sig
+  include Def
+  val debug: Debug.id prod key
+end
 module Error: Def
 module Warnings: Def
+
+val log_if:
+  Debug.log -> string Debug.key -> bool ->
+  (Format.formatter -> 'a -> unit) -> 'a -> 'a

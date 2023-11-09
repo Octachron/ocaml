@@ -13,7 +13,6 @@
 (*                                                                        *)
 (**************************************************************************)
 
-open Misc
 open Compile_common
 
 let tool_name = "ocamlc"
@@ -21,11 +20,14 @@ let tool_name = "ocamlc"
 let with_info =
   Compile_common.with_info ~native:false ~tool_name
 
-let interface ~source_file ~output_prefix =
-  with_info ~source_file ~output_prefix ~dump_ext:"cmi" @@ fun info ->
+let interface ~log ~source_file ~output_prefix =
+  with_info ~source_file ~output_prefix ~dump_ext:"cmi" ~log @@ fun info ->
   Compile_common.interface info
 
 (** Bytecode compilation backend for .ml files. *)
+let log_if i key flag printer =
+  Log.log_if i.Compile_common.debug_log key !flag printer
+module D = Log.Debug
 
 let to_bytecode i Typedtree.{structure; coercion; _} =
   (structure, coercion)
@@ -34,11 +36,11 @@ let to_bytecode i Typedtree.{structure; coercion; _} =
   |> Profile.(record ~accumulate:true generate)
     (fun { Lambda.code = lambda; required_globals } ->
        lambda
-       |> print_if i.ppf_dump Clflags.dump_rawlambda Printlambda.lambda
+       |> log_if i D.raw_lambda Clflags.dump_rawlambda Printlambda.lambda
        |> Simplif.simplify_lambda
-       |> print_if i.ppf_dump Clflags.dump_lambda Printlambda.lambda
+       |> log_if i D.lambda Clflags.dump_lambda Printlambda.lambda
        |> Bytegen.compile_implementation (Unit_info.modname i.target)
-       |> print_if i.ppf_dump Clflags.dump_instr Printinstr.instrlist
+       |> log_if i D.instr Clflags.dump_instr Printinstr.instrlist
        |> fun bytecode -> bytecode, required_globals
     )
 
@@ -56,12 +58,12 @@ let emit_bytecode i (bytecode, required_globals) =
          (Emitcode.to_file oc cmo ~required_globals);
     )
 
-let implementation ~start_from ~source_file ~output_prefix =
+let implementation ~log ~start_from ~source_file ~output_prefix =
   let backend info typed =
     let bytecode = to_bytecode info typed in
     emit_bytecode info bytecode
   in
-  with_info ~source_file ~output_prefix ~dump_ext:"cmo" @@ fun info ->
+  with_info ~log ~source_file ~output_prefix ~dump_ext:"cmo" @@ fun info ->
   match (start_from : Clflags.Compiler_pass.t) with
   | Parsing -> Compile_common.implementation info ~backend
   | _ -> Misc.fatal_errorf "Cannot start from %s"

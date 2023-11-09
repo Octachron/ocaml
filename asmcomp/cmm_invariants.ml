@@ -27,7 +27,8 @@ module Env : sig
 
   val jump : t -> cont:int -> arg_num:int -> unit
 
-  val report : Format.formatter -> bool
+  val report : Format.formatter -> unit
+  val in_error_state: unit -> bool
 end = struct
   type t = {
     bound_handlers : int Int.Map.t;
@@ -115,11 +116,8 @@ end = struct
     Format.fprintf ppf "%a@." print_error error
 
   let report ppf =
-    if ErrorSet.is_empty state.errors then false
-    else begin
-      ErrorSet.iter (fun err -> print_error_newline ppf err) state.errors;
-      true
-    end
+      ErrorSet.iter (fun err -> print_error_newline ppf err) state.errors
+  let in_error_state () = ErrorSet.is_empty state.errors
 end
 
 let rec check env (expr : Cmm.expression) =
@@ -174,7 +172,8 @@ let rec check env (expr : Cmm.expression) =
     check env body;
     check env handler
 
-let run ppf (fundecl : Cmm.fundecl) =
+let run log (fundecl : Cmm.fundecl) =
   let env = Env.init () in
   check env fundecl.fun_body;
-  Env.report ppf
+  Log.f Log.Debug.cmm_invariant log "%t" Env.report;
+  Env.in_error_state ()

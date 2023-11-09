@@ -41,6 +41,7 @@ end
 
 module type S = sig
   val pass_name : string
+  val pass_key: string list Log.Debug.key
 
   val what_to_specialise
      : env:Inline_and_simplify_aux.Env.t

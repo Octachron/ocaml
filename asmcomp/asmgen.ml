@@ -30,26 +30,30 @@ type error =
 
 exception Error of error
 
-let cmm_invariants ppf fd_cmm =
+let cmm_invariants log fd_cmm =
   let print_fundecl =
     if !Clflags.dump_cmm then Printcmm.fundecl
     else fun ppf fdecl -> Format.fprintf ppf "%s" fdecl.fun_name
   in
-  if !Clflags.cmm_invariants && Cmm_invariants.run ppf fd_cmm then
+  if !Clflags.cmm_invariants && Cmm_invariants.run log fd_cmm then
     Misc.fatal_errorf "Cmm invariants failed on following fundecl:@.%a@."
       print_fundecl fd_cmm;
   fd_cmm
 
 let liveness phrase = Liveness.fundecl phrase; phrase
 
-let dump_if ppf flag message phrase =
-  if !flag then Printmach.phase message ppf phrase
+let log_key = Log.Debug.mach
 
-let pass_dump_if ppf flag message phrase =
-  dump_if ppf flag message phrase; phrase
+let dump_if log flag message phrase =
+  if !flag then Log.itemf log_key log "%a" (Printmach.phase message) phrase
 
-let pass_dump_linear_if ppf flag message phrase =
-  if !flag then fprintf ppf "*** %s@.%a@." message Printlinear.fundecl phrase;
+let pass_dump_if log flag message phrase =
+  dump_if log flag message phrase; phrase
+
+let pass_dump_linear_if log flag message phrase =
+  if !flag then
+    Log.itemf Log.Debug.linear log "*** %s@.%a@."
+      message Printlinear.fundecl phrase;
   phrase
 
 let start_from_emit = ref true
@@ -105,62 +109,64 @@ let emit_fundecl fd =
       raise (Error (Asm_generation(fd.Linear.fun_name, e)))
   end
 
-let rec regalloc ~ppf_dump round fd =
+let rec regalloc ~log round fd =
   if round > 50 then
     fatal_error(fd.Mach.fun_name ^
                 ": function too complex, cannot complete register allocation");
-  dump_if ppf_dump dump_live "Liveness analysis" fd;
+  dump_if log dump_live "Liveness analysis" fd;
   let num_stack_slots =
     if !use_linscan then begin
       (* Linear Scan *)
       let intervals = Interval.build_intervals fd in
-      if !dump_interval then Printmach.intervals ppf_dump intervals;
+      if !dump_interval then
+        Log.itemf log_key log "%a" Printmach.intervals intervals;
       Linscan.allocate_registers intervals
     end else begin
       (* Graph Coloring *)
       Interf.build_graph fd;
-      if !dump_interf then Printmach.interferences ppf_dump ();
-      if !dump_prefer then Printmach.preferences ppf_dump ();
+      if !dump_interf then
+        Log.itemf log_key log "%a" Printmach.interferences ();
+      if !dump_prefer then Log.itemf log_key log "%a" Printmach.preferences ();
       Coloring.allocate_registers()
     end
   in
-  dump_if ppf_dump dump_regalloc "After register allocation" fd;
+  dump_if log dump_regalloc "After register allocation" fd;
   let (newfd, redo_regalloc) = Reload.fundecl fd num_stack_slots in
-  dump_if ppf_dump dump_reload "After insertion of reloading code" newfd;
+  dump_if log dump_reload "After insertion of reloading code" newfd;
   if redo_regalloc then begin
-    Reg.reinit(); Liveness.fundecl newfd; regalloc ~ppf_dump (round + 1) newfd
+    Reg.reinit(); Liveness.fundecl newfd; regalloc ~log (round + 1) newfd
   end else newfd
 
 let (++) x f = f x
 
-let compile_fundecl ~ppf_dump ~funcnames fd_cmm =
+let compile_fundecl ~log ~funcnames fd_cmm =
   Proc.init ();
   Reg.reset();
   fd_cmm
-  ++ Profile.record ~accumulate:true "cmm_invariants" (cmm_invariants ppf_dump)
+  ++ Profile.record ~accumulate:true "cmm_invariants" (cmm_invariants log)
   ++ Profile.record ~accumulate:true "selection"
                     (Selection.fundecl ~future_funcnames:funcnames)
   ++ Profile.record ~accumulate:true "polling"
                     (Polling.instrument_fundecl ~future_funcnames:funcnames)
-  ++ pass_dump_if ppf_dump dump_selection "After instruction selection"
+  ++ pass_dump_if log dump_selection "After instruction selection"
   ++ Profile.record ~accumulate:true "comballoc" Comballoc.fundecl
-  ++ pass_dump_if ppf_dump dump_combine "After allocation combining"
+  ++ pass_dump_if log dump_combine "After allocation combining"
   ++ Profile.record ~accumulate:true "cse" CSE.fundecl
-  ++ pass_dump_if ppf_dump dump_cse "After CSE"
+  ++ pass_dump_if log dump_cse "After CSE"
   ++ Profile.record ~accumulate:true "liveness" liveness
   ++ Profile.record ~accumulate:true "deadcode" Deadcode.fundecl
-  ++ pass_dump_if ppf_dump dump_live "Liveness analysis"
+  ++ pass_dump_if log dump_live "Liveness analysis"
   ++ Profile.record ~accumulate:true "spill" Spill.fundecl
   ++ Profile.record ~accumulate:true "liveness" liveness
-  ++ pass_dump_if ppf_dump dump_spill "After spilling"
+  ++ pass_dump_if log dump_spill "After spilling"
   ++ Profile.record ~accumulate:true "split" Split.fundecl
-  ++ pass_dump_if ppf_dump dump_split "After live range splitting"
+  ++ pass_dump_if log dump_split "After live range splitting"
   ++ Profile.record ~accumulate:true "liveness" liveness
-  ++ Profile.record ~accumulate:true "regalloc" (regalloc ~ppf_dump 1)
+  ++ Profile.record ~accumulate:true "regalloc" (regalloc ~log 1)
   ++ Profile.record ~accumulate:true "linearize" Linearize.fundecl
-  ++ pass_dump_linear_if ppf_dump dump_linear "Linearized code"
+  ++ pass_dump_linear_if log dump_linear "Linearized code"
   ++ Profile.record ~accumulate:true "scheduling" Scheduling.fundecl
-  ++ pass_dump_linear_if ppf_dump dump_scheduling "After instruction scheduling"
+  ++ pass_dump_linear_if log dump_scheduling "After instruction scheduling"
   ++ save_linear
   ++ emit_fundecl
 
@@ -171,7 +177,7 @@ let compile_data dl =
   ++ save_data
   ++ emit_data
 
-let compile_phrases ~ppf_dump ps =
+let compile_phrases ~log ps =
   let funcnames =
     List.fold_left (fun s p ->
         match p with
@@ -183,10 +189,10 @@ let compile_phrases ~ppf_dump ps =
     match ps with
     | [] -> ()
     | p :: ps ->
-       if !dump_cmm then fprintf ppf_dump "%a@." Printcmm.phrase p;
+       if !dump_cmm then Log.itemf Log.Debug.cmm log "%a@." Printcmm.phrase p;
        match p with
        | Cfunction fd ->
-          compile_fundecl ~ppf_dump ~funcnames fd;
+          compile_fundecl ~log ~funcnames fd;
           compile ~funcnames:(String.Set.remove fd.fun_name funcnames) ps
        | Cdata dl ->
           compile_data dl;
@@ -194,16 +200,16 @@ let compile_phrases ~ppf_dump ps =
   in
   compile ~funcnames ps
 
-let compile_phrase ~ppf_dump p =
-  compile_phrases ~ppf_dump [p]
+let compile_phrase ~log p =
+  compile_phrases ~log [p]
 
 (* For the native toplevel: generates generic functions unless
    they are already available in the process *)
-let compile_genfuns ~ppf_dump f =
+let compile_genfuns ~log f =
   List.iter
     (function
        | (Cfunction {fun_name = name}) as ph when f name ->
-           compile_phrase ~ppf_dump ph
+           compile_phrase ~log ph
        | _ -> ())
     (Cmm_helpers.generic_functions true [Compilenv.current_unit_infos ()])
 
@@ -239,20 +245,20 @@ let compile_unit ~output_prefix ~asm_filename ~keep_asm ~obj_filename gen =
        remove_asm_file ()
     )
 
-let end_gen_implementation ?toplevel ~ppf_dump
+let end_gen_implementation ?toplevel ~log
     (clambda : Clambda.with_constants) =
   emit_begin_assembly ();
   clambda
   ++ Profile.record "cmm" Cmmgen.compunit
-  ++ Profile.record "compile_phrases" (compile_phrases ~ppf_dump)
+  ++ Profile.record "compile_phrases" (compile_phrases ~log)
   ++ (fun () -> ());
-  (match toplevel with None -> () | Some f -> compile_genfuns ~ppf_dump f);
+  (match toplevel with None -> () | Some f -> compile_genfuns ~log f);
   (* We add explicit references to external primitive symbols.  This
      is to ensure that the object files that define these symbols,
      when part of a C library, won't be discarded by the linker.
      This is important if a module that uses such a symbol is later
      dynlinked. *)
-  compile_phrase ~ppf_dump
+  compile_phrase ~log
     (Cmm_helpers.reference_symbols
        (List.filter_map (fun prim ->
            if not (Primitive.native_name_is_external prim) then None
@@ -263,7 +269,7 @@ let end_gen_implementation ?toplevel ~ppf_dump
 type middle_end =
      backend:(module Backend_intf.S)
   -> prefixname:string
-  -> ppf_dump:Format.formatter
+  -> log:Log.Debug.log
   -> Lambda.program
   -> Clambda.with_constants
 
@@ -273,16 +279,16 @@ let asm_filename output_prefix =
     else Filename.temp_file "camlasm" ext_asm
 
 let compile_implementation ?toplevel ~backend ~prefixname ~middle_end
-      ~ppf_dump (program : Lambda.program) =
+      ~log (program : Lambda.program) =
   compile_unit ~output_prefix:prefixname
     ~asm_filename:(asm_filename prefixname) ~keep_asm:!keep_asm_file
     ~obj_filename:(prefixname ^ ext_obj)
     (fun () ->
       Ident.Set.iter Compilenv.require_global program.required_globals;
       let clambda_with_constants =
-        middle_end ~backend ~prefixname ~ppf_dump program
+        middle_end ~backend ~prefixname ~log program
       in
-      end_gen_implementation ?toplevel ~ppf_dump clambda_with_constants)
+      end_gen_implementation ?toplevel ~log clambda_with_constants)
 
 let linear_gen_implementation filename =
   let open Linear_format in

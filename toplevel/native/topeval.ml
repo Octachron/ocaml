@@ -273,6 +273,8 @@ let setvalue _ _ = assert false
 (* Load in-core a .cmxs file *)
 
 let load_file _ (* fixme *) ppf name0 =
+  let log = Location.log_on_formatter ~prev:None ppf in
+  let log = Log.detach log Log.Compiler.debug in
   let name =
     try Some (Load_path.find name0)
     with Not_found -> None
@@ -284,7 +286,7 @@ let load_file _ (* fixme *) ppf name0 =
       if Filename.check_suffix name ".cmx" || Filename.check_suffix name ".cmxa"
       then
         let cmxs = Filename.temp_file "caml" ".cmxs" in
-        Asmlink.link_shared ~ppf_dump:ppf [name] cmxs;
+        Asmlink.link_shared ~log [name] cmxs;
         cmxs,true
       else
         name,false

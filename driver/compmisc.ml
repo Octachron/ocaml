@@ -106,6 +106,28 @@ let rec make_directory dir =
       Sys.mkdir dir 0o777
     end
 
+let debug_log ~file_prefix main_log =
+  let with_ch ch =
+    let ppf = Format.formatter_of_out_channel ch in
+    ppf,
+    (fun () ->
+       Format.pp_print_flush ppf ();
+       close_out ch)
+  in
+  let ppf_dump, finally =
+    match !Clflags.dump_dir, !Clflags.dump_into_file with
+    | None, false -> Format.err_formatter, ignore
+    | None, true -> with_ch (open_out (file_prefix ^ ".dump"))
+    | Some d, _ ->
+        let () = make_directory Filename.(dirname @@ concat d @@ file_prefix) in
+        let _, ch =
+          Filename.open_temp_file ~temp_dir:d (file_prefix ^ ".")  ".dump"
+        in
+        with_ch ch
+    in
+    Log.redirect main_log Log.Compiler.debug ~close:finally (ref ppf_dump);
+    Log.detach main_log Log.Compiler.debug
+
 let with_ppf_dump ~file_prefix f =
   let with_ch ch =
     let ppf = Format.formatter_of_out_channel ch in

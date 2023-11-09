@@ -608,23 +608,23 @@ let c_object_of_filename name =
   Filename.chop_suffix (Filename.basename name) ".c" ^ Config.ext_obj
 
 let process_action
-    (ppf, implementation, interface, ocaml_mod_ext, ocaml_lib_ext) action =
+    (log, implementation, interface, ocaml_mod_ext, ocaml_lib_ext) action =
   let impl ~start_from name =
-    readenv ppf (Before_compile name);
+    readenv log (Before_compile name);
     let opref = output_prefix name in
-    implementation ~start_from ~source_file:name ~output_prefix:opref;
+    implementation ~log ~start_from ~source_file:name ~output_prefix:opref;
     objfiles := (opref ^ ocaml_mod_ext) :: !objfiles
   in
   match action with
   | ProcessImplementation name ->
       impl ~start_from:Compiler_pass.Parsing name
   | ProcessInterface name ->
-      readenv ppf (Before_compile name);
+      readenv log (Before_compile name);
       let opref = output_prefix name in
-      interface ~source_file:name ~output_prefix:opref;
+      interface ~log ~source_file:name ~output_prefix:opref;
       if !make_package then objfiles := (opref ^ ".cmi") :: !objfiles
   | ProcessCFile name ->
-      readenv ppf (Before_compile name);
+      readenv log (Before_compile name);
       Location.input_name := name;
       let obj_name = match !output_name with
         | None -> c_object_of_filename name

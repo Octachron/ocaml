@@ -60,11 +60,14 @@ and 'a prod = {
     mutable fields: 'a sum Keys.t
   }
 
-
+type ppf_with_close =
+  { ppf: Format.formatter ref;
+    close: unit -> unit;
+  }
 
 type 'a log =
   {
-    default: Format.formatter ref;
+    default: ppf_with_close;
     mutable redirections: redirection Keys.t;
     version: version;
     mode: 'a mode;
@@ -75,8 +78,8 @@ and 'a mode =
   | Store of 'a prod * printer
 and printer = { print: 'a. Format.formatter -> 'a prod -> unit; }
 and redirection =
-  | Const of Format.formatter ref
-  | Detached: 'a log -> redirection
+  | Const of ppf_with_close
+  | Detached: 'a prod Type.Id.t * 'a log -> redirection
 [@@warning "-37"]
 
 type 'a t = 'a log
@@ -188,19 +191,13 @@ let minor = V.new_key "minor" Int
 type _ extension += Version: version extension
 let () = seal_version V.scheme
 
-module Compiler = New_def ()
 
-let version_typ =
+let[@warning "-32"] version_typ =
   let pull v =
     Record.(make [ major =: v.major; minor =: v.minor ] )
   in
   Custom { pull; id = Version; default = Record V.scheme}
 
-let _version_key =
-  Compiler.new_key "version" version_typ
-
-module Error = New_def ()
-module Warnings = New_def ()
 
 module Store = struct
 
@@ -222,13 +219,13 @@ module Store = struct
         store.fields <- Keys.add key.name (constr key x) store.fields
 
   module Fmt_tbl = Hashtbl.Make(struct
-      type t = Format.formatter
-      let equal = (==)
+      type t = Format.formatter * (unit -> unit)
+      let equal (ppf, _c) (ppf', _c') = ppf == ppf'
       let hash _ppf = 0
     end)
 
   let split log fields =
-    let default = !(log.default) in
+    let default = !(log.default.ppf) in
     let add_to_partition (default,others) k ppf =
       let default = Key_set.remove k default in
       let set =
@@ -242,9 +239,9 @@ module Store = struct
    let keys = fields |> Keys.to_seq |> Seq.map fst |> Key_set.of_seq in
    Keys.fold (fun k redirection partition ->
         match redirection with
-        | Const ppf ->
-            if !ppf == default then partition else
-              add_to_partition partition k !ppf
+        | Const c ->
+            if !(c.ppf) == default then partition else
+              add_to_partition partition k (!(c.ppf), c.close)
         | Detached _ -> assert false
      )
      log.redirections (keys, Fmt_tbl.create (Key_set.cardinal keys))
@@ -456,7 +453,7 @@ module Fmt = struct
   let make color version ppf _sch =
     init color ppf;
     {
-      default=ppf;
+      default={ppf;close=ignore};
       redirections = Keys.empty;
       mode = Direct color;
       version;
@@ -466,13 +463,45 @@ end
 
 let ppf log key =
   match Keys.find_opt key.name log.redirections with
-  | None -> !(log.default)
-  | Some Const c -> !c
-  | Some Detached _d -> assert false
+  | None -> !(log.default.ppf)
+  | Some Const c -> !(c.ppf)
+  | Some Detached (_,log) -> !(log.default.ppf)
 
-let redirect log key ppf =
-  if ppf != log.default then
-    log.redirections <- Keys.add key.name (Const ppf) log.redirections
+let redirect log key ?(close=ignore) ppf  =
+  if ppf != log.default.ppf then
+    log.redirections <- Keys.add key.name (Const {ppf;close}) log.redirections
+
+let fresh_detach log cppf key =
+  let mode = match log.mode with
+    | Direct _ as d -> d
+    | Store (_, printer) -> Store({fields=Keys.empty}, printer)
+  in
+  let version = match key.typ with
+    | Record sch -> sch.scheme_version
+    | _ -> log.version
+  in
+  let log =
+    {
+      default = cppf;
+      redirections = Keys.empty;
+      mode;
+      version
+    }
+  in
+  log.redirections <-
+    Keys.add key.name (Detached (key.id,log)) log.redirections;
+  log
+
+let detach (type id sub) (log: id log) (key: (sub prod, id) key) =
+  match Keys.find_opt key.name log.redirections with
+  | Some Detached (id,x) ->
+      begin match Type.Id.provably_equal id key.id with
+      | Some Type.Equal -> (x:sub log)
+      | None -> assert false
+      end
+  | Some (Const cppf) -> fresh_detach log cppf key
+  | None -> fresh_detach log {ppf=log.default.ppf; close=ignore} key
+
 
 let set key x log =
   match log.mode with
@@ -483,19 +512,24 @@ let set key x log =
 
 let (.%[]<-) log key x = set key x log
 
-let fmt key log fmt =
+let f key log fmt =
   Format.kasprintf (fun s -> log.%[key] <- s ) fmt
 
+let itemf key log fmt =
+  Format.kasprintf (fun s -> log.%[key] <- [s] ) fmt
+
 let flush log =
-  let ppf = !(log.default) in
+  let ppf = !(log.default.ppf) in
   match log.mode with
   | Direct _ -> Fmt.flush ppf;
   | Store (st, pr) ->
       let default, others = Store.split log st.fields in
       pr.print ppf (Store.subrecord default st);
-      Store.Fmt_tbl.iter (fun ppf subset ->
-          pr.print ppf (Store.subrecord subset st)
-        ) others
+      Store.Fmt_tbl.iter (fun (ppf,close) subset ->
+          pr.print ppf (Store.subrecord subset st);
+          close ()
+        ) others;
+      log.default.close ()
 
 let replay source dest =
   match source.mode with
@@ -513,7 +547,7 @@ module Structured = struct
       Fmt.(prod conv no_extension) r
     in
     { version;
-      default=ppf;
+      default= {ppf; close=ignore};
       redirections = Keys.empty;
       mode = Store ({fields=Keys.empty}, {print})
     }
@@ -533,3 +567,43 @@ module Backends = struct
   let sexp = { name="sexp" ; make = Structured.sexp }
   let json = { name = "json"; make = Structured.json }
 end
+
+module Debug = struct
+  include New_def ()
+  let parsetree = new_key "parsetree" String
+  let source = new_key "source" String
+  let typedtree = new_key "typedtree" String
+  let shape = new_key "shape" String
+  let instr = new_key "instr" String
+  let lambda = new_key "lambda" String
+  let raw_lambda = new_key "raw_lambda" String
+  let flambda = new_key "flambda" (List String)
+  let raw_flambda = new_key "raw_flambda" (List String)
+  let clambda = new_key "clambda" (List String)
+  let raw_clambda = new_key "raw_clambda" (List String)
+  let cmm = new_key "cmm" (List String)
+  let remove_free_vars_equal_to_args =
+    new_key "remove-free-vars-equal-to-args" (List String)
+  let unbox_free_vars_of_closures =
+    new_key "unbox-free-vars-of-closures" (List String)
+  let unbox_closures =
+    new_key "unbox-closures" (List String)
+  let unbox_specialised_args =
+    new_key "unbox-specialised-args" (List String)
+  let mach = new_key "mach" (List String)
+  let linear = new_key "linear" (List String)
+  let cmm_invariant = new_key "cmm_invariant" String
+end
+
+module Error = New_def ()
+module Warnings = New_def ()
+
+
+module Compiler = struct
+  include New_def ()
+  let debug = new_key "debug" (Record Debug.scheme)
+end
+
+let log_if dlog key flag printer x =
+  if flag then f key dlog "%a" printer x;
+  x
