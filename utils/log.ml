@@ -74,7 +74,7 @@ type 'a log =
   }
 [@@warning "-69"]
 and 'a mode =
-  | Direct of Misc.Color.setting option
+  | Direct of { settings: Misc.Color.setting option; first: bool ref }
   | Store of 'a prod * printer
 and printer = { print: 'a. Format.formatter -> 'a prod -> unit; }
 and redirection =
@@ -242,7 +242,7 @@ module Store = struct
         | Const c ->
             if !(c.ppf) == default then partition else
               add_to_partition partition k (!(c.ppf), c.close)
-        | Detached _ -> assert false
+        | Detached _ -> partition
      )
      log.redirections (keys, Fmt_tbl.create (Key_set.cardinal keys))
 
@@ -280,36 +280,36 @@ module Fmt = struct
   }
 
   type conv = {
+    string:string printer;
     assoc:assoc;
     list:list_convention;
   }
 
-  let escape_string str =
-    let buf = Buffer.create (String.length str * 5 / 4) in
+  let escape_string ppf str =
+    Format.fprintf ppf {|"|};
     for i = 0 to String.length str - 1 do
       match str.[i] with
-      | '\\' -> Buffer.add_string buf {|\\|}
-      | '\"' -> Buffer.add_string buf {|\"|}
-      | '\n' -> Buffer.add_string buf {|\n|}
-      | '\t' -> Buffer.add_string buf {|\t|}
-      | '\r' -> Buffer.add_string buf {|\r|}
-      | '\b' -> Buffer.add_string buf {|\b|}
+      | '\\' -> Format.fprintf ppf {|\\|}
+      | '\"' -> Format.fprintf ppf {|\"|}
+      | '\n' -> Format.fprintf ppf {|\n|}
+      | '\t' -> Format.fprintf ppf {|\t|}
+      | '\r' -> Format.fprintf ppf {|\r|}
+      | '\b' -> Format.fprintf ppf {|\b|}
       | '\x00' .. '\x1F' | '\x7F' as c ->
-          Printf.bprintf buf "\\u%04X" (Char.code c)
-      | c -> Buffer.add_char buf c
+          Format.fprintf ppf "\\u%04X" (Char.code c)
+      | c -> Format.fprintf ppf "%c" c
     done;
-    Buffer.contents buf
-
+    Format.fprintf ppf {|"|}
 
   let rec elt : type a. conv -> extension_printer
     -> a typ -> Format.formatter -> a -> unit =
     fun conv {extension} typ ppf x ->
     match typ with
     | Int -> Format.pp_print_int ppf x
-    | String -> Format.fprintf ppf {|"%s"|} (escape_string x)
+    | String -> conv.string ppf x
     | Doc ->
         let str = Format.asprintf "%t" x in
-        Format.fprintf ppf {|"%s"|} (escape_string str)
+        escape_string ppf str
     | Pair (a,b) ->
         let x, y = x in
         Format.fprintf ppf "%t%a%t%a%t"
@@ -378,17 +378,18 @@ module Fmt = struct
     conv.assoc.close_with_label ppf key
 
   let direct = {
+    string = Format.pp_print_string;
     list = {
       list_open = ignore;
-      list_close = ignore;
+      list_close = ignore ;
       sep = Format.dprintf "@ ";
     };
     assoc = {
-      assoc_open = ignore;
-      assoc_close = ignore;
+      assoc_open = Format.dprintf "@[<v>";
+      assoc_close = Format.dprintf "@]";
       open_with_label = (fun _ -> ignore);
       label_sep = ignore;
-      sep = (fun _ -> ignore);
+      sep = (fun ppf () -> Format.fprintf ppf "@,");
       close_with_label = (fun _ -> ignore);
     }
   }
@@ -398,6 +399,7 @@ module Fmt = struct
     and list_close = Format.dprintf ")@]"
     and sep = Format.dprintf "@ " in
     {
+      string = escape_string;
       list = {list_open; list_close; sep };
       assoc = {
         assoc_open = list_open;
@@ -411,6 +413,7 @@ module Fmt = struct
 
   let json =
     {
+      string = escape_string;
       list = {
         list_open=Format.dprintf "@[<b 2>[";
         list_close = Format.dprintf "@,]@]";
@@ -418,7 +421,7 @@ module Fmt = struct
       };
       assoc = {
         assoc_open = Format.dprintf "@[<hv 2>{@ ";
-        assoc_close = Format.dprintf "@,}@]";
+        assoc_close = Format.dprintf "@;<0 -2>}@]";
         open_with_label = (fun ppf -> Format.fprintf ppf "@[<b 2>%S");
         label_sep = Format.dprintf "@ =@ ";
         sep = (fun ppf () -> Format.fprintf ppf ",@ ");
@@ -455,7 +458,7 @@ module Fmt = struct
     {
       default={ppf;close=ignore};
       redirections = Keys.empty;
-      mode = Direct color;
+      mode = Direct {settings=color; first=ref false};
       version;
     }
 
@@ -474,7 +477,10 @@ let redirect log key ?(close=ignore) ppf  =
 let fresh_detach log cppf key =
   let mode = match log.mode with
     | Direct _ as d -> d
-    | Store (_, printer) -> Store({fields=Keys.empty}, printer)
+    | Store (st, printer) ->
+        let r = {fields=Keys.empty} in
+        st.fields <- Keys.add key.name (Constr(key,r)) st.fields;
+        Store(r, printer)
   in
   let version = match key.typ with
     | Record sch -> sch.scheme_version
@@ -505,9 +511,10 @@ let detach (type id sub) (log: id log) (key: (sub prod, id) key) =
 
 let set key x log =
   match log.mode with
-  | Direct _ ->
+  | Direct d ->
     let ppf = ppf log key in
-    Fmt.(item direct !extensions) ~key:key.name key.typ ppf x
+    if !(d.first) then d.first := false else Fmt.direct.assoc.sep ppf ();
+    Fmt.(item direct !extensions) ~key:key.name key.typ ppf x;
   | Store (st, _ ) -> Store.record st ~key x
 
 let (.%[]<-) log key x = set key x log
@@ -518,10 +525,17 @@ let f key log fmt =
 let itemf key log fmt =
   Format.kasprintf (fun s -> log.%[key] <- [s] ) fmt
 
-let flush log =
+let rec flush: type a. a log -> unit = fun log ->
   let ppf = !(log.default.ppf) in
   match log.mode with
-  | Direct _ -> Fmt.flush ppf;
+  | Direct _ ->
+      Keys.iter (fun _ r ->
+          match r with
+          | Const out -> Fmt.flush !(out.ppf)
+          | Detached (_, log) ->
+              flush log
+        ) log.redirections;
+      Fmt.flush ppf
   | Store (st, pr) ->
       let default, others = Store.split log st.fields in
       pr.print ppf (Store.subrecord default st);
