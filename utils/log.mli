@@ -32,6 +32,7 @@ type empty = Empty_tag
 type _ extension = ..
 
 type 'a typ =
+  | Unit: unit typ
   | Int: int typ
   | String: string typ
   | Doc: doc typ
@@ -61,6 +62,7 @@ module New_def():Def
 val new_key: string ->
   'id def -> 'a typ -> ('a,'id) key
 
+val enum: (unit, 'id) key -> 'id sum
 val constr: ('a,'id) key -> 'a -> 'id sum
 
 val deprecate_key: ('a,'id) key -> 'id def -> unit

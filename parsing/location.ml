@@ -676,7 +676,7 @@ module Error_log = struct[@warning "-unused-value-declaration"]
   type lc = t
   open Log
   module Kind = New_def ()
-  let report_error = Kind.new_key "Report_error" Int
+  let report_error = Kind.new_key "Report_error" Unit
   let report_alert = Kind.new_key  "Report_alert"  String
   let report_alert_as_error = Kind.new_key "Report_alert_as_error" String
   let report_warning = Kind.new_key "Report_warning" String
@@ -732,7 +732,7 @@ module Error_log = struct[@warning "-unused-value-declaration"]
     | Msg: doc loc extension
 
   let pull = function
-    | Report_error -> report_error <$> 0
+    | Report_error -> Log.enum report_error
     | Report_warning w -> report_warning <$> w
     | Report_warning_as_error w -> report_warning_as_error <$> w
     | Report_alert w -> report_alert <$> w

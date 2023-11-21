@@ -28,6 +28,7 @@ type _ extension = ..
 type empty = Empty_tag
 
 type 'a typ =
+  | Unit: unit typ
   | Int: int typ
   | String: string typ
   | Doc: doc typ
@@ -44,7 +45,9 @@ type 'a typ =
 
 
 and ('a,'b) key = { name: string; typ: 'a typ; id: 'a Type.Id.t }
-and 'a sum = Constr: ('a,'b) key * 'a -> 'b sum
+and 'a sum =
+  | Constr: ('a,'b) key * 'a -> 'b sum
+  | Enum: (unit,'b) key -> 'b sum
 and key_metadata =
     Key_metadata:
       { typ: 'a typ;
@@ -142,6 +145,7 @@ module New_def() : Def = struct
 end
 
 
+let enum key = Enum key
 let constr key x = Constr(key,x)
 
 let (.!()) scheme key =
@@ -177,9 +181,12 @@ let version_range key scheme =
 
 module Record = struct
   let (=:) = constr
+  let field_name = function    | Enum k -> k.name
+    | Constr (k,_) -> k.name
   let make fields =
-    let fields = List.fold_left (fun fields (Constr(k,_) as field) ->
-        Keys.add k.name field fields
+    let fields = List.fold_left (fun fields field ->
+
+        Keys.add (field_name field) field fields
       ) Keys.empty fields
         in { fields }
 end
@@ -209,10 +216,12 @@ module Store = struct
           | List _ ->
               begin match Keys.find_opt key.name store.fields with
                 | None -> x
+                | Some (Enum _) -> x
                 | Some (Constr(k,y)) ->
-                    match Type.Id.provably_equal k.id key.id with
+                    begin match Type.Id.provably_equal k.id key.id with
                     | None -> x
                     | Some Type.Equal -> (x @ y:ty)
+                    end
               end
           | _ -> x
         in
@@ -251,6 +260,7 @@ module Store = struct
     Key_set.iter (fun key ->
         match Keys.find_opt key fields with
         | None -> ()
+        | Some (Enum key) -> record st ~key ()
         | Some (Constr(key,x)) ->
             record st ~key x
       ) key_set;
@@ -305,6 +315,7 @@ module Fmt = struct
     -> a typ -> Format.formatter -> a -> unit =
     fun conv {extension} typ ppf x ->
     match typ with
+    | Unit -> Format.pp_print_int ppf 0
     | Int -> Format.pp_print_int ppf x
     | String -> conv.string ppf x
     | Doc ->
@@ -350,8 +361,12 @@ module Fmt = struct
         Format.pp_print_list ~pp_sep (elt conv {extension} e) ppf x;
         conv.list.list_close ppf;
     | Sum _ ->
-        let Constr(kt,x) = x in
-        elt conv {extension} (Pair(String,kt.typ)) ppf (kt.name,x)
+        begin match x with
+        | Constr(kt,x) ->
+            elt conv {extension} (Pair(String,kt.typ)) ppf (kt.name,x)
+        | Enum kt ->
+            elt conv {extension} String ppf kt.name
+        end
     | Record _ ->
         prod conv {extension} ppf x
     | Option e ->
@@ -362,8 +377,11 @@ module Fmt = struct
   and prod: type p.
     conv -> extension_printer -> Format.formatter -> p prod -> unit
     = fun conv extension ppf prod ->
-      let field ppf (key, Constr(kt,x)) =
-        item conv extension ~key kt.typ ppf x
+      let field ppf (key, field) =
+        match field with
+        | Enum kt -> item conv extension ~key kt.typ ppf ()
+        | Constr (kt,x) ->
+            item conv extension ~key kt.typ ppf x
       in
       conv.assoc.assoc_open ppf;
       Format.pp_print_seq ~pp_sep:conv.assoc.sep field ppf
@@ -549,7 +567,11 @@ let replay source dest =
   match source.mode with
   | Direct _ -> ()
   | Store (st,_) ->
-      Keys.iter (fun _ (Constr(key,x)) -> dest.%[key] <- x ) st.fields
+      Keys.iter (fun _ field ->
+          match field with
+          | Enum key ->  dest.%[key] <- ()
+          | Constr(key,x) -> dest.%[key] <- x
+          ) st.fields
 
 (** {1:log_creation }*)
 
