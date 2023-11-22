@@ -70,19 +70,19 @@ type ppf_with_close =
 
 type 'a log =
   {
-    default: ppf_with_close;
-    mutable redirections: redirection Keys.t;
-    version: version;
-    mode: 'a mode;
-  }
+      mutable redirections: ppf_with_close Keys.t;
+      version: version;
+      settings: Misc.Color.setting option;
+      mode: 'a mode
+    }
 [@@warning "-69"]
+
 and 'a mode =
-  | Direct of { settings: Misc.Color.setting option; first: bool ref }
-  | Store of 'a prod * printer
+  | Direct of { out:ppf_with_close; first: bool ref }
+  | Store of { data:'a prod; out:ppf_with_close option; format:printer }
+[@@warning "-69"]
+
 and printer = { print: 'a. Format.formatter -> 'a prod -> unit; }
-and redirection =
-  | Const of ppf_with_close
-  | Detached: 'a prod Type.Id.t * 'a log -> redirection
 [@@warning "-37"]
 
 type 'a t = 'a log
@@ -227,33 +227,9 @@ module Store = struct
         in
         store.fields <- Keys.add key.name (constr key x) store.fields
 
-  module Fmt_tbl = Hashtbl.Make(struct
-      type t = Format.formatter * (unit -> unit)
-      let equal (ppf, _c) (ppf', _c') = ppf == ppf'
-      let hash _ppf = 0
-    end)
-
-  let split log fields =
-    let default = !(log.default.ppf) in
-    let add_to_partition (default,others) k ppf =
-      let default = Key_set.remove k default in
-      let set =
-      match Fmt_tbl.find_opt others ppf with
-      | None -> Key_set.singleton k
-      | Some set -> Key_set.add k set
-      in
-      Fmt_tbl.replace others ppf set;
-      default, others
-   in
-   let keys = fields |> Keys.to_seq |> Seq.map fst |> Key_set.of_seq in
-   Keys.fold (fun k redirection partition ->
-        match redirection with
-        | Const c ->
-            if !(c.ppf) == default then partition else
-              add_to_partition partition k (!(c.ppf), c.close)
-        | Detached _ -> partition
-     )
-     log.redirections (keys, Fmt_tbl.create (Key_set.cardinal keys))
+  let non_redirected_keys redirections fields =
+    let key_set = Key_set.of_seq @@ Seq.map fst @@ Keys.to_seq fields in
+    Keys.fold (fun k _ key_set -> Key_set.remove k key_set) redirections key_set
 
   let subrecord key_set {fields} =
     let st = { fields = Keys.empty } in
@@ -473,67 +449,48 @@ module Fmt = struct
 
   let make color version ppf _sch =
     init color ppf;
-    {
-      default={ppf;close=ignore};
+     {
       redirections = Keys.empty;
-      mode = Direct {settings=color; first=ref false};
+      settings=color;
+      mode = Direct { first=ref false; out = {ppf;close=ignore} };
       version;
     }
 
 end
 
-let ppf log key =
-  match Keys.find_opt key.name log.redirections with
-  | None -> !(log.default.ppf)
-  | Some Const c -> !(c.ppf)
-  | Some Detached (_,log) -> !(log.default.ppf)
+let default_ppf log = match log.mode with
+  | Direct d -> Some d.out.ppf
+  | Store st -> Option.map (fun c -> c.ppf) st.out
 
 let redirect log key ?(close=ignore) ppf  =
-  if ppf != log.default.ppf then
-    log.redirections <- Keys.add key.name (Const {ppf;close}) log.redirections
+  if Some ppf != default_ppf log then
+    log.redirections <- Keys.add key.name {ppf;close} log.redirections
 
-let fresh_detach log cppf key =
-  let mode = match log.mode with
-    | Direct _ as d -> d
-    | Store (st, printer) ->
-        let r = {fields=Keys.empty} in
-        st.fields <- Keys.add key.name (Constr(key,r)) st.fields;
-        Store(r, printer)
+let detach log key =
+  let mode = match log.mode, Keys.find_opt key.name log.redirections with
+  | Direct d, r ->
+      let out = Option.value ~default:d.out r in
+      Direct { first = ref false; out }
+  | Store _, Some out -> Direct { first = ref false; out }
+  | Store st, None ->
+      let data = {fields=Keys.empty} in
+      st.data.fields <- Keys.add key.name (Constr(key,data)) st.data.fields;
+      Store { st with data }
   in
-  let version = match key.typ with
-    | Record sch -> sch.scheme_version
-    | _ -> log.version
-  in
-  let log =
-    {
-      default = cppf;
-      redirections = Keys.empty;
-      mode;
-      version
-    }
-  in
-  log.redirections <-
-    Keys.add key.name (Detached (key.id,log)) log.redirections;
-  log
-
-let detach (type id sub) (log: id log) (key: (sub prod, id) key) =
-  match Keys.find_opt key.name log.redirections with
-  | Some Detached (id,x) ->
-      begin match Type.Id.provably_equal id key.id with
-      | Some Type.Equal -> (x:sub log)
-      | None -> assert false
-      end
-  | Some (Const cppf) -> fresh_detach log cppf key
-  | None -> fresh_detach log {ppf=log.default.ppf; close=ignore} key
+  { log with mode; redirections = Keys.empty }
 
 
 let set key x log =
-  match log.mode with
-  | Direct d ->
-    let ppf = ppf log key in
+  match log.mode, Keys.find_opt key.name log.redirections with
+  | Direct d, r ->
+    let out = Option.value ~default:d.out r in
+    let ppf = !(out.ppf) in
     if !(d.first) then d.first := false else Fmt.direct.assoc.sep ppf ();
     Fmt.(item direct !extensions) ~key:key.name key.typ ppf x;
-  | Store (st, _ ) -> Store.record st ~key x
+  | Store _, Some out ->
+      let ppf = !(out.ppf) in
+      Fmt.(item direct !extensions) ~key:key.name key.typ ppf x
+  | Store st, None -> Store.record st.data ~key x
 
 let (.%[]<-) log key x = set key x log
 
@@ -543,53 +500,52 @@ let f key log fmt =
 let itemf key log fmt =
   Format.kasprintf (fun s -> log.%[key] <- [s] ) fmt
 
-let rec flush: type a. a log -> unit = fun log ->
-  let ppf = !(log.default.ppf) in
+let flush: type a. a log -> unit = fun log ->
   match log.mode with
-  | Direct _ ->
-      Keys.iter (fun _ r ->
-          match r with
-          | Const out -> Fmt.flush !(out.ppf)
-          | Detached (_, log) ->
-              flush log
-        ) log.redirections;
-      Fmt.flush ppf
-  | Store (st, pr) ->
-      let default, others = Store.split log st.fields in
-      pr.print ppf (Store.subrecord default st);
-      Store.Fmt_tbl.iter (fun (ppf,close) subset ->
-          pr.print ppf (Store.subrecord subset st);
-          close ()
-        ) others;
-      log.default.close ()
+  | Direct d ->
+      Fmt.flush !(d.out.ppf);
+      Keys.iter (fun _ out -> Fmt.flush !(out.ppf)) log.redirections;
+  | Store st ->
+      Option.iter (fun out ->
+          let ppf = !(out.ppf) in
+          let keys =
+            Store.non_redirected_keys log.redirections st.data.fields in
+          st.format.print ppf (Store.subrecord keys st.data);
+          Keys.iter (fun _ out -> Fmt.flush !(out.ppf)) log.redirections;
+          out.close ()
+        ) st.out
 
 let replay source dest =
   match source.mode with
   | Direct _ -> ()
-  | Store (st,_) ->
+  | Store st ->
       Keys.iter (fun _ field ->
           match field with
           | Enum key ->  dest.%[key] <- ()
           | Constr(key,x) -> dest.%[key] <- x
-          ) st.fields
+          ) st.data.fields
 
 (** {1:log_creation }*)
 
 module Structured = struct
 
-  let with_conv conv version ppf =
+  let with_conv conv settings version ppf =
     let print ppf r =
       Format.fprintf ppf "%a@."
       Fmt.(prod conv no_extension) r
     in
     { version;
-      default= {ppf; close=ignore};
+      settings;
       redirections = Keys.empty;
-      mode = Store ({fields=Keys.empty}, {print})
+      mode = Store {
+          data={fields=Keys.empty};
+          format={print};
+          out = Some {ppf;close=ignore}
+        }
     }
 
-  let sexp _color version ppf _sch = with_conv Fmt.sexp version ppf
-  let json _color version ppf _sch = with_conv Fmt.json version ppf
+  let sexp color version ppf _sch = with_conv Fmt.sexp color version ppf
+  let json color version ppf _sch = with_conv Fmt.json color version ppf
 
 end
 
