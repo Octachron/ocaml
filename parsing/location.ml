@@ -1018,14 +1018,7 @@ let create_log_on_formatter_ref ppf =
 let current_log = ref (create_log_on_formatter_ref formatter_for_warnings)
 
 
-let temporary_log () =
-  let version = Log.(version Compiler.scheme) in
-  let backend = Log.Backends.json (* this backend should never be printed *) in
-  let log =
-    backend.make None version (ref Format.err_formatter) Log.Compiler.scheme
-  in
-  current_log := log;
-  log
+let temporary_log () = Log.tmp Log.Compiler.scheme
 
 let log_on_formatter ~prev ppf =
   let log = create_log_on_formatter_ref (ref ppf) in

@@ -101,6 +101,8 @@ module Fmt: sig
   val add_extension: extension_printer -> unit
 end
 
+val tmp: 'a def -> 'a log
+
 module Backends : sig
   type t = {
     name:string;

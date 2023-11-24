@@ -79,7 +79,7 @@ type 'a log =
 and child_log = Child: 'a log -> child_log [@@unboxed]
 and 'a mode =
   | Direct of { out:ppf_with_close; first: bool ref }
-  | Store of { data:'a prod; out:ppf_with_close option; format:printer }
+  | Store of { data:'a prod; out:(ppf_with_close * printer) option }
 [@@warning "-69"]
 
 and printer = { print: 'a. Format.formatter -> 'a prod -> unit; }
@@ -488,9 +488,9 @@ let rec flush: type a. a log -> unit = fun log ->
   | Direct d ->
       Fmt.flush !(d.out.ppf); d.out.close ()
   | Store st ->
-      Option.iter (fun out ->
+      Option.iter (fun (out,{print}) ->
           let ppf = !(out.ppf) in
-          st.format.print ppf st.data;
+          print ppf st.data;
           out.close ()
         ) st.out
   end;
@@ -522,8 +522,7 @@ module Structured = struct
       redirections = Keys.empty;
       mode = Store {
           data={fields=Keys.empty};
-          format={print};
-          out = Some {ppf;close=ignore}
+          out = Some ({ppf;close=ignore},{print})
         };
       children = [];
     }
@@ -532,6 +531,14 @@ module Structured = struct
   let json color version ppf _sch = with_conv Fmt.json color version ppf
 
 end
+
+let tmp _def = {
+  settings = None;
+  redirections = Keys.empty;
+  children = [];
+  version = {major=0; minor=0};
+  mode = Store { out=None; data= {fields=Keys.empty} }
+}
 
 module Backends = struct
   type t = {
