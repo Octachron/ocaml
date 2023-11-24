@@ -21,7 +21,6 @@ type doc = Format.formatter -> unit
 
 module K = struct type t = string let compare = compare end
 module Keys = Map.Make(K)
-module Key_set = Set.Make(K)
 
 type _ extension = ..
 
@@ -71,12 +70,13 @@ type ppf_with_close =
 type 'a log =
   {
       mutable redirections: ppf_with_close Keys.t;
+      mutable children: child_log list;
       version: version;
       settings: Misc.Color.setting option;
       mode: 'a mode
-    }
+  }
 [@@warning "-69"]
-
+and child_log = Child: 'a log -> child_log [@@unboxed]
 and 'a mode =
   | Direct of { out:ppf_with_close; first: bool ref }
   | Store of { data:'a prod; out:ppf_with_close option; format:printer }
@@ -226,21 +226,6 @@ module Store = struct
           | _ -> x
         in
         store.fields <- Keys.add key.name (constr key x) store.fields
-
-  let non_redirected_keys redirections fields =
-    let key_set = Key_set.of_seq @@ Seq.map fst @@ Keys.to_seq fields in
-    Keys.fold (fun k _ key_set -> Key_set.remove k key_set) redirections key_set
-
-  let subrecord key_set {fields} =
-    let st = { fields = Keys.empty } in
-    Key_set.iter (fun key ->
-        match Keys.find_opt key fields with
-        | None -> ()
-        | Some (Enum key) -> record st ~key ()
-        | Some (Constr(key,x)) ->
-            record st ~key x
-      ) key_set;
-    st
 end
 
 module Fmt = struct
@@ -454,17 +439,13 @@ module Fmt = struct
       settings=color;
       mode = Direct { first=ref false; out = {ppf;close=ignore} };
       version;
+      children = [];
     }
 
 end
 
-let default_ppf log = match log.mode with
-  | Direct d -> Some d.out.ppf
-  | Store st -> Option.map (fun c -> c.ppf) st.out
-
 let redirect log key ?(close=ignore) ppf  =
-  if Some ppf != default_ppf log then
-    log.redirections <- Keys.add key.name {ppf;close} log.redirections
+  log.redirections <- Keys.add key.name {ppf;close} log.redirections
 
 let detach log key =
   let mode = match log.mode, Keys.find_opt key.name log.redirections with
@@ -477,7 +458,9 @@ let detach log key =
       st.data.fields <- Keys.add key.name (Constr(key,data)) st.data.fields;
       Store { st with data }
   in
-  { log with mode; redirections = Keys.empty }
+  let child = { log with mode; redirections = Keys.empty } in
+  log.children <- Child child :: log.children;
+  child
 
 
 let set key x log =
@@ -500,20 +483,20 @@ let f key log fmt =
 let itemf key log fmt =
   Format.kasprintf (fun s -> log.%[key] <- [s] ) fmt
 
-let flush: type a. a log -> unit = fun log ->
-  match log.mode with
+let rec flush: type a. a log -> unit = fun log ->
+  begin match log.mode with
   | Direct d ->
-      Fmt.flush !(d.out.ppf);
-      Keys.iter (fun _ out -> Fmt.flush !(out.ppf)) log.redirections;
+      Fmt.flush !(d.out.ppf); d.out.close ()
   | Store st ->
       Option.iter (fun out ->
           let ppf = !(out.ppf) in
-          let keys =
-            Store.non_redirected_keys log.redirections st.data.fields in
-          st.format.print ppf (Store.subrecord keys st.data);
-          Keys.iter (fun _ out -> Fmt.flush !(out.ppf)) log.redirections;
+          st.format.print ppf st.data;
           out.close ()
         ) st.out
+  end;
+  Keys.iter (fun _ out -> Fmt.flush !(out.ppf)) log.redirections;
+  List.iter (fun (Child c) -> flush c) log.children
+
 
 let replay source dest =
   match source.mode with
@@ -541,7 +524,8 @@ module Structured = struct
           data={fields=Keys.empty};
           format={print};
           out = Some {ppf;close=ignore}
-        }
+        };
+      children = [];
     }
 
   let sexp color version ppf _sch = with_conv Fmt.sexp color version ppf

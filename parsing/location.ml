@@ -1011,7 +1011,8 @@ let create_log_on_formatter_ref ppf =
   let version = Log.(version Compiler.scheme) in
   let backend = Option.value ~default:Log.Backends.fmt !Clflags.log_format in
   let log = backend.make !Clflags.color version  ppf Log.Compiler.scheme in
-  Log.redirect log Error_log.warnings formatter_for_warnings;
+  if !formatter_for_warnings != Format.err_formatter then
+    Log.redirect log Error_log.warnings formatter_for_warnings;
   log
 
 let current_log = ref (create_log_on_formatter_ref formatter_for_warnings)
