@@ -448,15 +448,21 @@ let redirect log key ?(close=ignore) ppf  =
   log.redirections <- Keys.add key.name {ppf;close} log.redirections
 
 let detach log key =
-  let mode = match log.mode, Keys.find_opt key.name log.redirections with
-  | Direct d, r ->
-      let out = Option.value ~default:d.out r in
+  let out = Keys.find_opt key.name log.redirections in
+  let mode = match log.mode with
+  | Direct d ->
+      let out = Option.value ~default:d.out out in
       Direct { first = ref false; out }
-  | Store _, Some out -> Direct { first = ref false; out }
-  | Store st, None ->
+  | Store st ->
       let data = {fields=Keys.empty} in
-      st.data.fields <- Keys.add key.name (Constr(key,data)) st.data.fields;
-      Store { st with data }
+      let out = match st.out, out with
+        | Some (_,pr), Some out-> Some(out,pr)
+        | x, _ ->
+            st.data.fields <-
+              Keys.add key.name (Constr(key,data)) st.data.fields;
+            x
+      in
+      Store { data; out }
   in
   let child = { log with mode; redirections = Keys.empty } in
   log.children <- Child child :: log.children;
