@@ -675,13 +675,13 @@ type report = {
 module Error_log = struct[@warning "-unused-value-declaration"]
   type lc = t
   open Log
-  module Kind = New_def ()
-  let report_error = Kind.new_key "Report_error" Unit
-  let report_alert = Kind.new_key  "Report_alert"  String
-  let report_alert_as_error = Kind.new_key "Report_alert_as_error" String
-  let report_warning = Kind.new_key "Report_warning" String
+  module Kind = New_sum(Compiler)()
+  let report_error = Kind.new_constr "Report_error" Unit
+  let report_alert = Kind.new_constr  "Report_alert"  String
+  let report_alert_as_error = Kind.new_constr "Report_alert_as_error" String
+  let report_warning = Kind.new_constr "Report_warning" String
   let report_warning_as_error =
-    Kind.new_key "Report_warning_as_error" String
+    Kind.new_constr "Report_warning_as_error" String
 
   let (<$>) = constr
 
@@ -756,13 +756,12 @@ module Error_log = struct[@warning "-unused-value-declaration"]
     }
   let loc = Log.Error.new_key "loc" loc_typ
 
-  module Msg = New_def ()
+  module Msg = New_record(Compiler)()
   let msg = Msg.new_key "msg" Doc
   let msg_loc = Msg.new_key "loc" loc_typ
   let msg_typ =
     let pull m = Log.Record.(make [ msg =: m.txt; msg_loc =: m.loc ]) in
     Custom { id = Msg; pull; default = Record Msg.scheme }
-  let () = seal_version Msg.scheme
 
   let kind = Log.Error.new_key "kind"
       (Custom { id = Error_kind; pull; default = Sum Kind.scheme })

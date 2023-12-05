@@ -54,13 +54,20 @@ module type Def = sig
   type log = id t
   type nonrec 'a key = ('a,id) key
   val scheme: scheme
+end
+module type Record = sig
+  include Def
   val new_key: string -> 'a typ -> 'a key
 end
-module New_def():Def
+module type Sum = sig
+  include Def
+  val new_constr: string -> 'a typ -> 'a key
+end
+module New_root_scheme():Record
+module New_record(_:Def)():Record
+module New_sum(_:Def)():Sum
 
-
-val new_key: string ->
-  'id def -> 'a typ -> ('a,'id) key
+val new_key: 'id def -> string -> 'a typ -> ('a,'id) key
 
 val enum: (unit, 'id) key -> 'id sum
 val constr: ('a,'id) key -> 'a -> 'id sum
@@ -141,7 +148,7 @@ end
 
 (** Compiler logs *)
 module Debug: sig
-  include Def
+  include Record
   val source: string key
   val parsetree: string key
   val typedtree: string key
@@ -164,11 +171,10 @@ module Debug: sig
 end
 
 module Compiler: sig
-  include Def
+  include Record
   val debug: Debug.id prod key
 end
-module Error: Def
-module Warnings: Def
+module Error: Record
 
 val log_if:
   Debug.log -> string Debug.key -> bool ->

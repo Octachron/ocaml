@@ -26,6 +26,12 @@ type _ extension = ..
 
 type empty = Empty_tag
 
+type scheme_status =
+  | Sealed
+  | Open of { minor_changes: bool; breaking_changes: bool }
+
+type polarity = Positive | Negative
+
 type 'a typ =
   | Unit: unit typ
   | Int: int typ
@@ -54,9 +60,11 @@ and key_metadata =
         deprecation: version option } ->
       key_metadata
 and 'a def = {
-  mutable scheme_version: version;
-  mutable open_scheme:bool;
-  mutable keys: key_metadata Keys.t
+  scheme_version: version ref;
+  scheme_status: scheme_status ref;
+  mutable keys: key_metadata Keys.t;
+  version_key: (version,'a) key option;
+  polarity: polarity;
 }
 and 'a prod = {
     mutable fields: 'a sum Keys.t
@@ -72,6 +80,7 @@ type 'a log =
       mutable redirections: ppf_with_close Keys.t;
       mutable children: child_log list;
       version: version;
+      scheme: 'a def;
       settings: Misc.Color.setting option;
       mode: 'a mode
   }
@@ -109,12 +118,28 @@ let (.!()<-) scheme key metadata =
   scheme.keys <- Keys.add key.name metadata scheme.keys
 
 
-let new_key name scheme typ =
-  if not scheme.open_scheme then
-    error (Sealed_version scheme.scheme_version)
-  else if Keys.mem name scheme.keys then error (Duplicate_key name);
+let minor_change scheme =
+  match !(scheme.scheme_status) with
+  | Sealed | Open { minor_changes = false; _ } ->
+      error (Sealed_version !(scheme.scheme_version))
+  | Open { minor_changes=true; _ } -> ()
+
+let breaking_change scheme =
+  match !(scheme.scheme_status) with
+  | Sealed | Open { breaking_changes = false; _ } ->
+      error (Sealed_version !(scheme.scheme_version))
+  | Open { breaking_changes=true; _ } -> ()
+
+
+
+let new_key scheme name typ =
+  begin match scheme.polarity with
+  | Positive -> minor_change scheme
+  | Negative -> breaking_change scheme
+  end;
+  if Keys.mem name scheme.keys then error (Duplicate_key name);
   let metadata = Key_metadata {
-    version=scheme.scheme_version;
+    version= !(scheme.scheme_version);
     deprecation=None;
     typ
   }
@@ -123,26 +148,90 @@ let new_key name scheme typ =
   scheme.!(key) <- metadata;
   key
 
+
+
+type _ extension += Version: version extension
+
+let version_ty =
+  let pull v = v.major, v.minor in
+  Custom { id = Version; pull; default = Pair (Int,Int) }
+
+let version_key () =
+  { name = "version"; typ = version_ty; id = Type.Id.make () }
+
 module type Def = sig
   type id
   type scheme = id def
   type log = id t
   type nonrec 'a key = ('a,id) key
   val scheme: scheme
+end
+
+module type Record = sig
+  include Def
   val new_key: string -> 'a typ -> 'a key
 end
-module New_def() : Def = struct
+
+module type Sum = sig
+  include Def
+  val new_constr: string -> 'a typ -> 'a key
+end
+
+
+let major_scheme_update = Open { minor_changes = true; breaking_changes = true}
+let minor_scheme_update = Open { minor_changes = true; breaking_changes = false}
+
+module New_local_def() = struct
   type id
   type nonrec 'a key = ('a,id) key
   type scheme = id def
   type log = id t
-  let scheme =
-    { scheme_version = first_version;
-      open_scheme = true;
-      keys = Keys.empty
-    }
-    let new_key name ty = new_key name scheme ty
 end
+
+module New_root_scheme() = struct
+  include New_local_def ()
+  let scheme =
+    let version_key = Some (version_key ()) in
+    let metakey =
+      Key_metadata {
+        version = first_version;
+        deprecation = None;
+        typ=version_ty
+      }
+    in
+    { scheme_version = ref first_version;
+      scheme_status = ref major_scheme_update;
+      keys = Keys.singleton "version" metakey;
+      version_key;
+      polarity=Positive;
+    }
+    let new_key name ty = new_key scheme name ty
+end
+
+module New_record(Root:Def)(): Record = struct
+  include New_local_def ()
+  let scheme =
+    { scheme_version = Root.scheme.scheme_version;
+      scheme_status =  Root.scheme.scheme_status;
+      keys = Keys.empty;
+      version_key=None;
+      polarity=Positive;
+    }
+    let new_key name ty = new_key scheme name ty
+end
+
+module New_sum(Root:Def)(): Sum = struct
+  include New_local_def ()
+  let scheme =
+    { scheme_version = Root.scheme.scheme_version;
+      scheme_status =  Root.scheme.scheme_status;
+      keys = Keys.empty;
+      version_key=None;
+      polarity = Negative;
+    }
+    let new_constr name ty = new_key scheme name ty
+end
+
 
 
 let enum key = Enum key
@@ -156,21 +245,24 @@ let (.!()) scheme key =
 let deprecate_key key scheme =
   let Key_metadata r = scheme.!(key) in
   scheme.!(key) <-
-    Key_metadata { r with deprecation = Some scheme.scheme_version }
+    Key_metadata { r with deprecation = Some !(scheme.scheme_version) }
 
 (** {1:log_scheme_versionning  Current version of the log } *)
 
-let version scheme = scheme.scheme_version
+let version scheme = !(scheme.scheme_version)
 
 let seal_version scheme =
-  scheme.open_scheme <- false
+  scheme.scheme_status := Sealed
 
 let name_version scheme version =
-  let sv = scheme.scheme_version in
+  let sv = !(scheme.scheme_version) in
   if version <= sv  then error (Time_travel (version, sv))
   else (
-    scheme.scheme_version <- version;
-    scheme.open_scheme <- true
+    scheme.scheme_version := version;
+    let update =
+      if version.major > sv.major then major_scheme_update
+      else minor_scheme_update in
+    scheme.scheme_status := update
   )
 
 let version_range key scheme =
@@ -191,7 +283,7 @@ module Record = struct
         in { fields }
 end
 
-
+(*
 module V = New_def ()
 let major = V.new_key "major" Int
 let minor = V.new_key "minor" Int
@@ -204,7 +296,7 @@ let[@warning "-32"] version_typ =
     Record.(make [ major =: v.major; minor =: v.minor ] )
   in
   Custom { pull; id = Version; default = Record V.scheme}
-
+*)
 
 module Store = struct
 
@@ -432,13 +524,14 @@ module Fmt = struct
   let flush ppf = Format.fprintf ppf "@]@."
 
 
-  let make color version ppf _sch =
+  let make color version ppf scheme =
     init color ppf;
      {
       redirections = Keys.empty;
       settings=color;
       mode = Direct { first=ref false; out = {ppf;close=ignore} };
       version;
+      scheme;
       children = [];
     }
 
@@ -447,24 +540,30 @@ end
 let redirect log key ?(close=ignore) ppf  =
   log.redirections <- Keys.add key.name {ppf;close} log.redirections
 
+let key_scheme: type a b. (a prod,b) key -> a def  = fun key ->
+  match key.typ with
+  | Custom _ -> assert false
+  | Record sch -> sch
+
 let detach log key =
   let out = Keys.find_opt key.name log.redirections in
   let mode = match log.mode with
-  | Direct d ->
-      let out = Option.value ~default:d.out out in
-      Direct { first = ref false; out }
-  | Store st ->
-      let data = {fields=Keys.empty} in
-      let out = match st.out, out with
-        | Some (_,pr), Some out-> Some(out,pr)
-        | x, _ ->
-            st.data.fields <-
-              Keys.add key.name (Constr(key,data)) st.data.fields;
-            x
-      in
-      Store { data; out }
+    | Direct d ->
+        let out = Option.value ~default:d.out out in
+        Direct { first = ref false; out }
+    | Store st ->
+        let data = {fields=Keys.empty} in
+        let out = match st.out, out with
+          | Some (_,pr), Some out-> Some(out,pr)
+          | x, _ ->
+              st.data.fields <-
+                Keys.add key.name (Constr(key,data)) st.data.fields;
+              x
+        in
+        Store { data; out }
   in
-  let child = { log with mode; redirections = Keys.empty } in
+  let child =
+    { log with scheme=key_scheme key; mode; redirections = Keys.empty } in
   log.children <- Child child :: log.children;
   child
 
@@ -494,6 +593,9 @@ let rec flush: type a. a log -> unit = fun log ->
   | Direct d ->
       Fmt.flush !(d.out.ppf); d.out.close ()
   | Store st ->
+      Option.iter (fun vk ->
+          log.%[vk] <- !(log.scheme.scheme_version))
+        log.scheme.version_key;
       Option.iter (fun (out,{print}) ->
           let ppf = !(out.ppf) in
           print ppf st.data;
@@ -518,7 +620,7 @@ let replay source dest =
 
 module Structured = struct
 
-  let with_conv conv settings version ppf =
+  let with_conv conv settings version scheme ppf =
     let print ppf r =
       Format.fprintf ppf "%a@."
       Fmt.(prod conv no_extension) r
@@ -530,19 +632,21 @@ module Structured = struct
           data={fields=Keys.empty};
           out = Some ({ppf;close=ignore},{print})
         };
+      scheme;
       children = [];
     }
 
-  let sexp color version ppf _sch = with_conv Fmt.sexp color version ppf
-  let json color version ppf _sch = with_conv Fmt.json color version ppf
+  let sexp color version ppf sch = with_conv Fmt.sexp color version sch ppf
+  let json color version ppf sch = with_conv Fmt.json color version sch ppf
 
 end
 
-let tmp _def = {
+let tmp scheme = {
   settings = None;
   redirections = Keys.empty;
   children = [];
   version = {major=0; minor=0};
+  scheme;
   mode = Store { out=None; data= {fields=Keys.empty} }
 }
 
@@ -557,8 +661,10 @@ module Backends = struct
   let json = { name = "json"; make = Structured.json }
 end
 
+module Compiler_root = New_root_scheme ()
+
 module Debug = struct
-  include New_def ()
+  include New_record(Compiler_root)()
   let parsetree = new_key "parsetree" String
   let source = new_key "source" String
   let typedtree = new_key "typedtree" String
@@ -584,12 +690,10 @@ module Debug = struct
   let cmm_invariant = new_key "cmm_invariant" String
 end
 
-module Error = New_def ()
-module Warnings = New_def ()
-
+module Error = New_record (Compiler_root)()
 
 module Compiler = struct
-  include New_def ()
+  include Compiler_root
   let debug = new_key "debug" (Record Debug.scheme)
 end
 
