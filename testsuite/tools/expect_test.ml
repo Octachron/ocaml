@@ -222,7 +222,7 @@ let eval_expect_file _fname ~file_contents =
   in
   let buf = Buffer.create 1024 in
   let ppf = Format.formatter_of_buffer buf in
-  let () = Misc.Style.set_tag_handling ppf in
+  let log = Location.log_on_formatter ~prev:None ppf in
   let exec_phrases phrases =
     let phrases =
       match min_line_number phrases with
@@ -239,7 +239,7 @@ let eval_expect_file _fname ~file_contents =
           exec_phrase ppf phrase
         with exn ->
           let bt = Printexc.get_raw_backtrace () in
-          begin try Location.report_exception ppf exn
+          begin try Location.log_exception log exn
           with _ ->
             Format.fprintf ppf "Uncaught exception: %s\n%s\n"
               (Printexc.to_string exn)
@@ -375,5 +375,7 @@ let () =
     Printf.eprintf "expect_test: no input file\n";
     exit 2
   with exn ->
-    Location.report_exception Format.err_formatter exn;
+    let log = Location.log_on_formatter ~prev:None Format.err_formatter in
+    Location.log_exception  log exn;
+    Log.flush log;
     exit 2

@@ -27,9 +27,12 @@ let compile_file filename =
   let ic = open_in filename in
   let lb = Lexing.from_channel ic in
   lb.Lexing.lex_curr_p <- Lexing.{ lb.lex_curr_p with pos_fname = filename };
+  let compiler_log =
+    Location.log_on_formatter ~prev:None Format.std_formatter in
+  let log = Log.(detach compiler_log Compiler.debug) in
   try
     while true do
-      Asmgen.compile_phrase ~ppf_dump:Format.std_formatter
+      Asmgen.compile_phrase ~log
         (Parsecmm.phrase Lexcmm.token lb)
     done
   with
