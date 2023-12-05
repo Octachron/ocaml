@@ -71,7 +71,9 @@ and 'a prod = {
   }
 
 type ppf_with_close =
-  { ppf: Format.formatter ref;
+  {
+    initialized: bool ref;
+    ppf: Format.formatter ref;
     close: unit -> unit;
   }
 
@@ -87,7 +89,7 @@ type 'a log =
 [@@warning "-69"]
 and child_log = Child: 'a log -> child_log [@@unboxed]
 and 'a mode =
-  | Direct of { out:ppf_with_close; first: bool ref }
+  | Direct of ppf_with_close
   | Store of { data:'a prod; out:(ppf_with_close * printer) option }
 [@@warning "-69"]
 
@@ -129,8 +131,6 @@ let breaking_change scheme =
   | Sealed | Open { breaking_changes = false; _ } ->
       error (Sealed_version !(scheme.scheme_version))
   | Open { breaking_changes=true; _ } -> ()
-
-
 
 let new_key scheme name typ =
   begin match scheme.polarity with
@@ -520,16 +520,19 @@ module Fmt = struct
     Misc.Style.set_tag_handling ~color !ppf;
     Format.fprintf !ppf "@[<v>"
 
-
-  let flush ppf = Format.fprintf ppf "@]@."
-
+  let flush_and_close c =
+    begin
+      if !(c.initialized) then Format.fprintf !(c.ppf) "@]@."
+      else Format.fprintf !(c.ppf) "@]"
+    end;
+    c.close ()
 
   let make color version ppf scheme =
     init color ppf;
      {
       redirections = Keys.empty;
       settings=color;
-      mode = Direct { first=ref false; out = {ppf;close=ignore} };
+      mode = Direct {initialized=ref false; ppf; close=ignore};
       version;
       scheme;
       children = [];
@@ -538,7 +541,8 @@ module Fmt = struct
 end
 
 let redirect log key ?(close=ignore) ppf  =
-  log.redirections <- Keys.add key.name {ppf;close} log.redirections
+  log.redirections <-
+    Keys.add key.name {initialized=ref false;ppf;close} log.redirections
 
 let key_scheme: type a b. (a prod,b) key -> a def  = fun key ->
   match key.typ with
@@ -549,8 +553,8 @@ let detach log key =
   let out = Keys.find_opt key.name log.redirections in
   let mode = match log.mode with
     | Direct d ->
-        let out = Option.value ~default:d.out out in
-        Direct { first = ref false; out }
+        let out = Option.value ~default:d out in
+        Direct out
     | Store st ->
         let data = {fields=Keys.empty} in
         let out = match st.out, out with
@@ -571,9 +575,10 @@ let detach log key =
 let set key x log =
   match log.mode, Keys.find_opt key.name log.redirections with
   | Direct d, r ->
-    let out = Option.value ~default:d.out r in
+    let out = Option.value ~default:d r in
     let ppf = !(out.ppf) in
-    if !(d.first) then d.first := false else Fmt.direct.assoc.sep ppf ();
+    if not !(d.initialized) then d.initialized := true
+    else Fmt.direct.assoc.sep ppf ();
     Fmt.(item direct !extensions) ~key:key.name key.typ ppf x;
   | Store _, Some out ->
       let ppf = !(out.ppf) in
@@ -590,8 +595,7 @@ let itemf key log fmt =
 
 let rec flush: type a. a log -> unit = fun log ->
   begin match log.mode with
-  | Direct d ->
-      Fmt.flush !(d.out.ppf); d.out.close ()
+  | Direct d -> Fmt.flush_and_close d
   | Store st ->
       Option.iter (fun vk ->
           log.%[vk] <- !(log.scheme.scheme_version))
@@ -602,7 +606,7 @@ let rec flush: type a. a log -> unit = fun log ->
           out.close ()
         ) st.out
   end;
-  Keys.iter (fun _ out -> Fmt.flush !(out.ppf)) log.redirections;
+  Keys.iter (fun _ out -> Fmt.flush_and_close out) log.redirections;
   List.iter (fun (Child c) -> flush c) log.children
 
 
@@ -622,15 +626,16 @@ module Structured = struct
 
   let with_conv conv settings version scheme ppf =
     let print ppf r =
-      Format.fprintf ppf "%a@."
-      Fmt.(prod conv no_extension) r
+      if Keys.is_empty r.fields then () else
+        Format.fprintf ppf "%a@."
+          Fmt.(prod conv no_extension) r
     in
     { version;
       settings;
       redirections = Keys.empty;
       mode = Store {
           data={fields=Keys.empty};
-          out = Some ({ppf;close=ignore},{print})
+          out = Some ({initialized=ref false;ppf;close=ignore},{print})
         };
       scheme;
       children = [];

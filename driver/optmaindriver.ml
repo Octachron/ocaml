@@ -138,16 +138,17 @@ end
 let main argv ppf =
   native_code := true;
   let log = ref (Location.temporary_log ()) in
-  match process argv log ppf with
-  | exception (Compenv.Exit_with_status n) ->
-      Log.flush !log;
-      n
-  | exception x ->
-    Location.log_exception !log x;
-    Log.flush !log;
-    2
-  | () ->
-      Compmisc.with_ppf_dump ~file_prefix:"profile"
-        (fun ppf -> Profile.print ppf !Clflags.profile_columns);
-      Log.flush !log;
-      0
+  let exit_number =
+    match process argv log ppf with
+    | exception (Compenv.Exit_with_status n) ->
+        n
+    | exception x ->
+        Location.log_exception !log x;
+        2
+    | () ->
+        Compmisc.with_ppf_dump ~file_prefix:"profile"
+          (fun ppf -> Profile.print ppf !Clflags.profile_columns);
+        0
+  in
+  Log.flush !log;
+  exit_number

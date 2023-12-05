@@ -115,16 +115,17 @@ let main argv ppf =
     ["-depend", Arg.Unit Makedepend.main_from_option,
      "<options> Compute dependencies (use 'ocamlc -depend -help' for details)"];
   let exception Continue in
-  match process (fun () -> raise Continue) argv log ppf with
-  | exception (Compenv.Exit_with_status n) ->
-    Log.flush !log;
-    n
-  | exception Continue
-  | _ ->
-    Compmisc.with_ppf_dump ~file_prefix:"profile"
-      (fun ppf -> Profile.print ppf !Clflags.profile_columns);
-    0
-  | exception x ->
-      Location.log_exception !log x;
-      Log.flush !log;
-      2
+  let exit_number =
+    match process (fun () -> raise Continue) argv log ppf with
+    | exception (Compenv.Exit_with_status n) ->
+        n
+    | exception Continue
+    | _ ->
+        Compmisc.with_ppf_dump ~file_prefix:"profile"
+          (fun ppf -> Profile.print ppf !Clflags.profile_columns);
+        0
+    | exception x ->
+        Location.log_exception !log x;
+        2
+  in
+  Log.flush !log; exit_number
