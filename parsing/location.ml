@@ -675,13 +675,15 @@ type report = {
 module Error_log = struct[@warning "-unused-value-declaration"]
   type lc = t
   open Log
+  let v1 = Compiler.v1
+
   module Kind = New_sum(Compiler)()
-  let report_error = Kind.new_constr "Report_error" Unit
-  let report_alert = Kind.new_constr  "Report_alert"  String
-  let report_alert_as_error = Kind.new_constr "Report_alert_as_error" String
-  let report_warning = Kind.new_constr "Report_warning" String
+  let report_error = Kind.new_constr v1 "Report_error" Unit
+  let report_alert = Kind.new_constr v1  "Report_alert"  String
+  let report_alert_as_error = Kind.new_constr v1 "Report_alert_as_error" String
+  let report_warning = Kind.new_constr v1 "Report_warning" String
   let report_warning_as_error =
-    Kind.new_constr "Report_warning_as_error" String
+    Kind.new_constr v1 "Report_warning_as_error" String
 
   let (<$>) = constr
 
@@ -754,22 +756,22 @@ module Error_log = struct[@warning "-unused-value-declaration"]
       pull = (fun l -> let l = loc_summary l in l.file, l.lines, l.chars);
       default = loc_typ
     }
-  let loc = Log.Error.new_key "loc" loc_typ
+  let loc = Log.Error.new_key v1 "loc" loc_typ
 
   module Msg = New_record(Compiler)()
-  let msg = Msg.new_key "msg" Doc
-  let msg_loc = Msg.new_key "loc" loc_typ
+  let msg = Msg.new_key v1 "msg" Doc
+  let msg_loc = Msg.new_key v1 "loc" loc_typ
   let msg_typ =
     let pull m = Log.Record.(make [ msg =: m.txt; msg_loc =: m.loc ]) in
     Custom { id = Msg; pull; default = Record Msg.scheme }
 
-  let kind = Log.Error.new_key "kind"
+  let kind = Log.Error.new_key v1 "kind"
       (Custom { id = Error_kind; pull; default = Sum Kind.scheme })
 
-  let main = Log.Error.new_key "main" msg_typ
-  let sub = Log.Error.new_key "sub" Log.(List msg_typ)
+  let main = Log.Error.new_key v1 "main" msg_typ
+  let sub = Log.Error.new_key v1 "sub" Log.(List msg_typ)
   let quotable_locs =
-    Log.Error.new_key "quotable_locs" Log.(Option (List loc_typ))
+    Log.Error.new_key v1 "quotable_locs" Log.(Option (List loc_typ))
 
   let pull (report:report) =
     let open Log.Record in
@@ -783,10 +785,10 @@ module Error_log = struct[@warning "-unused-value-declaration"]
 
   let report_typ = Custom { id = Error; pull; default = Record Error.scheme }
 
-  let key = Log.Compiler.new_key "error" report_typ
+  let key = Log.Compiler.new_key v1 "error" report_typ
 
-  let warnings = Log.Compiler.new_key "warnings" (List report_typ)
-  let alerts = Log.Compiler.new_key "alerts" (List report_typ)
+  let warnings = Log.Compiler.new_key v1 "warnings" (List report_typ)
+  let alerts = Log.Compiler.new_key v1 "alerts" (List report_typ)
 
 end
 

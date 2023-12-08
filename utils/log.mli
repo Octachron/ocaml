@@ -24,6 +24,12 @@ type 'a t = 'a log
 
 type doc = Format.formatter -> unit
 
+
+
+(** {1:log_scheme_versionning  Current version of the log } *)
+type version = { major:int; minor:int }
+
+
 type !'a sum
 type !'a prod
 
@@ -47,6 +53,7 @@ type 'a typ =
   | Custom: { id :'b extension; pull: ('b -> 'a); default: 'a typ} ->
       'b typ
 
+type 'a scheme_version
 type ('a,'b) key
 module type Def = sig
   type id
@@ -55,19 +62,31 @@ module type Def = sig
   type nonrec 'a key = ('a,id) key
   val scheme: scheme
 end
-module type Record = sig
-  include Def
-  val new_key: string -> 'a typ -> 'a key
-end
-module type Sum = sig
-  include Def
-  val new_constr: string -> 'a typ -> 'a key
-end
-module New_root_scheme():Record
-module New_record(_:Def)():Record
-module New_sum(_:Def)():Sum
 
-val new_key: 'id def -> string -> 'a typ -> ('a,'id) key
+module type Record = sig
+  type root
+  include Def
+  val new_key: root scheme_version  -> string -> 'a typ -> 'a key
+end
+
+module type Sum = sig
+  type root
+  include Def
+  val new_constr: root scheme_version -> string -> 'a typ -> 'a key
+end
+
+module type Root = sig
+  include Def
+  val v1: id scheme_version
+  val new_key: id scheme_version  -> string -> 'a typ -> 'a key
+  val new_version: version -> id scheme_version
+end
+
+module New_root_scheme(): Root
+module New_record(Root:Def)(): Record with type root := Root.id
+module New_sum(Root:Def)(): Sum with type root := Root.id
+
+val new_key: 'id scheme_version -> 'id def -> string -> 'a typ -> ('a,'id) key
 
 val enum: (unit, 'id) key -> 'id sum
 val constr: ('a,'id) key -> 'a -> 'id sum
@@ -75,14 +94,9 @@ val constr: ('a,'id) key -> 'a -> 'id sum
 val deprecate_key: ('a,'id) key -> 'id def -> unit
 
 
-
-(** {1:log_scheme_versionning  Current version of the log } *)
-type version = { major:int; minor:int }
-
 type version_range = { introduction: version; deprecation: version option }
 
 val version: _ def -> version
-val name_version: _ def -> version -> unit
 val seal_version: _ def -> unit
 
 val version_range: (_,'id) key -> 'id def -> version_range
@@ -147,8 +161,11 @@ module Record: sig
 end
 
 (** Compiler logs *)
+
+module Compiler_root : Root
+
 module Debug: sig
-  include Record
+  include Record with type root := Compiler_root.id
   val source: string key
   val parsetree: string key
   val typedtree: string key
@@ -171,10 +188,10 @@ module Debug: sig
 end
 
 module Compiler: sig
-  include Record
+  include Root
   val debug: Debug.id prod key
 end
-module Error: Record
+module Error: Record with type root := Compiler.id
 
 val log_if:
   Debug.log -> string Debug.key -> bool ->

@@ -132,14 +132,14 @@ let breaking_change scheme =
       error (Sealed_version !(scheme.scheme_version))
   | Open { breaking_changes=true; _ } -> ()
 
-let new_key scheme name typ =
+let new_key version scheme name typ =
   begin match scheme.polarity with
   | Positive -> minor_change scheme
   | Negative -> breaking_change scheme
   end;
   if Keys.mem name scheme.keys then error (Duplicate_key name);
   let metadata = Key_metadata {
-    version= !(scheme.scheme_version);
+    version;
     deprecation=None;
     typ
   }
@@ -151,6 +151,7 @@ let new_key scheme name typ =
 
 
 type _ extension += Version: version extension
+type 'a scheme_version = version
 
 let version_ty =
   let pull v = v.major, v.minor in
@@ -168,13 +169,22 @@ module type Def = sig
 end
 
 module type Record = sig
+  type root
   include Def
-  val new_key: string -> 'a typ -> 'a key
+  val new_key: 'a scheme_version  -> string -> 'a typ -> 'a key
 end
 
 module type Sum = sig
+  type root
   include Def
-  val new_constr: string -> 'a typ -> 'a key
+  val new_constr: id scheme_version -> string -> 'a typ -> 'a key
+end
+
+module type Root = sig
+  include Def
+  val v1: id scheme_version
+  val new_key: 'a scheme_version  -> string -> 'a typ -> 'a key
+  val new_version: version -> id scheme_version
 end
 
 
@@ -205,10 +215,23 @@ module New_root_scheme() = struct
       version_key;
       polarity=Positive;
     }
-    let new_key name ty = new_key scheme name ty
+    let new_key v name ty = new_key v scheme name ty
+
+    let v1 = first_version
+    let new_version version =
+      let sv = !(scheme.scheme_version) in
+      if version <= sv  then error (Time_travel (version, sv))
+      else (
+        scheme.scheme_version := version;
+        let update =
+          if version.major > sv.major then major_scheme_update
+          else minor_scheme_update in
+        scheme.scheme_status := update
+      );
+      version
 end
 
-module New_record(Root:Def)(): Record = struct
+module New_record(Root:Def)() = struct
   include New_local_def ()
   let scheme =
     { scheme_version = Root.scheme.scheme_version;
@@ -217,10 +240,11 @@ module New_record(Root:Def)(): Record = struct
       version_key=None;
       polarity=Positive;
     }
-    let new_key name ty = new_key scheme name ty
+    let new_key v name ty = new_key v scheme name ty
+    let derived_version x = x
 end
 
-module New_sum(Root:Def)(): Sum = struct
+module New_sum(Root:Def)() = struct
   include New_local_def ()
   let scheme =
     { scheme_version = Root.scheme.scheme_version;
@@ -229,7 +253,7 @@ module New_sum(Root:Def)(): Sum = struct
       version_key=None;
       polarity = Negative;
     }
-    let new_constr name ty = new_key scheme name ty
+    let new_constr v name ty = new_key v scheme name ty
 end
 
 
@@ -254,16 +278,6 @@ let version scheme = !(scheme.scheme_version)
 let seal_version scheme =
   scheme.scheme_status := Sealed
 
-let name_version scheme version =
-  let sv = !(scheme.scheme_version) in
-  if version <= sv  then error (Time_travel (version, sv))
-  else (
-    scheme.scheme_version := version;
-    let update =
-      if version.major > sv.major then major_scheme_update
-      else minor_scheme_update in
-    scheme.scheme_status := update
-  )
 
 let version_range key scheme =
   let Key_metadata r =  scheme.!(key) in
@@ -670,36 +684,37 @@ module Compiler_root = New_root_scheme ()
 
 module Debug = struct
   include New_record(Compiler_root)()
-  let parsetree = new_key "parsetree" String
-  let source = new_key "source" String
-  let typedtree = new_key "typedtree" String
-  let shape = new_key "shape" String
-  let instr = new_key "instr" String
-  let lambda = new_key "lambda" String
-  let raw_lambda = new_key "raw_lambda" String
-  let flambda = new_key "flambda" (List String)
-  let raw_flambda = new_key "raw_flambda" (List String)
-  let clambda = new_key "clambda" (List String)
-  let raw_clambda = new_key "raw_clambda" (List String)
-  let cmm = new_key "cmm" (List String)
+  let v1 = derived_version Compiler_root.v1
+  let parsetree = new_key v1 "parsetree" String
+  let source = new_key v1 "source" String
+  let typedtree = new_key v1 "typedtree" String
+  let shape = new_key v1 "shape" String
+  let instr = new_key v1 "instr" String
+  let lambda = new_key v1 "lambda" String
+  let raw_lambda = new_key v1 "raw_lambda" String
+  let flambda = new_key v1 "flambda" (List String)
+  let raw_flambda = new_key v1 "raw_flambda" (List String)
+  let clambda = new_key v1 "clambda" (List String)
+  let raw_clambda = new_key v1 "raw_clambda" (List String)
+  let cmm = new_key v1 "cmm" (List String)
   let remove_free_vars_equal_to_args =
-    new_key "remove-free-vars-equal-to-args" (List String)
+    new_key v1 "remove-free-vars-equal-to-args" (List String)
   let unbox_free_vars_of_closures =
-    new_key "unbox-free-vars-of-closures" (List String)
+    new_key v1 "unbox-free-vars-of-closures" (List String)
   let unbox_closures =
-    new_key "unbox-closures" (List String)
+    new_key v1 "unbox-closures" (List String)
   let unbox_specialised_args =
-    new_key "unbox-specialised-args" (List String)
-  let mach = new_key "mach" (List String)
-  let linear = new_key "linear" (List String)
-  let cmm_invariant = new_key "cmm_invariant" String
+    new_key v1 "unbox-specialised-args" (List String)
+  let mach = new_key v1 "mach" (List String)
+  let linear = new_key v1 "linear" (List String)
+  let cmm_invariant = new_key v1 "cmm_invariant" String
 end
 
 module Error = New_record (Compiler_root)()
 
 module Compiler = struct
   include Compiler_root
-  let debug = new_key "debug" (Record Debug.scheme)
+  let debug = new_key v1 "debug" (Record Debug.scheme)
 end
 
 let log_if dlog key flag printer x =
