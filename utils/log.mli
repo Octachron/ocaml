@@ -141,16 +141,27 @@ val redirect: 'id log -> ('a,'id) key ->
   ?close:(unit -> unit) -> Format.formatter ref -> unit
 val (.%[]<-): 'b log -> ('a,'b) key -> 'a -> unit
 val replay: 'a log -> 'a log -> unit
+
 val detach: 'id log -> ('id2 prod, 'id) key -> 'id2 log
+val detach_item: 'id log -> ('id2 prod list, 'id) key -> 'id2 log
+
+
 
 val f : (string,'a) key -> 'a log -> ('b, Format.formatter, unit) format -> 'b
   (** [fmt key log ppf] records the output of [ppf] as
       a string at key [key] in [log].
   *)
 
+val d : (doc,'a) key -> 'a log -> ('b, Format.formatter, unit) format -> 'b
+  (** [fmt key log ppf] records the formatted message at key [key] in [log].
+  *)
+
+
 val itemf :
   (string list,'a) key -> 'a log -> ('b, Format.formatter, unit) format -> 'b
 
+val itemd :
+  (doc list,'a) key -> 'a log -> ('b, Format.formatter, unit) format -> 'b
 
 
 

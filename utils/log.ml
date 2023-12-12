@@ -563,7 +563,15 @@ let key_scheme: type a b. (a prod,b) key -> a def  = fun key ->
   | Custom _ -> assert false
   | Record sch -> sch
 
-let detach log key =
+let item_key_scheme: type a b. (a prod list,b) key -> a def  = fun key ->
+  match key.typ with
+  | Custom _ -> assert false
+  | List (Custom _) -> assert false
+  | List (Record sch) -> sch
+  | _ -> .
+
+
+let generic_detach key_scheme lift log key =
   let out = Keys.find_opt key.name log.redirections in
   let mode = match log.mode with
     | Direct d ->
@@ -574,8 +582,7 @@ let detach log key =
         let out = match st.out, out with
           | Some (_,pr), Some out-> Some(out,pr)
           | x, _ ->
-              st.data.fields <-
-                Keys.add key.name (Constr(key,data)) st.data.fields;
+              Store.record st.data ~key (lift data);
               x
         in
         Store { data; out }
@@ -585,6 +592,8 @@ let detach log key =
   log.children <- Child child :: log.children;
   child
 
+let detach log key = generic_detach key_scheme Fun.id log key
+let detach_item log key = generic_detach item_key_scheme (fun x -> [x]) log key
 
 let set key x log =
   match log.mode, Keys.find_opt key.name log.redirections with
@@ -603,9 +612,13 @@ let (.%[]<-) log key x = set key x log
 
 let f key log fmt =
   Format.kasprintf (fun s -> log.%[key] <- s ) fmt
-
 let itemf key log fmt =
   Format.kasprintf (fun s -> log.%[key] <- [s] ) fmt
+
+let d key log fmt =
+  Format.kdprintf (fun s -> log.%[key] <- s ) fmt
+let itemd key log fmt =
+  Format.kdprintf (fun s -> log.%[key] <- [s] ) fmt
 
 let rec flush: type a. a log -> unit = fun log ->
   begin match log.mode with
