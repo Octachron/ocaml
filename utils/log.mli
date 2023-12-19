@@ -106,6 +106,7 @@ val version_range: (_,'id) key -> 'id def -> version_range
 
 
 val flush: 'id log -> unit
+val close: 'id log -> unit
 
 (*
 val create: device -> version -> 'a def -> 'a log
@@ -203,6 +204,14 @@ module Compiler: sig
   val debug: Debug.id prod key
 end
 module Error: Record with type root := Compiler.id
+
+module Toplevel: sig
+  include Root
+  val output: doc list key
+  val compiler_log: Compiler.id prod list key
+  val errors: doc list key
+  val trace: doc list key
+end
 
 val log_if:
   Debug.log -> string Debug.key -> bool ->

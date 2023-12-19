@@ -128,13 +128,6 @@ let split_chunks phrases =
   in
   loop phrases [] []
 
-module Compiler_messages = struct
-  let capture ppf ~f =
-    Misc.protect_refs
-      [ R (Location.formatter_for_warnings, ppf) ]
-      f
-end
-
 let collect_formatters buf pps ~f =
   let ppb = Format.formatter_of_buffer buf in
   let out_functions = Format.pp_get_formatter_out_functions ppb () in
@@ -157,16 +150,22 @@ let collect_formatters buf pps ~f =
   | x             -> restore (); x
   | exception exn -> restore (); raise exn
 
+
 (* Invariant: ppf = Format.formatter_of_buffer buf *)
 let capture_everything buf ppf ~f =
   collect_formatters buf [Format.std_formatter; Format.err_formatter]
-                     ~f:(fun () -> Compiler_messages.capture ppf ~f)
+    ~f
 
-let exec_phrase ppf phrase =
+
+let exec_phrase log phrase =
+  let clog = Topcommon.compiler_log log in
+  let dlog = Log.detach clog Log.Compiler.debug in
+  let log_if flag kind pr x = ignore(Log.log_if dlog kind flag pr x) in
   Location.reset ();
-  if !Clflags.dump_parsetree then Printast. top_phrase ppf phrase;
-  if !Clflags.dump_source    then Pprintast.top_phrase ppf phrase;
-  Toploop.execute_phrase true ppf phrase
+  log_if !Clflags.dump_parsetree Log.Debug.parsetree
+    Printast.top_phrase phrase;
+  log_if !Clflags.dump_source Log.Debug.source Pprintast.top_phrase phrase;
+  Toploop.execute_phrase true (log,dlog) phrase
 
 let parse_contents ~fname contents =
   let lexbuf = Lexing.from_string contents in
@@ -215,6 +214,12 @@ function
   | (Ptop_dir _  | Ptop_def []) :: l -> min_line_number l
   | Ptop_def (st :: _) :: _ -> Some st.pstr_loc.loc_start.pos_lnum
 
+let create_log ppf =
+  let version = Log.(version Compiler.scheme) in
+  let backend = Log.Backends.fmt in
+  let log = backend.make None version (ref ppf) Log.Compiler.scheme in
+  log
+
 let eval_expect_file _fname ~file_contents =
   Warnings.reset_fatal ();
   let chunks, trailing_code =
@@ -222,7 +227,7 @@ let eval_expect_file _fname ~file_contents =
   in
   let buf = Buffer.create 1024 in
   let ppf = Format.formatter_of_buffer buf in
-  let log = Location.log_on_formatter ~prev:None ppf in
+  let log = Topcommon.log_on_formatter ppf in
   let exec_phrases phrases =
     let phrases =
       match min_line_number phrases with
@@ -230,16 +235,15 @@ let eval_expect_file _fname ~file_contents =
       | Some lnum -> shift_lines (1 - lnum) phrases
     in
     (* For formatting purposes *)
-    Buffer.add_char buf '\n';
+    let () = Buffer.add_char buf '\n' in
     let _ : bool =
       List.fold_left phrases ~init:true ~f:(fun acc phrase ->
         acc &&
+        let clog = Topcommon.compiler_log log in
         let snap = Btype.snapshot () in
-        try
-          exec_phrase ppf phrase
-        with exn ->
+        let state = try exec_phrase log phrase with exn ->
           let bt = Printexc.get_raw_backtrace () in
-          begin try Location.log_exception log exn
+          begin try Location.log_exception clog exn
           with _ ->
             Format.fprintf ppf "Uncaught exception: %s\n%s\n"
               (Printexc.to_string exn)
@@ -247,9 +251,10 @@ let eval_expect_file _fname ~file_contents =
           end;
           Btype.backtrack snap;
           false
+        in
+        Log.flush log; state
       )
     in
-    Format.pp_print_flush ppf ();
     let len = Buffer.length buf in
     if len > 0 && Buffer.nth buf (len - 1) <> '\n' then
       (* For formatting purposes *)

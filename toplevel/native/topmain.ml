@@ -34,24 +34,28 @@ let expand_position pos len =
     first_nonexpanded_pos := pos + len + 2
 
 
-let prepare log ppf =
+let prepare log =
   Topcommon.set_paths ();
+  let clog = Topcommon.compiler_log log in
+  let dlog = Log.detach clog Log.Compiler.debug in
   try
     let res =
-      List.for_all (Topeval.load_file false ppf) (List.rev !preload_objects)
+      List.for_all (Topeval.load_file false (log,dlog))
+        (List.rev !preload_objects)
     in
     Topcommon.run_hooks Topcommon.Startup;
     res
   with x ->
-    try Location.log_exception log x; false
+    try Location.log_exception clog x; false
     with x ->
-      Format.fprintf ppf "Uncaught exception: %s\n" (Printexc.to_string x);
+      Log.itemd Log.Toplevel.errors log
+        "Uncaught exception: %s\n" (Printexc.to_string x);
       false
 
 let input_argument name =
   let filename = Toploop.filename_of_input name in
   let ppf = Format.err_formatter in
-  let log = Location.log_on_formatter ~prev:None ppf in
+  let log = Topcommon.log_on_formatter ppf in
   if Filename.check_suffix filename ".cmxs"
     || Filename.check_suffix filename ".cmx"
     || Filename.check_suffix filename ".cmxa"
@@ -70,7 +74,7 @@ let input_argument name =
                               (Array.length !argv - !Arg.current)
       in
       Compmisc.read_clflags_from_env ();
-      if prepare log ppf && Toploop.run_script ppf name newargs
+      if prepare log && Toploop.run_script log name newargs
       then raise (Compenv.Exit_with_status 0)
       else raise (Compenv.Exit_with_status 2)
     end
@@ -108,10 +112,11 @@ let main () =
   Clflags.add_arguments __LOC__ Options.list;
   Compenv.parse_arguments ~current argv file_argument program;
   Compmisc.read_clflags_from_env ();
-  let log = Location.log_on_formatter ~prev:(Some log) ppf in
-  if not (prepare log ppf) then raise (Compenv.Exit_with_status 2);
+  let () = Log.flush log in
+  let log = Topcommon.log_on_formatter ppf in
+  if not (prepare log) then raise (Compenv.Exit_with_status 2);
   Compmisc.init_path ();
-  Toploop.loop Format.std_formatter
+  Toploop.loop log
 
 let main () =
   match main () with

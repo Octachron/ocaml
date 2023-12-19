@@ -861,9 +861,9 @@ let rec print_items ppf =
 let print_out_phrase ppf =
   function
     Ophr_eval (outv, ty) ->
-      fprintf ppf "@[- : %a@ =@ %a@]@." !out_type ty !out_value outv
+      fprintf ppf "@[- : %a@ =@ %a@]" !out_type ty !out_value outv
   | Ophr_signature [] -> ()
-  | Ophr_signature items -> fprintf ppf "@[<v>%a@]@." print_items items
+  | Ophr_signature items -> fprintf ppf "@[<v>%a@]" print_items items
   | Ophr_exception (exn, outv) -> print_out_exception ppf exn outv
 
 let out_phrase = ref print_out_phrase

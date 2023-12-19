@@ -13,9 +13,10 @@
 (*                                                                        *)
 (**************************************************************************)
 
-open Format
 include Topcommon
 include Topeval
+
+type log = Log.Toplevel.log
 
 type input =
   | Stdin
@@ -28,12 +29,12 @@ let filename_of_input = function
   | File name -> name
   | Stdin | String _ -> ""
 
-let use_lexbuf ppf ~wrap_in_module lb ~modpath ~filename =
+let use_lexbuf log ~wrap_in_module lb ~modpath ~filename =
   Warnings.reset_fatal ();
-  let log = Location.log_on_formatter ~prev:None ppf in
   Location.init lb filename;
   (* Skip initial #! line if any *)
   Lexer.skip_hash_bang lb;
+  let main_log = Log.detach_item log Log.Toplevel.compiler_log in
   Misc.protect_refs
     [ R (Location.input_name, filename);
       R (Location.input_lexbuf, Some lb); ]
@@ -41,8 +42,12 @@ let use_lexbuf ppf ~wrap_in_module lb ~modpath ~filename =
     try
       List.iter
         (fun ph ->
-          let ph = preprocess_phrase ppf ph in
-          if not (execute_phrase !use_print_results ppf ph) then raise Exit)
+           let phrase_log = Log.detach_item log Log.Toplevel.compiler_log in
+           let dlog = Log.detach phrase_log Log.Compiler.debug in
+           let ph = preprocess_phrase dlog ph in
+           if not (execute_phrase !use_print_results (log,dlog) ph) then
+             raise Exit
+        )
         (if wrap_in_module then
            parse_mod_use_file modpath lb
          else
@@ -50,11 +55,8 @@ let use_lexbuf ppf ~wrap_in_module lb ~modpath ~filename =
       true
     with
     | Exit -> false
-    | Sys.Break -> fprintf ppf "Interrupted.@."; false
-    | x ->
-        Location.log_exception log x;
-        Log.flush log;
-        false)
+    | Sys.Break -> Log.itemd Log.Toplevel.errors log "Interrupted."; false
+    | x -> Location.log_exception main_log x; false)
 
 (** [~modpath] is used to determine the module name when [wrap_in_module]
     [~filepath] is the filesystem path to the input,
@@ -65,7 +67,7 @@ let use_file ppf ~wrap_in_module ~modpath ~filepath ~filename =
   let lexbuf = Lexing.from_string source in
   use_lexbuf ppf ~wrap_in_module lexbuf ~modpath ~filename
 
-let use_output ppf command =
+let use_output log command =
   let fn = Filename.temp_file "ocaml" "_toploop.ml" in
   Misc.try_finally ~always:(fun () ->
       try Sys.remove fn with Sys_error _ -> ())
@@ -76,27 +78,27 @@ let use_output ppf command =
            (Filename.quote fn)
        with
        | 0 ->
-         use_file ppf ~wrap_in_module:false ~modpath:""
+         use_file log ~wrap_in_module:false ~modpath:""
            ~filepath:fn ~filename:"(command-output)"
        | n ->
-         fprintf ppf "Command exited with code %d.@." n;
+          Log.itemd Log.Toplevel.errors log "Command exited with code %d." n;
          false)
 
-let use_input ppf ~wrap_in_module input =
+let use_input log ~wrap_in_module input =
   match input with
   | Stdin ->
     let lexbuf = Lexing.from_channel stdin in
-    use_lexbuf ppf ~wrap_in_module lexbuf ~modpath:"" ~filename:"(stdin)"
+    use_lexbuf log ~wrap_in_module lexbuf ~modpath:"" ~filename:"(stdin)"
   | String value ->
     let lexbuf = Lexing.from_string value in
-    use_lexbuf ppf ~wrap_in_module lexbuf
+    use_lexbuf log ~wrap_in_module lexbuf
       ~modpath:"" ~filename:"(command-line input)"
   | File name ->
     match Load_path.find name with
     | filename ->
-      use_file ppf ~wrap_in_module ~modpath:name ~filename ~filepath:filename
+      use_file log ~wrap_in_module ~modpath:name ~filename ~filepath:filename
     | exception Not_found ->
-      fprintf ppf "Cannot find file %s.@." name;
+      Log.itemd Log.Toplevel.errors log "Cannot find file %s." name;
       false
 
 let mod_use_input ppf input =
@@ -115,17 +117,17 @@ let load_file = load_file false
 
 (* Execute a script.  If [name] is "", read the script from stdin. *)
 
-let run_script ppf name args =
+let run_script log name args =
   Clflags.debug := true;
   override_sys_argv args;
+  let clog = Log.detach_item log Log.Toplevel.compiler_log in
   let filename = filename_of_input name in
-  let log = Location.log_on_formatter ~prev:None ppf in
   Compmisc.init_path ~dir:(Filename.dirname filename) ();
                    (* Note: would use [Filename.abspath] here, if we had it. *)
   begin
     try toplevel_env := Compmisc.initial_env()
     with Env.Error _ | Typetexp.Error _ as exn ->
-      Location.log_exception log exn;
+      Location.log_exception clog exn;
       Log.flush log;
       raise (Compenv.Exit_with_status 2)
   end;
@@ -140,7 +142,7 @@ let run_script ppf name args =
     else filename)
     | (Stdin | String _) as x -> x
   in
-  use_silently ppf explicit_name
+  use_silently log explicit_name
 
 (* Toplevel initialization. Performed here instead of at the
    beginning of loop() so that user code linked in with ocamlmktop
@@ -179,16 +181,17 @@ let find_ocamlinit () =
   | Some _ as v -> v
   | None -> exists_in_dir (home_dir ()) ocamlinit
 
-let load_ocamlinit ppf =
+let load_ocamlinit log =
   if !Clflags.noinit then ()
   else match !Clflags.init_file with
   | Some f ->
-    if Sys.file_exists f then ignore (use_silently ppf (File f) )
-    else fprintf ppf "Init file not found: \"%s\".@." f
+    if Sys.file_exists f then ignore (use_silently log (File f) )
+    else
+      Log.itemd Log.Toplevel.errors log "Init file not found: \"%s\"." f
   | None ->
       match find_ocamlinit () with
       | None -> ()
-      | Some file -> ignore (use_silently ppf (File file))
+      | Some file -> ignore (use_silently log (File file))
 
 (* The interactive loop *)
 
@@ -272,12 +275,13 @@ let rec get_phrases log lb phrs =
   | exception e -> Location.log_exception log e; []
 
 (* Type, compile and execute a phrase. *)
-let process_phrase ppf snap phr =
+let process_phrase (log,dlog) snap phr =
   snap := Btype.snapshot ();
   Warnings.reset_fatal ();
-  let phr = preprocess_phrase ppf phr in
+
+  let phr = preprocess_phrase dlog phr in
   Env.reset_cache_toplevel ();
-  ignore(execute_phrase true ppf phr)
+  ignore(execute_phrase true (log,dlog) phr)
 
 (* Type, compile and execute a list of phrases, setting the report printer
    to batch mode for all but the first one.
@@ -298,41 +302,45 @@ let process_phrases ppf snap phrs =
         (fun () -> List.iter process rest)
     end
 
-let loop ppf =
+let loop log =
   Clflags.debug := true;
-  (* TODO   Location.formatter_for_warnings := ppf; *)
-  let log = Location.log_on_formatter ~prev:None ppf in
   if not !Clflags.noversion then
-    fprintf ppf "OCaml version %s%s%s@.Enter #help;; for help.@.@."
+    Log.itemd Log.Toplevel.output log
+      "OCaml version %s%s%s@,Enter #help;; for help.@,"
       Config.version
       (if Topeval.implementation_label = "" then "" else " - ")
       Topeval.implementation_label;
   begin
+    let clog = Topcommon.compiler_log log in
     try initialize_toplevel_env ()
     with Env.Error _ | Typetexp.Error _ as exn ->
-      Location.log_exception log exn; raise (Compenv.Exit_with_status 2)
+      Location.log_exception clog exn; raise (Compenv.Exit_with_status 2)
   end;
-  let lb = Lexing.from_function refill_lexbuf in
+  let lb = Lexing.from_function (refill_lexbuf log) in
   Location.init lb "//toplevel//";
   Location.input_name := "//toplevel//";
   Location.input_lexbuf := Some lb;
   Location.input_phrase_buffer := Some phrase_buffer;
   Sys.catch_break true;
   run_hooks After_setup;
-  load_ocamlinit ppf;
+  load_ocamlinit log;
   while true do
     let snap = ref (Btype.snapshot ()) in
+    let clog = Topcommon.compiler_log log in
+    let dlog = Log.detach clog Log.Compiler.debug in
     try
       Lexing.flush_input lb;
       (* Reset the phrase buffer when we flush the lexing buffer. *)
       Buffer.reset phrase_buffer;
       Location.reset();
       first_line := true;
-      let phrs = get_phrases log lb [] in
-      process_phrases ppf snap phrs
+      let phrs = get_phrases clog lb [] in
+      process_phrases (log,dlog) snap phrs
     with
     | End_of_file -> raise (Compenv.Exit_with_status 0)
-    | Sys.Break -> fprintf ppf "Interrupted.@."; Btype.backtrack !snap
+    | Sys.Break ->
+        Log.itemd Log.Toplevel.errors log "Interrupted.";
+        Btype.backtrack !snap
     | PPerror -> ()
-    | x -> Location.log_exception log x; Btype.backtrack !snap
+    | x -> Location.log_exception clog x; Btype.backtrack !snap
   done

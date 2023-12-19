@@ -43,10 +43,15 @@ val toplevel_env : Env.t ref
 val initialize_toplevel_env : unit -> unit
         (* Initialize the typing environment for the toplevel *)
 val preprocess_phrase :
-      formatter -> Parsetree.toplevel_phrase ->  Parsetree.toplevel_phrase
+      Log.Debug.log -> Parsetree.toplevel_phrase ->  Parsetree.toplevel_phrase
         (* Preprocess the given toplevel phrase using regular and ppx
            preprocessors. Return the updated phrase. *)
 val record_backtrace : unit -> unit
+
+(*Log creation *)
+
+val log_on_formatter: Format.formatter -> Log.Toplevel.log
+val compiler_log: Log.Toplevel.log -> Log.Compiler.log
 
 
 (* Printing of values *)
@@ -130,12 +135,14 @@ end
 
 (* Interface with toplevel directives *)
 
+type 'a directive = Log.Toplevel.log -> 'a -> unit
+
 type directive_fun =
-  | Directive_none of (unit -> unit)
-  | Directive_string of (string -> unit)
-  | Directive_int of (int -> unit)
-  | Directive_ident of (Longident.t -> unit)
-  | Directive_bool of (bool -> unit)
+  | Directive_none of unit directive
+  | Directive_string of string directive
+  | Directive_int of int directive
+  | Directive_ident of Longident.t directive
+  | Directive_bool of bool directive
 
 type directive_info = {
   section: string;
@@ -153,7 +160,7 @@ val get_directive_info : string -> directive_info option
 val all_directive_names : unit -> string list
 
 val try_run_directive :
-  formatter -> string -> Parsetree.directive_argument option -> bool
+  Log.Toplevel.log -> string -> Parsetree.directive_argument option -> bool
 
 val[@deprecated] directive_table : (string, directive_fun) Hashtbl.t
   (* @deprecated please use [add_directive] instead of inserting
@@ -182,7 +189,8 @@ val first_line : bool ref
 
 val got_eof : bool ref
 
-val read_interactive_input : (string -> bytes -> int -> int * bool) ref
+val read_interactive_input :
+   (Log.Toplevel.log ->string -> bytes -> int -> int * bool) ref
 
 (* Hooks *)
 
@@ -232,4 +240,4 @@ val parse_mod_use_file:
 
 val comment_prompt_override : bool ref
 
-val refill_lexbuf: bytes -> int -> int
+val refill_lexbuf: Log.Toplevel.log -> bytes -> int -> int

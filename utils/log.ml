@@ -385,9 +385,7 @@ module Fmt = struct
     | Unit -> Format.pp_print_int ppf 0
     | Int -> Format.pp_print_int ppf x
     | String -> conv.string ppf x
-    | Doc ->
-        let str = Format.asprintf "%t" x in
-        escape_string ppf str
+    | Doc -> x ppf
     | Pair (a,b) ->
         let x, y = x in
         Format.fprintf ppf "%t%a%t%a%t"
@@ -534,15 +532,13 @@ module Fmt = struct
     Misc.Style.set_tag_handling ~color !ppf;
     Format.fprintf !ppf "@[<v>"
 
-  let flush_and_close c =
-    begin
-      if !(c.initialized) then Format.fprintf !(c.ppf) "@]@."
-      else Format.fprintf !(c.ppf) "@]"
-    end;
-    c.close ()
+  let flush c =
+      if not !(c.initialized) then ()
+      else (Format.fprintf !(c.ppf) "@,@]%!"; c.initialized := false)
+
+  let close c = c.close ()
 
   let make color version ppf scheme =
-    init color ppf;
      {
       redirections = Keys.empty;
       settings=color;
@@ -588,7 +584,13 @@ let generic_detach key_scheme lift log key =
         Store { data; out }
   in
   let child =
-    { log with scheme=key_scheme key; mode; redirections = Keys.empty } in
+    { scheme=key_scheme key;
+      mode;
+      version = log.version;
+      settings = log.settings;
+      redirections = Keys.empty;
+      children = [];
+    } in
   log.children <- Child child :: log.children;
   child
 
@@ -600,7 +602,8 @@ let set key x log =
   | Direct d, r ->
     let out = Option.value ~default:d r in
     let ppf = !(out.ppf) in
-    if not !(d.initialized) then d.initialized := true
+    if not !(d.initialized) then
+      (Fmt.init log.settings out.ppf ; d.initialized := true)
     else Fmt.direct.assoc.sep ppf ();
     Fmt.(item direct !extensions) ~key:key.name key.typ ppf x;
   | Store _, Some out ->
@@ -620,22 +623,32 @@ let d key log fmt =
 let itemd key log fmt =
   Format.kdprintf (fun s -> log.%[key] <- [s] ) fmt
 
+
 let rec flush: type a. a log -> unit = fun log ->
   begin match log.mode with
-  | Direct d -> Fmt.flush_and_close d
+  | Direct d -> Fmt.flush d
   | Store st ->
       Option.iter (fun vk ->
           log.%[vk] <- !(log.scheme.scheme_version))
         log.scheme.version_key;
       Option.iter (fun (out,{print}) ->
           let ppf = !(out.ppf) in
-          print ppf st.data;
-          out.close ()
+          print ppf st.data
         ) st.out
   end;
-  Keys.iter (fun _ out -> Fmt.flush_and_close out) log.redirections;
+  Keys.iter (fun _ -> Fmt.flush) log.redirections;
   List.iter (fun (Child c) -> flush c) log.children
 
+let rec close: type a. a log -> unit = fun log ->
+  begin match log.mode with
+  | Direct d -> Fmt.close d
+  | Store { out = Some (out,_)} -> out.close ()
+  | Store _ -> ()
+  end;
+  Keys.iter (fun _ -> Fmt.close) log.redirections;
+  List.iter (fun (Child c) -> close c) log.children
+
+let close log = flush log; close log
 
 let replay source dest =
   match source.mode with
@@ -728,6 +741,15 @@ module Error = New_record (Compiler_root)()
 module Compiler = struct
   include Compiler_root
   let debug = new_key v1 "debug" (Record Debug.scheme)
+end
+
+
+module Toplevel = struct
+  include New_root_scheme()
+  let output = new_key v1 "output" (List Doc)
+  let compiler_log = new_key v1 "compiler_log" (List (Record Compiler.scheme))
+  let errors = new_key v1 "errors" (List Doc)
+  let trace = new_key v1 "trace" (List Doc)
 end
 
 let log_if dlog key flag printer x =

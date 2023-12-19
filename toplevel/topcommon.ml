@@ -23,7 +23,6 @@ open Format
 open Parsetree
 open Outcometree
 open Ast_helper
-
 (* Hooks for parsing functions *)
 
 let parse_toplevel_phrase = ref Parse.toplevel_phrase
@@ -195,7 +194,7 @@ let record_backtrace () =
   if Printexc.backtrace_status ()
   then backtrace := Some (Printexc.get_backtrace ())
 
-let preprocess_phrase ppf phr =
+let preprocess_phrase debug phr =
   let phr =
     match phr with
     | Ptop_def str ->
@@ -205,9 +204,11 @@ let preprocess_phrase ppf phr =
         Ptop_def str
     | phr -> phr
   in
-  if !Clflags.dump_parsetree then Printast.top_phrase ppf phr;
-  if !Clflags.dump_source then Pprintast.top_phrase ppf phr;
+  let open Log in
   phr
+  |> Log.log_if debug Debug.parsetree !Clflags.dump_parsetree
+    Printast.top_phrase
+  |> Log.log_if debug Debug.source !Clflags.dump_source Pprintast.top_phrase
 
 (* Phrase buffer that stores the last toplevel phrase (see
    [Location.input_phrase_buffer]). *)
@@ -218,8 +219,8 @@ let phrase_buffer = Buffer.create 1024
 let first_line = ref true
 let got_eof = ref false
 
-let read_input_default prompt buffer len =
-  output_string stdout prompt; flush stdout;
+let read_input_default log prompt buffer len =
+  Log.itemd Log.Toplevel.output log "%s%!" prompt;
   let i = ref 0 in
   try
     while true do
@@ -241,7 +242,7 @@ let read_interactive_input = ref read_input_default
 
 let comment_prompt_override = ref false
 
-let refill_lexbuf buffer len =
+let refill_lexbuf log buffer len =
   if !got_eof then (got_eof := false; 0) else begin
     let prompt =
       if !Clflags.noprompt then ""
@@ -251,7 +252,7 @@ let refill_lexbuf buffer len =
       else "  "
     in
     first_line := false;
-    let (len, eof) = !read_interactive_input prompt buffer len in
+    let (len, eof) = !read_interactive_input log prompt buffer len in
     if eof then begin
       Location.echo_eof ();
       if len > 0 then got_eof := true;
@@ -309,12 +310,14 @@ let is_command_like_name s =
 (* The table of toplevel directives.
    Filled by functions from module topdirs. *)
 
+type 'a directive = Log.Toplevel.log -> 'a -> unit
+
 type directive_fun =
-  | Directive_none of (unit -> unit)
-  | Directive_string of (string -> unit)
-  | Directive_int of (int -> unit)
-  | Directive_ident of (Longident.t -> unit)
-  | Directive_bool of (bool -> unit)
+  | Directive_none of unit directive
+  | Directive_string of string directive
+  | Directive_int of int directive
+  | Directive_ident of Longident.t directive
+  | Directive_bool of bool directive
 
 type directive_info = {
   section: string;
@@ -341,34 +344,34 @@ let all_directive_names () =
 
 module Style = Misc.Style
 
-let try_run_directive ppf dir_name pdir_arg =
+let try_run_directive log dir_name pdir_arg =
+  let log_error fmt = Log.itemd Log.Toplevel.errors log fmt in
   begin match get_directive dir_name with
   | None ->
-      fprintf ppf "Unknown directive %a." Style.inline_code dir_name;
       let directives = all_directive_names () in
-      Misc.did_you_mean ppf
-        (fun () -> Misc.spellcheck directives dir_name);
-      fprintf ppf "@.";
+      log_error "Unknown directive %a.%a" Style.inline_code dir_name
+        Misc.did_you_mean
+          (fun () -> Misc.spellcheck directives dir_name);
       false
   | Some d ->
       match d, pdir_arg with
-      | Directive_none f, None -> f (); true
-      | Directive_string f, Some {pdira_desc = Pdir_string s} -> f s; true
+      | Directive_none f, None -> f log (); true
+      | Directive_string f, Some {pdira_desc = Pdir_string s} -> f log s; true
       | Directive_int f, Some {pdira_desc = Pdir_int (n,None) } ->
          begin match Misc.Int_literal_converter.int n with
-         | n -> f n; true
+         | n -> f log n; true
          | exception _ ->
-           fprintf ppf "Integer literal exceeds the range of \
-                        representable integers for directive %a.@."
-                   Style.inline_code dir_name;
-           false
+             log_error "Integer literal exceeds the range of \
+                  representable integers for directive %a."
+               Style.inline_code dir_name;
+             false
          end
       | Directive_int _, Some {pdira_desc = Pdir_int (_, Some _)} ->
-          fprintf ppf "Wrong integer literal for directive %a.@."
+          log_error "Wrong integer literal for directive %a."
             Style.inline_code dir_name;
           false
-      | Directive_ident f, Some {pdira_desc = Pdir_ident lid} -> f lid; true
-      | Directive_bool f, Some {pdira_desc = Pdir_bool b} -> f b; true
+      | Directive_ident f, Some {pdira_desc = Pdir_ident lid} -> f log lid; true
+      | Directive_bool f, Some {pdira_desc = Pdir_bool b} -> f log b; true
       | _ ->
           let dir_type  = match d with
           | Directive_none _   -> `None
@@ -395,10 +398,26 @@ let try_run_directive ppf dir_name pdir_arg =
           | `Bool ->
               Format.fprintf ppf "a %a literal" Style.inline_code "bool"
           in
-          fprintf ppf "Directive %a expects %a, got %a.@."
+          log_error "Directive %a expects %a, got %a."
             Style.inline_code dir_name pp_type dir_type pp_type arg_type;
           false
   end
+
+
+let log_on_formatter ppf =
+  let version = Log.(version Toplevel.scheme) in
+  let backend = Option.value ~default:Log.Backends.fmt !Clflags.log_format in
+  let log = backend.make !Clflags.color version (ref ppf) Log.Toplevel.scheme in
+  log
+
+let compiler_log log =
+  let clog = Log.detach_item log Log.Toplevel.compiler_log in
+  Location.current_log := clog;
+  if !Location.formatter_for_warnings != Format.err_formatter then
+    Log.redirect clog Location.Error_log.warnings
+      Location.formatter_for_warnings;
+  clog
+
 
 (* Overriding exception printers with toplevel-specific ones *)
 
@@ -408,8 +427,8 @@ let loading_hint_printer ppf cu =
   let find_with_ext ext =
     try Some (Load_path.find_normalized (cu ^ ext)) with Not_found -> None
   in
-  fprintf ppf
-    "@.Hint: @[\
+    fprintf ppf
+    "Hint: @[\
      This means that the interface of a module is loaded, \
      but its implementation is not.@,";
   (* Filenames don't have to correspond to module names,
