@@ -97,7 +97,7 @@ let dir_untrace_all log () =
     (fun f ->
       set_code_pointer f.closure f.actual_code;
       Log.itemd Log.Toplevel.trace log
-        "%a is no longer traced.@." Printtyp.path f.path
+        "%a is no longer traced." Printtyp.path f.path
     )
     !traced_functions;
   traced_functions := []
@@ -215,7 +215,7 @@ module Options = Main_args.Make_bytetop_options (struct
 end)
 
 let main () =
-  let ppf = Format.err_formatter in
+  let setup_ppf = Format.err_formatter in
   let log = Location.temporary_log () in
   let program = "ocaml" in
   let display_deprecated_script_alert =
@@ -229,9 +229,9 @@ let main () =
   Compenv.parse_arguments ~current argv file_argument program;
   Compenv.readenv log Before_link;
   Compmisc.read_clflags_from_env ();
-  let tlog = Location.log_on_formatter ~prev:(Some log) Format.err_formatter in
+  let tlog = Location.log_on_formatter ~prev:(Some log) setup_ppf in
   Log.flush tlog;
-  let log = Topcommon.log_on_formatter ppf in
+  let log = Topcommon.log_on_formatter Format.std_formatter in
   if not (prepare log) then raise (Compenv.Exit_with_status 2);
   Compmisc.init_path ();
   Toploop.loop log

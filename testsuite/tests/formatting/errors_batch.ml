@@ -41,4 +41,4 @@ let () =
     ];
     quotable_locs = None;
   } in
-  print_report Format.std_formatter report
+  Format.printf "%a@." print_report report

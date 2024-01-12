@@ -106,8 +106,6 @@ let num_loc_lines = ref 0
    example for the current toplevel phrase. We use this to print
    a blank line between messages of the same batch.
 *)
-let is_first_message () =
-  !num_loc_lines = 0
 
 (* This is used by the toplevel to reset [num_loc_lines] before each phrase *)
 let reset () =
@@ -118,10 +116,17 @@ let echo_eof () =
   print_newline ();
   incr num_loc_lines
 
+let is_first_message () = !num_loc_lines = 0
+
 (* This is used by the toplevel and the report printers below. *)
-let separate_new_message ppf =
+let separate_new_message' ppf =
   if not (is_first_message ()) then begin
-    Format.pp_print_newline ppf ();
+    Format.fprintf ppf "@,"
+  end
+
+let separate_new_message log =
+  if not (is_first_message ()) then begin
+    Log.separate log;
     incr num_loc_lines
   end
 
@@ -846,15 +851,14 @@ let pp_report reporter ppf report =
       Format.fprintf ppf "@,%a" (pp_submsg kind) msg
     ) msgs
   in
-    setup_tags ();
-    separate_new_message ppf;
     (* Make sure we keep [num_loc_lines] updated.
        The tabulation box is here to give submessage the option
        to be aligned with the main message box
     *)
+    separate_new_message' ppf;
     print_updating_num_loc_lines ppf (fun ppf () ->
       reporter.pp_quotable_locs ppf report.quotable_locs;
-      Format.fprintf ppf "@[<v>%a%a%a: %a%a%a%a@]@."
+      Format.fprintf ppf "@[<v>%a%a%a: %a%a%a%a@]"
       Format.pp_open_tbox ()
       reporter.pp_main_loc (report.kind, report.main.loc)
       reporter.pp_report_kind report.kind
@@ -862,7 +866,8 @@ let pp_report reporter ppf report =
       reporter.pp_msg report.main.txt
       (pp_submsgs report.kind) report.sub
       Format.pp_close_tbox ()
-    ) ()
+    ) ();
+    incr num_loc_lines
 
 
 let batch_mode_printer : report_printer =

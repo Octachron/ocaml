@@ -166,7 +166,7 @@ val print_out_phrase :
 (* Hooks for external line editor *)
 
 val read_interactive_input :
-  (Log.Toplevel.log -> string -> bytes -> int -> int * bool) ref
+  (string -> bytes -> int -> int * bool) ref
 
 (* Hooks *)
 

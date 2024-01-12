@@ -106,7 +106,9 @@ val version_range: (_,'id) key -> 'id def -> version_range
 
 
 val flush: 'id log -> unit
+val separate: 'id log -> unit
 val close: 'id log -> unit
+
 
 (*
 val create: device -> version -> 'a def -> 'a log

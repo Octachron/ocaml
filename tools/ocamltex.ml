@@ -166,6 +166,14 @@ module Toplevel = struct
       | _ ->
           Location.pp_report printer_register_locs ppf report
 
+
+  let error_extension: type a.
+    a Log.extension -> (Format.formatter -> a -> unit) option = function
+    | Location.Error_log.Error -> Some pp_report
+    | _ -> None
+
+  let () = Log.Fmt.add_extension { extension = error_extension }
+
   let fatal ic oc fmt =
     Format.kfprintf
       (fun ppf -> Format.fprintf ppf "@]@."; close_in ic; close_out oc; exit 1)

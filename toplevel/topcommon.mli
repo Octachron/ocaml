@@ -189,8 +189,7 @@ val first_line : bool ref
 
 val got_eof : bool ref
 
-val read_interactive_input :
-   (Log.Toplevel.log ->string -> bytes -> int -> int * bool) ref
+val read_interactive_input : (string -> bytes -> int -> int * bool) ref
 
 (* Hooks *)
 
@@ -240,4 +239,4 @@ val parse_mod_use_file:
 
 val comment_prompt_override : bool ref
 
-val refill_lexbuf: Log.Toplevel.log -> bytes -> int -> int
+val refill_lexbuf: bytes -> int -> int

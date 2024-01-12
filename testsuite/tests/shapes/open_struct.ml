@@ -13,6 +13,7 @@ end
 [%%expect{|
 {
  }
+
 module M : sig type t = A end
 |}]
 
@@ -21,6 +22,7 @@ include M
 {
  "t"[type] -> <.0>;
  }
+
 type t = M.t = A
 |}]
 
@@ -31,6 +33,7 @@ module N = M
                  "t"[type] -> <.0>;
                  };
  }
+
 module N = M
 |}]
 
@@ -49,6 +52,7 @@ end
                   "t"[type] -> <.4>;
                   };
  }
+
 module M' : sig type t = A end
 |}]
 
@@ -59,6 +63,7 @@ module N' = M'
                   "t"[type] -> <.4>;
                   };
  }
+
 module N' = M'
 |}]
 
@@ -75,6 +80,7 @@ end
                                     };
                     };
  }
+
 module Test : sig module M : sig type t = A end end
 |}]
 
@@ -85,6 +91,7 @@ include Test
                  "t"[type] -> <.8>;
                  };
  }
+
 module M = Test.M
 |}]
 
@@ -95,5 +102,6 @@ module N = M
                  "t"[type] -> <.8>;
                  };
  }
+
 module N = M
 |}]

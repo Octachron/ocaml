@@ -815,13 +815,13 @@ let _ = out_functor_parameters := print_out_functor_parameters
 
 let print_out_exception ppf exn outv =
   match exn with
-    Sys.Break -> fprintf ppf "Interrupted.@."
-  | Out_of_memory -> fprintf ppf "Out of memory during evaluation.@."
+    Sys.Break -> fprintf ppf "Interrupted."
+  | Out_of_memory -> fprintf ppf "Out of memory during evaluation."
   | Stack_overflow ->
-      fprintf ppf "Stack overflow during evaluation (looping recursion?).@."
+      fprintf ppf "Stack overflow during evaluation (looping recursion?)."
   | _ -> match Printexc.use_printers exn with
-        | None -> fprintf ppf "@[Exception:@ %a.@]@." !out_value outv
-        | Some s -> fprintf ppf "@[Exception:@ %s@]@." s
+        | None -> fprintf ppf "@[Exception:@ %a.@]" !out_value outv
+        | Some s -> fprintf ppf "@[Exception:@ %s@]" s
 
 let rec print_items ppf =
   function

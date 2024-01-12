@@ -278,7 +278,7 @@ let load_file _ (* fixme *) (log,dlog) name0 =
   in
   match name with
   | None ->
-      Log.itemd Log.Toplevel.errors log "File not found: %s@." name0;
+      Log.itemd Log.Toplevel.errors log "File not found: %s" name0;
       false
   | Some name ->
     let fn,tmp =
@@ -297,7 +297,7 @@ let load_file _ (* fixme *) (log,dlog) name0 =
       try Dynlink.loadfile fn; true
       with
       | Dynlink.Error err ->
-        Log.itemd Log.Toplevel.errors log "Error while loading %s: %s.@."
+        Log.itemd Log.Toplevel.errors log "Error while loading %s: %s."
           name (Dynlink.error_message err);
         false
       | exn ->

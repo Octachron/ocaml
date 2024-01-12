@@ -214,12 +214,6 @@ function
   | (Ptop_dir _  | Ptop_def []) :: l -> min_line_number l
   | Ptop_def (st :: _) :: _ -> Some st.pstr_loc.loc_start.pos_lnum
 
-let create_log ppf =
-  let version = Log.(version Compiler.scheme) in
-  let backend = Log.Backends.fmt in
-  let log = backend.make None version (ref ppf) Log.Compiler.scheme in
-  log
-
 let eval_expect_file _fname ~file_contents =
   Warnings.reset_fatal ();
   let chunks, trailing_code =
@@ -234,8 +228,7 @@ let eval_expect_file _fname ~file_contents =
       | None -> phrases
       | Some lnum -> shift_lines (1 - lnum) phrases
     in
-    (* For formatting purposes *)
-    let () = Buffer.add_char buf '\n' in
+    let () = Log.(itemd Toplevel.trace log "") in
     let _ : bool =
       List.fold_left phrases ~init:true ~f:(fun acc phrase ->
         acc &&
@@ -255,10 +248,6 @@ let eval_expect_file _fname ~file_contents =
         Log.flush log; state
       )
     in
-    let len = Buffer.length buf in
-    if len > 0 && Buffer.nth buf (len - 1) <> '\n' then
-      (* For formatting purposes *)
-      Buffer.add_char buf '\n';
     let s = Buffer.contents buf in
     Buffer.clear buf;
     Misc.delete_eol_spaces s

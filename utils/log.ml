@@ -533,10 +533,14 @@ module Fmt = struct
     Format.fprintf !ppf "@[<v>"
 
   let flush c =
-      if not !(c.initialized) then ()
-      else (Format.fprintf !(c.ppf) "@,@]%!"; c.initialized := false)
+    Format.fprintf !(c.ppf) "%!"
 
-  let close c = c.close ()
+  let separate c = Format.pp_print_newline !(c.ppf) ()
+
+  let close c =
+    if not !(c.initialized) then ()
+    else (Format.fprintf !(c.ppf) "@,@]%!"; c.initialized := false);
+    c.close ()
 
   let make color version ppf scheme =
      {
@@ -603,9 +607,10 @@ let set key x log =
     let out = Option.value ~default:d r in
     let ppf = !(out.ppf) in
     if not !(d.initialized) then
-      (Fmt.init log.settings out.ppf ; d.initialized := true)
-    else Fmt.direct.assoc.sep ppf ();
-    Fmt.(item direct !extensions) ~key:key.name key.typ ppf x;
+      (Fmt.init log.settings out.ppf ; d.initialized := true);
+    Format.fprintf ppf "@[<v>%a%a@]%!"
+      Fmt.(item direct !extensions ~key:key.name key.typ) x
+     Fmt.direct.assoc.sep ();
   | Store _, Some out ->
       let ppf = !(out.ppf) in
       Fmt.(item direct !extensions) ~key:key.name key.typ ppf x
@@ -638,6 +643,10 @@ let rec flush: type a. a log -> unit = fun log ->
   end;
   Keys.iter (fun _ -> Fmt.flush) log.redirections;
   List.iter (fun (Child c) -> flush c) log.children
+
+let separate log = match log.mode with
+  | Direct d -> Fmt.separate d
+  | _ -> ()
 
 let rec close: type a. a log -> unit = fun log ->
   begin match log.mode with

@@ -219,8 +219,8 @@ let phrase_buffer = Buffer.create 1024
 let first_line = ref true
 let got_eof = ref false
 
-let read_input_default log prompt buffer len =
-  Log.itemd Log.Toplevel.output log "%s%!" prompt;
+let read_input_default prompt buffer len =
+  output_string stdout prompt; flush stdout;
   let i = ref 0 in
   try
     while true do
@@ -242,7 +242,7 @@ let read_interactive_input = ref read_input_default
 
 let comment_prompt_override = ref false
 
-let refill_lexbuf log buffer len =
+let refill_lexbuf buffer len =
   if !got_eof then (got_eof := false; 0) else begin
     let prompt =
       if !Clflags.noprompt then ""
@@ -252,7 +252,7 @@ let refill_lexbuf log buffer len =
       else "  "
     in
     first_line := false;
-    let (len, eof) = !read_interactive_input log prompt buffer len in
+    let (len, eof) = !read_interactive_input prompt buffer len in
     if eof then begin
       Location.echo_eof ();
       if len > 0 then got_eof := true;
@@ -414,8 +414,10 @@ let compiler_log log =
   let clog = Log.detach_item log Log.Toplevel.compiler_log in
   Location.current_log := clog;
   if !Location.formatter_for_warnings != Format.err_formatter then
+   begin
     Log.redirect clog Location.Error_log.warnings
       Location.formatter_for_warnings;
+  end;
   clog
 
 

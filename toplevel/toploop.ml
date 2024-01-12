@@ -281,7 +281,8 @@ let process_phrase (log,dlog) snap phr =
 
   let phr = preprocess_phrase dlog phr in
   Env.reset_cache_toplevel ();
-  ignore(execute_phrase true (log,dlog) phr)
+  ignore(execute_phrase true (log,dlog) phr);
+  Log.flush log
 
 (* Type, compile and execute a list of phrases, setting the report printer
    to batch mode for all but the first one.
@@ -305,18 +306,19 @@ let process_phrases ppf snap phrs =
 let loop log =
   Clflags.debug := true;
   if not !Clflags.noversion then
-    Log.itemd Log.Toplevel.output log
-      "OCaml version %s%s%s@,Enter #help;; for help.@,"
+    Format.printf
+      "@[<v>OCaml version %s%s%s@,Enter %a for help.@,@,@]%!"
       Config.version
       (if Topeval.implementation_label = "" then "" else " - ")
-      Topeval.implementation_label;
+      Topeval.implementation_label
+      Misc.Style.inline_code "#help;;";
   begin
     let clog = Topcommon.compiler_log log in
     try initialize_toplevel_env ()
     with Env.Error _ | Typetexp.Error _ as exn ->
       Location.log_exception clog exn; raise (Compenv.Exit_with_status 2)
   end;
-  let lb = Lexing.from_function (refill_lexbuf log) in
+  let lb = Lexing.from_function refill_lexbuf in
   Location.init lb "//toplevel//";
   Location.input_name := "//toplevel//";
   Location.input_lexbuf := Some lb;

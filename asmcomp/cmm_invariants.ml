@@ -91,6 +91,7 @@ end = struct
     | exception Not_found -> unbound_handler cont
 
   let print_error ppf error =
+    Format.eprintf "Error@.";
     match error with
     | Unbound_handler { cont } ->
       if Int.Set.mem cont state.all_handlers then
@@ -113,11 +114,11 @@ end = struct
         jump_args
 
   let print_error_newline ppf error =
-    Format.fprintf ppf "%a@." print_error error
+    Format.fprintf ppf "%a" print_error error
 
   let report ppf =
       ErrorSet.iter (fun err -> print_error_newline ppf err) state.errors
-  let in_error_state () = ErrorSet.is_empty state.errors
+  let in_error_state () = not (ErrorSet.is_empty state.errors)
 end
 
 let rec check env (expr : Cmm.expression) =
@@ -175,5 +176,6 @@ let rec check env (expr : Cmm.expression) =
 let run log (fundecl : Cmm.fundecl) =
   let env = Env.init () in
   check env fundecl.fun_body;
-  Log.f Log.Debug.cmm_invariant log "%t" Env.report;
-  Env.in_error_state ()
+  let err = Env.in_error_state () in
+  if err then Log.f Log.Debug.cmm_invariant log "%t" Env.report;
+  err

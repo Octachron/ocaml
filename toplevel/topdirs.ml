@@ -293,14 +293,14 @@ let find_printer lid =
   match Env.find_value_by_name lid !toplevel_env with
   | exception Not_found ->
     let report ppf =
-      fprintf ppf "Unbound value %a.@."
+      fprintf ppf "Unbound value %a."
         Printtyp.longident lid
     in Error report
   | (path, desc) ->
     match match_printer_type desc with
     | None ->
       let report ppf =
-        fprintf ppf "%a has the wrong type for a printing function.@."
+        fprintf ppf "%a has the wrong type for a printing function."
           Printtyp.longident lid
       in Error report
     | Some kind -> Ok (path, kind)
@@ -329,7 +329,7 @@ let remove_installed_printer path =
   | () -> Ok ()
   | exception Not_found ->
     let report ppf =
-      fprintf ppf "The printer named %a is not installed.@."
+      fprintf ppf "The printer named %a is not installed."
         Printtyp.path path
     in Error report
 
@@ -407,7 +407,7 @@ let show_prim to_sig log lid =
       (fun () -> Log.itemd Log.Toplevel.output log "@[%a@]"
           Printtyp.signature sg)
   with
-  | Not_found -> Log.itemd Log.Toplevel.output log  "@[Unknown element.@]@."
+  | Not_found -> Log.itemd Log.Toplevel.output log  "@[Unknown element.@]"
   | Exit -> ()
 
 let all_show_funs = ref []
@@ -767,24 +767,24 @@ let print_directive ppf (name, directive, doc) =
     | Directive_bool _ -> " <bool>"
     | Directive_ident _ -> " <ident>" in
   match doc with
-  | None -> fprintf ppf "#%s%s@." name param
+  | None -> fprintf ppf "#%s%s@," name param
   | Some doc ->
-      fprintf ppf "@[<hov 2>#%s%s@\n%a@]@."
+      fprintf ppf "@[<hov 2>#%s%s@\n%a@]@,"
         name param
         Format.pp_print_text doc
 
 let print_section ppf (section, directives) =
   if directives <> [] then begin
-    fprintf ppf "%30s%s@." "" section;
+    fprintf ppf "%30s%s@," "" section;
     List.iter (print_directive ppf) directives;
-    fprintf ppf "@.";
+    fprintf ppf "@,%!";
   end
 
 let print_directives ppf () =
   List.iter (print_section ppf) (directive_sections ())
 
 let log_directives log () =
-  Log.itemd Log.Toplevel.output log "%a" print_directives ()
+  Log.itemd Log.Toplevel.output log "@[<v>%a@]" print_directives ()
 
 let _ = add_directive "help"
     (Directive_none log_directives)

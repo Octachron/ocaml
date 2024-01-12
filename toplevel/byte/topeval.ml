@@ -137,6 +137,7 @@ let execute_phrase print_outcome (log,dlog) phr =
       Warnings.check_fatal ();
       begin try
         toplevel_env := newenv;
+        Format.printf "%!";
         let res = load_lambda dlog lam in
         let out_phr =
           match res with
@@ -164,13 +165,17 @@ let execute_phrase print_outcome (log,dlog) phr =
         begin match out_phr with
         | Ophr_signature [] -> ()
         | _ ->
-            Log.itemd Log.Toplevel.output log "%a" !print_out_phrase out_phr;
+            Location.separate_new_message log;
+            Log.itemd Log.Toplevel.output log "%a" !print_out_phrase out_phr
         end;
         if Printexc.backtrace_status ()
         then begin
           match !backtrace with
             | None -> ()
             | Some b ->
+                Location.separate_new_message log;
+                (* avoid duplicating the newline *)
+                let b = String.trim b in
                 Log.itemd Log.Toplevel.output log "%s" b;
                 backtrace := None;
         end;
@@ -207,7 +212,7 @@ let check_consistency log filename cu =
       original_source = auth;
     } ->
     Log.itemd Log.Toplevel.errors log "@[<hv 0>The files %s@ and %s@ \
-                 disagree over interface %s@]@."
+                 disagree over interface %s@]"
             user auth name;
     raise Load_failed
 

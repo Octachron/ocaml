@@ -11,6 +11,7 @@ module Mdirect = Stdlib__Unit
 {
  "Mdirect"[module] -> CU Stdlib__Unit;
  }
+
 module Mdirect = Unit
 |}]
 
@@ -19,6 +20,7 @@ module Mproj = Stdlib.Unit
 {
  "Mproj"[module] -> (CU Stdlib . "Unit"[module])<.1>;
  }
+
 module Mproj = Unit
 |}]
 
@@ -27,6 +29,7 @@ module F (X : sig type t end) = X
 {
  "F"[module] -> Abs<.4>(X/280, X/280<.3>);
  }
+
 module F : functor (X : sig type t end) -> sig type t = X.t end
 |}]
 
@@ -35,6 +38,7 @@ module App_direct = F (Stdlib__Unit)
 {
  "App_direct"[module] -> CU Stdlib__Unit;
  }
+
 module App_direct : sig type t = Unit.t end
 |}]
 
@@ -43,6 +47,7 @@ module App_proj = F (Stdlib.Unit)
 {
  "App_proj"[module] -> (CU Stdlib . "Unit"[module])<.6>;
  }
+
 module App_proj : sig type t = Unit.t end
 |}]
 
@@ -51,6 +56,7 @@ module App_direct_indir = F (Mdirect)
 {
  "App_direct_indir"[module] -> CU Stdlib__Unit;
  }
+
 module App_direct_indir : sig type t = Mdirect.t end
 |}]
 
@@ -59,6 +65,7 @@ module App_proj_indir = F (Mproj)
 {
  "App_proj_indir"[module] -> (CU Stdlib . "Unit"[module])<.1>;
  }
+
 module App_proj_indir : sig type t = Mproj.t end
 |}]
 
@@ -73,6 +80,7 @@ include Stdlib__Unit
  "t"[type] -> CU Stdlib__Unit . "t"[type];
  "to_string"[value] -> CU Stdlib__Unit . "to_string"[value];
  }
+
 type t = unit = ()
 val equal : t -> t -> bool = <fun>
 val compare : t -> t -> int = <fun>
@@ -87,6 +95,7 @@ include Stdlib.Unit
  "t"[type] -> CU Stdlib . "Unit"[module] . "t"[type];
  "to_string"[value] -> CU Stdlib . "Unit"[module] . "to_string"[value];
  }
+
 type t = unit = ()
 val equal : t -> t -> bool = <fun>
 val compare : t -> t -> int = <fun>
@@ -99,6 +108,7 @@ module Without_constraint = Set.Make(Int)
  "Without_constraint"[module] ->
    CU Stdlib . "Set"[module] . "Make"[module](CU Stdlib . "Int"[module])<.9>;
  }
+
 module Without_constraint :
   sig
     type elt = Int.t
@@ -163,6 +173,7 @@ end
       CU Stdlib . "Int"[module])<.10>;
     };
  }
+
 module With_identity_constraint : sig module M : Set.S end
 |}]
 
@@ -183,5 +194,6 @@ end
        };
     };
  }
+
 module With_constraining_constraint : sig module M : sig type t end end
 |}]

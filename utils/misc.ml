@@ -675,7 +675,8 @@ module Style = struct
     let functions = pp_get_formatter_stag_functions ppf () in
     let functions' = {functions with
       mark_open_stag=(mark_open_tag ~color ~or_else:functions.mark_open_stag);
-      mark_close_stag=(mark_close_tag ~color ~or_else:functions.mark_close_stag);
+      mark_close_stag=
+        (mark_close_tag ~color ~or_else:functions.mark_close_stag);
     } in
     pp_set_mark_tags ppf true; (* enable tags *)
     pp_set_formatter_stag_functions ppf functions';
@@ -782,7 +783,7 @@ let did_you_mean ppf get_choices =
   | choices ->
     let rest, last = split_last choices in
     let comma ppf () = Format.fprintf ppf ", " in
-     Format.fprintf ppf "@\n@{<hint>Hint@}: Did you mean %a%s%a?@?"
+     Format.fprintf ppf "@,@{<hint>Hint@}: Did you mean %a%s%a?@?"
        (Format.pp_print_list ~pp_sep:comma Style.inline_code) rest
        (if rest = [] then "" else " or ")
        Style.inline_code last

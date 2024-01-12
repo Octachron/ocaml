@@ -18,6 +18,7 @@ end
                                      };
                    };
  }
+
 module Foo : sig module Bar : sig end end
 |}]
 
@@ -32,6 +33,7 @@ end
 {
  "Extended"[module type] -> <.4>;
  }
+
 module type Extended = sig module Bar : sig end end
 |}]
 
@@ -46,5 +48,6 @@ end
                                    };
                  };
  }
+
 module E : Extended
 |}]

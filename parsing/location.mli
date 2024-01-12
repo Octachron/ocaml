@@ -88,7 +88,7 @@ val input_phrase_buffer: Buffer.t option ref
 (** {1 Toplevel-specific functions} *)
 
 val echo_eof: unit -> unit
-val separate_new_message: formatter -> unit
+val separate_new_message: Log.Toplevel.log -> unit
 val reset: unit -> unit
 
 
@@ -263,6 +263,7 @@ val default_warning_reporter: t -> Warnings.t -> report option
 (** {2 Printing warnings} *)
 
 module Error_log: sig
+  type _ Log.extension += Error: report Log.extension
   val warnings: report list Log.Compiler.key
 end
 
