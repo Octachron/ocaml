@@ -63,7 +63,7 @@ and key_metadata =
 and 'a def = {
   scheme_version: version ref;
   scheme_status: scheme_status ref;
-  mutable keys: key_metadata Keys.t;
+  mutable keys: (Keys.key * key_metadata) list;
   version_key: (version,'a) key option;
   validity_key: (bool,'a) key option;
   polarity: polarity;
@@ -118,7 +118,7 @@ let error e =
   raise (Error e)
 
 let (.!()<-) scheme key metadata =
-  scheme.keys <- Keys.add key.name metadata scheme.keys
+  scheme.keys <- (key.name, metadata) :: scheme.keys
 
 
 let minor_change scheme =
@@ -138,7 +138,7 @@ let new_key version scheme name typ =
   | Positive -> minor_change scheme
   | Negative -> breaking_change scheme
   end;
-  if Keys.mem name scheme.keys then error (Duplicate_key name);
+  if List.mem_assoc name scheme.keys then error (Duplicate_key name);
   let metadata = Key_metadata {
     version;
     deprecation=None;
@@ -207,7 +207,8 @@ module New_root_scheme() = struct
   let scheme =
     let version_key = Some (version_key ()) in
     let validity_key = Some (validity_key ()) in
-    let metakey typ =
+    let metakey name typ =
+      name,
       Key_metadata {
         version = first_version;
         deprecation = None;
@@ -216,11 +217,7 @@ module New_root_scheme() = struct
     in
     { scheme_version = ref first_version;
       scheme_status = ref major_scheme_update;
-      keys = Keys.of_list
-          [
-            "version", metakey version_ty;
-            "validity", metakey Bool;
-          ];
+      keys = [ metakey "valid" Bool; metakey "version" version_ty ];
       version_key;
       validity_key;
       polarity=Positive;
@@ -246,7 +243,7 @@ module New_record(Root:Def)() = struct
   let scheme =
     { scheme_version = Root.scheme.scheme_version;
       scheme_status =  Root.scheme.scheme_status;
-      keys = Keys.empty;
+      keys = [];
       version_key=None;
       validity_key=None;
       polarity=Positive;
@@ -260,7 +257,7 @@ module New_sum(Root:Def)() = struct
   let scheme =
     { scheme_version = Root.scheme.scheme_version;
       scheme_status =  Root.scheme.scheme_status;
-      keys = Keys.empty;
+      keys = [];
       version_key=None;
       validity_key = None;
       polarity = Negative;
@@ -274,7 +271,7 @@ let enum key = Enum key
 let constr key x = Constr(key,x)
 
 let (.!()) scheme key =
-  match Keys.find_opt key.name scheme.keys with
+  match List.assoc_opt key.name scheme.keys with
   | Some x -> x
   | None -> assert false
 
@@ -349,11 +346,12 @@ module Store = struct
     | Option _ -> true
     | _ -> false
 
-  let rec validate: type id. key_metadata Keys.t -> id sum Keys.t -> bool =
+  let rec validate: type id.
+    (Keys.key * key_metadata) list -> id sum Keys.t -> bool =
     fun metadata data ->
-    Keys.fold (fun k kmd valid ->
+    List.fold_left (fun valid (k,kmd) ->
        valid && validate_key (is_optional kmd) (Keys.find_opt k data)
-      ) metadata true
+      ) true metadata
   and validate_key: type a. bool -> a sum option -> bool  =
     fun opt k ->
     match opt, k with
@@ -494,25 +492,33 @@ module Fmt = struct
         | Enum kt ->
             elt conv {extension} String ppf kt.name
         end
-    | Record _ ->
-        prod conv {extension} ppf x
+    | Record m -> prod conv {extension} ppf (m.keys,x)
     | Option e ->
         begin match x with
-        | None ->  ()
+        | None ->  conv.string ppf "None"
         | Some x -> elt conv {extension} e ppf x
         end
   and prod: type p.
-    conv -> extension_printer -> Format.formatter -> p prod -> unit
-    = fun conv extension ppf prod ->
-      let field ppf (key, field) =
-        match field with
-        | Enum kt -> item conv extension ~key kt.typ ppf ()
-        | Constr (kt,x) ->
-            item conv extension ~key kt.typ ppf x
+    conv -> extension_printer -> Format.formatter -> (_ * p prod) -> unit
+    = fun conv extension ppf (keys,prod) ->
+      let field (key,_)  =
+        match Keys.find_opt key prod.fields with
+        | Some (Enum _) as c -> c
+        | None -> None
+        | Some (Constr (kt,x)) as c ->
+            match kt.typ, x with
+            | Option _, None -> None
+            | Record _, x when Keys.is_empty x.fields -> None
+            | _ -> c
       in
+      let fields = List.filter_map field (List.rev keys) in
+      let pp_field ppf = function
+        | Enum kt -> item conv extension ~key:kt.name kt.typ ppf ()
+        | Constr (kt,x) -> item conv extension ~key:kt.name kt.typ ppf x
+      in
+      if List.is_empty fields then () else
       conv.assoc.assoc_open ppf;
-      Format.pp_print_seq ~pp_sep:conv.assoc.sep field ppf
-        (Keys.to_seq prod.fields);
+      Format.pp_print_list ~pp_sep:conv.assoc.sep pp_field ppf fields;
       conv.assoc.assoc_close ppf
   and item: type a. conv -> extension_printer ->
     key:string -> a typ -> Format.formatter -> a -> unit =
@@ -695,13 +701,12 @@ let rec flush: type a. a log -> unit = fun log ->
   begin match log.mode with
   | Direct d -> Fmt.flush d
   | Store st ->
-      Option.iter (fun vk ->
-          log.%[vk] <- !(log.scheme.scheme_version))
+      Option.iter (fun vk -> log.%[vk] <- !(log.scheme.scheme_version))
         log.scheme.version_key;
       Option.iter (fun vk ->
           log.%[vk] <- false (* the validation key is part of the scheme *);
-          log.%[vk] <- Store.validate log.scheme.keys st.data.fields)
-        log.scheme.validity_key;
+          log.%[vk] <- Store.validate log.scheme.keys st.data.fields
+        ) log.scheme.validity_key;
       Option.iter (fun (out,{print}) ->
           let ppf = !(out.ppf) in
           print ppf st.data
@@ -743,7 +748,7 @@ module Structured = struct
     let print ppf r =
       if Keys.is_empty r.fields then () else
         Format.fprintf ppf "%a@."
-          Fmt.(prod conv no_extension) r
+          Fmt.(prod conv no_extension) (scheme.keys,r)
     in
     { version;
       settings;
