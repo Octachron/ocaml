@@ -39,6 +39,7 @@ type _ extension = ..
 
 type 'a typ =
   | Unit: unit typ
+  | Bool: bool typ
   | Int: int typ
   | String: string typ
   | Doc: doc typ

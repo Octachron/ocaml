@@ -34,6 +34,7 @@ type polarity = Positive | Negative
 
 type 'a typ =
   | Unit: unit typ
+  | Bool: bool typ
   | Int: int typ
   | String: string typ
   | Doc: doc typ
@@ -64,6 +65,7 @@ and 'a def = {
   scheme_status: scheme_status ref;
   mutable keys: key_metadata Keys.t;
   version_key: (version,'a) key option;
+  validity_key: (bool,'a) key option;
   polarity: polarity;
 }
 and 'a prod = {
@@ -86,15 +88,14 @@ type 'a log =
       settings: Misc.Color.setting option;
       mode: 'a mode
   }
-[@@warning "-69"]
 and child_log = Child: 'a log -> child_log [@@unboxed]
 and 'a mode =
   | Direct of ppf_with_close
   | Store of { data:'a prod; out:(ppf_with_close * printer) option }
-[@@warning "-69"]
+
 
 and printer = { print: 'a. Format.formatter -> 'a prod -> unit; }
-[@@warning "-37"]
+
 
 type 'a t = 'a log
 
@@ -149,7 +150,6 @@ let new_key version scheme name typ =
   key
 
 
-
 type _ extension += Version: version extension
 type 'a scheme_version = version
 
@@ -159,6 +159,10 @@ let version_ty =
 
 let version_key () =
   { name = "version"; typ = version_ty; id = Type.Id.make () }
+
+let validity_key () =
+  { name = "valid"; typ = Bool; id = Type.Id.make () }
+
 
 module type Def = sig
   type id
@@ -202,17 +206,23 @@ module New_root_scheme() = struct
   include New_local_def ()
   let scheme =
     let version_key = Some (version_key ()) in
-    let metakey =
+    let validity_key = Some (validity_key ()) in
+    let metakey typ =
       Key_metadata {
         version = first_version;
         deprecation = None;
-        typ=version_ty
+        typ
       }
     in
     { scheme_version = ref first_version;
       scheme_status = ref major_scheme_update;
-      keys = Keys.singleton "version" metakey;
+      keys = Keys.of_list
+          [
+            "version", metakey version_ty;
+            "validity", metakey Bool;
+          ];
       version_key;
+      validity_key;
       polarity=Positive;
     }
     let new_key v name ty = new_key v scheme name ty
@@ -238,6 +248,7 @@ module New_record(Root:Def)() = struct
       scheme_status =  Root.scheme.scheme_status;
       keys = Keys.empty;
       version_key=None;
+      validity_key=None;
       polarity=Positive;
     }
     let new_key v name ty = new_key v scheme name ty
@@ -251,6 +262,7 @@ module New_sum(Root:Def)() = struct
       scheme_status =  Root.scheme.scheme_status;
       keys = Keys.empty;
       version_key=None;
+      validity_key = None;
       polarity = Negative;
     }
     let new_constr v name ty = new_key v scheme name ty
@@ -332,6 +344,55 @@ module Store = struct
           | _ -> x
         in
         store.fields <- Keys.add key.name (constr key x) store.fields
+
+  let is_optional (Key_metadata r) = match r.typ with
+    | Option _ -> true
+    | _ -> false
+
+  let rec validate: type id. key_metadata Keys.t -> id sum Keys.t -> bool =
+    fun metadata data ->
+    Keys.fold (fun k kmd valid ->
+       valid && validate_key (is_optional kmd) (Keys.find_opt k data)
+      ) metadata true
+  and validate_key: type a. bool -> a sum option -> bool  =
+    fun opt k ->
+    match opt, k with
+    | true, None -> true
+    | _, None -> false
+    | _, Some (Enum _) -> true
+    | _, Some (Constr (k,v)) -> validate_value v k.typ
+  and validate_value: type a. a -> a typ -> bool = fun v typ ->
+    match typ with
+    | Record m -> validate m.keys v.fields
+    | Int -> true
+    | Bool -> true
+    | Doc -> true
+    | String -> true
+    | Custom _ -> true
+    | Unit -> true
+    | List m -> List.for_all (fun v -> validate_value v m) v
+    | Option m ->
+        Option.value ~default:true
+          (Option.map (fun v -> validate_value v m) v)
+    | Pair (x,y) ->
+        let vx, vy = v in
+        validate_value vx x && validate_value vy y
+    | Triple (x,y,z) ->
+        let vx, vy, vz = v in
+        validate_value vx x && validate_value vy y && validate_value vz z
+    | Quadruple (x,y,z,w) ->
+        let vx, vy, vz, vw = v in
+        validate_value vx x
+        && validate_value vy y
+        && validate_value vz z
+        && validate_value vw w
+    | Sum _ ->
+        begin match v with
+        | Enum _ -> true
+        | Constr(k, v) -> validate_value v k.typ
+        end
+
+
 end
 
 module Fmt = struct
@@ -384,6 +445,7 @@ module Fmt = struct
     match typ with
     | Unit -> Format.pp_print_int ppf 0
     | Int -> Format.pp_print_int ppf x
+    | Bool -> Format.pp_print_bool ppf x
     | String -> conv.string ppf x
     | Doc -> x ppf
     | Pair (a,b) ->
@@ -636,6 +698,10 @@ let rec flush: type a. a log -> unit = fun log ->
       Option.iter (fun vk ->
           log.%[vk] <- !(log.scheme.scheme_version))
         log.scheme.version_key;
+      Option.iter (fun vk ->
+          log.%[vk] <- false (* the validation key is part of the scheme *);
+          log.%[vk] <- Store.validate log.scheme.keys st.data.fields)
+        log.scheme.validity_key;
       Option.iter (fun (out,{print}) ->
           let ppf = !(out.ppf) in
           print ppf st.data
