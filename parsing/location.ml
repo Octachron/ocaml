@@ -674,7 +674,7 @@ type report = {
   kind : report_kind;
   main : msg;
   sub : msg list;
-  quotable_locs: t list option;
+  quotable_locs: t list;
 }
 
 module Error_log = struct[@warning "-unused-value-declaration"]
@@ -774,9 +774,9 @@ module Error_log = struct[@warning "-unused-value-declaration"]
       (Custom { id = Error_kind; pull; default = Sum Kind.scheme })
 
   let main = Log.Error.new_key v1 "main" msg_typ
-  let sub = Log.Error.new_key v1 "sub" Log.(List msg_typ)
+  let sub = Log.Error.new_key v1 "sub" Log.(List {optional=true; elt=msg_typ})
   let quotable_locs =
-    Log.Error.new_key v1 "quotable_locs" Log.(Option (List loc_typ))
+    Log.Error.new_key v1 "quotable_locs" Log.(List {optional=true; elt=loc_typ})
 
   let pull (report:report) =
     let open Log.Record in
@@ -792,8 +792,10 @@ module Error_log = struct[@warning "-unused-value-declaration"]
 
   let key = Log.Compiler.new_key v1 "error" report_typ
 
-  let warnings = Log.Compiler.new_key v1 "warnings" (List report_typ)
-  let alerts = Log.Compiler.new_key v1 "alerts" (List report_typ)
+  let warnings =
+    Log.Compiler.new_key v1 "warnings" (List {optional=true; elt=report_typ})
+  let alerts =
+    Log.Compiler.new_key v1 "alerts" (List {optional=true; elt=report_typ})
 
 end
 
@@ -803,7 +805,7 @@ type report_printer = {
   pp_main_loc: (report_kind * t) printer;
   pp_sub_loc : (report_kind * t) printer;
   pp_msg : (Format.formatter -> unit) printer;
-  pp_quotable_locs: t list option printer;
+  pp_quotable_locs: t list printer;
 }
 
 let is_dummy_loc loc =
@@ -920,7 +922,7 @@ let terminfo_toplevel_printer (lb: lexbuf): report_printer =
     (* Highlight all toplevel locations of the report, instead of displaying
        the main location. Do it now instead of in [pp_main_loc], to avoid
        messing with Format boxes. *)
-    Option.iter (highlight_terminfo lb ppf) locs
+       highlight_terminfo lb ppf locs
   in
   let pp_main_loc _ _ = () in
   let pp_sub_loc ppf (_,loc) =
@@ -958,7 +960,7 @@ type error = report
 
 
 let mkerror loc sub txt =
-  let quotable_locs = Some (make_quotable_locs { loc; txt } sub ) in
+  let quotable_locs = make_quotable_locs { loc; txt } sub in
   { kind = Report_error; main = { loc; txt }; sub; quotable_locs }
 
 let errorf ?(loc = none) ?(sub = []) =
@@ -987,7 +989,7 @@ let default_warning_alert_reporter report mk (loc: t) w : report option =
       let sub = List.map (fun (loc, sub_message) ->
         { loc; txt = msg_of_str sub_message }
       ) sub_locs in
-      let quotable_locs = Some (make_quotable_locs main sub) in
+      let quotable_locs = make_quotable_locs main sub in
       Some { kind; main; sub; quotable_locs }
 
 

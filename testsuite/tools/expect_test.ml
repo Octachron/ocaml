@@ -160,7 +160,7 @@ let capture_everything buf ppf ~f =
 let exec_phrase log phrase =
   let clog = Topcommon.compiler_log log in
   let dlog = Log.detach clog Log.Compiler.debug in
-  let log_if flag kind pr x = ignore(Log.log_if dlog kind flag pr x) in
+  let log_if flag kind pr x = Log.log_if dlog kind flag pr x in
   Location.reset ();
   log_if !Clflags.dump_parsetree Log.Debug.parsetree
     Printast.top_phrase phrase;

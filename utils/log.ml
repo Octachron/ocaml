@@ -38,7 +38,7 @@ type 'a typ =
   | Int: int typ
   | String: string typ
   | Doc: doc typ
-  | List: 'a typ -> 'a list typ
+  | List: {optional:bool; elt:'a typ} -> 'a list typ
   | Option: 'a typ -> 'a option typ
   | Pair: 'a typ * 'b typ -> ('a * 'b) typ
   | Triple: 'a typ * 'b typ * 'c typ -> ('a * 'b * 'c) typ
@@ -321,30 +321,33 @@ let[@warning "-32"] version_typ =
   Custom { pull; id = Version; default = Record V.scheme}
 *)
 
+
+  let is_optional (Key_metadata r) = match r.typ with
+    | List r -> r.optional
+    | Option _ -> true
+    | _ -> false
+
 module Store = struct
 
   let record:
     type ty s. s prod -> key:(ty,s) key -> ty -> unit =
       fun store ~key x ->
-        let x =
-          match key.typ with
-          | List _ ->
-              begin match Keys.find_opt key.name store.fields with
-                | None -> x
-                | Some (Enum _) -> x
-                | Some (Constr(k,y)) ->
-                    begin match Type.Id.provably_equal k.id key.id with
-                    | None -> x
-                    | Some Type.Equal -> (x @ y:ty)
-                    end
-              end
-          | _ -> x
-        in
         store.fields <- Keys.add key.name (constr key x) store.fields
 
-  let is_optional (Key_metadata r) = match r.typ with
-    | Option _ -> true
-    | _ -> false
+  let cons: type ty s. s prod -> (ty list,s) key -> ty -> unit =
+    fun store key x ->
+      let l =
+        match Keys.find_opt key.name store.fields with
+        | None -> [x]
+        | Some (Enum _) -> [x]
+        | Some (Constr(k,l)) ->
+            match Type.Id.provably_equal k.id key.id with
+            | None -> [x]
+            | Some Type.Equal -> (x :: l:ty list)
+      in
+      store.fields <- Keys.add key.name (constr key l) store.fields
+
+
 
   let rec validate: type id.
     (Keys.key * key_metadata) list -> id sum Keys.t -> bool =
@@ -368,7 +371,7 @@ module Store = struct
     | String -> true
     | Custom _ -> true
     | Unit -> true
-    | List m -> List.for_all (fun v -> validate_value v m) v
+    | List {elt; _} -> List.for_all (fun v -> validate_value v elt) v
     | Option m ->
         Option.value ~default:true
           (Option.map (fun v -> validate_value v m) v)
@@ -480,7 +483,7 @@ module Fmt = struct
         | Some pr -> pr ppf x
         | None -> elt  conv {extension} default ppf (pull x)
       end
-    |  List e ->
+    |  List { elt=e; _ } ->
         let pp_sep ppf () = conv.list.sep ppf in
         conv.list.list_open ppf;
         Format.pp_print_list ~pp_sep (elt conv {extension} e) ppf x;
@@ -634,8 +637,8 @@ let key_scheme: type a b. (a prod,b) key -> a def  = fun key ->
 let item_key_scheme: type a b. (a prod list,b) key -> a def  = fun key ->
   match key.typ with
   | Custom _ -> assert false
-  | List (Custom _) -> assert false
-  | List (Record sch) -> sch
+  | List { elt=Custom _ ; _ } -> assert false
+  | List { elt=Record sch; _ } -> sch
   | _ -> .
 
 
@@ -684,17 +687,22 @@ let set key x log =
       Fmt.(item direct !extensions) ~key:key.name key.typ ppf x
   | Store st, None -> Store.record st.data ~key x
 
+let cons key x log =
+  match log.mode, Keys.find_opt key.name log.redirections with
+  | Direct _, _ | _, Some _ -> set key [x] log
+  | Store st, None -> Store.cons st.data key x
+
 let (.%[]<-) log key x = set key x log
 
 let f key log fmt =
-  Format.kasprintf (fun s -> log.%[key] <- s ) fmt
+  Format.kasprintf (fun s -> log.%[key] <- s) fmt
 let itemf key log fmt =
-  Format.kasprintf (fun s -> log.%[key] <- [s] ) fmt
+  Format.kasprintf (fun s -> cons key s log) fmt
 
 let d key log fmt =
-  Format.kdprintf (fun s -> log.%[key] <- s ) fmt
+  Format.kdprintf (fun s -> log.%[key] <- s) fmt
 let itemd key log fmt =
-  Format.kdprintf (fun s -> log.%[key] <- [s] ) fmt
+  Format.kdprintf (fun s -> cons key s log) fmt
 
 
 let rec flush: type a. a log -> unit = fun log ->
@@ -786,34 +794,34 @@ module Backends = struct
   let json = { name = "json"; make = Structured.json }
 end
 
+let slist = List { optional=true; elt=String }
+
 module Compiler_root = New_root_scheme ()
 
 module Debug = struct
   include New_record(Compiler_root)()
   let v1 = derived_version Compiler_root.v1
-  let parsetree = new_key v1 "parsetree" String
-  let source = new_key v1 "source" String
-  let typedtree = new_key v1 "typedtree" String
-  let shape = new_key v1 "shape" String
-  let instr = new_key v1 "instr" String
-  let lambda = new_key v1 "lambda" String
-  let raw_lambda = new_key v1 "raw_lambda" String
-  let flambda = new_key v1 "flambda" (List String)
-  let raw_flambda = new_key v1 "raw_flambda" (List String)
-  let clambda = new_key v1 "clambda" (List String)
-  let raw_clambda = new_key v1 "raw_clambda" (List String)
-  let cmm = new_key v1 "cmm" (List String)
+  let parsetree = new_key v1 "parsetree" (Option String)
+  let source = new_key v1 "source" (Option String)
+  let typedtree = new_key v1 "typedtree" (Option String)
+  let shape = new_key v1 "shape" (Option String)
+  let instr = new_key v1 "instr" (Option String)
+  let lambda = new_key v1 "lambda" (Option String)
+  let raw_lambda = new_key v1 "raw_lambda" (Option String)
+  let flambda = new_key v1 "flambda" slist
+  let raw_flambda = new_key v1 "raw_flambda" slist
+  let clambda = new_key v1 "clambda" slist
+  let raw_clambda = new_key v1 "raw_clambda" slist
+  let cmm = new_key v1 "cmm" slist
   let remove_free_vars_equal_to_args =
-    new_key v1 "remove-free-vars-equal-to-args" (List String)
+    new_key v1 "remove-free-vars-equal-to-args" slist
   let unbox_free_vars_of_closures =
-    new_key v1 "unbox-free-vars-of-closures" (List String)
-  let unbox_closures =
-    new_key v1 "unbox-closures" (List String)
-  let unbox_specialised_args =
-    new_key v1 "unbox-specialised-args" (List String)
-  let mach = new_key v1 "mach" (List String)
-  let linear = new_key v1 "linear" (List String)
-  let cmm_invariant = new_key v1 "cmm_invariant" String
+    new_key v1 "unbox-free-vars-of-closures" slist
+  let unbox_closures = new_key v1 "unbox-closures" slist
+  let unbox_specialised_args = new_key v1 "unbox-specialised-args" slist
+  let mach = new_key v1 "mach" slist
+  let linear = new_key v1 "linear" slist
+  let cmm_invariant = new_key v1 "cmm_invariant" (Option String)
 end
 
 module Error = New_record (Compiler_root)()
@@ -823,15 +831,17 @@ module Compiler = struct
   let debug = new_key v1 "debug" (Record Debug.scheme)
 end
 
+let dlist = List { optional=true; elt=Doc}
 
 module Toplevel = struct
   include New_root_scheme()
-  let output = new_key v1 "output" (List Doc)
-  let compiler_log = new_key v1 "compiler_log" (List (Record Compiler.scheme))
-  let errors = new_key v1 "errors" (List Doc)
-  let trace = new_key v1 "trace" (List Doc)
+  let output = new_key v1 "output" (List {optional = false; elt=Doc} )
+  let compiler_log = new_key v1 "compiler_log"
+      (List { elt = Record Compiler.scheme; optional = true } )
+  let errors = new_key v1 "errors" dlist
+  let trace = new_key v1 "trace" dlist
 end
 
 let log_if dlog key flag printer x =
-  if flag then f key dlog "%a" printer x;
-  x
+  if flag then
+    Format.kasprintf (fun s -> dlog.%[key] <- Some (s)) "%a" printer x

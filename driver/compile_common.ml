@@ -40,7 +40,8 @@ let with_info ~native ~tool_name ~source_file ~output_prefix ~dump_ext ~log k =
 
 
 
-let log_if i key flag printer = Log.log_if i.debug_log key !flag printer
+let log_if i key flag printer x =
+  Log.log_if i.debug_log key !flag printer x; x
 module D = Log.Debug
 
 (** Compile a .mli file *)

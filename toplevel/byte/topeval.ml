@@ -71,7 +71,7 @@ include Topcommon.MakeEvalPrinter(EvalBase)
 let may_trace = ref false (* Global lock on tracing *)
 
 let load_lambda dlog lam =
-  let log_if flag key pr x = ignore(Log.log_if dlog key flag pr x) in
+  let log_if flag key pr x = Log.log_if dlog key flag pr x in
   log_if !Clflags.dump_rawlambda Log.Debug.raw_lambda Printlambda.lambda lam;
   let slam = Simplif.simplify_lambda lam in
   log_if !Clflags.dump_lambda Log.Debug.lambda Printlambda.lambda slam;
@@ -125,7 +125,7 @@ let execute_phrase print_outcome (log,dlog) phr =
       let (str, sg, sn, shape, newenv) =
         Typemod.type_toplevel_phrase oldenv sstr
       in
-      let log_if key flag pr x = ignore (Log.log_if dlog key flag pr x) in
+      let log_if key flag pr x =Log.log_if dlog key flag pr x in
       log_if Log.Debug.typedtree !Clflags.dump_typedtree
         Printtyped.implementation str;
       let sg' = Typemod.Signature_names.simplify newenv sn sg in

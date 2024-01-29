@@ -43,7 +43,7 @@ type 'a typ =
   | Int: int typ
   | String: string typ
   | Doc: doc typ
-  | List: 'a typ -> 'a list typ
+  | List: {optional:bool; elt:'a typ} -> 'a list typ
   | Option: 'a typ -> 'a option typ
   | Pair: 'a typ * 'b typ -> ('a * 'b) typ
   | Triple: 'a typ * 'b typ * 'c typ -> ('a * 'b * 'c) typ
@@ -141,6 +141,8 @@ module Backends : sig
 end
 
 val set: ('a,'b) key  -> 'a -> 'b log -> unit
+val cons: ('a list, 'b) key -> 'a -> 'b log -> unit
+
 val redirect: 'id log -> ('a,'id) key ->
   ?close:(unit -> unit) -> Format.formatter ref -> unit
 val (.%[]<-): 'b log -> ('a,'b) key -> 'a -> unit
@@ -181,13 +183,13 @@ module Compiler_root : Root
 
 module Debug: sig
   include Record with type root := Compiler_root.id
-  val source: string key
-  val parsetree: string key
-  val typedtree: string key
-  val shape: string key
-  val instr: string key
-  val raw_lambda: string key
-  val lambda: string key
+  val source: string option key
+  val parsetree: string option key
+  val typedtree: string option key
+  val shape: string option key
+  val instr: string option key
+  val raw_lambda: string option key
+  val lambda: string option key
   val flambda: string list key
   val raw_flambda: string list key
   val clambda: string list key
@@ -196,10 +198,10 @@ module Debug: sig
   val remove_free_vars_equal_to_args: string list key
   val unbox_free_vars_of_closures: string list key
   val unbox_closures:string list key
-  val unbox_specialised_args:string list key
+  val unbox_specialised_args:string list  key
   val mach: string list key
   val linear: string list key
-  val cmm_invariant: string key
+  val cmm_invariant: string option key
 end
 
 module Compiler: sig
@@ -217,5 +219,5 @@ module Toplevel: sig
 end
 
 val log_if:
-  Debug.log -> string Debug.key -> bool ->
-  (Format.formatter -> 'a -> unit) -> 'a -> 'a
+  'id log -> (string option, 'id) key -> bool ->
+  (Format.formatter -> 'a -> unit) -> 'a -> unit

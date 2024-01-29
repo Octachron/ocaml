@@ -204,11 +204,11 @@ let preprocess_phrase debug phr =
         Ptop_def str
     | phr -> phr
   in
-  let open Log in
+  Log.log_if debug Log.Debug.parsetree !Clflags.dump_parsetree
+    Printast.top_phrase phr;
+  Log.log_if debug Log.Debug.source !Clflags.dump_source
+    Pprintast.top_phrase phr;
   phr
-  |> Log.log_if debug Debug.parsetree !Clflags.dump_parsetree
-    Printast.top_phrase
-  |> Log.log_if debug Debug.source !Clflags.dump_source Pprintast.top_phrase
 
 (* Phrase buffer that stores the last toplevel phrase (see
    [Location.input_phrase_buffer]). *)

@@ -87,7 +87,7 @@ include Topcommon.MakeEvalPrinter(EvalBase)
 
 let may_trace = ref false (* Global lock on tracing *)
 
-let log_if dlog flag key pr x = ignore(Log.log_if dlog key flag pr x)
+let log_if dlog flag key pr x = Log.log_if dlog key flag pr x
 
 let load_lambda dlog ~module_ident ~required_globals phrase_name lam size =
   log_if dlog !Clflags.dump_rawlambda Log.Debug.raw_lambda

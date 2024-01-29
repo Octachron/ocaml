@@ -200,7 +200,7 @@ type report = {
   kind : report_kind;
   main : msg;
   sub : msg list;
-  quotable_locs: t list option;
+  quotable_locs: t list;
 }
 
 
@@ -210,7 +210,7 @@ type report_printer = {
   pp_main_loc: (report_kind * t) printer;
   pp_sub_loc : (report_kind * t) printer;
   pp_msg : (Format.formatter -> unit) printer;
-  pp_quotable_locs: t list option printer;
+  pp_quotable_locs: t list printer;
 }
 (** A printer for [report]s.
     The goal is to make it easy to define new printers by re-using code from
