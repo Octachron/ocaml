@@ -510,6 +510,7 @@ module Fmt = struct
         | None -> None
         | Some (Constr (kt,x)) as c ->
             match kt.typ, x with
+            | List {optional=true; elt=_ }, [] -> None
             | Option _, None -> None
             | Record _, x when Keys.is_empty x.fields -> None
             | _ -> c
