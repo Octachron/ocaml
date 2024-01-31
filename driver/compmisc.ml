@@ -128,7 +128,7 @@ let debug_log ~file_prefix main_log =
     Option.iter
       (fun (ppf,close) -> Log.redirect main_log Log.Compiler.debug ~close ppf)
       ppf_and_close;
-    Log.detach main_log Log.Compiler.debug
+    Log.detach_option main_log Log.Compiler.debug
 
 let with_ppf_dump ~file_prefix f =
   let with_ch ch =

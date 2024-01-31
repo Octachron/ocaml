@@ -212,7 +212,7 @@ end
 
 module Compiler: sig
   include Root
-  val debug: Debug.id prod key
+  val debug: Debug.id prod option key
 end
 module Error: Record with type root := Compiler.id
 

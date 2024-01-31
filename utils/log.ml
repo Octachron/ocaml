@@ -325,6 +325,19 @@ let[@warning "-32"] version_typ =
     | Option _ -> true
     | _ -> false
 
+  let rec is_empty: type a. a typ -> a -> bool = fun ty x ->
+    match ty, x with
+    | List {optional=true; elt=_ }, [] -> true
+    | Option _, None -> true
+    | Option ty, Some x -> is_empty ty x
+    | Record _, x ->
+        Keys.for_all is_empty_field x.fields
+    | _ -> false
+  and is_empty_field: type a. _ -> a sum -> bool = fun _ ->
+    function
+    | Enum _ -> false
+    | Constr(kt,x) -> is_empty kt.typ x
+
 module Store = struct
 
   let record:
@@ -345,12 +358,27 @@ module Store = struct
       in
       store.fields <- Keys.add key.name (constr key l) store.fields
 
+  let trim keys prod =
+     let field (key,_)  =
+        match Keys.find_opt key prod.fields with
+        | Some (Enum _) as c -> c
+        | None -> None
+        | Some (Constr (kt,x)) as c ->
+            if is_empty kt.typ x then None else c
+      in
+      List.filter_map field (List.rev keys)
 
-  let rec validate: type id. id def -> id prod -> bool =
-    fun sch st ->
-     Option.iter (fun key -> record st ~key !(sch.scheme_version))
-        sch.version_key;
-      match sch.validity_key with
+
+  let rec validate: type id. toplevel: bool -> id def -> id prod -> bool =
+    fun ~toplevel sch st ->
+    (* don't add validation metakeys to empty sublog*)
+    let st =
+      if not toplevel && List.is_empty (trim sch.keys st) then
+        { fields = Keys.empty } else st
+    in
+    Option.iter (fun key -> record st ~key !(sch.scheme_version))
+      sch.version_key;
+    match sch.validity_key with
       | None ->  validate_fields sch.keys st.fields
       | Some key ->
           record st ~key false (* the validation key is part of the scheme *);
@@ -362,18 +390,18 @@ module Store = struct
     (Keys.key * key_metadata) list -> id sum Keys.t -> bool =
     fun metadata data ->
     List.fold_left (fun valid (k,kmd) ->
-       valid && validate_key k (is_optional kmd) (Keys.find_opt k data)
+       valid && validate_key (is_optional kmd) (Keys.find_opt k data)
       ) true metadata
-  and validate_key: type a. string -> bool -> a sum option -> bool  =
-    fun name opt k ->
+  and validate_key: type a. bool -> a sum option -> bool  =
+    fun opt k ->
     match opt, k with
     | true, None -> true
-    | _, None -> Format.eprintf "missing key%s@." name; false
+    | _, None -> false
     | _, Some (Enum _) -> true
     | _, Some (Constr (k,v)) -> validate_value v k.typ
   and validate_value: type a. a -> a typ -> bool = fun v typ ->
     match typ with
-    | Record m -> validate m v
+    | Record m -> validate ~toplevel:false m v
     | Int -> true
     | Bool -> true
     | Doc -> true
@@ -450,20 +478,6 @@ module Fmt = struct
     done;
     Format.fprintf ppf {|"|}
 
-  let rec is_empty: type a. a typ -> a -> bool = fun ty x ->
-    match ty, x with
-    | List {optional=true; elt=_ }, [] -> true
-    | Option _, None -> true
-    | Option ty, Some x -> is_empty ty x
-    | Record _, x ->
-        Keys.for_all is_empty_field x.fields
-    | _ -> false
-  and is_empty_field: type a. _ -> a sum -> bool = fun _ ->
-    function
-    | Enum _ -> false
-    | Constr(kt,x) -> is_empty kt.typ x
-
-
   let rec elt : type a. conv -> extension_printer
     -> a typ -> Format.formatter -> a -> unit =
     fun conv {extension} typ ppf x ->
@@ -528,13 +542,7 @@ module Fmt = struct
   and prod: type p.
     conv -> extension_printer -> Format.formatter -> (_ * p prod) -> unit
     = fun conv extension ppf (keys,prod) ->
-      let field (key,_)  =
-        match Keys.find_opt key prod.fields with
-        | Some (Enum _) as c -> c
-        | None -> None
-        | Some (Constr (kt,x)) as c -> if is_empty kt.typ x then None else c
-      in
-      let fields = List.filter_map field (List.rev keys) in
+      let fields = Store.trim keys prod in
       let pp_field ppf = function
         | Enum kt -> item conv extension ~key:kt.name kt.typ ppf ()
         | Constr (kt,x) -> item conv extension ~key:kt.name kt.typ ppf x
@@ -740,7 +748,7 @@ let flush: type a. a log -> unit = fun log ->
   begin match log.mode with
   | Direct d -> Fmt.flush d
   | Store st ->
-      ignore (Store.validate log.scheme st.data);
+      ignore (Store.validate ~toplevel:true log.scheme st.data);
       Option.iter (fun (out,{print}) ->
           let ppf = !(out.ppf) in
           print ppf st.data
@@ -851,7 +859,7 @@ module Error = New_record (Compiler_root)()
 
 module Compiler = struct
   include Compiler_root
-  let debug = new_key v1 "debug" (Record Debug.scheme)
+  let debug = new_key v1 "debug" (Option (Record Debug.scheme))
 end
 
 let dloc = List { optional=true; elt = Doc}

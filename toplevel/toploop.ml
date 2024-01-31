@@ -43,7 +43,7 @@ let use_lexbuf log ~wrap_in_module lb ~modpath ~filename =
       List.iter
         (fun ph ->
            let phrase_log = Log.detach_option log Log.Toplevel.compiler_log in
-           let dlog = Log.detach phrase_log Log.Compiler.debug in
+           let dlog = Log.detach_option phrase_log Log.Compiler.debug in
            let ph = preprocess_phrase dlog ph in
            if not (execute_phrase !use_print_results (log,dlog) ph) then
              raise Exit
@@ -329,7 +329,7 @@ let loop log =
   while true do
     let snap = ref (Btype.snapshot ()) in
     let clog = Topcommon.compiler_log log in
-    let dlog = Log.detach clog Log.Compiler.debug in
+    let dlog = Log.detach_option clog Log.Compiler.debug in
     try
       Lexing.flush_input lb;
       (* Reset the phrase buffer when we flush the lexing buffer. *)

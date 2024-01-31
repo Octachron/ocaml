@@ -151,7 +151,7 @@ let expand_position pos len =
 let prepare log =
   Topcommon.set_paths ();
   let clog = Topcommon.compiler_log log in
-  let dlog = Log.detach clog Log.Compiler.debug in
+  let dlog = Log.detach_option clog Log.Compiler.debug in
   try
     let res =
       let objects =

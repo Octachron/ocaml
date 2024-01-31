@@ -133,7 +133,7 @@ let _ = add_directive "cd" (Directive_string dir_cd)
 
 let split_log log =
   let clog = Topcommon.compiler_log log in
-  let dlog = Log.detach clog Log.Compiler.debug in
+  let dlog = Log.detach_option clog Log.Compiler.debug in
   (log,dlog)
 
 let dir_load log name =
