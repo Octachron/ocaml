@@ -519,10 +519,11 @@ module Fmt = struct
         | Enum kt -> item conv extension ~key:kt.name kt.typ ppf ()
         | Constr (kt,x) -> item conv extension ~key:kt.name kt.typ ppf x
       in
-      if List.is_empty fields then () else
-      conv.assoc.assoc_open ppf;
-      Format.pp_print_list ~pp_sep:conv.assoc.sep pp_field ppf fields;
-      conv.assoc.assoc_close ppf
+      if List.is_empty fields then () else begin
+        conv.assoc.assoc_open ppf;
+        Format.pp_print_list ~pp_sep:conv.assoc.sep pp_field ppf fields;
+        conv.assoc.assoc_close ppf
+      end
   and item: type a. conv -> extension_printer ->
     key:string -> a typ -> Format.formatter -> a -> unit =
     fun conv extension ~key typ ppf x ->
