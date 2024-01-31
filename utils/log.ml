@@ -420,6 +420,7 @@ module Fmt = struct
 
   type conv = {
     string:string printer;
+    doc:doc printer;
     assoc:assoc;
     list:list_convention;
   }
@@ -448,7 +449,7 @@ module Fmt = struct
     | Int -> Format.pp_print_int ppf x
     | Bool -> Format.pp_print_bool ppf x
     | String -> conv.string ppf x
-    | Doc -> x ppf
+    | Doc -> conv.doc ppf x
     | Pair (a,b) ->
         let x, y = x in
         Format.fprintf ppf "%t%a%t%a%t"
@@ -534,6 +535,7 @@ module Fmt = struct
 
   let direct = {
     string = Format.pp_print_string;
+    doc = (|>);
     list = {
       list_open = ignore;
       list_close = ignore ;
@@ -549,12 +551,14 @@ module Fmt = struct
     }
   }
 
+  let escaped_doc ppf doc = escape_string ppf (Format.asprintf "%t" doc)
   let sexp =
     let list_open = Format.dprintf "@[("
     and list_close = Format.dprintf ")@]"
     and sep = Format.dprintf "@ " in
     {
       string = escape_string;
+      doc = escaped_doc;
       list = {list_open; list_close; sep };
       assoc = {
         assoc_open = list_open;
@@ -569,6 +573,7 @@ module Fmt = struct
   let json =
     {
       string = escape_string;
+      doc = escaped_doc;
       list = {
         list_open=Format.dprintf "@[<b 2>[";
         list_close = Format.dprintf "@,]@]";
