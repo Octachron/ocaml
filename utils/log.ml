@@ -82,13 +82,11 @@ type ppf_with_close =
 type 'a log =
   {
       mutable redirections: ppf_with_close Keys.t;
-      mutable children: child_log list;
       version: version;
       scheme: 'a def;
       settings: Misc.Color.setting option;
       mode: 'a mode
   }
-and child_log = Child: 'a log -> child_log [@@unboxed]
 and 'a mode =
   | Direct of ppf_with_close
   | Store of { data:'a prod; out:(ppf_with_close * printer) option }
@@ -626,7 +624,6 @@ module Fmt = struct
       mode = Direct {initialized=ref false; ppf; close=ignore};
       version;
       scheme;
-      children = [];
     }
 
 end
@@ -670,9 +667,7 @@ let generic_detach key_scheme lift log key =
       version = log.version;
       settings = log.settings;
       redirections = Keys.empty;
-      children = [];
     } in
-  log.children <- Child child :: log.children;
   child
 
 let detach log key = generic_detach key_scheme Fun.id log key
@@ -711,7 +706,7 @@ let itemd key log fmt =
   Format.kdprintf (fun s -> cons key s log) fmt
 
 
-let rec flush: type a. a log -> unit = fun log ->
+let flush: type a. a log -> unit = fun log ->
   begin match log.mode with
   | Direct d -> Fmt.flush d
   | Store st ->
@@ -726,21 +721,19 @@ let rec flush: type a. a log -> unit = fun log ->
           print ppf st.data
         ) st.out
   end;
-  Keys.iter (fun _ -> Fmt.flush) log.redirections;
-  List.iter (fun (Child c) -> flush c) log.children
+  Keys.iter (fun _ -> Fmt.flush) log.redirections
 
 let separate log = match log.mode with
   | Direct d -> Fmt.separate d
   | _ -> ()
 
-let rec close: type a. a log -> unit = fun log ->
+let close: type a. a log -> unit = fun log ->
   begin match log.mode with
   | Direct d -> Fmt.close d
   | Store { out = Some (out,_)} -> out.close ()
   | Store _ -> ()
   end;
-  Keys.iter (fun _ -> Fmt.close) log.redirections;
-  List.iter (fun (Child c) -> close c) log.children
+  Keys.iter (fun _ -> Fmt.close) log.redirections
 
 let close log = flush log; close log
 
@@ -772,7 +765,6 @@ module Structured = struct
           out = Some ({initialized=ref false;ppf;close=ignore},{print})
         };
       scheme;
-      children = [];
     }
 
   let sexp color version ppf sch = with_conv Fmt.sexp color version sch ppf
@@ -783,7 +775,6 @@ end
 let tmp scheme = {
   settings = None;
   redirections = Keys.empty;
-  children = [];
   version = {major=0; minor=0};
   scheme;
   mode = Store { out=None; data= {fields=Keys.empty} }
