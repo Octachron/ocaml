@@ -34,7 +34,7 @@ let use_lexbuf log ~wrap_in_module lb ~modpath ~filename =
   Location.init lb filename;
   (* Skip initial #! line if any *)
   Lexer.skip_hash_bang lb;
-  let main_log = Log.detach_item log Log.Toplevel.compiler_log in
+  let main_log = Log.detach_option log Log.Toplevel.compiler_log in
   Misc.protect_refs
     [ R (Location.input_name, filename);
       R (Location.input_lexbuf, Some lb); ]
@@ -42,7 +42,7 @@ let use_lexbuf log ~wrap_in_module lb ~modpath ~filename =
     try
       List.iter
         (fun ph ->
-           let phrase_log = Log.detach_item log Log.Toplevel.compiler_log in
+           let phrase_log = Log.detach_option log Log.Toplevel.compiler_log in
            let dlog = Log.detach phrase_log Log.Compiler.debug in
            let ph = preprocess_phrase dlog ph in
            if not (execute_phrase !use_print_results (log,dlog) ph) then
@@ -120,7 +120,7 @@ let load_file = load_file false
 let run_script log name args =
   Clflags.debug := true;
   override_sys_argv args;
-  let clog = Log.detach_item log Log.Toplevel.compiler_log in
+  let clog = Log.detach_option log Log.Toplevel.compiler_log in
   let filename = filename_of_input name in
   Compmisc.init_path ~dir:(Filename.dirname filename) ();
                    (* Note: would use [Filename.abspath] here, if we had it. *)
@@ -342,7 +342,11 @@ let loop log =
     | End_of_file -> raise (Compenv.Exit_with_status 0)
     | Sys.Break ->
         Log.itemd Log.Toplevel.errors log "Interrupted.";
+        Log.flush log;
         Btype.backtrack !snap
     | PPerror -> ()
-    | x -> Location.log_exception clog x; Btype.backtrack !snap
+    | x ->
+        Location.log_exception clog x;
+        Log.flush log;
+        Btype.backtrack !snap
   done

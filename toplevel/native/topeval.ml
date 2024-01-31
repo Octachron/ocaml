@@ -249,7 +249,7 @@ let execute_phrase print_outcome (log,dlog) phr =
         in
         begin match out_phr with
         | Ophr_signature [] -> ()
-        | _ -> Log.itemd Log.Toplevel.output log "%a" !print_out_phrase out_phr;
+        | _ -> Log.d Log.Toplevel.output log "%a" !print_out_phrase out_phr;
         end;
         begin match out_phr with
         | Ophr_eval (_, _) | Ophr_signature _ -> true
@@ -301,7 +301,7 @@ let load_file _ (* fixme *) (log,dlog) name0 =
           name (Dynlink.error_message err);
         false
       | exn ->
-          Log.itemd Log.Toplevel.output log "%a" print_exception_outcome exn;
+          Log.d Log.Toplevel.output log "%a" print_exception_outcome exn;
           false
     in
     if tmp then (try Sys.remove fn with Sys_error _ -> ());

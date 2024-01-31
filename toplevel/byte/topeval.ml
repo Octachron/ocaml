@@ -166,7 +166,7 @@ let execute_phrase print_outcome (log,dlog) phr =
         | Ophr_signature [] -> ()
         | _ ->
             Location.separate_new_message log;
-            Log.itemd Log.Toplevel.output log "%a" !print_out_phrase out_phr
+            Log.d Log.Toplevel.output log "%a" !print_out_phrase out_phr
         end;
         if Printexc.backtrace_status ()
         then begin
@@ -176,7 +176,7 @@ let execute_phrase print_outcome (log,dlog) phr =
                 Location.separate_new_message log;
                 (* avoid duplicating the newline *)
                 let b = String.trim b in
-                Log.itemd Log.Toplevel.output log "%s" b;
+                Log.o Log.Toplevel.backtrace log "%s" b;
                 backtrace := None;
         end;
         begin match out_phr with
@@ -244,7 +244,7 @@ let load_compunit ic filename log compunit =
     record_backtrace ();
     may_trace := false;
     Symtable.restore_state initial_symtable;
-    Log.itemd Log.Toplevel.output log "%a" print_exception_outcome exn;
+    Log.d Log.Toplevel.output log "%a" print_exception_outcome exn;
     raise Load_failed
   end
 

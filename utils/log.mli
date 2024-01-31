@@ -150,7 +150,7 @@ val replay: 'a log -> 'a log -> unit
 
 val detach: 'id log -> ('id2 prod, 'id) key -> 'id2 log
 val detach_item: 'id log -> ('id2 prod list, 'id) key -> 'id2 log
-
+val detach_option: 'id log -> ('id2 prod option, 'id) key -> 'id2 log
 
 
 val f : (string,'a) key -> 'a log -> ('b, Format.formatter, unit) format -> 'b
@@ -161,6 +161,12 @@ val f : (string,'a) key -> 'a log -> ('b, Format.formatter, unit) format -> 'b
 val d : (doc,'a) key -> 'a log -> ('b, Format.formatter, unit) format -> 'b
   (** [fmt key log ppf] records the formatted message at key [key] in [log].
   *)
+
+val o :
+  (doc option,'a) key -> 'a log -> ('b, Format.formatter, unit) format -> 'b
+  (** [fmt key log ppf] records the formatted message at key [key] in [log].
+  *)
+
 
 
 val itemf :
@@ -212,8 +218,9 @@ module Error: Record with type root := Compiler.id
 
 module Toplevel: sig
   include Root
-  val output: doc list key
-  val compiler_log: Compiler.id prod list key
+  val output: doc key
+  val backtrace: doc option key
+  val compiler_log: Compiler.id prod option key
   val errors: doc list key
   val trace: doc list key
 end

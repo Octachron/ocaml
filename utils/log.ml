@@ -332,8 +332,8 @@ module Store = struct
       fun store ~key x ->
         store.fields <- Keys.add key.name (constr key x) store.fields
 
-  let cons: type ty s. s prod -> (ty list,s) key -> ty -> unit =
-    fun store key x ->
+  let cons: type ty s. s prod -> key:(ty list,s) key -> ty -> unit =
+    fun store ~key x ->
       let l =
         match Keys.find_opt key.name store.fields with
         | None -> [x]
@@ -439,6 +439,20 @@ module Fmt = struct
     done;
     Format.fprintf ppf {|"|}
 
+  let rec is_empty: type a. a typ -> a -> bool = fun ty x ->
+    match ty, x with
+    | List {optional=true; elt=_ }, [] -> true
+    | Option _, None -> true
+    | Option ty, Some x -> is_empty ty x
+    | Record _, x ->
+        Keys.for_all is_empty_field x.fields
+    | _ -> false
+  and is_empty_field: type a. _ -> a sum -> bool = fun _ ->
+    function
+    | Enum _ -> false
+    | Constr(kt,x) -> is_empty kt.typ x
+
+
   let rec elt : type a. conv -> extension_printer
     -> a typ -> Format.formatter -> a -> unit =
     fun conv {extension} typ ppf x ->
@@ -507,12 +521,7 @@ module Fmt = struct
         match Keys.find_opt key prod.fields with
         | Some (Enum _) as c -> c
         | None -> None
-        | Some (Constr (kt,x)) as c ->
-            match kt.typ, x with
-            | List {optional=true; elt=_ }, [] -> None
-            | Option _, None -> None
-            | Record _, x when Keys.is_empty x.fields -> None
-            | _ -> c
+        | Some (Constr (kt,x)) as c -> if is_empty kt.typ x then None else c
       in
       let fields = List.filter_map field (List.rev keys) in
       let pp_field ppf = function
@@ -645,8 +654,15 @@ let item_key_scheme: type a b. (a prod list,b) key -> a def  = fun key ->
   | List { elt=Record sch; _ } -> sch
   | _ -> .
 
+let option_key_scheme: type a b. (a prod option,b) key -> a def  = fun key ->
+  match key.typ with
+  | Custom _ -> assert false
+  | Option (Custom _) -> assert false
+  | Option (Record sch) -> sch
+  | _ -> .
 
-let generic_detach key_scheme lift log key =
+
+let generic_detach key_scheme store lift log key =
   let out = Keys.find_opt key.name log.redirections in
   let mode = match log.mode with
     | Direct d ->
@@ -657,7 +673,7 @@ let generic_detach key_scheme lift log key =
         let out = match st.out, out with
           | Some (_,pr), Some out-> Some(out,pr)
           | x, _ ->
-              Store.record st.data ~key (lift data);
+              store st.data ~key (lift data);
               x
         in
         Store { data; out }
@@ -671,8 +687,12 @@ let generic_detach key_scheme lift log key =
     } in
   child
 
-let detach log key = generic_detach key_scheme Fun.id log key
-let detach_item log key = generic_detach item_key_scheme (fun x -> [x]) log key
+let detach log key = generic_detach key_scheme Store.record Fun.id log key
+let detach_item log key =
+  generic_detach item_key_scheme Store.cons (fun x -> x) log key
+let detach_option log key =
+  generic_detach option_key_scheme Store.record (fun x -> Some x) log key
+
 
 let set key x log =
   match log.mode, Keys.find_opt key.name log.redirections with
@@ -692,19 +712,17 @@ let set key x log =
 let cons key x log =
   match log.mode, Keys.find_opt key.name log.redirections with
   | Direct _, _ | _, Some _ -> set key [x] log
-  | Store st, None -> Store.cons st.data key x
+  | Store st, None -> Store.cons st.data ~key x
 
 let (.%[]<-) log key x = set key x log
 
-let f key log fmt =
-  Format.kasprintf (fun s -> log.%[key] <- s) fmt
-let itemf key log fmt =
-  Format.kasprintf (fun s -> cons key s log) fmt
+let f key log fmt = Format.kasprintf (fun s -> log.%[key] <- s) fmt
+let itemf key log fmt = Format.kasprintf (fun s -> cons key s log) fmt
 
-let d key log fmt =
-  Format.kdprintf (fun s -> log.%[key] <- s) fmt
-let itemd key log fmt =
-  Format.kdprintf (fun s -> cons key s log) fmt
+let d key log fmt = Format.kdprintf (fun s -> log.%[key] <- s) fmt
+let itemd key log fmt = Format.kdprintf (fun s -> cons key s log) fmt
+
+let o key log fmt = Format.kdprintf (fun s -> log.%[key] <- Some s) fmt
 
 
 let flush: type a. a log -> unit = fun log ->
@@ -720,7 +738,8 @@ let flush: type a. a log -> unit = fun log ->
       Option.iter (fun (out,{print}) ->
           let ppf = !(out.ppf) in
           print ppf st.data
-        ) st.out
+        ) st.out;
+        st.data.fields <- Keys.empty
   end;
   Keys.iter (fun _ -> Fmt.flush) log.redirections
 
@@ -829,15 +848,15 @@ module Compiler = struct
   let debug = new_key v1 "debug" (Record Debug.scheme)
 end
 
-let dlist = List { optional=true; elt=Doc}
-
+let dloc = List { optional=true; elt = Doc}
 module Toplevel = struct
   include New_root_scheme()
-  let output = new_key v1 "output" (List {optional = false; elt=Doc} )
-  let compiler_log = new_key v1 "compiler_log"
-      (List { elt = Record Compiler.scheme; optional = true } )
-  let errors = new_key v1 "errors" dlist
-  let trace = new_key v1 "trace" dlist
+  let output = new_key v1 "output" Doc
+  let backtrace = new_key v1 "backtrace" (Option Doc)
+  let compiler_log =
+    new_key v1 "compiler_log" (Option (Record Compiler.scheme))
+  let errors = new_key v1 "errors" dloc
+  let trace = new_key v1 "trace" dloc
 end
 
 let log_if dlog key flag printer x =

@@ -397,17 +397,17 @@ let show_prim to_sig log lid =
       | Longident.Lident s -> s
       | Longident.Ldot (_,s) -> s
       | Longident.Lapply _ ->
-          Log.itemd Log.Toplevel.output log "Invalid path %a"
+          Log.itemd Log.Toplevel.errors log "Invalid path %a"
             Printtyp.longident lid;
           raise Exit
     in
     let id = Ident.create_persistent s in
     let sg = to_sig env loc id lid in
     Printtyp.wrap_printing_env ~error:false env
-      (fun () -> Log.itemd Log.Toplevel.output log "@[%a@]"
+      (fun () -> Log.d Log.Toplevel.output log "@[%a@]"
           Printtyp.signature sg)
   with
-  | Not_found -> Log.itemd Log.Toplevel.output log  "@[Unknown element.@]"
+  | Not_found -> Log.itemd Log.Toplevel.errors log  "@[Unknown element.@]"
   | Exit -> ()
 
 let all_show_funs = ref []
@@ -784,7 +784,7 @@ let print_directives ppf () =
   List.iter (print_section ppf) (directive_sections ())
 
 let log_directives log () =
-  Log.itemd Log.Toplevel.output log "@[<v>%a@]" print_directives ()
+  Log.d Log.Toplevel.output log "@[<v>%a@]" print_directives ()
 
 let _ = add_directive "help"
     (Directive_none log_directives)

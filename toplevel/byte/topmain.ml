@@ -30,7 +30,7 @@ let dir_trace log lid =
       (* Check if this is a primitive *)
       match desc.val_kind with
       | Val_prim _ ->
-          Log.itemd Log.Toplevel.trace log
+          Log.itemd Log.Toplevel.errors log
             "%a is an external function and cannot be traced."
           Printtyp.longident lid
       | _ ->
