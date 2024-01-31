@@ -790,7 +790,7 @@ module Error_log = struct[@warning "-unused-value-declaration"]
 
   let report_typ = Custom { id = Error; pull; default = Record Error.scheme }
 
-  let key = Log.Compiler.new_key v1 "error" report_typ
+  let key = Log.Compiler.new_key v1 "error" (Option report_typ)
 
   let warnings =
     Log.Compiler.new_key v1 "warnings" (List {optional=true; elt=report_typ})
@@ -951,7 +951,7 @@ let print_report ppf report =
   let printer = !report_printer () in
   pp_report printer ppf report
 
-let log_report log report = log.Log.%[Error_log.key] <- report
+let log_report log report = log.Log.%[Error_log.key] <- Some report
 
 (******************************************************************************)
 (* Reporting errors *)
@@ -1139,7 +1139,7 @@ let report_exception log exn =
     match error_of_exn exn with
     | None -> reraise exn
     | Some `Already_displayed -> ()
-    | Some (`Ok err) -> log.Log.%[Error_log.key] <- err
+    | Some (`Ok err) -> log.Log.%[Error_log.key] <- Some err
     | exception exn when n > 0 -> loop (n-1) exn
   in
   loop 5 exn

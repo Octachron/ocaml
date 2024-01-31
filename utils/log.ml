@@ -346,23 +346,34 @@ module Store = struct
       store.fields <- Keys.add key.name (constr key l) store.fields
 
 
+  let rec validate: type id. id def -> id prod -> bool =
+    fun sch st ->
+     Option.iter (fun key -> record st ~key !(sch.scheme_version))
+        sch.version_key;
+      match sch.validity_key with
+      | None ->  validate_fields sch.keys st.fields
+      | Some key ->
+          record st ~key false (* the validation key is part of the scheme *);
+          let r = validate_fields sch.keys st.fields in
+          record st ~key r;
+          r
 
-  let rec validate: type id.
+  and validate_fields: type id.
     (Keys.key * key_metadata) list -> id sum Keys.t -> bool =
     fun metadata data ->
     List.fold_left (fun valid (k,kmd) ->
-       valid && validate_key (is_optional kmd) (Keys.find_opt k data)
+       valid && validate_key k (is_optional kmd) (Keys.find_opt k data)
       ) true metadata
-  and validate_key: type a. bool -> a sum option -> bool  =
-    fun opt k ->
+  and validate_key: type a. string -> bool -> a sum option -> bool  =
+    fun name opt k ->
     match opt, k with
     | true, None -> true
-    | _, None -> false
+    | _, None -> Format.eprintf "missing key%s@." name; false
     | _, Some (Enum _) -> true
     | _, Some (Constr (k,v)) -> validate_value v k.typ
   and validate_value: type a. a -> a typ -> bool = fun v typ ->
     match typ with
-    | Record m -> validate m.keys v.fields
+    | Record m -> validate m v
     | Int -> true
     | Bool -> true
     | Doc -> true
@@ -729,12 +740,7 @@ let flush: type a. a log -> unit = fun log ->
   begin match log.mode with
   | Direct d -> Fmt.flush d
   | Store st ->
-      Option.iter (fun vk -> log.%[vk] <- !(log.scheme.scheme_version))
-        log.scheme.version_key;
-      Option.iter (fun vk ->
-          log.%[vk] <- false (* the validation key is part of the scheme *);
-          log.%[vk] <- Store.validate log.scheme.keys st.data.fields
-        ) log.scheme.validity_key;
+      ignore (Store.validate log.scheme st.data);
       Option.iter (fun (out,{print}) ->
           let ppf = !(out.ppf) in
           print ppf st.data
