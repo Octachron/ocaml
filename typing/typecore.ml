@@ -203,6 +203,9 @@ type error =
 let not_principal fmt =
   Format_doc.Immutable.kmsg (fun x -> Warnings.Not_principal x) fmt
 
+let non_principal_labels fmt =
+  Format_doc.Immutable.kmsg (fun x -> Warnings.Non_principal_labels x) fmt
+
 exception Error of Location.t * Env.t * error
 exception Error_forward of Location.error
 
@@ -1126,11 +1129,13 @@ end) = struct
 
   (* warn if there are several distinct candidates in scope *)
   let warn_if_ambiguous warn lid env lbl rest =
-    if Warnings.is_active (Ambiguous_name ([],[],false,"")) then begin
+    if Warnings.is_active
+        (Ambiguous_name ([],[],false,Format_doc.empty))
+    then begin
       Printtyp.Conflicts.reset ();
       let paths = ambiguous_types env lbl rest in
       let expansion =
-        Format_doc.asprintf "%t" Printtyp.Conflicts.print_explanations in
+        Format_doc.doc_printf "%t" Printtyp.Conflicts.print_explanations in
       if paths <> [] then
         warn lid.loc
           (Warnings.Ambiguous_name ([Longident.last lid.txt],
@@ -5190,7 +5195,7 @@ and type_argument ?explanation ?recarg env sarg ty_expected' ty_expected =
         (Warnings.Eliminated_optional_arguments
            (List.map (fun (l, _) -> Printtyp.string_of_label l) args));
       if warn then Location.prerr_warning texp.exp_loc
-          (Warnings.Non_principal_labels "eliminated optional argument");
+          (non_principal_labels "eliminated optional argument");
       (* let-expand to have side effects *)
       let let_pat, let_var = var_pair "arg" texp.exp_type in
       re { texp with exp_type = ty_fun; exp_desc =
@@ -5340,7 +5345,7 @@ and type_application env funct sargs =
         in
         let eliminate_optional_arg () =
           may_warn funct.exp_loc
-            (Warnings.Non_principal_labels "eliminated optional argument");
+            (non_principal_labels "eliminated optional argument");
           eliminated_optional_arguments :=
             (l,ty,lv) :: !eliminated_optional_arguments;
           (fun () -> option_none env (instance ty) Location.none)
@@ -5385,7 +5390,7 @@ and type_application env funct sargs =
                   (* No argument was given for this parameter, we abstract over
                      it. *)
                   may_warn funct.exp_loc
-                    (Warnings.Non_principal_labels "commuted an argument");
+                    (non_principal_labels "commuted an argument");
                   omitted_parameters := (l,ty,lv) :: !omitted_parameters;
                   None
                 end

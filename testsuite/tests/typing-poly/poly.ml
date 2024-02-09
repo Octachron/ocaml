@@ -53,8 +53,8 @@ Lines 1-4, characters 0-24:
 3 | | {pv=5::_} -> "int"
 4 | | {pv=true::_} -> "bool"
 Warning 8 [partial-match]: this pattern-matching is not exhaustive.
-Here is an example of a case that is not matched:
-{pv=false::_}
+                           Here is an example of a case that is not matched:
+                           "{pv=false::_}"
 
 - : string = "OK"
 |}];;
@@ -71,8 +71,8 @@ Lines 1-4, characters 0-20:
 3 | | {pv=true::_} -> "bool"
 4 | | {pv=5::_} -> "int"
 Warning 8 [partial-match]: this pattern-matching is not exhaustive.
-Here is an example of a case that is not matched:
-{pv=0::_}
+                           Here is an example of a case that is not matched:
+                           "{pv=0::_}"
 
 - : string = "OK"
 |}];;
@@ -1111,7 +1111,7 @@ Line 4, characters 11-60:
 4 | let f () = object method private n = 1 method m = {<>}#n end;;
                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Warning 15 [implicit-public-methods]: the following private methods were made public implicitly:
- n.
+                                        "n".
 
 val f : unit -> < m : int; n : int > = <fun>
 Line 5, characters 27-39:

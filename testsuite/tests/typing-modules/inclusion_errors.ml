@@ -1850,6 +1850,6 @@ Error: Signature mismatch:
          sig type t val x : t val y : t end
        In module "N":
        The type "t" is required but not provided
-       The value "x" is required but not provided
+       The value "y" is required but not providedThe value "x" is required but not provided
        The value "y" is required but not provided
 |}];;

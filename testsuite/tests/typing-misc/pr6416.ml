@@ -399,9 +399,9 @@ module Foo : sig type info = { doc : unit; } type t = { info : info; } end
 Line 5, characters 38-41:
 5 | let add_extra_info arg = arg.Foo.info.doc
                                           ^^^
-Warning 40 [name-out-of-scope]: doc was selected from type Foo.info.
-It is not visible in the current scope, and will not
-be selected if the type becomes unknown.
+Warning 40 [name-out-of-scope]: "doc" was selected from type "Foo.info".
+                                It is not visible in the current scope, and will not
+                                be selected if the type becomes unknown.
 
 val add_extra_info : Foo.t -> unit = <fun>
 |}]
@@ -422,9 +422,9 @@ module Bar : sig end
 Line 8, characters 38-41:
 8 | let add_extra_info arg = arg.Foo.info.doc
                                           ^^^
-Warning 40 [name-out-of-scope]: doc was selected from type Bar/2.info.
-It is not visible in the current scope, and will not
-be selected if the type becomes unknown.
+Warning 40 [name-out-of-scope]: "doc" was selected from type "Bar/2.info".
+                                It is not visible in the current scope, and will not
+                                be selected if the type becomes unknown.
 
 val add_extra_info : Foo.t -> unit = <fun>
 |}]

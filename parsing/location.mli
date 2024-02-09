@@ -360,3 +360,6 @@ val raise_errorf: ?loc:t -> ?sub:msg list ->
 
 val report_exception: Format.formatter -> exn -> unit
 (** Reraise the exception if it is unknown. *)
+
+(* Warning emitter for warning with submessages *)
+val inlining_impossible: t -> ('a,Format_doc.formatter,unit) format -> 'a

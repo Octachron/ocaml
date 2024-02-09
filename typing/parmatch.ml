@@ -1897,23 +1897,30 @@ let do_check_partial ~pred loc casel pss = match pss with
     match counter_examples () with
     | Seq.Nil -> Total
     | Seq.Cons (v, _rest) ->
-      if Warnings.is_active (Warnings.Partial_match "") then begin
-        let doc = ref Format_doc.empty in
-        let fmt = Format_doc.make_doc doc in
-        try
-          Format_doc.fprintf fmt "%a@?@[<v>" Printpat.top_pretty v;
-          if do_match (initial_only_guarded casel) [v] then
-            Format_doc.fprintf fmt
-              "@,(However, some guarded clause may match this value.)";
+      if Warnings.is_active (Warnings.Partial_match None) then begin
+        let errmsg =
+          let guarded ppf =
+            if do_match (initial_only_guarded casel) [v] then
+              Format_doc.fprintf ppf
+                "@,(However, some guarded clause may match this value.)"
+            else ()
+          in
+          let extension ppf =
           if contains_extension v then
-            Format_doc.fprintf fmt
+            Format_doc.fprintf ppf
               "@,Matching over values of extensible variant types \
                (the *extension* above)@,\
                must include a wild card pattern in order to be exhaustive."
-          ;
-          Format_doc.fprintf fmt "@]"
-        with _ -> ();
-        let errmsg = Format_doc.(asprintf "%a" pp_doc) !doc in
+          else ()
+          in
+          try
+            Format_doc.kdoc_printf (fun doc -> Some doc)
+              "%a@[<v>%t%t@]"
+              (Style.as_inline_code Printpat.top_pretty) v
+              guarded
+              extension
+          with _ -> None
+        in
         Location.prerr_warning loc (Warnings.Partial_match errmsg)
       end;
       Partial

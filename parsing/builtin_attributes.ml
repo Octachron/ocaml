@@ -274,8 +274,10 @@ let rec attrs_of_str = function
 
 let alerts_of_str str = alerts_of_attrs (attrs_of_str str)
 
-let warn_payload loc txt msg =
-  Location.prerr_warning loc (Warnings.Attribute_payload (txt, msg))
+let warn_payload loc txt fmt =
+  Format_doc.kdoc_printf (fun msg ->
+      Location.prerr_warning loc (Warnings.Attribute_payload (txt, msg))
+    ) fmt
 
 let warning_attribute ?(ppwarning = true) =
   let process loc name errflag payload =
@@ -285,7 +287,7 @@ let warning_attribute ?(ppwarning = true) =
         begin try
           Option.iter (Location.prerr_alert loc)
             (Warnings.parse_options errflag s)
-        with Arg.Bad msg -> warn_payload loc name.txt msg
+        with Arg.Bad msg -> warn_payload loc name.txt "%s" msg
         end
     | None ->
         warn_payload loc name.txt "A single string literal is expected"
@@ -299,7 +301,7 @@ let warning_attribute ?(ppwarning = true) =
         begin
           mark_used name;
           try Warnings.parse_alert_option s
-          with Arg.Bad msg -> warn_payload loc name.txt msg
+          with Arg.Bad msg -> warn_payload loc name.txt "%s" msg
         end
     | k ->
         (* Don't [mark_used] in the [Some] cases - that happens in [Env] or

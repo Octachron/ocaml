@@ -174,7 +174,6 @@ val pp_print_newline: unit printer
 val pp_print_list:
   ?pp_sep:unit printer -> 'a printer -> 'a list printer
 
-
 val pp_print_option:
   ?none:(unit printer) -> 'a printer -> 'a option printer
 val pp_open_stag: Format.stag printer
