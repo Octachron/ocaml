@@ -92,7 +92,7 @@ Line 5, characters 11-12:
 5 |   type t = T
                ^
 Warning 37 [unused-constructor]: constructor T is never used to build values.
-(However, this constructor appears in patterns.)
+                                 (However, this constructor appears in patterns.)
 
 module Unused_constructor_outside_patterns :
   sig type t val nothing : t -> unit end
@@ -109,7 +109,7 @@ Line 4, characters 11-12:
 4 |   type t = T
                ^
 Warning 37 [unused-constructor]: constructor T is never used to build values.
-Its type is exported as a private type.
+                                 Its type is exported as a private type.
 
 module Unused_constructor_exported_private : sig type t = private T end
 |}]
@@ -236,7 +236,7 @@ Line 4, characters 2-32:
 4 |   exception Nobody_constructs_me
       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Warning 38 [unused-extension]: exception Nobody_constructs_me is never used to build values.
-(However, this constructor appears in patterns.)
+                               (However, this constructor appears in patterns.)
 
 module Unused_exception_outside_patterns : sig val falsity : exn -> bool end
 |}]
@@ -257,7 +257,7 @@ Line 6, characters 12-27:
 6 |   type t += Noone_builds_me
                 ^^^^^^^^^^^^^^^
 Warning 38 [unused-extension]: extension constructor Noone_builds_me is never used to build values.
-(However, this constructor appears in patterns.)
+                               (However, this constructor appears in patterns.)
 
 module Unused_extension_outside_patterns :
   sig type t = .. val falsity : t -> bool end
@@ -274,7 +274,7 @@ Line 4, characters 2-23:
 4 |   exception Private_exn
       ^^^^^^^^^^^^^^^^^^^^^
 Warning 38 [unused-extension]: exception Private_exn is never used to build values.
-It is exported or rebound as a private extension.
+                               It is exported or rebound as a private extension.
 
 module Unused_exception_exported_private :
   sig type exn += private Private_exn end
@@ -293,7 +293,7 @@ Line 6, characters 12-23:
 6 |   type t += Private_ext
                 ^^^^^^^^^^^
 Warning 38 [unused-extension]: extension constructor Private_ext is never used to build values.
-It is exported or rebound as a private extension.
+                               It is exported or rebound as a private extension.
 
 module Unused_extension_exported_private :
   sig type t = .. type t += private Private_ext end
@@ -426,7 +426,7 @@ Line 2, characters 13-20:
 2 |   type t = { a : int }
                  ^^^^^^^
 Warning 69 [unused-field]: record field a is never read.
-(However, this field is used to build or mutate values.)
+                           (However, this field is used to build or mutate values.)
 
 module Unused_field : sig end
 |}]
@@ -443,7 +443,7 @@ Line 2, characters 22-30:
 2 |   type t = { a : int; b : int; c : int }
                           ^^^^^^^^
 Warning 69 [unused-field]: record field b is never read.
-(However, this field is used to build or mutate values.)
+                           (However, this field is used to build or mutate values.)
 
 module Unused_field : sig end
 |}]

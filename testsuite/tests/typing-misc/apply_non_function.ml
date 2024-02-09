@@ -93,7 +93,7 @@ let () =
 Line 2, characters 2-11:
 2 |   (+) 1 2 3
       ^^^^^^^^^
-Error: The function '(+)' has type int -> int -> int
+Error: The function '+' has type int -> int -> int
        It is applied to too many arguments
 Line 2, characters 10-11:
 2 |   (+) 1 2 3

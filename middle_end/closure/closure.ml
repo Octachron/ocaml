@@ -790,8 +790,10 @@ let bind_params { backend; mutable_vars; _ } loc fdesc params args funct body =
 
 let warning_if_forced_inline ~loc ~attribute warning =
   if attribute = Always_inline then
+    Format_doc.kdoc_printf (fun w ->
     Location.prerr_warning (Debuginfo.Scoped_location.to_location loc)
-      (Warnings.Inlining_impossible warning)
+      (Warnings.Inlining_impossible w)
+      ) warning
 
 (* Generate a direct application *)
 

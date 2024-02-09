@@ -913,11 +913,10 @@ let default_warning_alert_reporter report mk (loc: t) w : report option =
   match report w with
   | `Inactive -> None
   | `Active { Warnings.id; message; is_error; sub_locs } ->
-      let msg_of_str str = Format_doc.(empty |> Immutable.string str) in
       let kind = mk is_error id in
-      let main = { loc; txt = msg_of_str message } in
+      let main = { loc; txt = message } in
       let sub = List.map (fun (loc, sub_message) ->
-        { loc; txt = msg_of_str sub_message }
+        { loc; txt = sub_message }
       ) sub_locs in
       Some { kind; main; sub }
 
@@ -1046,3 +1045,10 @@ let () =
 
 let raise_errorf ?(loc = none) ?(sub = []) =
   Format.kdprintf (fun txt -> raise (Error (mkerror loc sub txt)))
+
+(* Constructor for emitting warning with submsg *)
+
+let inlining_impossible loc fmt =
+  Format_doc.kdoc_printf
+    (fun msg -> prerr_warning loc (Warnings.Inlining_impossible msg))
+  fmt

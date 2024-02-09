@@ -108,16 +108,19 @@ let get_bool_from_exp exp =
       | "false" -> Result.Ok false
       | _ -> Result.Error ())
 
+let attribute_payload txt loc fmt =
+  Format_doc.kdoc_printf (fun msg ->
+    Location.prerr_warning loc (Warnings.Attribute_payload (txt, msg))
+  ) fmt
+
+let inline_code = Format_doc.pp_print_string
+
 let parse_id_payload txt loc ~default ~empty cases payload =
   let[@local] warn () =
-    let ( %> ) f g x = g (f x) in
-    let msg =
-      cases
-      |> List.map (fst %> Printf.sprintf "'%s'")
-      |> String.concat ", "
-      |> Printf.sprintf "It must be either %s or empty"
-    in
-    Location.prerr_warning loc (Warnings.Attribute_payload (txt, msg));
+    let pp_id ppf (x,_) = inline_code ppf x in
+    let comma ppf () = Format_doc.fprintf ppf ",@ " in
+    attribute_payload txt loc "It must be either %a or empty"
+      Format_doc.(pp_print_list ~pp_sep:comma pp_id) cases;
     default
   in
   match get_optional_payload get_id_from_exp payload with
@@ -134,13 +137,10 @@ let parse_inline_attribute attr =
   | Some {Parsetree.attr_name = {txt;loc} as id; attr_payload = payload} ->
     if is_unrolled id then begin
       (* the 'unrolled' attributes must be used as [@unrolled n]. *)
-      let warning txt = Warnings.Attribute_payload
-          (txt, "It must be an integer literal")
-      in
       match get_payload get_int_from_exp payload with
       | Ok n -> Unroll n
       | Error () ->
-        Location.prerr_warning loc (warning txt);
+        attribute_payload txt loc "It must be an integer literal";
         Default_inline
     end else
       parse_id_payload txt loc
@@ -219,18 +219,17 @@ let check_local_inline loc attr =
 let check_poll_inline loc attr =
   match attr.poll, attr.inline with
   | Error_poll, (Always_inline | Hint_inline | Unroll _) ->
-      Location.prerr_warning loc
-        (Warnings.Inlining_impossible
-          "[@poll error] is incompatible with inlining")
+    Location.inlining_impossible loc "%a is incompatible with inlining"
+        inline_code "[@poll error]"
   | _ ->
       ()
 
 let check_poll_local loc attr =
   match attr.poll, attr.local with
   | Error_poll, Always_local ->
-      Location.prerr_warning loc
-        (Warnings.Inlining_impossible
-          "[@poll error] is incompatible with local function optimization")
+       Location.inlining_impossible loc
+         "%a is incompatible with local function optimization"
+         inline_code "[@poll error]"
   | _ ->
       ()
 
@@ -392,7 +391,7 @@ let get_tailcall_attribute e =
         | Ok (None | Some true) -> Tailcall_expectation true
         | Ok (Some false) -> Tailcall_expectation false
         | Error () ->
-            let msg = "Only an optional boolean literal is supported." in
+            let msg = Format_doc.doc_printf "Only an optional boolean literal is supported." in
             Location.prerr_warning loc (Warnings.Attribute_payload (txt, msg));
             Default_tailcall
       in

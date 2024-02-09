@@ -41,8 +41,8 @@ Line 5, characters 10-14:
 5 |       let None = None
               ^^^^
 Warning 8 [partial-match]: this pattern-matching is not exhaustive.
-Here is an example of a case that is not matched:
-Some _
+                           Here is an example of a case that is not matched:
+                           Some _
 
 Line 4, characters 6-12:
 4 |       open A

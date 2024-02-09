@@ -520,8 +520,9 @@ let kdprintf k (CamlinternalFormatBasics.Format (fmt, _)) =
 
 let dprintf fmt = kdprintf (fun i -> i) fmt
 
-
 let doc_printf fmt = kfprintf (fun ppf -> doc ppf) (make_doc (ref empty)) fmt
+let kdoc_printf k fmt =
+  kfprintf (fun ppf -> k @@ doc ppf) (make_doc (ref empty)) fmt
 
 
 let doc_printer f x doc =

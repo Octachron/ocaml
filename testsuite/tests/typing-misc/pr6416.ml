@@ -55,7 +55,7 @@ Error: Signature mismatch:
        Constructors do not match:
          A of t
        is not the same as:
-         A of t
+         A of t/2
        The type t is not equal to the type t/2
        Line 4, characters 9-19:
          Definition of type t
@@ -400,8 +400,8 @@ Line 5, characters 38-41:
 5 | let add_extra_info arg = arg.Foo.info.doc
                                           ^^^
 Warning 40 [name-out-of-scope]: doc was selected from type Foo.info.
-It is not visible in the current scope, and will not
-be selected if the type becomes unknown.
+                                It is not visible in the current scope, and will not
+                                be selected if the type becomes unknown.
 
 val add_extra_info : Foo.t -> unit = <fun>
 |}]
@@ -423,8 +423,8 @@ Line 8, characters 38-41:
 8 | let add_extra_info arg = arg.Foo.info.doc
                                           ^^^
 Warning 40 [name-out-of-scope]: doc was selected from type Bar/2.info.
-It is not visible in the current scope, and will not
-be selected if the type becomes unknown.
+                                It is not visible in the current scope, and will not
+                                be selected if the type becomes unknown.
 
 val add_extra_info : Foo.t -> unit = <fun>
 |}]

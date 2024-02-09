@@ -796,9 +796,8 @@ let simplify_local_functions lam =
   let current_function_scope = ref lam in
   let check_static lf =
     if lf.attr.local = Always_local then
-      Location.prerr_warning (to_location lf.loc)
-        (Warnings.Inlining_impossible
-           "This function cannot be compiled into a static continuation")
+      Location.inlining_impossible (to_location lf.loc)
+        "This function cannot be compiled into a static continuation"
   in
   let enabled = function
     | {local = Always_local; _}

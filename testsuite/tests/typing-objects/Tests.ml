@@ -138,7 +138,7 @@ Lines 1-4, characters 0-3:
 3 |   method f x = (x : bool c)
 4 | end..
 Error: The abbreviation c is used with parameter(s) bool
-       which are incompatible with constraint(s) int
+       which are incompatible with constraint(s) bool
 |}];;
 
 (* Different constraints *)
@@ -483,8 +483,8 @@ end;;
 Line 3, characters 2-13:
 3 |   inherit c 5
       ^^^^^^^^^^^
-Warning 13 [instance-variable-override]: the following instance variables are overridden by the class c :
-  x
+Warning 13 [instance-variable-override]: the following instance variables are overridden by the class c:
+                                            x
 
 Line 4, characters 6-7:
 4 |   val y = 3
@@ -494,8 +494,9 @@ Warning 13 [instance-variable-override]: the instance variable y is overridden.
 Line 6, characters 2-13:
 6 |   inherit d 7
       ^^^^^^^^^^^
-Warning 13 [instance-variable-override]: the following instance variables are overridden by the class d :
-  t z
+Warning 13 [instance-variable-override]: the following instance variables are overridden by the class d:
+                                            t
+                                         z
 
 Line 7, characters 6-7:
 7 |   val u = 3
@@ -1133,7 +1134,7 @@ Line 3, characters 10-75:
 3 | class c = object (self) method private foo = 5 initializer has_foo self end;;
               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Warning 15 [implicit-public-methods]: the following private methods were made public implicitly:
- foo.
+                                        foo.
 
 class c : object method foo : int end
 |}];;

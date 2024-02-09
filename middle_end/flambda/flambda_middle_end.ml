@@ -31,6 +31,8 @@ let _dump_function_sizes flam ~backend =
           | None -> assert false)
         set_of_closures.function_decls.funs)
 
+let inline_code = Format_doc.pp_print_string
+
 let lambda_to_flambda ~ppf_dump ~prefixname ~backend ~size
       ~module_ident ~module_initializer =
   Profile.record_call "flambda" (fun () ->
@@ -175,17 +177,18 @@ let lambda_to_flambda ~ppf_dump ~prefixname ~backend ~size
                   this triggers as a result of the propagation of a user's
                   attribute into the second part of an over application
                   (inline_and_simplify.ml line 710). *)
-               Location.prerr_warning (Debuginfo.to_location apply.dbg)
-                 (Warnings.Inlining_impossible
-                    "[@inlined] attribute was not used on this function \
-                     application (the optimizer did not know what function \
-                     was being applied)")
+               Location.inlining_impossible (Debuginfo.to_location apply.dbg)
+                    "%a attribute was not used on this function@ \
+                     application@ (the optimizer did not know what function \
+                     was being applied)"
+                    inline_code "[@inlined]"
              | Unroll _ ->
-               Location.prerr_warning (Debuginfo.to_location apply.dbg)
-                 (Warnings.Inlining_impossible
-                    "[@unrolled] attribute was not used on this function \
-                     application (the optimizer did not know what function \
-                     was being applied)"));
+                 Location.inlining_impossible (Debuginfo.to_location apply.dbg)
+                    "%a attribute was not used on this function@ \
+                     application@ (the optimizer did not know what function \
+                     was being applied)"
+                    inline_code "[@unrolled]"
+             );
            if !Clflags.dump_flambda
            then
              Format.fprintf ppf_dump "End of middle end:@ %a@."

@@ -172,8 +172,10 @@ let check_no_alert attrs =
     )
     (alert_attrs attrs)
 
-let warn_payload loc txt msg =
+let warn_payload loc txt fmt =
+  Format_doc.kdoc_printf (fun msg ->
   Location.prerr_warning loc (Warnings.Attribute_payload (txt, msg))
+) fmt
 
 let warning_attribute ?(ppwarning = true) =
   let process loc txt errflag payload =
@@ -182,7 +184,7 @@ let warning_attribute ?(ppwarning = true) =
         begin try
           Option.iter (Location.prerr_alert loc)
             (Warnings.parse_options errflag s)
-        with Arg.Bad msg -> warn_payload loc txt msg
+        with Arg.Bad msg -> warn_payload loc txt "%s" msg
         end
     | None ->
         warn_payload loc txt "A single string literal is expected"
@@ -194,7 +196,7 @@ let warning_attribute ?(ppwarning = true) =
                 _)
            }] ->
         begin try Warnings.parse_alert_option s
-        with Arg.Bad msg -> warn_payload loc txt msg
+        with Arg.Bad msg -> warn_payload loc txt "%s" msg
         end
     | k ->
         match kind_and_message k with

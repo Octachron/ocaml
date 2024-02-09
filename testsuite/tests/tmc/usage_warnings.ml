@@ -19,19 +19,19 @@ Line 3, characters 17-40:
 3 |   | xs :: xss -> append xs (flatten xss)
                      ^^^^^^^^^^^^^^^^^^^^^^^
 Warning 72 [tmc-breaks-tailcall]: This call
-is in tail-modulo-cons position in a TMC function,
-but the function called is not itself specialized for TMC,
-so the call will not be transformed into a tail call.
-Please either mark the called function with the [@tail_mod_cons]
-attribute, or mark this call with the [@tailcall false] attribute
-to make its non-tailness explicit.
+                                  is in tail-modulo-cons position in a TMC function,
+                                  but the function called is not itself specialized for TMC,
+                                  so the call will not be transformed into a tail call.
+                                  Please either mark the called function with the [@tail_mod_cons]
+                                  attribute, or mark this call with the [@tailcall false] attribute
+                                  to make its non-tailness explicit.
 
 Lines 1-3, characters 34-40:
 1 | ..................................function
 2 |   | [] -> []
 3 |   | xs :: xss -> append xs (flatten xss)
 Warning 71 [unused-tmc-attribute]: This function is marked @tail_mod_cons
-but is never applied in TMC position.
+                                   but is never applied in TMC position.
 
 val flatten : 'a list list -> 'a list = <fun>
 |}]
@@ -65,12 +65,12 @@ Line 10, characters 9-30:
 10 |       in append_flatten xs xss
               ^^^^^^^^^^^^^^^^^^^^^
 Warning 72 [tmc-breaks-tailcall]: This call
-is in tail-modulo-cons position in a TMC function,
-but the function called is not itself specialized for TMC,
-so the call will not be transformed into a tail call.
-Please either mark the called function with the [@tail_mod_cons]
-attribute, or mark this call with the [@tailcall false] attribute
-to make its non-tailness explicit.
+                                  is in tail-modulo-cons position in a TMC function,
+                                  but the function called is not itself specialized for TMC,
+                                  so the call will not be transformed into a tail call.
+                                  Please either mark the called function with the [@tail_mod_cons]
+                                  attribute, or mark this call with the [@tailcall false] attribute
+                                  to make its non-tailness explicit.
 
 Lines 1-10, characters 34-30:
  1 | ..................................function
@@ -84,7 +84,7 @@ Lines 1-10, characters 34-30:
  9 |             x :: append_flatten xs xss
 10 |       in append_flatten xs xss
 Warning 71 [unused-tmc-attribute]: This function is marked @tail_mod_cons
-but is never applied in TMC position.
+                                   but is never applied in TMC position.
 
 val flatten : 'a list list -> 'a list = <fun>
 |}]
@@ -111,12 +111,12 @@ Line 13, characters 12-23:
 13 |             flatten xss
                  ^^^^^^^^^^^
 Warning 72 [tmc-breaks-tailcall]: This call
-is in tail-modulo-cons position in a TMC function,
-but the function called is not itself specialized for TMC,
-so the call will not be transformed into a tail call.
-Please either mark the called function with the [@tail_mod_cons]
-attribute, or mark this call with the [@tailcall false] attribute
-to make its non-tailness explicit.
+                                  is in tail-modulo-cons position in a TMC function,
+                                  but the function called is not itself specialized for TMC,
+                                  so the call will not be transformed into a tail call.
+                                  Please either mark the called function with the [@tail_mod_cons]
+                                  attribute, or mark this call with the [@tailcall false] attribute
+                                  to make its non-tailness explicit.
 
 val flatten : 'a list list -> 'a list = <fun>
 |}]
@@ -166,12 +166,12 @@ Lines 20-23, characters 10-27:
 22 |                the call becomes non-tailcall in the TMC version. *)
 23 |             (filter_1 f xs)
 Warning 72 [tmc-breaks-tailcall]: This call
-is in tail-modulo-cons position in a TMC function,
-but the function called is not itself specialized for TMC,
-so the call will not be transformed into a tail call.
-Please either mark the called function with the [@tail_mod_cons]
-attribute, or mark this call with the [@tailcall false] attribute
-to make its non-tailness explicit.
+                                  is in tail-modulo-cons position in a TMC function,
+                                  but the function called is not itself specialized for TMC,
+                                  so the call will not be transformed into a tail call.
+                                  Please either mark the called function with the [@tail_mod_cons]
+                                  attribute, or mark this call with the [@tailcall false] attribute
+                                  to make its non-tailness explicit.
 
 module Tail_calls_to_non_specialized_functions :
   sig
@@ -250,12 +250,12 @@ Line 16, characters 13-56:
 16 |         then (graft[@tailcall]) (* this should warn *) n
                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Warning 72 [tmc-breaks-tailcall]: This call
-is in tail-modulo-cons position in a TMC function,
-but the function called is not itself specialized for TMC,
-so the call will not be transformed into a tail call.
-Please either mark the called function with the [@tail_mod_cons]
-attribute, or mark this call with the [@tailcall false] attribute
-to make its non-tailness explicit.
+                                  is in tail-modulo-cons position in a TMC function,
+                                  but the function called is not itself specialized for TMC,
+                                  so the call will not be transformed into a tail call.
+                                  Please either mark the called function with the [@tail_mod_cons]
+                                  attribute, or mark this call with the [@tailcall false] attribute
+                                  to make its non-tailness explicit.
 
 Line 17, characters 17-67:
 17 |         else Tau ((graft[@tailcall]) (* this should also warn *) n)
