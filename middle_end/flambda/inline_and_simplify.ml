@@ -21,6 +21,7 @@ module A = Simple_value_approx
 module B = Inlining_cost.Benefit
 module E = Inline_and_simplify_aux.Env
 module R = Inline_and_simplify_aux.Result
+module Style = Misc.Style
 
 (** Values of two types hold the information propagated during simplification:
     - [E.t] "environments", top-down, almost always called "env";
@@ -793,20 +794,20 @@ and simplify_partial_application env r ~lhs_of_application
      of type class like thing. *)
   begin match (inline_requested : Lambda.inline_attribute) with
   | Always_inline | Never_inline ->
-    Location.prerr_warning (Debuginfo.to_location dbg)
-      (Warnings.Inlining_impossible "[@inlined] attributes may not be used \
-        on partial applications")
+    Location.inlining_impossible (Debuginfo.to_location dbg)
+      "%a attributes may not be used on partial applications"
+      Style.inline_code "[@inlined]"
   | Unroll _ ->
-    Location.prerr_warning (Debuginfo.to_location dbg)
-      (Warnings.Inlining_impossible "[@unrolled] attributes may not be used \
-        on partial applications")
+    Location.inlining_impossible (Debuginfo.to_location dbg)
+      "%a attributes may not be used on partial applications"
+      Style.inline_code "[@unrolled]"
   | Hint_inline | Default_inline -> ()
   end;
   begin match (specialise_requested : Lambda.specialise_attribute) with
   | Always_specialise | Never_specialise ->
-    Location.prerr_warning (Debuginfo.to_location dbg)
-      (Warnings.Inlining_impossible "[@specialised] attributes may not be used \
-        on partial applications")
+    Location.inlining_impossible (Debuginfo.to_location dbg)
+      "%a attributes may not be used on partial applications"
+      Style.inline_code "[@specialised]"
   | Default_specialise -> ()
   end;
   let freshened_params =

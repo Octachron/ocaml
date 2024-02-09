@@ -83,7 +83,7 @@ let x = (++);;
 Line 1, characters 8-12:
 1 | let x = (++);;
             ^^^^
-Error: Unbound value "(++)"
+Error: Unbound value "++"
 |}]
 
 let x = \#let;;
@@ -91,7 +91,7 @@ let x = \#let;;
 Line 1, characters 8-13:
 1 | let x = \#let;;
             ^^^^^
-Error: Unbound value "\#let"
+Error: Unbound value "let"
 |}]
 
 let f ~\#let ?\#and () = 1

@@ -163,12 +163,10 @@ val kdprintf:
   ('b, 'impl formatter, unit, 'a) format4 -> 'b
 
 val doc_printf: ('a, rdoc formatter, unit, doc) format4 -> 'a
-
-
+val kdoc_printf: (doc -> 'r) -> ('a, rdoc formatter, unit, 'r) format4 -> 'a
 
 val format_printer: 'a final_printer -> Format.formatter -> 'a -> unit
 val doc_printer:('a, rdoc) printer -> 'a -> Immutable.printer
-
 
 val pp_doc: (doc,_) printer
 

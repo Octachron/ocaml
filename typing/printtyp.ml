@@ -2133,13 +2133,10 @@ let printed_signature sourcefile ppf sg =
   (* we are tracking any collision event for warning 63 *)
   Conflicts.reset ();
   let t = tree_of_signature sg in
-  if Warnings.(is_active @@ Erroneous_printed_signature "")
+  if Warnings.(is_active @@ Erroneous_printed_signature Format_doc.empty)
   && Conflicts.exists ()
   then begin
-    let printer ppf =
-      Conflicts.print_explanations (Format_doc.make_formatter ppf)
-    in
-    let conflicts = Final_format.asprintf "%t" printer in
+    let conflicts = Format_doc.doc_printf "%t" Conflicts.print_explanations in
     Location.prerr_warning (Location.in_file sourcefile)
       (Warnings.Erroneous_printed_signature conflicts);
     Warnings.check_fatal ()

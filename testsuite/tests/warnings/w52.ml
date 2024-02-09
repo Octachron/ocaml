@@ -9,8 +9,8 @@ Line 1, characters 38-43:
 1 | let () = try () with Invalid_argument "Any" -> ();;
                                           ^^^^^
 Warning 52 [fragile-literal-pattern]: Code should not depend on the actual values of
-this constructor's arguments. They are only for information
-and may change in future versions. (see manual section 13.5.3)
+                                      this constructor's arguments. They are only for information
+                                      and may change in future versions. (see manual section 13.5.3)
 |}];;
 
 let () = try () with Match_failure ("Any",_,_) -> ();;
@@ -19,8 +19,8 @@ Line 1, characters 35-46:
 1 | let () = try () with Match_failure ("Any",_,_) -> ();;
                                        ^^^^^^^^^^^
 Warning 52 [fragile-literal-pattern]: Code should not depend on the actual values of
-this constructor's arguments. They are only for information
-and may change in future versions. (see manual section 13.5.3)
+                                      this constructor's arguments. They are only for information
+                                      and may change in future versions. (see manual section 13.5.3)
 |}];;
 
 let () = try () with Match_failure (_,0,_) -> ();;
@@ -29,8 +29,8 @@ Line 1, characters 35-42:
 1 | let () = try () with Match_failure (_,0,_) -> ();;
                                        ^^^^^^^
 Warning 52 [fragile-literal-pattern]: Code should not depend on the actual values of
-this constructor's arguments. They are only for information
-and may change in future versions. (see manual section 13.5.3)
+                                      this constructor's arguments. They are only for information
+                                      and may change in future versions. (see manual section 13.5.3)
 |}];;
 
 type t =
@@ -54,8 +54,8 @@ Line 2, characters 7-17:
 2 | | Warn "anything" -> ()
            ^^^^^^^^^^
 Warning 52 [fragile-literal-pattern]: Code should not depend on the actual values of
-this constructor's arguments. They are only for information
-and may change in future versions. (see manual section 13.5.3)
+                                      this constructor's arguments. They are only for information
+                                      and may change in future versions. (see manual section 13.5.3)
 
 val f : t -> unit = <fun>
 |}];;
@@ -68,8 +68,8 @@ Line 2, characters 8-10:
 2 | | Warn' 0n -> ()
             ^^
 Warning 52 [fragile-literal-pattern]: Code should not depend on the actual values of
-this constructor's arguments. They are only for information
-and may change in future versions. (see manual section 13.5.3)
+                                      this constructor's arguments. They are only for information
+                                      and may change in future versions. (see manual section 13.5.3)
 
 val g : t -> unit = <fun>
 |}];;
@@ -96,8 +96,8 @@ Line 2, characters 7-34:
 2 | | Deep (_ :: _ :: ("deep",_) :: _) -> ()
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Warning 52 [fragile-literal-pattern]: Code should not depend on the actual values of
-this constructor's arguments. They are only for information
-and may change in future versions. (see manual section 13.5.3)
+                                      this constructor's arguments. They are only for information
+                                      and may change in future versions. (see manual section 13.5.3)
 
 val j : t -> unit = <fun>
 |}];;

@@ -147,7 +147,7 @@ and pretty_lvals ppf = function
         lbl.lbl_name pretty_val v pretty_lvals rest
 
 let top_pretty ppf v =
-  fprintf ppf "@[%a@]@?" pretty_val v
+  fprintf ppf "@[%a@]" pretty_val v
 
 let pretty_pat ppf p =
   format_printer top_pretty ppf p ;

@@ -146,7 +146,7 @@ let let_unbound =
 Line 3, characters 4-8:
 3 |     let+ x = 1 in
         ^^^^
-Error: Unbound value "(let+)"
+Error: Unbound value "let+"
 |}];;
 
 module And_unbound = struct
@@ -166,7 +166,7 @@ let and_unbound =
 Line 4, characters 4-8:
 4 |     and+ y = 2 in
         ^^^^
-Error: Unbound value "(and+)"
+Error: Unbound value "and+"
 |}];;
 
 module Ill_typed_1 = struct
@@ -720,8 +720,9 @@ val bad_location : 'a GADT_ordering.is_point -> 'a -> int = <fun>
 Line 4, characters 11-19:
 4 |       let+ Is_point = is_point
                ^^^^^^^^
-Warning 18 [not-principal]: typing this pattern requires considering GADT_ordering.point and a as equal.
-But the knowledge of these types is not principal.
+Warning 18 [not-principal]: typing this pattern requires considering
+                            GADT_ordering.point and a as equal.
+                            But the knowledge of these types is not principal.
 
 Line 5, characters 11-19:
 5 |       and+ { x; y } = a in

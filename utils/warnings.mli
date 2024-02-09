@@ -47,7 +47,7 @@ type t =
   | Ignored_partial_application             (*  5 *)
   | Labels_omitted of string list           (*  6 *)
   | Method_override of string list          (*  7 *)
-  | Partial_match of string                 (*  8 *)
+  | Partial_match of Format_doc.doc option  (*  8 *)
   | Missing_record_field_pattern of string  (*  9 *)
   | Non_unit_statement                      (* 10 *)
   | Redundant_case                          (* 11 *)
@@ -58,7 +58,7 @@ type t =
   | Unerasable_optional_argument            (* 16 *)
   | Undeclared_virtual_method of string     (* 17 *)
   | Not_principal of Format_doc.t           (* 18 *)
-  | Non_principal_labels of string          (* 19 *)
+  | Non_principal_labels of Format_doc.t    (* 19 *)
   | Ignored_extra_argument                  (* 20 *)
   | Nonreturning_statement                  (* 21 *)
   | Preprocessor of string                  (* 22 *)
@@ -83,21 +83,21 @@ type t =
   | Unused_extension of string * bool * constructor_usage_warning (* 38 *)
   | Unused_rec_flag                         (* 39 *)
   | Name_out_of_scope of string * string list * bool   (* 40 *)
-  | Ambiguous_name of string list * string list * bool * string (* 41 *)
+  | Ambiguous_name of string list * string list * bool * Format_doc.t (* 41 *)
   | Disambiguated_name of string            (* 42 *)
   | Nonoptional_label of string             (* 43 *)
   | Open_shadow_identifier of string * string (* 44 *)
   | Open_shadow_label_constructor of string * string (* 45 *)
   | Bad_env_variable of string * string     (* 46 *)
-  | Attribute_payload of string * string    (* 47 *)
+  | Attribute_payload of string * Format_doc.t (* 47 *)
   | Eliminated_optional_arguments of string list (* 48 *)
-  | No_cmi_file of string * string option   (* 49 *)
+  | No_cmi_file of string * Format_doc.t option (* 49 *)
   | Unexpected_docstring of bool            (* 50 *)
   | Wrong_tailcall_expectation of bool      (* 51 *)
   | Fragile_literal_pattern                 (* 52 *)
   | Misplaced_attribute of string           (* 53 *)
   | Duplicated_attribute of string          (* 54 *)
-  | Inlining_impossible of string           (* 55 *)
+  | Inlining_impossible of Format_doc.doc   (* 55 *)
   | Unreachable_case                        (* 56 *)
   | Ambiguous_var_in_pattern_guard of string list (* 57 *)
   | No_cmx_file of string                   (* 58 *)
@@ -105,7 +105,7 @@ type t =
   | Unused_module of string                 (* 60 *)
   | Unboxable_type_in_prim_decl of string   (* 61 *)
   | Constraint_on_gadt                      (* 62 *)
-  | Erroneous_printed_signature of string   (* 63 *)
+  | Erroneous_printed_signature of Format_doc.t (* 63 *)
   | Unsafe_array_syntax_without_parsing     (* 64 *)
   | Redefining_unit of string               (* 65 *)
   | Unused_open_bang of string              (* 66 *)
@@ -138,9 +138,9 @@ val defaults_warn_error : string
 
 type reporting_information =
   { id : string
-  ; message : string
+  ; message : Format_doc.doc
   ; is_error : bool
-  ; sub_locs : (loc * string) list;
+  ; sub_locs : (loc * Format_doc.doc) list;
   }
 
 val report : t -> [ `Active of reporting_information | `Inactive ]
