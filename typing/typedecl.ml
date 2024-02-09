@@ -1837,7 +1837,7 @@ let transl_with_constraint id ?fixed_row_path ~sig_env ~sig_decl ~outer_env
 (* A simplified version of [transl_with_constraint], for the case of packages.
    Package constraints are much simpler than normal with type constraints (e.g.,
    they can not have parameters and can only update abstract types.) *)
-let transl_package_constraint ~loc env ty =
+let transl_package_constraint ~loc id env ty =
   let new_sig_decl =
     { type_params = [];
       type_arity = 0;
@@ -1859,7 +1859,20 @@ let transl_package_constraint ~loc env ty =
     (* Typedecl_immediacy.compute_decl never raises *)
     Typedecl_immediacy.compute_decl env new_sig_decl
   in
-  { new_sig_decl with type_immediate = new_type_immediate }
+  let new_sig_decl =
+    { new_sig_decl with type_immediate = new_type_immediate } in
+   {
+    typ_id = id;
+    typ_name = Location.mkloc (Ident.name id) loc;
+    typ_params = [];
+    typ_type = new_sig_decl;
+    typ_cstrs = [];
+    typ_loc = loc;
+    typ_manifest = None;
+    typ_kind = Ttype_abstract;
+    typ_private = Public ;
+    typ_attributes = [];
+  }
 
 (* Approximate a type declaration: just make all types abstract *)
 

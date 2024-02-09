@@ -47,7 +47,7 @@ val transl_with_constraint:
     Typedtree.type_declaration
 
 val transl_package_constraint:
-  loc:Location.t -> Env.t -> type_expr -> Types.type_declaration
+  loc:Location.t -> Ident.t -> Env.t -> type_expr -> Typedtree.type_declaration
 
 val abstract_type_decl: injective:bool -> int -> type_declaration
 val approx_type_decl:

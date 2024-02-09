@@ -457,6 +457,7 @@ let params_are_constrained =
 
 type with_info =
   | With_type of Parsetree.type_declaration
+  | With_package_type of Typedtree.core_type
   | With_typesubst of Parsetree.type_declaration
   | With_module of {
         lid:Longident.t loc;
@@ -471,7 +472,8 @@ type with_info =
 let merge_constraint initial_env loc sg lid constr =
   let destructive_substitution =
     match constr with
-    | With_type _ | With_module _ | With_modtype _ -> false
+    | With_type _ | With_package_type _ | With_module _ | With_modtype _ ->
+      false
     | With_typesubst _ | With_modsubst _ | With_modtypesubst _  -> true
   in
   let real_ids = ref [] in
@@ -547,19 +549,32 @@ let merge_constraint initial_env loc sg lid constr =
           ~replace_by:(Some (Sig_type(id, newdecl, rs, priv)))
           (Pident id, lid, Twith_type tdecl)
     | Sig_type(id, sig_decl, rs, priv) , [s],
-       (With_type sdecl | With_typesubst sdecl as constr)
+       (With_type _ | With_package_type _ | With_typesubst _ as constr)
       when Ident.name id = s ->
         let sig_env = Env.add_signature sg_for_env outer_sig_env in
-        let tdecl =
-          Typedecl.transl_with_constraint id
-            ~sig_env ~sig_decl ~outer_env:initial_env sdecl in
-        let newdecl = tdecl.typ_type and loc = sdecl.ptype_loc in
+        let tdecl, loc =
+            match constr with
+            | With_type sdecl | With_typesubst sdecl ->
+              let tdecl = Typedecl.transl_with_constraint id
+              ~sig_env ~sig_decl ~outer_env:initial_env sdecl in
+              tdecl,
+              sdecl.ptype_loc
+           | With_package_type cty ->
+              let tdecl =
+               Typedecl.transl_package_constraint ~loc id
+                 outer_sig_env cty.ctyp_type
+              in
+              tdecl,
+              cty.ctyp_loc
+           | _ -> assert false
+        in
+        let newdecl = tdecl.typ_type in
         let before_ghosts, row_id, after_ghosts = split_row_id s ghosts in
         let ghosts = List.rev_append before_ghosts after_ghosts in
         check_type_decl outer_sig_env sg_for_env loc
           id row_id newdecl sig_decl;
         begin match constr with
-          With_type _ ->
+          | With_type _ | With_package_type _ ->
             return ~ghosts
               ~replace_by:(Some(Sig_type(id, newdecl, rs, priv)))
               (Pident id, lid, Twith_type tdecl)
@@ -712,57 +727,8 @@ let merge_constraint initial_env loc sg lid constr =
    constraints are much simpler - they must be "with type" constraints for types
    with no parameters and can only update abstract types. *)
 let merge_package_constraint initial_env loc sg lid cty =
-  let rec patch_item namelist outer_sig_env sg_for_env ~ghosts item =
-    let return replace_by =
-      Some ((), {Signature_group.ghosts; replace_by})
-    in
-    match item, namelist with
-    | Sig_type(id, sig_decl, rs, priv) , [s]
-      when Ident.name id = s ->
-        begin match sig_decl.type_manifest with
-        | None -> ()
-        | Some ty ->
-          raise (Error(loc, outer_sig_env, With_package_manifest (lid.txt, ty)))
-        end;
-        let new_sig_decl =
-          Typedecl.transl_package_constraint ~loc outer_sig_env cty.ctyp_type
-        in
-        check_type_decl outer_sig_env sg_for_env loc id None
-          new_sig_decl sig_decl;
-        let new_sig_decl = { new_sig_decl with type_manifest = None } in
-        return (Some(Sig_type(id, new_sig_decl, rs, priv)))
-    | Sig_module(id, _, md, rs, priv) as item, s :: namelist
-      when Ident.name id = s ->
-        let sig_env = Env.add_signature sg_for_env outer_sig_env in
-        let sg = extract_sig sig_env loc md.md_type in
-        let newsg = merge_signature sig_env sg namelist in
-        let item =
-          match md.md_type with
-            Mty_alias _ ->
-              (* A module alias cannot be refined, so keep it
-                 and just check that the constraint is correct *)
-              item
-          | _ ->
-              let newmd = {md with md_type = Mty_signature newsg} in
-              Sig_module(id, Mp_present, newmd, rs, priv)
-        in
-        return (Some item)
-    | _ -> None
-  and merge_signature env sg namelist =
-    match
-      Signature_group.replace_in_place (patch_item namelist env sg) sg
-    with
-    | Some ((),sg) -> sg
-    | None -> raise(Error(loc, env, With_no_component lid.txt))
-  in
-  try
-    let names = Longident.flatten lid.txt in
-    let sg = merge_signature initial_env sg names in
-    check_well_formed_module initial_env loc "this instantiated signature"
-      (Mty_signature sg);
-    sg
-  with Includemod.Error explanation ->
-    raise(Error(loc, initial_env, With_mismatch(lid.txt, explanation)))
+  let _, s = merge_constraint initial_env loc sg lid (With_package_type cty) in
+  s
 
 let check_package_with_type_constraints loc env mty constraints =
   let sg = extract_sig env loc mty in
