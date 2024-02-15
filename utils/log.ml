@@ -50,7 +50,11 @@ type 'a typ =
       'b typ
 
 
-and ('a,'b) key = { name: string; typ: 'a typ; id: 'a Type.Id.t }
+and ('a,'b) key = {
+  name: string;
+  typ: 'a typ;
+  id: 'a Type.Id.t;
+}
 and 'a sum =
   | Constr: ('a,'b) key * 'a -> 'b sum
   | Enum: (unit,'b) key -> 'b sum
@@ -143,7 +147,10 @@ let new_key version scheme name typ =
     typ
   }
   in
-  let key = { name; typ; id = Type.Id.make () } in
+  let key = {
+    name;
+    typ; id = Type.Id.make ();
+  } in
   scheme.!(key) <- metadata;
   key
 
@@ -155,12 +162,9 @@ let version_ty =
   let pull v = v.major, v.minor in
   Custom { id = Version; pull; default = Pair (Int,Int) }
 
-let version_key () =
-  { name = "version"; typ = version_ty; id = Type.Id.make () }
-
-let validity_key () =
-  { name = "valid"; typ = Bool; id = Type.Id.make () }
-
+let make_key typ name = { name; typ; id = Type.Id.make () }
+let version_key () = make_key version_ty "version"
+let validity_key () = make_key Bool "valid"
 
 module type Def = sig
   type id
@@ -712,8 +716,15 @@ let detach_item log key =
 let detach_option log key =
   generic_detach option_key_scheme Store.record (fun x -> Some x) log key
 
+let active_key log key =
+  let Key_metadata m = log.scheme.!(key) in
+  not (log.version < m.version) &&
+  match m.deprecation with
+  | None -> true
+  | Some d -> d < log.version
 
 let set key x log =
+  if not (active_key log key) then () else
   match log.mode, Keys.find_opt key.name log.redirections with
   | Direct d, r ->
     let out = Option.value ~default:d r in
