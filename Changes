@@ -1,6 +1,8 @@
 5.1.2 + i18n patches
 ------------
 
+- 9c451899ed6b431d4: experimental serializable error format
+
 - #12389, #12544: centralize the handling of metadata for compilation units and
   artifacts in preparation for better unicode support for OCaml source files.
   (Florian Angeletti, review by Gabriel Scherer)
