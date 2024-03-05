@@ -1,6 +1,19 @@
 
 (* Print a raw type expression, with sharing *)
 
+let debug_on = ref true
+let debug f =
+  if not !debug_on then () else
+  match Sys.getenv_opt "ODEBUG" with
+  | None -> ()
+  | Some _ -> f ()
+
+let debug_off f =
+  let old = !debug_on in
+  debug_on := false;
+  Fun.protect f
+    ~finally:(fun () -> debug_on := old)
+
 open Format
 
 type color =
@@ -103,9 +116,32 @@ module Pp = struct
 end
 
 module Int_map = Map.Make(Int)
+type params = {
+  short_ids:bool;
+  ellide_links:bool;
+  expansion_as_hyperedge:bool;
+  labels: rlabel Int_map.t
+}
 
-let (.%()) map id =
-  Option.value ~default:none @@ Int_map.find_opt id map
+let ellide_links ty =
+  let rec follow_safe visited t =
+    let t = Types.Transient_expr.coerce t in
+    if List.memq t visited then t
+    else match t.Types.desc with
+      | Tlink t' -> follow_safe (t::visited) t'
+      | _ -> t
+  in
+  follow_safe [] ty
+
+let repr params ty =
+  if params.ellide_links then ellide_links ty
+  else Types.Transient_expr.coerce ty
+
+
+
+let (.%()) map (params,ty) =
+  Option.value ~default:none @@
+  Int_map.find_opt (repr params ty).id map
 
 let string_of_field_kind v =
   match Types.field_kind_repr v with
@@ -113,28 +149,59 @@ let string_of_field_kind v =
   | Fabsent -> "absent"
   | Fprivate -> "private"
 
+
+type dir = Toward | From
+
 type entity =
   | Node of Types.type_expr
   | Edge of Types.type_expr * Types.type_expr
-  | Hyperedge of Types.type_expr list
+  | Hyperedge of (dir * label * Types.type_expr) list
 
-let ty_id ppf x =
-  let x = Types.Transient_expr.coerce x in
-  fprintf ppf "%d" x.id
+type name_map = {
+  last: int ref;
+  tbl: (int,int) Hashtbl.t;
+}
+let id_map = { last = ref 0; tbl = Hashtbl.create 20 }
 
-let pp_id ppf = function
+let get_id params x =
+  let x = repr params x in
+  if not params.short_ids then x.id else
+  match Hashtbl.find_opt id_map.tbl x.id with
+  | Some x -> x
+  | None ->
+      incr id_map.last;
+      let last = !(id_map.last) in
+      Hashtbl.replace id_map.tbl x.id last;
+      last
+
+let ty_id params ppf x =
+  fprintf ppf "%d" (get_id params x)
+
+let pp_id params ppf x =
+  let ty_id = ty_id params in
+  match x with
   | Node x -> fprintf ppf "n%a" ty_id  x
   | Edge (x,y) -> fprintf ppf "e%ae%a" ty_id x ty_id y
   | Hyperedge l ->
       let sep ppf () = fprintf ppf "h" in
-      fprintf ppf "h%a" Pp.(list ~sep ty_id) l
+      let elt ppf (_,_,x) = ty_id ppf x in
+      fprintf ppf "h%a" Pp.(list ~sep elt) l
 
 let rec hyperedges_of_memo ty = function
   | Types.Mnil -> []
   | Types.Mcons (_priv, _p, t1, t2, rem) ->
-      (memo, Hyperedge [ty;t1;t2]) :: hyperedges_of_memo ty rem
+      (memo,
+       Hyperedge [From, [Style Dotted], ty
+                 ;Toward, [Style Dotted], t1;
+                  Toward, [Label "expand"], t2
+                 ]) :: hyperedges_of_memo ty rem
   | Types.Mlink rem -> hyperedges_of_memo ty !rem
 
+let rec edges_of_memo = function
+  | Types.Mnil -> []
+  | Types.Mcons (_priv, _p, t1, t2, rem) ->
+      (memo, Edge (t1,t2)) :: edges_of_memo rem
+  | Types.Mlink rem -> edges_of_memo !rem
 
 let exponent_of_label ppf = function
   | Asttypes.Nolabel -> ()
@@ -172,22 +239,28 @@ let pretty_var ppf name =
 let numbered ty tl = List.mapi (fun i x -> arg i, Edge (ty, x)) tl
 
 
-let rec typ map visited ppf ty0 =
-  let ty = Types.Transient_expr.coerce ty0 in
+let expansions params ty memo =
+  if params.expansion_as_hyperedge then
+    hyperedges_of_memo ty memo
+  else
+    edges_of_memo memo
+
+let rec typ params visited ppf ty0 =
+  let ty = repr params ty0 in
   if List.memq ty !visited then ()
   else begin
     visited := ty :: !visited;
-    node map visited ty0 ty.id ppf ty.desc
+    node params visited ty0 ppf ty.desc
   end
-and node map visited ty0 id ppf desc =
-  let user_label = map.%(id) in
-  let node_label, node_meta , sub_entities = split_node ty0 desc in
-  let label = asprintf "%t<SUB>%d</SUB>" node_label id in
+and node params visited ty0 ppf desc =
+  let user_label =params.labels.%(params,ty0) in
+  let node_label, node_meta , sub_entities = split_node params ty0 desc in
+  let label = asprintf "%t<SUB>%d</SUB>" node_label (get_id params ty0) in
   let node_label = update (make node_meta) (Label label) in
   let label = merge user_label node_label in
-  fprintf ppf "%a%a;@," pp_id (Node ty0) Pp.decorate label;
-  List.iter (entity map visited ppf) sub_entities
-and split_node ty0 = function
+  fprintf ppf "%a%a;@," (pp_id params) (Node ty0) Pp.decorate label;
+  List.iter (entity params visited ppf) sub_entities
+and split_node params ty0 = function
 | Types.Tvar name -> dprintf "%a" pretty_var name, [], []
 | Types.Tarrow(l,t1,t2,_) ->
     dprintf "→%a" exponent_of_label l,
@@ -200,7 +273,7 @@ and split_node ty0 = function
 | Types.Tconstr (p,tl,abbrevs) ->
     dprintf "%a" Path.print p,
     [],
-    numbered ty0 tl @ hyperedges_of_memo ty0 !abbrevs
+    numbered ty0 tl @ expansions params ty0 !abbrevs
 | Types.Tobject (t, name) ->
     dprintf "obj", [],
      begin match !name with
@@ -242,10 +315,13 @@ and split_node ty0 = function
       Pp.(list ~sep:semi longident) (List.map fst fl),
     [],
     numbered ty0 (List.map snd fl)
-and edge ppf (lbl,x,y) =
-  fprintf ppf "%a->%a%a;@ " pp_id x pp_id y Pp.decorate lbl;
-and edges ppf tys=
-  List.iter (edge ppf) tys
+and edge params ppf (lbl,x,y) =
+  fprintf ppf "%a->%a%a;@ "
+    (pp_id params) x
+    (pp_id params) y
+    Pp.decorate lbl;
+and edges params ppf tys=
+  List.iter (edge params ppf) tys
 and row_fixed ppf = function
 | None -> fprintf ppf ""
 | Some Types.Fixed_private -> fprintf ppf "private"
@@ -266,27 +342,33 @@ and field_edge rf = Types.match_row_field
       List.concat_map field_edge (Option.to_list e) @ tl
     )
   rf
-and entity map visited ppf (lbl,entry) = match entry with
-  | Node ty -> typ map visited ppf ty
+and entity params visited ppf (lbl,entry) = match entry with
+  | Node ty -> typ params visited ppf ty
   | Edge (x,y) ->
-      typ map visited ppf x;
-      typ map visited ppf y;
-      edges ppf [lbl, Node x, Node y]
+      typ params visited ppf x;
+      typ params visited ppf y;
+      edges params ppf [lbl, Node x, Node y]
   | Hyperedge l as h->
-      hyper ppf h;
-      List.iter (typ map visited ppf) l;
-      List.iter (fun e ->
-          edges ppf [lbl, h, Node e]
+      hyper params ppf h;
+      List.iter (fun (_,_,x) -> typ params visited ppf x) l;
+      List.iter (fun (dir,lbl,x) ->
+          let lbl = make lbl in
+          let e = match dir with
+            | From -> [lbl, Node x, h]
+            | Toward -> [lbl, h, Node x]
+          in
+          edges params ppf e
         ) l
-and hyper ppf h =
-  fprintf ppf "%a[shape=\"triangle\"; label=\"\"];@," pp_id h
+and hyper params ppf h =
+  fprintf ppf "%a[shape=\"triangle\"; label=\"\"];@,"
+    (pp_id params) h
 
 
-let add_info map (info,entry) =
+let add_info params map (info,entry) =
   match entry with
   | Edge _ | Hyperedge _ -> map
   | Node ty ->
-      let ty = Types.Transient_expr.coerce ty in
+      let ty = repr params ty in
       let info = match Int_map.find_opt ty.id map with
         | None -> info
         | Some i -> merge i info
@@ -294,12 +376,24 @@ let add_info map (info,entry) =
       Int_map.add ty.id info map
 
 
+let params
+    ?(ellide_links=true)
+    ?(expansion_as_hyperedge=false)
+    ?(short_ids=true)
+    () =
+  {
+    labels=Int_map.empty;
+    expansion_as_hyperedge;
+    short_ids;
+    ellide_links
+  }
 
-let entries ppf ts =
+let entries params ppf ts =
   let visited = ref [] in
-  let map = List.fold_left add_info Int_map.empty ts in
+  let map = List.fold_left (add_info params) Int_map.empty ts in
+  let params = { params with labels=map} in
   fprintf ppf "@[<v>digraph G {@,";
-  List.iter (entity map visited ppf) ts;
+  List.iter (entity params visited ppf) ts;
   fprintf ppf "@,}@]@."
 
 
@@ -322,6 +416,10 @@ let pp (r,pr) ppf = match !r with
   | None -> ()
   | Some x -> fprintf ppf "%a" pr x
 
+let with_context (r,_) x f =
+  let old = !r in
+  r:= Some x;
+  Fun.protect f ~finally:(fun () -> r := old)
 
 let global = ref None, pp_print_string
 let loc = ref None, compact_loc
@@ -333,7 +431,7 @@ let register_node (label,ty) =
   node_register := (make label,Node ty) :: !node_register
 let forget () = node_register := []
 
-let dump_to suffix ts =
+let dump_to suffix params ts =
   incr file_counter;
   let filename =
     match !Clflags.dump_dir with
@@ -348,7 +446,8 @@ let dump_to suffix ts =
   Out_channel.with_open_bin filename (fun ch ->
       let ppf = Format.formatter_of_out_channel ch in
       let ts = List.map (fun (l,t) -> make l, t) ts in
-      entries ppf (ts @ !node_register)
+      entries params ppf (ts @ !node_register)
     )
 
-let types suffix ts = dump_to suffix (List.map (fun (lbl,ty) -> lbl, Node ty) ts)
+let types suffix params ts =
+  dump_to suffix params (List.map (fun (lbl,ty) -> lbl, Node ty) ts)
