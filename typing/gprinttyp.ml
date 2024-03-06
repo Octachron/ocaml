@@ -1,16 +1,12 @@
 
 (* Print a raw type expression, with sharing *)
 
-let debug_on = ref true
-let debug f =
-  if not !debug_on then () else
-  match Sys.getenv_opt "ODEBUG" with
-  | None -> ()
-  | Some _ -> f ()
+let debug_on = ref (fun () -> false)
+let debug f = if !debug_on () then f ()
 
 let debug_off f =
   let old = !debug_on in
-  debug_on := false;
+  debug_on := Fun.const false;
   Fun.protect f
     ~finally:(fun () -> debug_on := old)
 
@@ -157,25 +153,70 @@ type entity =
   | Edge of Types.type_expr * Types.type_expr
   | Hyperedge of (dir * label * Types.type_expr) list
 
-type name_map = {
-  last: int ref;
-  tbl: (int,int) Hashtbl.t;
-}
-let id_map = { last = ref 0; tbl = Hashtbl.create 20 }
+module Index: sig
+(*  type t = private int
+   val index: params -> Types.type_expr -> t
+  val pretty_index: params -> t -> int *)
+  val get_id: params -> Types.type_expr -> int
+end = struct
 
-let get_id params x =
-  let x = repr params x in
-  if not params.short_ids then x.id else
-  match Hashtbl.find_opt id_map.tbl x.id with
-  | Some x -> x
-  | None ->
-      incr id_map.last;
-      let last = !(id_map.last) in
-      Hashtbl.replace id_map.tbl x.id last;
-      last
+  type t = int
+  type name_map = {
+    last: int ref;
+    tbl: (t,int) Hashtbl.t;
+  }
+  let id_map = { last = ref 0; tbl = Hashtbl.create 20 }
 
+  let index params x = (repr params x).id
+  let pretty_index params id =
+    if not params.short_ids then id else
+      match Hashtbl.find_opt id_map.tbl id with
+      | Some x -> x
+      | None ->
+          incr id_map.last;
+          let last = !(id_map.last) in
+          Hashtbl.replace id_map.tbl id last;
+          last
+
+  let get_id params x = pretty_index params (index params x)
+end
+(*
+type index = Index.t
+
+type indexed_entity =
+  | Inode of index
+  | IEdge of index * index
+  | IHyperedge of (dir * label * index) list
+
+module Node_set = Set.Make(struct
+    type t = Index.t
+    let compare = Stdlib.compare
+end)
+
+module Edge_set = Set.Make(struct
+    type t = Index.t
+    let compare = Stdlib.compare
+end)
+
+module Hyperedge_set = Set.Make(struct
+    type t = Index.t list
+    let compare = Stdlib.compare
+end)
+
+type subgraph =
+  {
+    nodes: Node_set.t;
+    edges: Edge_set.t;
+    hyperedges: Hyperedge_set.t
+  }
+
+module Entity_map = Map.Make(struct
+    type t = indexed_entity
+    let compare = Stdlib.compare
+  end)
+*)
 let ty_id params ppf x =
-  fprintf ppf "%d" (get_id params x)
+  fprintf ppf "%d" (Index.get_id params x)
 
 let pp_id params ppf x =
   let ty_id = ty_id params in
@@ -255,7 +296,7 @@ let rec typ params visited ppf ty0 =
 and node params visited ty0 ppf desc =
   let user_label =params.labels.%(params,ty0) in
   let node_label, node_meta , sub_entities = split_node params ty0 desc in
-  let label = asprintf "%t<SUB>%d</SUB>" node_label (get_id params ty0) in
+  let label = asprintf "%t<SUB>%d</SUB>" node_label (Index.get_id params ty0) in
   let node_label = update (make node_meta) (Label label) in
   let label = merge user_label node_label in
   fprintf ppf "%a%a;@," (pp_id params) (Node ty0) Pp.decorate label;
@@ -427,20 +468,27 @@ let context = [pp global; pp loc]
 let dash ppf () = fprintf ppf "-"
 
 let node_register = ref []
-let register_node (label,ty) =
+let register_type (label,ty) =
   node_register := (make label,Node ty) :: !node_register
 let forget () = node_register := []
 
-let dump_to suffix params ts =
+
+let label x = x
+let node x = Node x
+let edge x y = Edge(x,y)
+let hyperedge l = Hyperedge l
+
+
+let nodes ~title params ts =
   incr file_counter;
   let filename =
     match !Clflags.dump_dir with
-    | None -> asprintf "%04d-%s.dot"  !file_counter suffix
+    | None -> asprintf "%04d-%s.dot"  !file_counter title
     | Some d ->
         asprintf "%s%s%04d-%s-%a.dot"
           d Filename.dir_sep
           !file_counter
-          suffix
+          title
           Pp.(list ~sep:dash (fun ppf pr -> pr ppf)) context
   in
   Out_channel.with_open_bin filename (fun ch ->
@@ -449,5 +497,5 @@ let dump_to suffix params ts =
       entries params ppf (ts @ !node_register)
     )
 
-let types suffix params ts =
-  dump_to suffix params (List.map (fun (lbl,ty) -> lbl, Node ty) ts)
+let types ~title params ts =
+  nodes ~title params (List.map (fun (lbl,ty) -> lbl, Node ty) ts)
