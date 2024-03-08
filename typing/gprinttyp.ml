@@ -28,23 +28,23 @@ type modal =
 | Color of color
 | Background of color
 | Style of style
-| Label of string
+| Label of string list
 
 type label = modal list
 
-type rlabel = { background:color option; color: color option; style: style option; label: string option}
-let none = { background=None; color = None; style = None; label = None}
+type rlabel = { background:color option; color: color option; style: style option; label: string list}
 
 let update r l = match l with
   | Color c -> { r with color = Some c}
   | Background c -> { r with background = Some c}
   | Style s -> { r with style = Some s}
-  | Label s -> { r with label = Some s}
+  | Label s -> { r with label = s}
 
+let none = { background = None; color = None; style=None; label = [] }
 
 let make l = List.fold_left update none l
 
-let label r = Option.map (fun x -> Label x) r.label
+let label r = if r.label = [] then None else Some (Label r.label)
 let color r = Option.map (fun x -> Color x) r.color
 let style r = Option.map (fun x -> Style x) r.style
 
@@ -63,24 +63,32 @@ let decompose r =
   | Label default ->
       { r with label = Some(Option.value ~default r.label) }
 **)
-let arg n = { none with label = Some (string_of_int n) }
+let arg n = { none with label = [string_of_int n] }
 let std = none
-let memo = { none with label = Some "expand"; style=Some Dash }
+let memo = { none with label = ["expand"]; style=Some Dash }
 
 let alt x y = match x with
   | None -> y
   | Some _ -> x
 
+module String_set = Set.Make(String)
+let merge_label l r =
+  let r' = String_set.of_list r in
+  let l' = String_set.of_list l in
+  List.filter (fun x -> not (String_set.mem x r') ) l
+  @ List.filter (fun x -> not (String_set.mem x l') ) r
 let merge l r =
   { color = alt l.color r.color;
     style = alt l.style r.style;
-    label = alt l.label r.label;
+    label = l.label @ r.label;
     background = alt l.background r.background
   }
 
 module Pp = struct
 
   let semi ppf () = fprintf ppf ";@ "
+  let space ppf () = fprintf ppf "@ "
+  let string =pp_print_string
   let list ~sep = pp_print_list ~pp_sep:sep
   let rec longident ppf = function
     | Longident.Lident s -> fprintf ppf "%s" s
@@ -102,7 +110,7 @@ module Pp = struct
   let modal ppf = function
     | Color c -> fprintf ppf {|color="%a"|} color c
     | Style s -> fprintf ppf {|style="%a"|} style s
-    | Label s -> fprintf ppf {|label=<%s>|} s
+    | Label s -> fprintf ppf {|label=<%a>|} (list ~sep:space string) s
     | Background c -> fprintf ppf {|fill_color="%a"|} color c
 
   let decorate ppf r =
@@ -154,11 +162,12 @@ type entity =
   | Hyperedge of (dir * label * Types.type_expr) list
 
 module Index: sig
-(*  type t = private int
+  type t = private int
    val index: params -> Types.type_expr -> t
-  val pretty_index: params -> t -> int *)
-  val get_id: params -> Types.type_expr -> int
-end = struct
+   val pretty_index: params -> t -> int
+   val get_id: params -> Types.type_expr -> int
+   val split: params -> Types.type_expr -> t * Types.type_desc
+ end = struct
 
   type t = int
   type name_map = {
@@ -167,6 +176,9 @@ end = struct
   }
   let id_map = { last = ref 0; tbl = Hashtbl.create 20 }
 
+  let split params x =
+    let x = repr params x in
+    x.id, x.desc
   let index params x = (repr params x).id
   let pretty_index params id =
     if not params.short_ids then id else
@@ -180,7 +192,7 @@ end = struct
 
   let get_id params x = pretty_index params (index params x)
 end
-(*
+
 type index = Index.t
 
 type indexed_entity =
@@ -214,16 +226,15 @@ module Entity_map = Map.Make(struct
     type t = indexed_entity
     let compare = Stdlib.compare
   end)
-*)
-let ty_id params ppf x =
-  fprintf ppf "%d" (Index.get_id params x)
 
-let pp_id params ppf x =
-  let ty_id = ty_id params in
+let ty_id ppf x =
+  fprintf ppf "%d" (x: index :> int)
+
+let pp_id ppf x =
   match x with
-  | Node x -> fprintf ppf "n%a" ty_id  x
-  | Edge (x,y) -> fprintf ppf "e%ae%a" ty_id x ty_id y
-  | Hyperedge l ->
+  | Inode x -> fprintf ppf "n%a" ty_id  x
+  | IEdge (x,y) -> fprintf ppf "e%ae%a" ty_id x ty_id y
+  | IHyperedge l ->
       let sep ppf () = fprintf ppf "h" in
       let elt ppf (_,_,x) = ty_id ppf x in
       fprintf ppf "h%a" Pp.(list ~sep elt) l
@@ -234,7 +245,7 @@ let rec hyperedges_of_memo ty = function
       (memo,
        Hyperedge [From, [Style Dotted], ty
                  ;Toward, [Style Dotted], t1;
-                  Toward, [Label "expand"], t2
+                  Toward, [Label ["expand"]], t2
                  ]) :: hyperedges_of_memo ty rem
   | Types.Mlink rem -> hyperedges_of_memo ty !rem
 
@@ -285,6 +296,92 @@ let expansions params ty memo =
     hyperedges_of_memo ty memo
   else
     edges_of_memo memo
+
+let update_label e l em =
+  let lbl =
+    match Entity_map.find_opt e em with
+    | None -> l
+    | Some lbl -> merge lbl l
+  in
+  Entity_map.add e lbl em
+
+module Collect = struct
+  let rec typ params (graph, s) ty0 =
+    let (id, desc) = Index.split params ty0 in
+    let label, graph_objects, types = node id desc in
+    let g = update_label (Node id)
+  and entity params (g,s as sgs) (lbl,entry) =
+    match Entity_map.find_opt entry g with
+    | Some lbl' -> Entity_map.add entry (merge lbl' lbl) g
+    | None ->
+      let g = Entity_map.add entry lbl g in
+      match entry with
+      | Inode ty -> typ params sgs lbl ty
+      | IEdge (x,y) ->
+          let edges = Edge_set.add (x,y) s.edges in
+          let sgs = g, { s with edges }  in
+          typ params sgs x
+      | IHyperedge l as h->
+          let hyperedges = Hyperedge_set.add l s.hyperedges in
+          let sgs = g, { s with hyperedges } in
+          List.fold_left (fun sgs (_,_,x) -> typ params sgs x) l
+  and node params gs id = function
+    | Types.Tvar name -> dprintf "%a" pretty_var name, [], []
+    | Types.Tarrow(l,t1,t2,_) ->
+        dprintf "→%a" exponent_of_label l,
+        [],
+        numbered ty0 [t1; t2]
+    | Types.Ttuple tl ->
+        dprintf ",",
+        [],
+        numbered ty0 tl
+    | Types.Tconstr (p,tl,abbrevs) ->
+        dprintf "%a" Path.print p,
+        [],
+        numbered ty0 tl @ expansions params ty0 !abbrevs
+    | Types.Tobject (t, name) ->
+        dprintf "obj", [],
+        begin match !name with
+        | None -> [std, Edge (ty0, t)]
+        | Some (_p,tl) -> (std, Edge (ty0, t))::numbered ty0 tl
+        end
+    | Types.Tfield (f, k, t1, t2) ->
+        dprintf "%s<SUP>%s</SUP>"
+          f (string_of_field_kind k),
+        [],
+        numbered ty0 [t1;t2]
+    | Types.Tnil -> dprintf "∅", [], []
+    | Types.Tlink t -> ignore, [Style Dash], [std, Edge(ty0, t)]
+    | Types.Tsubst (t, o) ->
+        dprintf "Subst", [Style Dotted],
+        numbered ty0 (t :: Option.to_list o)
+    | Types.Tunivar name ->
+        dprintf "%a<SUP>∀</SUP>" pretty_var name, [], []
+    | Types.Tpoly (t, tl) ->
+        dprintf "∀", [],
+        (std, Edge(ty0, t)) :: (numbered ty0 tl)
+    | Types.Tvariant row ->
+        let Row {fields; more; name; fixed; closed} = Types.row_repr row in
+        let pr, args = match name with
+          | None ->
+              dprintf "[Row(%B,%a,[%a])]" closed row_fixed fixed
+                Pp.(list ~sep:semi field_node) fields, []
+          | Some (p,tl) ->
+              dprintf "[Row %a(%B,%a,%a)]"
+                Path.print p closed row_fixed fixed
+                Pp.(list ~sep:semi field_node) fields,
+              tl
+        in
+        pr, [],
+        numbered ty0 @@ args @ more :: List.concat_map field_edge (List.map snd fields)
+    | Types.Tpackage (p, fl) ->
+        dprintf "mod %a[%a]"
+          Path.print p
+          Pp.(list ~sep:semi longident) (List.map fst fl),
+        [],
+        numbered ty0 (List.map snd fl)
+end
+
 
 let rec typ params visited ppf ty0 =
   let ty = repr params ty0 in
