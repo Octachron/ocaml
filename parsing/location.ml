@@ -1037,7 +1037,7 @@ let log_on_formatter ~prev ppf =
 let log_warning loc log w =
   match report_warning loc w with
   | None -> ()
-  | Some report -> Log.( log.%[Error_log.warnings] <- [report])
+  | Some report -> Log.( cons Error_log.warnings report log )
 
 let prerr_warning loc w = log_warning loc !current_log w
 
