@@ -39,6 +39,6 @@ let () =
            a location;@,ghost locations of submessages are \
            not printed.@]";
     ];
-    quotable_locs = None;
+    quotable_locs = [];
   } in
   Format.printf "%a@." print_report report
