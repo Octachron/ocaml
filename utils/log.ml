@@ -349,16 +349,20 @@ module Store = struct
       fun store ~key x ->
         store.fields <- Keys.add key.name (constr key x) store.fields
 
+  let get (type a b) (key: (a,b) key) (st:b prod): a option =
+    match Keys.find_opt key.name st.fields with
+    | None -> None
+    | Some (Enum _) -> None
+    | Some (Constr(k,x)) ->
+        match Type.Id.provably_equal k.id key.id with
+        | None -> None
+        | Some Type.Equal -> Some x
+
   let cons: type ty s. s prod -> key:(ty list,s) key -> ty -> unit =
     fun store ~key x ->
-      let l =
-        match Keys.find_opt key.name store.fields with
+      let l = match get key store with
         | None -> [x]
-        | Some (Enum _) -> [x]
-        | Some (Constr(k,l)) ->
-            match Type.Id.provably_equal k.id key.id with
-            | None -> [x]
-            | Some Type.Equal -> (x :: l:ty list)
+        | Some l -> x :: l
       in
       store.fields <- Keys.add key.name (constr key l) store.fields
 
@@ -684,22 +688,24 @@ let option_key_scheme: type a b. (a prod option,b) key -> a def  = fun key ->
   | Option (Record sch) -> sch
   | _ -> .
 
-
-let generic_detach key_scheme store lift log key =
+let generic_detach key_scheme store lift extract log key =
   let out = Keys.find_opt key.name log.redirections in
   let mode = match log.mode with
     | Direct d ->
         let out = Option.value ~default:d out in
         Direct out
     | Store st ->
-        let data = {fields=Keys.empty} in
+        let data =
+          match Option.bind (Store.get key st.data) extract with
+          | Some data -> data
+          | None ->
+              let data = { fields = Keys.empty } in
+              store st.data ~key (lift data); data
+        in
         let out = match st.out, out with
           | Some (_,pr), Some out-> Some(out,pr)
-          | x, _ ->
-              store st.data ~key (lift data);
-              x
-        in
-        Store { data; out }
+          | x, _ -> x
+        in Store { data; out }
   in
   let child =
     { scheme=key_scheme key;
@@ -710,11 +716,12 @@ let generic_detach key_scheme store lift log key =
     } in
   child
 
-let detach log key = generic_detach key_scheme Store.record Fun.id log key
+let some x = Some x
+let detach log key = generic_detach key_scheme Store.record Fun.id some log key
 let detach_item log key =
-  generic_detach item_key_scheme Store.cons (fun x -> x) log key
+  generic_detach item_key_scheme Store.cons Fun.id (Fun.const None) log key
 let detach_option log key =
-  generic_detach option_key_scheme Store.record (fun x -> Some x) log key
+  generic_detach option_key_scheme Store.record some Fun.id log key
 
 let active_key log key =
   let Key_metadata m = log.scheme.!(key) in
