@@ -15,7 +15,7 @@
 
 type params
 type label
-type entity
+type element
 
 val types: title:string -> params -> (label * Types.type_expr) list -> unit
 (** Print a graph to the file
@@ -30,7 +30,7 @@ val types: title:string -> params -> (label * Types.type_expr) list -> unit
  See below for how to setup the context *)
 
 (** Full version of {!types} that allow to print any kind of graph entity *)
-val nodes: title:string -> params -> (label * entity) list -> unit
+val nodes: title:string -> params -> (label * element) list -> unit
 
 val params:
   ?ellide_links:bool ->
@@ -78,15 +78,15 @@ type modal =
 | Color of color
 | Background of color
 | Style of style
-| Label of string
+| Label of string list
 
 val label: modal list -> label
 
 
 type dir = Toward | From
-val node: Types.type_expr -> entity
-val edge: Types.type_expr -> Types.type_expr -> entity
-val hyperedge: (dir * label * Types.type_expr) list -> entity
+val node: Types.type_expr -> element
+val edge: Types.type_expr -> Types.type_expr -> element
+val hyperedge: (dir * label * Types.type_expr) list -> element
 
 (** {1 Node tracking functions }*)
 

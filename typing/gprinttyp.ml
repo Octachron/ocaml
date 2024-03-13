@@ -34,6 +34,14 @@ type label = modal list
 
 type rlabel = { background:color option; color: color option; style: style option; label: string list}
 
+
+type dir = Toward | From
+type 'index entity =
+  | Node of 'index
+  | Edge of 'index * 'index
+  | Hyperedge of (dir * label * 'index) list
+
+
 let update r l = match l with
   | Color c -> { r with color = Some c}
   | Background c -> { r with background = Some c}
@@ -80,16 +88,113 @@ let merge_label l r =
 let merge l r =
   { color = alt l.color r.color;
     style = alt l.style r.style;
-    label = l.label @ r.label;
+    label = merge_label l.label r.label;
     background = alt l.background r.background
   }
+
+type params = {
+  short_ids:bool;
+  ellide_links:bool;
+  expansion_as_hyperedge:bool;
+}
+
+let ellide_links ty =
+  let rec follow_safe visited t =
+    let t = Types.Transient_expr.coerce t in
+    if List.memq t visited then t
+    else match t.Types.desc with
+      | Tlink t' -> follow_safe (t::visited) t'
+      | _ -> t
+  in
+  follow_safe [] ty
+
+let repr params ty =
+  if params.ellide_links then ellide_links ty
+  else Types.Transient_expr.coerce ty
+
+let string_of_field_kind v =
+  match Types.field_kind_repr v with
+  | Fpublic -> "public"
+  | Fabsent -> "absent"
+  | Fprivate -> "private"
+
+
+module Index: sig
+  type t = private int
+   val index: params -> Types.type_expr -> t
+   val split: params -> Types.type_expr -> t * Types.type_desc
+ end = struct
+
+  type t = int
+  type name_map = {
+    last: int ref;
+    tbl: (t,int) Hashtbl.t;
+  }
+  let id_map = { last = ref 0; tbl = Hashtbl.create 20 }
+
+  let split params x =
+    let x = repr params x in
+    x.id, x.desc
+  let repr_index params x = (repr params x).id
+  let index params ty =
+    let id = repr_index params ty in
+    if not params.short_ids then id else
+      match Hashtbl.find_opt id_map.tbl id with
+      | Some x -> x
+      | None ->
+          incr id_map.last;
+          let last = !(id_map.last) in
+          Hashtbl.replace id_map.tbl id last;
+          last
+
+end
+
+type index = Index.t
+type element = Types.type_expr entity
+
+module Node_set = Set.Make(struct
+    type t = Index.t
+    let compare = Stdlib.compare
+end)
+
+module Edge_set = Set.Make(struct
+    type t = Index.t * Index.t
+    let compare = Stdlib.compare
+end)
+
+module Hyperedge_set = Set.Make(struct
+    type t = (dir * label * index) list
+    let compare = Stdlib.compare
+end)
+
+type subgraph =
+  {
+    nodes: Node_set.t;
+    edges: Edge_set.t;
+    hyperedges: Hyperedge_set.t
+  }
+let empty_subgraph=
+  { nodes = Node_set.empty;
+    edges=Edge_set.empty;
+    hyperedges = Hyperedge_set.empty
+  }
+
+module Entity_map = Map.Make(struct
+    type t = Index.t entity
+    let compare = Stdlib.compare
+  end)
+let (.%()) map e =
+  Option.value ~default:none @@
+  Entity_map.find_opt e map
 
 module Pp = struct
 
   let semi ppf () = fprintf ppf ";@ "
   let space ppf () = fprintf ppf "@ "
+  let empty ppf () = fprintf ppf ""
   let string =pp_print_string
   let list ~sep = pp_print_list ~pp_sep:sep
+  let seq ~sep = pp_print_seq ~pp_sep:sep
   let rec longident ppf = function
     | Longident.Lident s -> fprintf ppf "%s" s
     | Longident.Ldot (l,s) -> fprintf ppf "%a.%s"  longident l s
@@ -113,7 +218,7 @@ module Pp = struct
     | Label s -> fprintf ppf {|label=<%a>|} (list ~sep:space string) s
     | Background c -> fprintf ppf {|fill_color="%a"|} color c
 
-  let decorate ppf r =
+  let label ppf r =
     match decompose r with
     | [] -> ()
     | l -> fprintf ppf "[%a]" (list ~sep:semi modal) l
@@ -132,145 +237,43 @@ module Pp = struct
       ~either:(fun c _tl m _e -> fprintf ppf "%s?(%B,%B)" lbl c m)
       rf
 
-  let rec entity ppf (lbl,x) =
-    let lbl = match x with
-      | Hyperedge -> merge lbl @@ make [Shape Triangle]
-      | _ -> lbl
-    in
-    fprintf ppf "%a%a" pp_id x label lbl;
-    match x with
-    | Node _ | Edge _ -> ()
-    | Hyperedge l as h->
-        List.iter (fun (dir,lbl,x) ->
-            let lbl = make lbl in
-            let e = match dir with
-              | From -> [lbl, Node x, h]
-              | Toward -> [lbl, h, Node x]
-            in
-            edges params ppf e
-          ) l
-  and hyper params ppf h =
-  fprintf ppf "%a[shape=\"triangle\"; label=\"\"];@,"
-    (pp_id params) h
+  let index ppf x =
+    fprintf ppf "%d" (x: Index.t :> int)
+
+  let hyperedge_id ppf l =
+    let sep ppf () = fprintf ppf "h" in
+    let elt ppf (_,_,x) = index ppf x in
+    fprintf ppf "h%a" (list ~sep elt) l
+
+  let node graph ppf x =
+    let lbl = graph.%(Node x) in
+    fprintf ppf "%a%a;@ " index x label lbl
+
+  let edge graph ppf (x,y) =
+    let lbl = graph.%(Edge (x,y)) in
+    fprintf ppf "%a->%a%a;@ " index x index y label lbl
+
+  let hyperedge graph ppf l =
+    let lbl = graph.%(Hyperedge l) in
+    fprintf ppf "%a%a;@ " hyperedge_id l label lbl;
+    List.iter (fun (dir,lbl,x) ->
+        let lbl = make lbl in
+        match dir with
+        | From -> fprintf ppf "%a->%a%a;@ " index x hyperedge_id l label lbl
+        | Toward -> fprintf ppf "%a->%a%a;@ " hyperedge_id l index x label lbl
+      ) l
+
+  let graph ppf (graph,sg) =
+    fprintf ppf "@[<v 2>digraph {@,%a%a%a}@]@."
+    (seq ~sep:empty (node graph)) (Node_set.to_seq sg.nodes)
+    (seq ~sep:empty (edge graph)) (Edge_set.to_seq sg.edges)
+    (seq ~sep:empty (hyperedge graph)) (Hyperedge_set.to_seq sg.hyperedges)
 
 
 end
 
-module Int_map = Map.Make(Int)
-type params = {
-  short_ids:bool;
-  ellide_links:bool;
-  expansion_as_hyperedge:bool;
-  labels: rlabel Int_map.t
-}
-
-let ellide_links ty =
-  let rec follow_safe visited t =
-    let t = Types.Transient_expr.coerce t in
-    if List.memq t visited then t
-    else match t.Types.desc with
-      | Tlink t' -> follow_safe (t::visited) t'
-      | _ -> t
-  in
-  follow_safe [] ty
-
-let repr params ty =
-  if params.ellide_links then ellide_links ty
-  else Types.Transient_expr.coerce ty
 
 
-
-let (.%()) map (params,ty) =
-  Option.value ~default:none @@
-  Int_map.find_opt (repr params ty).id map
-
-let string_of_field_kind v =
-  match Types.field_kind_repr v with
-  | Fpublic -> "public"
-  | Fabsent -> "absent"
-  | Fprivate -> "private"
-
-
-type dir = Toward | From
-
-type 'index entity =
-  | Node of 'index
-  | Edge of 'index * 'index
-  | Hyperedge of (dir * label * 'index) list
-
-module Index: sig
-  type t = private int
-   val index: params -> Types.type_expr -> t
-   val pretty_index: params -> t -> int
-   val get_id: params -> Types.type_expr -> int
-   val split: params -> Types.type_expr -> t * Types.type_desc
- end = struct
-
-  type t = int
-  type name_map = {
-    last: int ref;
-    tbl: (t,int) Hashtbl.t;
-  }
-  let id_map = { last = ref 0; tbl = Hashtbl.create 20 }
-
-  let split params x =
-    let x = repr params x in
-    x.id, x.desc
-  let index params x = (repr params x).id
-  let pretty_index params id =
-    if not params.short_ids then id else
-      match Hashtbl.find_opt id_map.tbl id with
-      | Some x -> x
-      | None ->
-          incr id_map.last;
-          let last = !(id_map.last) in
-          Hashtbl.replace id_map.tbl id last;
-          last
-
-  let get_id params x = pretty_index params (index params x)
-end
-
-type index = Index.t
-
-
-module Node_set = Set.Make(struct
-    type t = Index.t
-    let compare = Stdlib.compare
-end)
-
-module Edge_set = Set.Make(struct
-    type t = Index.t * Index.t
-    let compare = Stdlib.compare
-end)
-
-module Hyperedge_set = Set.Make(struct
-    type t = (dir * label * index) list
-    let compare = Stdlib.compare
-end)
-
-type subgraph =
-  {
-    nodes: Node_set.t;
-    edges: Edge_set.t;
-    hyperedges: Hyperedge_set.t
-  }
-
-module Entity_map = Map.Make(struct
-    type t = Index.t entity
-    let compare = Stdlib.compare
-  end)
-
-let ty_id ppf x =
-  fprintf ppf "%d" (x: index :> int)
-
-let pp_id ppf x =
-  match x with
-  | Node x -> fprintf ppf "n%a" ty_id  x
-  | Edge (x,y) -> fprintf ppf "e%ae%a" ty_id x ty_id y
-  | Hyperedge l ->
-      let sep ppf () = fprintf ppf "h" in
-      let elt ppf (_,_,x) = ty_id ppf x in
-      fprintf ppf "h%a" Pp.(list ~sep elt) l
 
 
 
@@ -307,83 +310,82 @@ let pretty_var ppf name =
     fprintf ppf "'%s" name
   else pp_print_string ppf name'
 
-let numbered ty tl = List.mapi (fun i x -> arg i, Edge (ty, x)) tl
-
-
-
-let update_label e l em =
-  let lbl =
-    match Entity_map.find_opt e em with
-    | None -> l
-    | Some lbl -> merge lbl l
-  in
-  Entity_map.add e lbl em
-
-module Collect = struct
+module Digraph = struct
   let empty = [], []
   let (@^) (a,b) (c,d) = a @ c, b @ d
-  let (@:) (a,b) (c,d) = a :: c, b :: d
   let edge params x ty = Edge (x, Index.index params ty)
 
 
   let rec hyperedges_of_memo params id = function
-  | Types.Mnil -> empty
-  | Types.Mcons (_priv, _p, t1, t2, rem) ->
-      let s = Index.index params t1 and exp = Index.index params t2 in
-      ([t1;t2],
-      [memo,
-       Hyperedge [From, [Style Dotted], id
-                 ;Toward, [Style Dotted], s;
-                  Toward, [Label ["expand"]], exp
-                 ]]) @^ hyperedges_of_memo params id rem
-  | Types.Mlink rem -> hyperedges_of_memo params id !rem
+    | Types.Mnil -> empty
+    | Types.Mcons (_priv, _p, t1, t2, rem) ->
+        let s = Index.index params t1 and exp = Index.index params t2 in
+        ([t1;t2],
+         [memo,
+          Hyperedge [From, [Style Dotted], id
+                    ;Toward, [Style Dotted], s;
+                     Toward, [Label ["expand"]], exp
+                    ]]) @^ hyperedges_of_memo params id rem
+    | Types.Mlink rem -> hyperedges_of_memo params id !rem
 
-let rec edges_of_memo params = function
-  | Types.Mnil -> empty
-  | Types.Mcons (_priv, _p, t1, t2, rem) ->
-      let x = Index.index params t1 and y = Index.index params t2 in
-      ([t1;t2], [memo, Edge (x,y)]) @^ edges_of_memo params rem
-  | Types.Mlink rem -> edges_of_memo params !rem
+  let rec edges_of_memo params = function
+    | Types.Mnil -> empty
+    | Types.Mcons (_priv, _p, t1, t2, rem) ->
+        let x = Index.index params t1 and y = Index.index params t2 in
+        ([t1;t2], [memo, Edge (x,y)]) @^ edges_of_memo params rem
+    | Types.Mlink rem -> edges_of_memo params !rem
 
 
-let expansions params id memo =
-  if params.expansion_as_hyperedge then
-    hyperedges_of_memo params id memo
-  else
-    edges_of_memo params memo
+  let expansions params id memo =
+    if params.expansion_as_hyperedge then
+      hyperedges_of_memo params id memo
+    else
+      edges_of_memo params memo
 
   let labelf fmt = kasprintf (fun s -> make [Label [s]]) fmt
   let numbered params id tl =
     tl, List.mapi (fun i x -> arg i, edge params id x) tl
 
 
-  let entity params (g,s as sgs) (lbl,entry) =
+  let add_to_subgraph s = function
+    | Node ty ->
+        let nodes = Node_set.add ty s.nodes in
+        { s with nodes }
+    | Edge (x,y) ->
+        let edges = Edge_set.add (x,y) s.edges in
+        { s with edges }
+    | Hyperedge l ->
+        let hyperedges = Hyperedge_set.add l s.hyperedges in
+        { s with hyperedges }
+
+
+  let entity (g,s) (lbl,entry) =
     match Entity_map.find_opt entry g with
     | Some lbl' -> Entity_map.add entry (merge lbl' lbl) g, s
     | None ->
         let g = Entity_map.add entry lbl g in
-        match entry with
-        | Node ty ->
-            let nodes = Node_set.add ty s.nodes in
-            g, { s with nodes }
-        | Edge (x,y) ->
-            let edges = Edge_set.add (x,y) s.edges in
-            g, { s with edges }
-        | Hyperedge l as h->
-            let hyperedges = Hyperedge_set.add l s.hyperedges in
-            g, { s with hyperedges }
+        g, add_to_subgraph s entry
 
-  let rec inject_typ params (graph, s as gh) ty0 =
+  let update_label e l em =
+    let lbl =
+      match Entity_map.find_opt e em with
+      | None -> l
+      | Some lbl -> merge lbl l
+    in
+    Entity_map.add e lbl em
+
+  let rec inject_typ params (g, s as gh) ty0 =
     let (id, desc) = Index.split params ty0 in
     let tynode = Node id in
-    if Entity_map.mem tynode graph then gh
+    if Entity_map.mem tynode g then id, gh
     else
-      let label, (types, graph_objects) = node params gh id desc in
-      let g = update_label tynode label graph in
+      let label, (types, graph_objects) = node params id desc in
+      let g = update_label tynode label g in
       let gh = (g,s) in
-      let gh = List.fold_left (inject_typ params) gh types in
-      List.fold_left (entity params) gh graph_objects
-  and node params gs id desc =
+      let inject gh ty = snd (inject_typ params gh ty) in
+      let gh = List.fold_left inject gh types in
+      id, List.fold_left entity gh graph_objects
+  and node params id desc =
     let numbered = numbered params id in
     let edge = edge params id in
     let std_edge x = [x], [std, edge x] in
@@ -444,132 +446,46 @@ let expansions params id memo =
       rf
 end
 
-
-let rec typ params visited ppf ty0 =
-  let ty = repr params ty0 in
-  if List.memq ty !visited then ()
-  else begin
-    visited := ty :: !visited;
-    node params visited ty0 ppf ty.desc
-  end
-and node params visited ty0 ppf desc =
-  let user_label =params.labels.%(params,ty0) in
-  let node_label, node_meta , sub_entities = split_node params ty0 desc in
-  let label = asprintf "%t<SUB>%d</SUB>" node_label (Index.get_id params ty0) in
-  let node_label = update (make node_meta) (Label label) in
-  let label = merge user_label node_label in
-  fprintf ppf "%a%a;@," (pp_id params) (Node ty0) Pp.decorate label;
-  List.iter (entity params visited ppf) sub_entities
-and split_node params ty0 = function
-| Types.Tvar name -> dprintf "%a" pretty_var name, [], []
-| Types.Tarrow(l,t1,t2,_) ->
-    dprintf "→%a" exponent_of_label l,
-    [],
-    numbered ty0 [t1; t2]
-| Types.Ttuple tl ->
-    dprintf ",",
-    [],
-    numbered ty0 tl
-| Types.Tconstr (p,tl,abbrevs) ->
-    dprintf "%a" Path.print p,
-    [],
-    numbered ty0 tl @ expansions params ty0 !abbrevs
-| Types.Tobject (t, name) ->
-    dprintf "obj", [],
-     begin match !name with
-      | None -> [std, Edge (ty0, t)]
-      | Some (_p,tl) -> (std, Edge (ty0, t))::numbered ty0 tl
-      end
-| Types.Tfield (f, k, t1, t2) ->
-    dprintf "%s<SUP>%s</SUP>"
-      f (string_of_field_kind k),
-    [],
-    numbered ty0 [t1;t2]
-| Types.Tnil -> dprintf "∅", [], []
-| Types.Tlink t -> ignore, [Style Dash], [std, Edge(ty0, t)]
-| Types.Tsubst (t, o) ->
-    dprintf "Subst", [Style Dotted],
-    numbered ty0 (t :: Option.to_list o)
-| Types.Tunivar name ->
-    dprintf "%a<SUP>∀</SUP>" pretty_var name, [], []
-| Types.Tpoly (t, tl) ->
-    dprintf "∀", [],
-    (std, Edge(ty0, t)) :: (numbered ty0 tl)
-| Types.Tvariant row ->
-    let Row {fields; more; name; fixed; closed} = Types.row_repr row in
-    let pr, args = match name with
-    | None ->
-        dprintf "[Row(%B,%a,[%a])]" closed row_fixed fixed
-          Pp.(list ~sep:semi field_node) fields, []
-    | Some (p,tl) ->
-        dprintf "[Row %a(%B,%a,%a)]"
-          Path.print p closed row_fixed fixed
-          Pp.(list ~sep:semi field_node) fields,
-        tl
-    in
-    pr, [],
-    numbered ty0 @@ args @ more :: List.concat_map field_edge (List.map snd fields)
-| Types.Tpackage (p, fl) ->
-    dprintf "mod %a[%a]"
-      Path.print p
-      Pp.(list ~sep:semi longident) (List.map fst fl),
-    [],
-    numbered ty0 (List.map snd fl)
-and edge params ppf (lbl,x,y) =
-  fprintf ppf "%a->%a%a;@ "
-    (pp_id params) x
-    (pp_id params) y
-    Pp.decorate lbl;
-and edges params ppf tys=
-  List.iter (edge params ppf) tys
-
-and field_edge rf = Types.match_row_field
-  ~absent:(fun _ -> [])
-  ~present:Option.to_list
-  ~either:(fun _ tl _ e ->
-      List.concat_map field_edge (Option.to_list e) @ tl
-    )
-  rf
-and entity params visited ppf (lbl,entry) = match entry with
-  | Node ty -> typ params visited ppf ty
-  | Edge (x,y) ->
-      typ params visited ppf x;
-      typ params visited ppf y;
-      edges params ppf [lbl, Node x, Node y]
-
-
-let add_info params map (info,entry) =
-  match entry with
-  | Edge _ | Hyperedge _ -> map
-  | Node ty ->
-      let ty = repr params ty in
-      let info = match Int_map.find_opt ty.id map with
-        | None -> info
-        | Some i -> merge i info
-      in
-      Int_map.add ty.id info map
-
-
 let params
     ?(ellide_links=true)
     ?(expansion_as_hyperedge=false)
     ?(short_ids=true)
     () =
   {
-    labels=Int_map.empty;
     expansion_as_hyperedge;
     short_ids;
     ellide_links
   }
 
-let entries params ppf ts =
-  let visited = ref [] in
-  let map = List.fold_left (add_info params) Int_map.empty ts in
-  let params = { params with labels=map} in
-  fprintf ppf "@[<v>digraph G {@,";
-  List.iter (entity params visited ppf) ts;
-  fprintf ppf "@,}@]@."
 
+let translate params gh (label,entry) =
+  let node, (g,sg) = match entry with
+    | Node ty ->
+        let id, gh = Digraph.inject_typ params gh ty in
+        Node id, gh
+    | Edge (ty,ty') ->
+        let id, gh = Digraph.inject_typ params gh ty in
+        let id', gh = Digraph.inject_typ params gh ty' in
+        Edge(id,id'), gh
+    | Hyperedge l ->
+        let l, gh = List.fold_left (fun (l,gh) (d,lbl,ty) ->
+            let id, gh = Digraph.inject_typ params gh ty in
+            (d,lbl,id)::l, gh
+          ) ([],gh) l
+        in
+       Hyperedge l, gh
+  in
+  let g = Digraph.update_label node label g in
+  let gs = Digraph.add_to_subgraph sg node in
+  (g,gs)
+
+
+let translate_entries params ts =
+  List.fold_left (translate params) (Entity_map.empty, empty_subgraph) ts
+
+let entries params ppf ts =
+  let (g,gs) = translate_entries params ts in
+  Pp.graph ppf (g,gs)
 
 let file_counter = ref 0
 
