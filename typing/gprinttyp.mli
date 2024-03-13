@@ -70,13 +70,12 @@ type color =
   | Black
 
 type style =
-  | Filled
+  | Filled of color option
   | Dotted
   | Dash
 
 type modal =
 | Color of color
-| Background of color
 | Style of style
 | Label of string list
 

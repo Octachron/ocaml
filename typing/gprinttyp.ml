@@ -20,19 +20,18 @@ type color =
   | Black
 
 type style =
-  | Filled
+  | Filled of color option
   | Dotted
   | Dash
 
 type modal =
 | Color of color
-| Background of color
 | Style of style
 | Label of string list
 
 type label = modal list
 
-type rlabel = { background:color option; color: color option; style: style option; label: string list}
+type rlabel = { color: color option; style: style option; label: string list}
 
 
 type dir = Toward | From
@@ -44,11 +43,10 @@ type 'index entity =
 
 let update r l = match l with
   | Color c -> { r with color = Some c}
-  | Background c -> { r with background = Some c}
   | Style s -> { r with style = Some s}
   | Label s -> { r with label = s}
 
-let none = { background = None; color = None; style=None; label = [] }
+let none = { color = None; style=None; label = [] }
 
 let make l = List.fold_left update none l
 
@@ -89,7 +87,6 @@ let merge l r =
   { color = alt l.color r.color;
     style = alt l.style r.style;
     label = merge_label l.label r.label;
-    background = alt l.background r.background
   }
 
 type params = {
@@ -132,12 +129,7 @@ module Index: sig
   }
   let id_map = { last = ref 0; tbl = Hashtbl.create 20 }
 
-  let split params x =
-    let x = repr params x in
-    x.id, x.desc
-  let repr_index params x = (repr params x).id
-  let index params ty =
-    let id = repr_index params ty in
+  let pretty_id params id =
     if not params.short_ids then id else
       match Hashtbl.find_opt id_map.tbl id with
       | Some x -> x
@@ -146,6 +138,12 @@ module Index: sig
           let last = !(id_map.last) in
           Hashtbl.replace id_map.tbl id last;
           last
+
+  let split params x =
+    let x = repr params x in
+    pretty_id params x.id, x.desc
+
+  let index params ty = pretty_id params (repr params ty).id
 
 end
 
@@ -208,20 +206,24 @@ module Pp = struct
     | Black -> fprintf ppf "black"
 
   let style ppf = function
-    | Filled -> fprintf ppf "filled"
+    | Filled _ -> fprintf ppf "filled"
     | Dash -> fprintf ppf "dashed"
     | Dotted -> fprintf ppf "dotted"
 
   let modal ppf = function
     | Color c -> fprintf ppf {|color="%a"|} color c
-    | Style s -> fprintf ppf {|style="%a"|} style s
+    | Style s ->
+        fprintf ppf {|style="%a"|} style s;
+        begin match s with
+        | Filled (Some c) -> fprintf ppf {|fillcolor="%a"|} color c;
+        | _ -> ()
+        end;
     | Label s -> fprintf ppf {|label=<%a>|} (list ~sep:space string) s
-    | Background c -> fprintf ppf {|fill_color="%a"|} color c
 
   let label ppf r =
     match decompose r with
     | [] -> ()
-    | l -> fprintf ppf "[%a]" (list ~sep:semi modal) l
+    | l -> fprintf ppf "[@[<h>%a@]]" (list ~sep:semi modal) l
 
   let row_fixed ppf = function
     | None -> fprintf ppf ""
@@ -380,7 +382,9 @@ module Digraph = struct
     if Entity_map.mem tynode g then id, gh
     else
       let label, (types, graph_objects) = node params id desc in
+      let label = merge label (labelf "<SUB>%a</SUB>" Pp.index id) in
       let g = update_label tynode label g in
+      let s = add_to_subgraph s tynode in
       let gh = (g,s) in
       let inject gh ty = snd (inject_typ params gh ty) in
       let gh = List.fold_left inject gh types in
