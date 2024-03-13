@@ -3192,6 +3192,13 @@ let vb_exp_constraint {pvb_expr=expr; pvb_pat=pat; pvb_constraint=ct; _ } =
       List.fold_right (Exp.newtype ~loc) vars expr
 
 let vb_pat_constraint ({pvb_pat=pat; pvb_expr = exp; _ } as vb) =
+  begin match pat.ppat_desc with
+  | Ppat_var x -> Gprinttyp.(debug (fun () ->
+      set_context loc x.loc;
+      set_context global x.txt;
+    ))
+  | _ -> ()
+  end;
   vb.pvb_attributes,
   let open Ast_helper in
   match vb.pvb_constraint, pat.ppat_desc, exp.pexp_desc with

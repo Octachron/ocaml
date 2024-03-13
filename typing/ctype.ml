@@ -134,6 +134,25 @@ let () =
       | _ -> None
     )
 
+(** Debugging *)
+let () = Gprinttyp.debug_on := (fun () ->
+    match Sys.getenv_opt "ODEBUG" with
+    | None -> false
+    | Some _ -> true
+  )
+
+let vis = Gprinttyp.(label [Style  (Filled (Some Purple))] )
+let left = Gprinttyp.(label [Color Green])
+let right = Gprinttyp.(label [Color Blue])
+let gparams = Gprinttyp.params
+    ~ellide_links:true
+    ~expansion_as_hyperedge:false
+    ~short_ids:true
+    ()
+let gtypes ~title l = Gprinttyp.types ~title gparams l
+let gnodes ~title l = Gprinttyp.nodes ~title gparams l
+
+
 exception Cannot_expand
 
 exception Cannot_apply
@@ -1543,6 +1562,9 @@ let subst env level priv abbrev oty params args body =
     undo_abbrev ();
     raise Cannot_subst
 
+let subst env level priv abbrev oty params args body =
+  Gprinttyp.debug_off (fun () ->  subst env level priv abbrev oty params args body)
+
 (*
    Default to generic level. Usually, only the shape of the type matters, not
    whether it is generic or not. [generic_level] might be somewhat slower, but
@@ -1832,6 +1854,11 @@ let is_contractive env p =
 exception Occur
 
 let rec occur_rec env allow_recursive visited ty0 ty =
+  Gprinttyp.debug (fun () ->
+      gtypes ~title:"occur_rec" @@
+      [left, ty0; right, ty ]
+      @ List.map (fun x -> vis,x) (TypeSet.elements visited)
+    );
   if eq_type ty ty0 then raise Occur;
   match get_desc ty with
     Tconstr(p, _tl, _abbrev) ->
@@ -1861,6 +1888,7 @@ let type_changed = ref false (* trace possible changes to the studied type *)
 let merge r b = if b then r := true
 
 let occur uenv ty0 ty =
+  Gprinttyp.debug (fun () -> gtypes ~title:"occur" [left, ty0; right, ty ]);
   let env = get_env uenv in
   let allow_recursive = allow_recursive_equations uenv in
   let old = !type_changed in
@@ -1934,6 +1962,12 @@ let local_non_recursive_abbrev uenv p ty =
                    (*****************************)
                    (*  Polymorphic Unification  *)
                    (*****************************)
+
+let link_type' t1 t2 =
+  Gprinttyp.(debug (fun () ->
+      gnodes ~title:"link_type" [ label [Label ["link to"]], edge t1 t2]
+    ));
+  link_type t1 t2
 
 (* Since we cannot duplicate universal variables, unification must
    be done at meta-level, using bindings in univar_pairs *)
@@ -2633,7 +2667,7 @@ let unify1_var uenv t1 t2 =
         with Escape e ->
           raise_for Unify (Escape e)
       end;
-      link_type t1 t2;
+      link_type' t1 t2;
       true
   | exception Unify_trace _ when in_pattern_mode uenv ->
       false
@@ -2642,7 +2676,7 @@ let unify1_var uenv t1 t2 =
 let unify3_var uenv t1' t2 t2' =
   occur_for Unify uenv t1' t2;
   match occur_univar_for Unify (get_env uenv) t2 with
-  | () -> link_type t1' t2
+  | () -> link_type' t1' t2
   | exception Unify_trace _ when in_pattern_mode uenv ->
       reify uenv t1';
       reify uenv t2';
@@ -2676,6 +2710,9 @@ let unify3_var uenv t1' t2 t2' =
 *)
 
 let rec unify uenv t1 t2 =
+  Gprinttyp.(debug (fun () ->
+      gnodes ~title:"unify" [ label [Label ["Unify"]], edge t1 t2 ])
+    );
   (* First step: special cases (optimizations) *)
   if unify_eq uenv t1 t2 then () else
   let reset_tracing = check_trace_gadt_instances (get_env uenv) in
@@ -2695,7 +2732,7 @@ let rec unify uenv t1 t2 =
         unify_univar_for Unify t1 t2 !univar_pairs;
         update_level_for Unify (get_env uenv) (get_level t1) t2;
         update_scope_for Unify (get_scope t1) t2;
-        link_type t1 t2
+        link_type' t1 t2
     | (Tconstr (p1, [], a1), Tconstr (p2, [], a2))
           when Path.same p1 p2
             (* This optimization assumes that t1 does not expand to t2
@@ -2727,7 +2764,7 @@ and unify2_rec uenv t10 t1 t20 t2 =
       then begin
         update_level_for Unify (get_env uenv) (get_level t1) t2;
         update_scope_for Unify (get_scope t1) t2;
-        link_type t1 t2
+        link_type' t1 t2
       end else
         let env = get_env uenv in
         if find_expansion_scope env p1 > find_expansion_scope env p2
@@ -2792,7 +2829,7 @@ and unify3 uenv t1 t1' t2 t2' =
       add_type_equality uenv t1' t2'
     else begin
       occur_for Unify uenv t1' t2;
-      link_type t1' t2
+      link_type' t1' t2
     end;
     try
       begin match (d1, d2) with
@@ -2936,7 +2973,7 @@ and unify3 uenv t1 t1' t2 t2' =
             forget_abbrev abbrev p;
             let t2'' = expand_head_unif (get_env uenv) t2 in
             if not (closed_parameterized_type tl t2'') then
-              link_type t2 t2'
+              link_type' t2 t2'
         | _ ->
             () (* t2 has already been expanded by update_level *)
     with Unify_trace trace ->
