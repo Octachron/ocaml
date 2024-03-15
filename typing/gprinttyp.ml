@@ -13,11 +13,15 @@ let debug_off f =
 open Format
 
 type color =
-  | Red
-  | Green
-  | Blue
-  | Purple
-  | Black
+  | Named of string
+  | HSV of {h:float;s:float;v:float}
+
+let red = Named "red"
+let blue = Named "blue"
+let green = Named "green"
+let purple = Named "purple"
+let lightgrey = Named "lightgrey"
+let hsv ~h ~s ~v = HSV {h;s;v}
 
 type style =
   | Filled of color option
@@ -201,11 +205,8 @@ module Pp = struct
     | Longident.Lapply(f,x) -> fprintf ppf "%a(%a)" longident f  longident x
 
   let color ppf = function
-    | Red -> fprintf ppf "red"
-    | Blue -> fprintf ppf "blue"
-    | Green -> fprintf ppf "green"
-    | Purple -> fprintf ppf "purple"
-    | Black -> fprintf ppf "black"
+    | Named s -> fprintf ppf "%s" s
+    | HSV r -> fprintf ppf "%1.3f %1.3f %1.3f" r.h r.s r.v
 
   let style ppf = function
     | Filled _ -> fprintf ppf "filled"
@@ -446,7 +447,7 @@ module Digraph = struct
     | Types.Tunivar name ->
         mk "%a<SUP>∀</SUP>" pretty_var name
     | Types.Tpoly (t, tl) ->
-        let params = merge (make [Style (Filled (Some Blue))]) (labelf "∀%a" Pp.index id) in
+        let params = merge (make [Style (Filled (Some lightgrey))]) (labelf "∀%a" Pp.index id) in
         mk "∀" |> group params tl |> std_edge t
     | Types.Tvariant row ->
         let Row {fields; more; name; fixed; closed} = Types.row_repr row in

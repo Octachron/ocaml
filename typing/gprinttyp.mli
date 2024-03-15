@@ -63,11 +63,14 @@ val debug: (unit -> unit) -> unit
 (** {1 Node and decoration types} *)
 
 type color =
-  | Red
-  | Green
-  | Blue
-  | Purple
-  | Black
+  | Named of string
+  | HSV of {h:float;s:float;v:float}
+
+val green: color
+val blue: color
+val red:color
+val purple:color
+val hsv: h:float -> s:float -> v:float -> color
 
 type style =
   | Filled of color option
