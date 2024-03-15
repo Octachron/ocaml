@@ -35,11 +35,6 @@ type rlabel = { color: color option; style: style option; label: string list}
 
 
 type dir = Toward | From
-type 'index entity =
-  | Node of 'index
-  | Edge of 'index * 'index
-  | Hyperedge of (dir * label * 'index) list
-
 
 let update r l = match l with
   | Color c -> { r with color = Some c}
@@ -69,7 +64,6 @@ let decompose r =
   | Label default ->
       { r with label = Some(Option.value ~default r.label) }
 **)
-let arg n = { none with label = [string_of_int n] }
 let std = none
 let memo = { none with label = ["expand"]; style=Some Dash }
 
@@ -118,7 +112,6 @@ let string_of_field_kind v =
 
 module Index: sig
   type t = private int
-   val index: params -> Types.type_expr -> t
    val split: params -> Types.type_expr -> t * Types.type_desc
  end = struct
 
@@ -143,13 +136,11 @@ module Index: sig
     let x = repr params x in
     pretty_id params x.id, x.desc
 
-  let index params ty = pretty_id params (repr params ty).id
+  let _index params ty = pretty_id params (repr params ty).id
 
 end
 
 type index = Index.t
-type element = Types.type_expr entity
-
 module Node_set = Set.Make(struct
     type t = Index.t
     let compare = Stdlib.compare
@@ -169,13 +160,24 @@ type subgraph =
   {
     nodes: Node_set.t;
     edges: Edge_set.t;
-    hyperedges: Hyperedge_set.t
+    hyperedges: Hyperedge_set.t;
+    subgraphes: (rlabel * subgraph) list;
   }
+
+
 let empty_subgraph=
   { nodes = Node_set.empty;
     edges=Edge_set.empty;
-    hyperedges = Hyperedge_set.empty
+    hyperedges = Hyperedge_set.empty;
+    subgraphes = [];
   }
+
+type 'index entity =
+  | Node of 'index
+  | Edge of 'index * 'index
+  | Hyperedge of (dir * label * 'index) list
+type element = Types.type_expr entity
+
 
 module Entity_map = Map.Make(struct
     type t = Index.t entity
@@ -215,15 +217,21 @@ module Pp = struct
     | Style s ->
         fprintf ppf {|style="%a"|} style s;
         begin match s with
-        | Filled (Some c) -> fprintf ppf {|fillcolor="%a"|} color c;
+        | Filled (Some c) -> fprintf ppf {|;@ fillcolor="%a"|} color c;
         | _ -> ()
         end;
     | Label s -> fprintf ppf {|label=<%a>|} (list ~sep:space string) s
+
+  let inline_label ppf r =
+    match decompose r with
+    | [] -> ()
+    | l -> fprintf ppf "@[<v>%a@]" (list ~sep:semi modal) l
 
   let label ppf r =
     match decompose r with
     | [] -> ()
     | l -> fprintf ppf "[@[<h>%a@]]" (list ~sep:semi modal) l
+
 
   let row_fixed ppf = function
     | None -> fprintf ppf ""
@@ -265,11 +273,24 @@ module Pp = struct
         | Toward -> fprintf ppf "%a->%a%a;@ " hyperedge_id l index x label lbl
       ) l
 
+  let rec subgraph graph ppf (lbl,sg) =
+    fprintf ppf
+      "@[<v 2>subgraph cluster {@,\
+       %a;@ \
+       %a%a%a%a}@]@."
+      inline_label lbl
+      (seq ~sep:empty (node graph)) (Node_set.to_seq sg.nodes)
+      (seq ~sep:empty (edge graph)) (Edge_set.to_seq sg.edges)
+      (seq ~sep:empty (hyperedge graph)) (Hyperedge_set.to_seq sg.hyperedges)
+      (list ~sep:empty (subgraph graph)) sg.subgraphes
+
+
   let graph ppf (graph,sg) =
-    fprintf ppf "@[<v 2>digraph {@,%a%a%a}@]@."
+    fprintf ppf "@[<v 2>digraph {@,%a%a%a%a}@]@."
     (seq ~sep:empty (node graph)) (Node_set.to_seq sg.nodes)
     (seq ~sep:empty (edge graph)) (Edge_set.to_seq sg.edges)
     (seq ~sep:empty (hyperedge graph)) (Hyperedge_set.to_seq sg.hyperedges)
+    (list ~sep:empty (subgraph graph)) sg.subgraphes
 
 
 end
@@ -313,43 +334,8 @@ let pretty_var ppf name =
   else pp_print_string ppf name'
 
 module Digraph = struct
-  let empty = [], []
-  let (@^) (a,b) (c,d) = a @ c, b @ d
-  let edge params x ty = Edge (x, Index.index params ty)
 
-
-  let rec hyperedges_of_memo params id = function
-    | Types.Mnil -> empty
-    | Types.Mcons (_priv, _p, t1, t2, rem) ->
-        let s = Index.index params t1 and exp = Index.index params t2 in
-        ([t1;t2],
-         [memo,
-          Hyperedge [From, [Style Dotted], id
-                    ;Toward, [Style Dotted], s;
-                     Toward, [Label ["expand"]], exp
-                    ]]) @^ hyperedges_of_memo params id rem
-    | Types.Mlink rem -> hyperedges_of_memo params id !rem
-
-  let rec edges_of_memo params = function
-    | Types.Mnil -> empty
-    | Types.Mcons (_priv, _p, t1, t2, rem) ->
-        let x = Index.index params t1 and y = Index.index params t2 in
-        ([t1;t2], [memo, Edge (x,y)]) @^ edges_of_memo params rem
-    | Types.Mlink rem -> edges_of_memo params !rem
-
-
-  let expansions params id memo =
-    if params.expansion_as_hyperedge then
-      hyperedges_of_memo params id memo
-    else
-      edges_of_memo params memo
-
-  let labelf fmt = kasprintf (fun s -> make [Label [s]]) fmt
-  let numbered params id tl =
-    tl, List.mapi (fun i x -> arg i, edge params id x) tl
-
-
-  let add_to_subgraph s = function
+    let add_to_subgraph s = function
     | Node ty ->
         let nodes = Node_set.add ty s.nodes in
         { s with nodes }
@@ -360,67 +346,108 @@ module Digraph = struct
         let hyperedges = Hyperedge_set.add l s.hyperedges in
         { s with hyperedges }
 
+    let add_subgraph sub g =
+      { g with subgraphes = sub :: g.subgraphes }
 
-  let entity (g,s) (lbl,entry) =
+  let add lbl entry (g,s) =
     match Entity_map.find_opt entry g with
     | Some lbl' -> Entity_map.add entry (merge lbl' lbl) g, s
     | None ->
         let g = Entity_map.add entry lbl g in
         g, add_to_subgraph s entry
 
-  let update_label e l em =
-    let lbl =
-      match Entity_map.find_opt e em with
-      | None -> l
-      | Some lbl -> merge lbl l
-    in
-    Entity_map.add e lbl em
+  let rec hyperedges_of_memo ty params id abbrev gh =
+    match abbrev with
+    | Types.Mnil -> gh
+    | Types.Mcons (_priv, _p, t1, t2, rem) ->
+        let s, gh = ty params t1 gh in
+        let exp, gh = ty params t2 gh in
+        gh |>
+        add memo
+          (Hyperedge
+             [From, [Style Dotted], id;
+              Toward, [Style Dotted], s;
+              Toward, [Label ["expand"]], exp
+             ])
+        |> hyperedges_of_memo ty params id rem
+    | Types.Mlink rem -> hyperedges_of_memo ty params id !rem gh
 
-  let rec inject_typ params (g, s as gh) ty0 =
+  let rec edges_of_memo ty params abbrev gh =
+    match abbrev with
+    | Types.Mnil -> gh
+    | Types.Mcons (_priv, _p, t1, t2, rem) ->
+        let x, gh = ty params t1 gh in
+        let y, gh = ty params t2 gh in
+        gh |> add memo (Edge (x,y)) |> edges_of_memo ty params rem
+    | Types.Mlink rem -> edges_of_memo ty params !rem gh
+
+
+  let expansions ty params id memo gh =
+    if params.expansion_as_hyperedge then
+      hyperedges_of_memo ty params id memo gh
+    else
+      edges_of_memo ty params memo gh
+
+  let labelk k fmt = kasprintf (fun s -> k (make [Label [s]])) fmt
+  let labelf fmt = labelk Fun.id fmt
+
+  let add_node label id tynode gh =
+      let label = labelk (merge label) "<SUB>%a</SUB>" Pp.index id in
+      add label tynode gh
+
+  let group ty lbl l (g,sgs) =
+    let g, nested = List.fold_left (fun gh t -> snd (ty t gh)) (g,empty_subgraph) l in
+    g, add_subgraph (lbl,nested) sgs
+
+  let rec inject_typ params ty0 (g,_ as gh) =
     let (id, desc) = Index.split params ty0 in
     let tynode = Node id in
     if Entity_map.mem tynode g then id, gh
-    else
-      let label, (types, graph_objects) = node params id desc in
-      let label = merge label (labelf "<SUB>%a</SUB>" Pp.index id) in
-      let g = update_label tynode label g in
-      let s = add_to_subgraph s tynode in
-      let gh = (g,s) in
-      let inject gh ty = snd (inject_typ params gh ty) in
-      let gh = List.fold_left inject gh types in
-      id, List.fold_left entity gh graph_objects
-  and node params id desc =
-    let numbered = numbered params id in
+    else id, node params id tynode desc gh
+  and edge params id0 lbl ty gh =
+    let id, gh = inject_typ params ty gh in
+    add lbl (Edge(id0,id)) gh
+  and numbered_edge params id0 (i,gh) ty =
+    let l = labelf "%d" i in
+    i + 1, edge params id0 l ty gh
+  and numbered_edges params id0 l gh =
+    snd @@ List.fold_left (numbered_edge params id0) (0,gh) l
+  and node params id tynode desc gh =
+    let add_tynode l = add_node l id tynode gh in
+    let group = group (inject_typ params) in
+    let mk fmt = labelk add_tynode fmt in
+    let numbered = numbered_edges params id in
     let edge = edge params id in
-    let std_edge x = [x], [std, edge x] in
+    let std_edge = edge std in
     match desc with
-    | Types.Tvar name -> labelf "%a" pretty_var name, empty
+    | Types.Tvar name -> mk "%a" pretty_var name
     | Types.Tarrow(l,t1,t2,_) ->
-        labelf "→%a" exponent_of_label l,
-        numbered [t1; t2]
+       let gh = mk "→%a" exponent_of_label l in numbered [t1; t2] gh
     | Types.Ttuple tl ->
-        labelf ",", numbered tl
+        mk "," |> numbered tl
     | Types.Tconstr (p,tl,abbrevs) ->
-        labelf "%a" Path.print p,
-        expansions params id !abbrevs @^ numbered tl
+        mk "%a" Path.print p
+        |> expansions inject_typ params id !abbrevs
+        |> numbered tl
     | Types.Tobject (t, name) ->
         begin match !name with
-        | None -> labelf "obj", std_edge t
+        | None -> mk "obj" |> std_edge t
         | Some (p,tl) ->
-            labelf "obj(%a)" Path.print p, std_edge t @^ numbered tl
+            mk "obj(%a)" Path.print p |> std_edge t |> numbered tl
         end
     | Types.Tfield (f, k, t1, t2) ->
-        labelf "%s<SUP>%s</SUP>" f (string_of_field_kind k),
-        numbered [t1;t2]
-    | Types.Tnil -> labelf "∅", empty
-    | Types.Tlink t -> make [Style Dash], std_edge t
+        mk "%s<SUP>%s</SUP>" f (string_of_field_kind k)
+        |> numbered [t1;t2]
+    | Types.Tnil -> mk "∅"
+    | Types.Tlink t -> add_tynode (make [Style Dash]) |> std_edge t
     | Types.Tsubst (t, o) ->
-        make [Label ["Subst"]; Style Dotted],
-        numbered (t :: Option.to_list o)
+        add_tynode (make [Label ["Subst"]; Style Dotted])
+        |> numbered (t :: Option.to_list o)
     | Types.Tunivar name ->
-        labelf "%a<SUP>∀</SUP>" pretty_var name, empty
+        mk "%a<SUP>∀</SUP>" pretty_var name
     | Types.Tpoly (t, tl) ->
-        labelf "∀", (std_edge t) @^ numbered tl
+        let params = merge (make [Style (Filled (Some Blue))]) (labelf "∀%a" Pp.index id) in
+        mk "∀" |> group params tl |> std_edge t
     | Types.Tvariant row ->
         let Row {fields; more; name; fixed; closed} = Types.row_repr row in
         let pr, args = match name with
@@ -434,13 +461,13 @@ module Digraph = struct
               tl
         in
         let types = args @ more :: List.concat_map field_edge (List.map snd fields) in
-        pr, numbered types
+        add_tynode pr |> numbered types
     | Types.Tpackage (p, fl) ->
         let types = List.map snd fl in
-        labelf "mod %a[%a]"
+        mk "mod %a[%a]"
           Path.print p
-          Pp.(list ~sep:semi longident) (List.map fst fl),
-        numbered types
+          Pp.(list ~sep:semi longident) (List.map fst fl)
+        |> numbered types
   and field_edge rf = Types.match_row_field
       ~absent:(fun _ -> [])
       ~present:Option.to_list
@@ -463,26 +490,23 @@ let params
 
 
 let translate params gh (label,entry) =
-  let node, (g,sg) = match entry with
+  let node, gh = match entry with
     | Node ty ->
-        let id, gh = Digraph.inject_typ params gh ty in
+        let id, gh = Digraph.inject_typ params ty gh in
         Node id, gh
     | Edge (ty,ty') ->
-        let id, gh = Digraph.inject_typ params gh ty in
-        let id', gh = Digraph.inject_typ params gh ty' in
+        let id, gh = Digraph.inject_typ params ty gh in
+        let id', gh = Digraph.inject_typ params ty' gh in
         Edge(id,id'), gh
     | Hyperedge l ->
         let l, gh = List.fold_left (fun (l,gh) (d,lbl,ty) ->
-            let id, gh = Digraph.inject_typ params gh ty in
+            let id, gh = Digraph.inject_typ params ty gh in
             (d,lbl,id)::l, gh
           ) ([],gh) l
         in
        Hyperedge l, gh
   in
-  let g = Digraph.update_label node label g in
-  let gs = Digraph.add_to_subgraph sg node in
-  (g,gs)
-
+  Digraph.add label node gh
 
 let translate_entries params ts =
   List.fold_left (translate params) (Entity_map.empty, empty_subgraph) ts
