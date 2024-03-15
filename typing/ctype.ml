@@ -141,9 +141,9 @@ let () = Gprinttyp.debug_on := (fun () ->
     | Some _ -> true
   )
 
-let vis = Gprinttyp.(label [Style  (Filled (Some Purple))] )
-let left = Gprinttyp.(label [Color Green])
-let right = Gprinttyp.(label [Color Blue])
+let vis = Gprinttyp.(label [Style  (Filled (Some (Named "orchid")))] )
+let left = Gprinttyp.(label [Color green])
+let right = Gprinttyp.(label [Color blue])
 let gparams = Gprinttyp.params
     ~ellide_links:true
     ~expansion_as_hyperedge:false
@@ -1869,6 +1869,11 @@ let rec occur_rec env allow_recursive visited ty0 ty =
         iter_type_expr (occur_rec env allow_recursive visited ty0) ty
       with Occur -> try
         let ty' = try_expand_head try_expand_safe env ty in
+        Gprinttyp.(debug (fun () ->
+            gnodes ~title:"occur_rec" @@
+            [label [Label ["retry-after-failure"]; Color red], edge ty ty']
+            @ List.map (fun x -> vis, node x) (TypeSet.elements visited)
+          ));
         (* This call used to be inlined, but there seems no reason for it.
            Message was referring to change in rev. 1.58 of the CVS repo. *)
         occur_rec env allow_recursive visited ty0 ty'
