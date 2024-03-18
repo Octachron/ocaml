@@ -36,6 +36,7 @@ val params:
   ?ellide_links:bool ->
   ?expansion_as_hyperedge:bool ->
   ?short_ids:bool ->
+  ?colorize:bool ->
   unit -> params
 (** Choice of details for printing type graphes:
     - if [ellide_links] is [true] link nodes are not displayed
@@ -64,13 +65,13 @@ val debug: (unit -> unit) -> unit
 
 type color =
   | Named of string
-  | HSV of {h:float;s:float;v:float}
+  | HSL of {h:float;s:float;l:float}
 
 val green: color
 val blue: color
 val red:color
 val purple:color
-val hsv: h:float -> s:float -> v:float -> color
+val hsl: h:float -> s:float -> l:float -> color
 
 type style =
   | Filled of color option

@@ -14,14 +14,14 @@ open Format
 
 type color =
   | Named of string
-  | HSV of {h:float;s:float;v:float}
+  | HSL of {h:float;s:float;l:float}
 
 let red = Named "red"
 let blue = Named "blue"
 let green = Named "green"
 let purple = Named "purple"
 let lightgrey = Named "lightgrey"
-let hsv ~h ~s ~v = HSV {h;s;v}
+let hsl ~h ~s ~l = HSL {h;s;l}
 
 type style =
   | Filled of color option
@@ -91,6 +91,7 @@ type params = {
   short_ids:bool;
   ellide_links:bool;
   expansion_as_hyperedge:bool;
+  colorize:bool;
 }
 
 let ellide_links ty =
@@ -107,6 +108,13 @@ let repr params ty =
   if params.ellide_links then ellide_links ty
   else Types.Transient_expr.coerce ty
 
+let colorize params id =
+  if not params.colorize then None
+  else
+    let nhues = 200 in
+    let h = float_of_int (17 * id mod nhues) /. float_of_int nhues in
+    Some (hsl ~h ~s:0.3 ~l:0.7)
+
 let string_of_field_kind v =
   match Types.field_kind_repr v with
   | Fpublic -> "public"
@@ -116,7 +124,7 @@ let string_of_field_kind v =
 
 module Index: sig
   type t = private int
-   val split: params -> Types.type_expr -> t * Types.type_desc
+   val split: params -> Types.type_expr -> t * color option * Types.type_desc
  end = struct
 
   type t = int
@@ -138,7 +146,8 @@ module Index: sig
 
   let split params x =
     let x = repr params x in
-    pretty_id params x.id, x.desc
+    let color = colorize params x.id in
+    pretty_id params x.id, color, x.desc
 
   let _index params ty = pretty_id params (repr params ty).id
 
@@ -206,7 +215,7 @@ module Pp = struct
 
   let color ppf = function
     | Named s -> fprintf ppf "%s" s
-    | HSV r -> fprintf ppf "%1.3f %1.3f %1.3f" r.h r.s r.v
+    | HSL r -> fprintf ppf "%1.3f %1.3f %1.3f" r.h r.s r.l
 
   let style ppf = function
     | Filled _ -> fprintf ppf "filled"
@@ -392,19 +401,24 @@ module Digraph = struct
   let labelk k fmt = kasprintf (fun s -> k (make [Label [s]])) fmt
   let labelf fmt = labelk Fun.id fmt
 
-  let add_node label id tynode gh =
-      let label = labelk (merge label) "<SUB>%a</SUB>" Pp.index id in
-      add label tynode gh
+  let add_node label color id tynode gh =
+    let lbl = Label [asprintf "<SUB>%a</SUB>" Pp.index id] in
+    let lbl = match color with
+    | None -> make [lbl]
+    | Some _ as x -> make [lbl; Style (Filled x)]
+    in
+    let label = merge label lbl in
+    add label tynode gh
 
   let group ty lbl l (g,sgs) =
     let g, nested = List.fold_left (fun gh t -> snd (ty t gh)) (g,empty_subgraph) l in
     g, add_subgraph (lbl,nested) sgs
 
   let rec inject_typ params ty0 (g,_ as gh) =
-    let (id, desc) = Index.split params ty0 in
+    let (id, color, desc) = Index.split params ty0 in
     let tynode = Node id in
     if Entity_map.mem tynode g then id, gh
-    else id, node params id tynode desc gh
+    else id, node params color id tynode desc gh
   and edge params id0 lbl ty gh =
     let id, gh = inject_typ params ty gh in
     add lbl (Edge(id0,id)) gh
@@ -413,8 +427,8 @@ module Digraph = struct
     i + 1, edge params id0 l ty gh
   and numbered_edges params id0 l gh =
     snd @@ List.fold_left (numbered_edge params id0) (0,gh) l
-  and node params id tynode desc gh =
-    let add_tynode l = add_node l id tynode gh in
+  and node params color id tynode desc gh =
+    let add_tynode l = add_node l color id tynode gh in
     let group = group (inject_typ params) in
     let mk fmt = labelk add_tynode fmt in
     let numbered = numbered_edges params id in
@@ -482,11 +496,13 @@ let params
     ?(ellide_links=true)
     ?(expansion_as_hyperedge=false)
     ?(short_ids=true)
+    ?(colorize=true)
     () =
   {
     expansion_as_hyperedge;
     short_ids;
-    ellide_links
+    ellide_links;
+    colorize;
   }
 
 
