@@ -124,7 +124,7 @@ let string_of_field_kind v =
 
 module Index: sig
   type t = private int
-   val split: params -> Types.type_expr -> t * color option * Types.type_desc
+  val split: params -> Types.type_expr -> t * color option * Types.type_desc
  end = struct
 
   type t = int
@@ -283,11 +283,17 @@ module Pp = struct
         | Toward -> fprintf ppf "%a->%a%a;@ " hyperedge_id l index x label lbl
       ) l
 
+  let cluster_counter = ref 0
+  let pp_cluster ppf =
+    incr cluster_counter;
+    fprintf ppf "cluster_%d" !cluster_counter
+
   let rec subgraph graph ppf (lbl,sg) =
     fprintf ppf
-      "@[<v 2>subgraph cluster {@,\
+      "@[<v 2>subgraph %t {@,\
        %a;@ \
        %a%a%a%a}@]@."
+      pp_cluster
       inline_label lbl
       (seq ~sep:empty (node graph)) (Node_set.to_seq sg.nodes)
       (seq ~sep:empty (edge graph)) (Edge_set.to_seq sg.edges)
@@ -414,25 +420,27 @@ module Digraph = struct
     let g, nested = List.fold_left (fun gh t -> snd (ty t gh)) (g,empty_subgraph) l in
     g, add_subgraph (lbl,nested) sgs
 
-  let rec inject_typ params ty0 (g,_ as gh) =
+  let rec inject_typ ?(follow_expansions=true) params ty0 (g,_ as gh) =
     let (id, color, desc) = Index.split params ty0 in
     let tynode = Node id in
     if Entity_map.mem tynode g then id, gh
-    else id, node params color id tynode desc gh
-  and edge params id0 lbl ty gh =
-    let id, gh = inject_typ params ty gh in
+    else id, node params color id tynode ~follow_expansions desc gh
+  and edge ~follow_expansions params id0 lbl ty gh =
+    let id, gh = inject_typ ~follow_expansions params ty gh in
     add lbl (Edge(id0,id)) gh
-  and numbered_edge params id0 (i,gh) ty =
+  and numbered_edge ~follow_expansions params id0 (i,gh) ty =
     let l = labelf "%d" i in
-    i + 1, edge params id0 l ty gh
-  and numbered_edges params id0 l gh =
-    snd @@ List.fold_left (numbered_edge params id0) (0,gh) l
-  and node params color id tynode desc gh =
+    i + 1, edge ~follow_expansions params id0 l ty gh
+  and numbered_edges ~follow_expansions params id0 l gh =
+    snd @@ List.fold_left
+      (numbered_edge ~follow_expansions params id0)
+      (0,gh) l
+  and node ~follow_expansions params color id tynode desc gh =
     let add_tynode l = add_node l color id tynode gh in
-    let group = group (inject_typ params) in
+    let group = group (inject_typ ~follow_expansions params) in
     let mk fmt = labelk add_tynode fmt in
-    let numbered = numbered_edges params id in
-    let edge = edge params id in
+    let numbered = numbered_edges ~follow_expansions params id in
+    let edge = edge ~follow_expansions params id in
     let std_edge = edge std in
     match desc with
     | Types.Tvar name -> mk "%a" pretty_var name
@@ -441,9 +449,13 @@ module Digraph = struct
     | Types.Ttuple tl ->
         mk "," |> numbered tl
     | Types.Tconstr (p,tl,abbrevs) ->
-        mk "%a" Path.print p
-        |> expansions inject_typ params id !abbrevs
-        |> numbered tl
+        let constr = mk "%a" Path.print p |> numbered tl in
+        if not follow_expansions then
+          constr
+        else
+          expansions
+            (inject_typ ~follow_expansions:true)
+            params id !abbrevs constr
     | Types.Tobject (t, name) ->
         begin match !name with
         | None -> mk "obj" |> std_edge t
@@ -528,9 +540,16 @@ let translate params gh (label,entry) =
 let translate_entries params ts =
   List.fold_left (translate params) (Entity_map.empty, empty_subgraph) ts
 
-let entries params ppf ts =
-  let (g,gs) = translate_entries params ts in
-  Pp.graph ppf (g,gs)
+let group sg set =
+  let set = Node_set.inter set sg.nodes in
+  if Node_set.is_empty set then
+    sg
+  else
+    let nodes = Node_set.diff sg.nodes set in
+    let g = { empty_subgraph with nodes = set} in
+    let label = make [Style (Filled (Some lightgrey))] in
+    let subgraphes =  (label,g) :: sg.subgraphes in
+    { sg with nodes; subgraphes }
 
 let file_counter = ref 0
 
@@ -564,8 +583,20 @@ let dash ppf () = fprintf ppf "-"
 let node_register = ref []
 let register_type (label,ty) =
   node_register := (make label,Node ty) :: !node_register
-let forget () = node_register := []
 
+let subgraph_register = ref []
+let register_subgraph params tys =
+  let add_ty gh ty =
+    let _id, gh = Digraph.inject_typ ~follow_expansions:false params ty gh in
+    gh
+  in
+  let gh = Entity_map.empty, empty_subgraph in
+  let _g, sg = List.fold_left add_ty gh tys in
+  subgraph_register := sg.nodes :: !subgraph_register
+
+let forget () =
+  node_register := [];
+  subgraph_register := []
 
 let label x = x
 let node x = Node x
@@ -588,7 +619,9 @@ let nodes ~title params ts =
   Out_channel.with_open_bin filename (fun ch ->
       let ppf = Format.formatter_of_out_channel ch in
       let ts = List.map (fun (l,t) -> make l, t) ts in
-      entries params ppf (ts @ !node_register)
+      let g, sg = translate_entries params (ts @ !node_register) in
+      let sg = List.fold_left group sg !subgraph_register in
+      Pp.graph ppf (g,sg)
     )
 
 let types ~title params ts =
