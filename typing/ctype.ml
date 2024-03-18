@@ -135,22 +135,32 @@ let () =
     )
 
 (** Debugging *)
-let () = Gprinttyp.debug_on := (fun () ->
-    match Sys.getenv_opt "ODEBUG" with
+module G = Gprinttyp
+let () =
+  let tested = lazy (Sys.getenv_opt "ODEBUG") in
+  G.debug_on := (fun () ->
+    match Lazy.force tested with
     | None -> false
     | Some _ -> true
   )
 
-let vis = Gprinttyp.(label [Style  (Filled (Some (Named "orchid")))] )
-let left = Gprinttyp.(label [Color green])
-let right = Gprinttyp.(label [Color blue])
-let gparams = Gprinttyp.params
+let vis = G.(label [Style  (Filled (Some (Named "orchid")))] )
+let left = G.(label [Color green])
+let right = G.(label [Color blue])
+let link_to = G.(label [Color blue; Label ["link to"]])
+let unify_lbl = G.(label [Color green; Label ["unify with"]])
+let retry = G.(label [Label ["retry-after-failure"]; Color red])
+let gparams = G.params
     ~ellide_links:true
     ~expansion_as_hyperedge:false
     ~short_ids:true
     ()
-let gtypes ~title l = Gprinttyp.types ~title gparams l
-let gnodes ~title l = Gprinttyp.nodes ~title gparams l
+let gtypes ~title l =
+  G.debug (fun () -> G.types ~title gparams l)
+let gnodes ~title l =
+  G.debug (fun () -> G.nodes ~title gparams l)
+let gregister_subgraph l =
+  G.debug (fun () -> G.register_subgraph gparams l)
 
 
 exception Cannot_expand
@@ -1563,7 +1573,7 @@ let subst env level priv abbrev oty params args body =
     raise Cannot_subst
 
 let subst env level priv abbrev oty params args body =
-  Gprinttyp.debug_off (fun () ->  subst env level priv abbrev oty params args body)
+  G.debug_off (fun () ->  subst env level priv abbrev oty params args body)
 
 (*
    Default to generic level. Usually, only the shape of the type matters, not
@@ -1662,6 +1672,7 @@ let expand_abbrev_gen kind find_type_expansion env ty =
           (* For gadts, remember type as non exportable *)
           (* The ambiguous level registered for ty' should be the highest *)
           (* if !trace_gadt_instances then begin *)
+          gregister_subgraph [ty'];
           let scope = Int.max lv (get_scope ty) in
           update_scope scope ty;
           update_scope scope ty';
@@ -1854,11 +1865,8 @@ let is_contractive env p =
 exception Occur
 
 let rec occur_rec env allow_recursive visited ty0 ty =
-  Gprinttyp.debug (fun () ->
-      gtypes ~title:"occur_rec" @@
-      [left, ty0; right, ty ]
-      @ List.map (fun x -> vis,x) (TypeSet.elements visited)
-    );
+  let vnodes f = List.map (fun x -> vis,f x) (TypeSet.elements visited) in
+  gtypes ~title:"occur_rec" ([left, ty0; right, ty ] @ vnodes Fun.id);
   if eq_type ty ty0 then raise Occur;
   match get_desc ty with
     Tconstr(p, _tl, _abbrev) ->
@@ -1869,11 +1877,8 @@ let rec occur_rec env allow_recursive visited ty0 ty =
         iter_type_expr (occur_rec env allow_recursive visited ty0) ty
       with Occur -> try
         let ty' = try_expand_head try_expand_safe env ty in
-        Gprinttyp.(debug (fun () ->
-            gnodes ~title:"occur_rec" @@
-            [label [Label ["retry-after-failure"]; Color red], edge ty ty']
-            @ List.map (fun x -> vis, node x) (TypeSet.elements visited)
-          ));
+        gnodes ~title:"occur_rec"
+          ((retry, G.edge ty ty'):: vnodes G.node);
         (* This call used to be inlined, but there seems no reason for it.
            Message was referring to change in rev. 1.58 of the CVS repo. *)
         occur_rec env allow_recursive visited ty0 ty'
@@ -1893,7 +1898,7 @@ let type_changed = ref false (* trace possible changes to the studied type *)
 let merge r b = if b then r := true
 
 let occur uenv ty0 ty =
-  Gprinttyp.debug (fun () -> gtypes ~title:"occur" [left, ty0; right, ty ]);
+  gtypes ~title:"occur" [left, ty0; right, ty ];
   let env = get_env uenv in
   let allow_recursive = allow_recursive_equations uenv in
   let old = !type_changed in
@@ -1969,9 +1974,7 @@ let local_non_recursive_abbrev uenv p ty =
                    (*****************************)
 
 let link_type' t1 t2 =
-  Gprinttyp.(debug (fun () ->
-      gnodes ~title:"link_type" [ label [Label ["link to"]], edge t1 t2]
-    ));
+  gnodes ~title:"link_type" [link_to, G.edge t1 t2];
   link_type t1 t2
 
 (* Since we cannot duplicate universal variables, unification must
@@ -2715,9 +2718,7 @@ let unify3_var uenv t1' t2 t2' =
 *)
 
 let rec unify uenv t1 t2 =
-  Gprinttyp.(debug (fun () ->
-      gnodes ~title:"unify" [ label [Label ["Unify"]], edge t1 t2 ])
-    );
+  gnodes ~title:"unify" [ unify_lbl, G.edge t1 t2 ];
   (* First step: special cases (optimizations) *)
   if unify_eq uenv t1 t2 then () else
   let reset_tracing = check_trace_gadt_instances (get_env uenv) in
