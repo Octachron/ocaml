@@ -98,9 +98,9 @@ val hyperedge: (dir * label * Types.type_expr) list -> element
     {!forget} is called *)
 val register_type: label * Types.type_expr -> unit
 
-(** [register_subgraph params tys] groups together all types reachable from [tys] at
-    this point, until {!forget} is called *)
-val register_subgraph: params -> Types.type_expr list -> unit
+(** [register_subgraph params tys] groups together all types reachable from
+    [tys] at this point in printed digraphs, until {!forget} is called *)
+val register_subgraph: params -> ?label:label -> Types.type_expr list -> unit
 
 
 (** Forget all recorded context types *)

@@ -28,10 +28,13 @@ type style =
   | Dotted
   | Dash
 
+
 type modal =
 | Color of color
 | Style of style
 | Label of string list
+
+let filled c = Style (Filled (Some c))
 
 type label = modal list
 
@@ -113,7 +116,21 @@ let colorize params id =
   else
     let nhues = 200 in
     let h = float_of_int (17 * id mod nhues) /. float_of_int nhues in
-    Some (hsl ~h ~s:0.3 ~l:0.7)
+    let s = match id mod 3 with
+      | 0 -> 0.3
+      | 1 -> 0.5
+      | 2 | _ -> 0.7
+     in
+     let l = match id mod 7 with
+       | 0 -> 0.5
+       | 1 -> 0.55
+       | 2 -> 0.60
+       | 3 -> 0.65
+       | 4 -> 0.70
+       | 5 -> 0.75
+       | 6 | _ -> 0.8
+     in
+     Some (hsl ~h ~s ~l)
 
 let string_of_field_kind v =
   match Types.field_kind_repr v with
@@ -540,14 +557,13 @@ let translate params gh (label,entry) =
 let translate_entries params ts =
   List.fold_left (translate params) (Entity_map.empty, empty_subgraph) ts
 
-let group sg set =
+let group_nodes sg (label,set) =
   let set = Node_set.inter set sg.nodes in
-  if Node_set.is_empty set then
+  if Node_set.cardinal set <= 1 then
     sg
   else
     let nodes = Node_set.diff sg.nodes set in
     let g = { empty_subgraph with nodes = set} in
-    let label = make [Style (Filled (Some lightgrey))] in
     let subgraphes =  (label,g) :: sg.subgraphes in
     { sg with nodes; subgraphes }
 
@@ -585,14 +601,14 @@ let register_type (label,ty) =
   node_register := (make label,Node ty) :: !node_register
 
 let subgraph_register = ref []
-let register_subgraph params tys =
+let register_subgraph params ?(label=[filled lightgrey]) tys =
   let add_ty gh ty =
     let _id, gh = Digraph.inject_typ ~follow_expansions:false params ty gh in
     gh
   in
   let gh = Entity_map.empty, empty_subgraph in
   let _g, sg = List.fold_left add_ty gh tys in
-  subgraph_register := sg.nodes :: !subgraph_register
+  subgraph_register := (make label, sg.nodes) :: !subgraph_register
 
 let forget () =
   node_register := [];
@@ -620,7 +636,7 @@ let nodes ~title params ts =
       let ppf = Format.formatter_of_out_channel ch in
       let ts = List.map (fun (l,t) -> make l, t) ts in
       let g, sg = translate_entries params (ts @ !node_register) in
-      let sg = List.fold_left group sg !subgraph_register in
+      let sg = List.fold_left group_nodes sg !subgraph_register in
       Pp.graph ppf (g,sg)
     )
 
