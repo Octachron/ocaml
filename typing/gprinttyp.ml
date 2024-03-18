@@ -382,9 +382,11 @@ module Digraph = struct
     let add_subgraph sub g =
       { g with subgraphes = sub :: g.subgraphes }
 
-  let add lbl entry (g,s) =
+  let add ?(user=false) lbl entry (g,s) =
     match Entity_map.find_opt entry g with
-    | Some lbl' -> Entity_map.add entry (merge lbl' lbl) g, s
+    | Some lbl' ->
+        let lbl = if user then merge lbl lbl' else merge lbl' lbl in
+        Entity_map.add entry lbl g, s
     | None ->
         let g = Entity_map.add entry lbl g in
         g, add_to_subgraph s entry
@@ -552,7 +554,7 @@ let translate params gh (label,entry) =
         in
        Hyperedge l, gh
   in
-  Digraph.add label node gh
+  Digraph.add ~user:true label node gh
 
 let translate_entries params ts =
   List.fold_left (translate params) (Entity_map.empty, empty_subgraph) ts
