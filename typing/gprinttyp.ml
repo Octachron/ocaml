@@ -31,6 +31,7 @@ type style =
 
 type modal =
 | Color of color
+| Font_color of color
 | Style of style
 | Label of string list
 
@@ -38,7 +39,11 @@ let filled c = Style (Filled (Some c))
 
 type label = modal list
 
-type rlabel = { color: color option; style: style option; label: string list}
+type rlabel = {
+  color: color option;
+  font_color:color option;
+  style: style option;
+  label: string list}
 
 
 type dir = Toward | From
@@ -47,13 +52,15 @@ let update r l = match l with
   | Color c -> { r with color = Some c}
   | Style s -> { r with style = Some s}
   | Label s -> { r with label = s}
+  | Font_color c -> { r with font_color = Some c}
 
-let none = { color = None; style=None; label = [] }
+let none = { color=None; font_color=None; style=None; label = [] }
 
 let make l = List.fold_left update none l
 
 let label r = if r.label = [] then None else Some (Label r.label)
 let color r = Option.map (fun x -> Color x) r.color
+let font_color r = Option.map (fun x -> Font_color x) r.font_color
 let style r = Option.map (fun x -> Style x) r.style
 
 let decompose r =
@@ -61,7 +68,7 @@ let decompose r =
     | None -> l
     | Some x -> x :: l
    in
-  label r @? color r @? style r @? []
+  label r @? color r @? font_color r @? style r @? []
 
 (*let fill_default r l = match l with
   | Color default ->
@@ -88,6 +95,7 @@ let merge l r =
   { color = alt l.color r.color;
     style = alt l.style r.style;
     label = merge_label l.label r.label;
+    font_color = alt l.font_color r.font_color;
   }
 
 type params = {
@@ -140,26 +148,35 @@ let string_of_field_kind v =
 
 
 module Index: sig
-  type t = private int
+  type t = private
+    | Main of int
+    | Synthetic of int
+    | Field of { id:int; synth:bool; name:string }
+  val field: name:string -> t -> t
+  val field_more: Types.row_field_cell -> t
   val split: params -> Types.type_expr -> t * color option * Types.type_desc
  end = struct
 
-  type t = int
+  type t =
+    | Main of int
+    | Synthetic of int
+    | Field of { id:int; synth:bool; name:string }
+
   type name_map = {
     last: int ref;
-    tbl: (t,int) Hashtbl.t;
+    tbl: (int,int) Hashtbl.t;
   }
   let id_map = { last = ref 0; tbl = Hashtbl.create 20 }
 
   let pretty_id params id =
-    if not params.short_ids then id else
+    if not params.short_ids then Main id else
       match Hashtbl.find_opt id_map.tbl id with
-      | Some x -> x
+      | Some x -> Main x
       | None ->
           incr id_map.last;
           let last = !(id_map.last) in
           Hashtbl.replace id_map.tbl id last;
-          last
+          Main last
 
   let split params x =
     let x = repr params x in
@@ -167,6 +184,21 @@ module Index: sig
     pretty_id params x.id, color, x.desc
 
   let _index params ty = pretty_id params (repr params ty).id
+  let field ~name x = match x with
+    | Main id -> Field {id;name;synth=false}
+    | Field r -> Field {r with name}
+    | Synthetic id -> Field {id;name;synth=true}
+
+  let either = ref []
+  let synth = ref 0
+  let field_more r =
+    match List.assq_opt r !either with
+    | Some n -> Synthetic n
+    | None ->
+        let n = !synth in
+        incr synth;
+        either := (r,n) :: !either;
+        Synthetic n
 
 end
 
@@ -241,6 +273,7 @@ module Pp = struct
 
   let modal ppf = function
     | Color c -> fprintf ppf {|color="%a"|} color c
+    | Font_color c -> fprintf ppf {|fontcolor="%a"|} color c
     | Style s ->
         fprintf ppf {|style="%a"|} style s;
         begin match s with
@@ -267,15 +300,18 @@ module Pp = struct
     | Some Types.Univar _t -> fprintf ppf "univar"
     | Some Types.Reified _p -> fprintf ppf "reified"
 
-  let field_node ppf (lbl,rf) =
-    Types.match_row_field
-      ~absent:(fun _ -> fprintf ppf "%s(absent)" lbl)
-      ~present:(fun _ -> fprintf ppf "%s(present)" lbl)
-      ~either:(fun c _tl m _e -> fprintf ppf "%s?(%B,%B)" lbl c m)
-      rf
 
-  let index ppf x =
-    fprintf ppf "%d" (x: Index.t :> int)
+  let index ppf = function
+    | Index.Main id -> fprintf ppf "i%d" id
+    | Index.Synthetic id -> fprintf ppf "s%d" id
+    | Index.Field r ->
+        fprintf ppf "%s%dRF%s" (if r.synth then "s" else "i") r.id r.name
+
+  let prettier_index ppf = function
+    | Index.Main id -> fprintf ppf "%d" id
+    | Index.Synthetic id -> fprintf ppf "[%d]" id
+    | Index.Field r -> fprintf ppf "%d(%s)" r.id r.name
+
 
   let hyperedge_id ppf l =
     let sep ppf () = fprintf ppf "h" in
@@ -416,7 +452,6 @@ module Digraph = struct
         gh |> add memo (Edge (x,y)) |> edges_of_memo ty params rem
     | Types.Mlink rem -> edges_of_memo ty params !rem gh
 
-
   let expansions ty params id memo gh =
     if params.expansion_as_hyperedge then
       hyperedges_of_memo ty params id memo gh
@@ -427,7 +462,7 @@ module Digraph = struct
   let labelf fmt = labelk Fun.id fmt
 
   let add_node label color id tynode gh =
-    let lbl = Label [asprintf "<SUB>%a</SUB>" Pp.index id] in
+    let lbl = Label [asprintf "<SUB>%a</SUB>" Pp.prettier_index id] in
     let lbl = match color with
     | None -> make [lbl]
     | Some _ as x -> make [lbl; Style (Filled x)]
@@ -435,7 +470,17 @@ module Digraph = struct
     let label = merge label lbl in
     add label tynode gh
 
-  let group ty lbl l (g,sgs) =
+  let field_node lbl rf =
+    let txt =
+      Types.match_row_field
+        ~absent:(fun _ -> asprintf "%s<SUP>absent</SUP>" lbl)
+        ~present:(fun _ -> asprintf "%s<SUP>present</SUP>" lbl)
+        ~either:(fun c _tl m _e -> asprintf "%s<SUP>either(%B,%B)</SUP>" lbl c m)
+        rf
+    in
+    make [Label [txt]]
+
+  let[@warning "-32"] group ty lbl l (g,sgs) =
     let g, nested = List.fold_left (fun gh t -> snd (ty t gh)) (g,empty_subgraph) l in
     g, add_subgraph (lbl,nested) sgs
 
@@ -447,6 +492,13 @@ module Digraph = struct
   and edge ~follow_expansions params id0 lbl ty gh =
     let id, gh = inject_typ ~follow_expansions params ty gh in
     add lbl (Edge(id0,id)) gh
+  and poly_edge ~follow_expansions ~color params id0 gh ty =
+    let id, gh = inject_typ ~follow_expansions params ty gh in
+    match color with
+    | None -> add (make [Label ["bind"]]) (Edge (id0,id)) gh
+    | Some c ->
+        let gh = add (make [Label ["bind"]; Color c]) (Edge (id0,id)) gh in
+        add ~user:true (make [filled c]) (Node id) gh
   and numbered_edge ~follow_expansions params id0 (i,gh) ty =
     let l = labelf "%d" i in
     i + 1, edge ~follow_expansions params id0 l ty gh
@@ -456,7 +508,6 @@ module Digraph = struct
       (0,gh) l
   and node ~follow_expansions params color id tynode desc gh =
     let add_tynode l = add_node l color id tynode gh in
-    let group = group (inject_typ ~follow_expansions params) in
     let mk fmt = labelk add_tynode fmt in
     let numbered = numbered_edges ~follow_expansions params id in
     let edge = edge ~follow_expansions params id in
@@ -492,33 +543,58 @@ module Digraph = struct
     | Types.Tunivar name ->
         mk "%a<SUP>∀</SUP>" pretty_var name
     | Types.Tpoly (t, tl) ->
-        let params = merge (make [Style (Filled (Some lightgrey))]) (labelf "∀%a" Pp.index id) in
-        mk "∀" |> group params tl |> std_edge t
+        let gh = mk "∀" |> std_edge t in
+        List.fold_left (poly_edge ~follow_expansions ~color params id) gh tl
     | Types.Tvariant row ->
         let Row {fields; more; name; fixed; closed} = Types.row_repr row in
-        let pr, args = match name with
+        let gh, args = match name with
           | None ->
-              labelf "[Row(%B,%a,[%a])]" closed Pp.row_fixed fixed
-                Pp.(list ~sep:semi field_node) fields, []
+              mk "[Row(closed=%B,fixed=%a)]" closed Pp.row_fixed fixed,[]
           | Some (p,tl) ->
-              labelf "[Row %a(%B,%a,%a)]"
-                Path.print p closed Pp.row_fixed fixed
-                Pp.(list ~sep:semi field_node) fields,
+              mk "[Row %a(closed=%B,fixed=%a)]"
+                Path.print p closed Pp.row_fixed fixed,
               tl
         in
-        let types = args @ more :: List.concat_map field_edge (List.map snd fields) in
-        add_tynode pr |> numbered types
+        let gh = gh |> edge (make [Label ["more"]]) more |> numbered args in
+        List.fold_left (field ~follow_expansions params id) gh fields
     | Types.Tpackage (p, fl) ->
         let types = List.map snd fl in
         mk "mod %a[%a]"
           Path.print p
           Pp.(list ~sep:semi longident) (List.map fst fl)
         |> numbered types
-  and field_edge rf = Types.match_row_field
-      ~absent:(fun _ -> [])
-      ~present:Option.to_list
-      ~either:(fun _ tl _ e ->
-          List.concat_map field_edge (Option.to_list e) @ tl
+  and field ~follow_expansions params id0 gh (name,rf)  =
+    let id = Index.field ~name id0 in
+    let fnode = Node id in
+    let gh = add (field_node name rf) fnode gh in
+    let gh = add none (Edge(id0,id)) gh in
+    field_inside ~follow_expansions params id rf gh
+  and field_inside ~follow_expansions params id rf gh =
+    Types.match_row_field
+      ~absent:(fun () -> gh)
+      ~present:(function
+          | None -> gh
+          | Some arg -> numbered_edges ~follow_expansions params id [arg] gh
+        )
+      ~either:(fun _ tl _ (cell,e) ->
+          let gh = match tl with
+            | [] -> gh
+            | [x] -> edge ~follow_expansions params id none x gh
+            | _ :: _ as tls ->
+                let label = make [Label ["⋀"]; filled lightgrey] in
+                group (inject_typ ~follow_expansions params) label tls gh
+          in
+          match e with
+          | None ->
+              let id_more = Index.field_more cell in
+              gh
+              |> add (make [Label ["None"]]) (Node id_more)
+              |> add none (Edge(id,id_more))
+          | Some f ->
+              let id_more = Index.field_more cell in
+              let gh = add (field_node "*more*" f) (Node id_more) gh in
+              let gh = add none (Edge(id,id_more)) gh in
+              field_inside ~follow_expansions params id_more f gh
         )
       rf
 end

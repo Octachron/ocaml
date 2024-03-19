@@ -80,6 +80,7 @@ type style =
 
 type modal =
 | Color of color
+| Font_color of color
 | Style of style
 | Label of string list
 
