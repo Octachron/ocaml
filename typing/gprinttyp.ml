@@ -28,12 +28,17 @@ type style =
   | Dotted
   | Dash
 
+type shape =
+  | Ellipse
+  | Circle
+  | Diamond
 
 type modal =
 | Color of color
 | Font_color of color
 | Style of style
 | Label of string list
+| Shape of shape
 
 let filled c = Style (Filled (Some c))
 
@@ -43,7 +48,9 @@ type rlabel = {
   color: color option;
   font_color:color option;
   style: style option;
-  label: string list}
+  label: string list;
+  shape: shape option;
+}
 
 
 type dir = Toward | From
@@ -53,8 +60,9 @@ let update r l = match l with
   | Style s -> { r with style = Some s}
   | Label s -> { r with label = s}
   | Font_color c -> { r with font_color = Some c}
+  | Shape s -> { r with shape = Some s }
 
-let none = { color=None; font_color=None; style=None; label = [] }
+let none = { color=None; font_color=None; style=None; shape=None; label = [] }
 
 let make l = List.fold_left update none l
 
@@ -62,13 +70,14 @@ let label r = if r.label = [] then None else Some (Label r.label)
 let color r = Option.map (fun x -> Color x) r.color
 let font_color r = Option.map (fun x -> Font_color x) r.font_color
 let style r = Option.map (fun x -> Style x) r.style
+let shape r = Option.map (fun x -> Shape x) r.shape
 
 let decompose r =
   let (@?) x l = match x with
     | None -> l
     | Some x -> x :: l
    in
-  label r @? color r @? font_color r @? style r @? []
+  label r @? color r @? font_color r @? style r @? shape r @? []
 
 (*let fill_default r l = match l with
   | Color default ->
@@ -96,6 +105,7 @@ let merge l r =
     style = alt l.style r.style;
     label = merge_label l.label r.label;
     font_color = alt l.font_color r.font_color;
+    shape = alt l.shape r.shape;
   }
 
 type params = {
@@ -152,8 +162,9 @@ module Index: sig
     | Main of int
     | Synthetic of int
     | Field of { id:int; synth:bool; name:string }
+  val color_id: t -> int
   val field: name:string -> t -> t
-  val field_more: Types.row_field_cell -> t
+  val field_ext: Types.row_field_cell ->  t
   val split: params -> Types.type_expr -> t * color option * Types.type_desc
  end = struct
 
@@ -167,6 +178,10 @@ module Index: sig
     tbl: (int,int) Hashtbl.t;
   }
   let id_map = { last = ref 0; tbl = Hashtbl.create 20 }
+
+  let color_id = function
+    | Main id | Synthetic id | Field {id;_} -> id
+
 
   let pretty_id params id =
     if not params.short_ids then Main id else
@@ -191,7 +206,7 @@ module Index: sig
 
   let either = ref []
   let synth = ref 0
-  let field_more r =
+  let field_ext r =
     match List.assq_opt r !either with
     | Some n -> Synthetic n
     | None ->
@@ -271,6 +286,11 @@ module Pp = struct
     | Dash -> fprintf ppf "dashed"
     | Dotted -> fprintf ppf "dotted"
 
+  let shape ppf = function
+    | Circle -> fprintf ppf "circle"
+    | Diamond -> fprintf ppf "diamond"
+    | Ellipse -> fprintf ppf "ellipse"
+
   let modal ppf = function
     | Color c -> fprintf ppf {|color="%a"|} color c
     | Font_color c -> fprintf ppf {|fontcolor="%a"|} color c
@@ -280,6 +300,7 @@ module Pp = struct
         | Filled (Some c) -> fprintf ppf {|;@ fillcolor="%a"|} color c;
         | _ -> ()
         end;
+    | Shape s -> fprintf ppf {|shape="%a"|} shape s
     | Label s -> fprintf ppf {|label=<%a>|} (list ~sep:space string) s
 
   let inline_label ppf r =
@@ -458,31 +479,51 @@ module Digraph = struct
     else
       edges_of_memo ty params memo gh
 
-  let labelk k fmt = kasprintf (fun s -> k (make [Label [s]])) fmt
+  let labelk k fmt = kasprintf (fun s -> k  [Label [s]]) fmt
   let labelf fmt = labelk Fun.id fmt
+  let labelfr fmt = labelk make fmt
 
   let add_node label color id tynode gh =
-    let lbl = Label [asprintf "<SUB>%a</SUB>" Pp.prettier_index id] in
+    let lbl = labelf "<SUB>%a</SUB>" Pp.prettier_index id in
     let lbl = match color with
-    | None -> make [lbl]
-    | Some _ as x -> make [lbl; Style (Filled x)]
+    | None -> make lbl
+    | Some _ as x -> make (Style (Filled x) :: lbl)
     in
     let label = merge label lbl in
     add label tynode gh
 
-  let field_node lbl rf =
+  let field_node color lbl rf =
+    let color = match color with
+      | None -> []
+      | Some c -> [Color c]
+    in
+    let pr_lbl ppf = match lbl with
+      | None -> ()
+      | Some lbl -> fprintf ppf "`%s" lbl
+    in
     let txt =
       Types.match_row_field
-        ~absent:(fun _ -> asprintf "%s<SUP>absent</SUP>" lbl)
-        ~present:(fun _ -> asprintf "%s<SUP>present</SUP>" lbl)
-        ~either:(fun c _tl m _e -> asprintf "%s<SUP>either(%B,%B)</SUP>" lbl c m)
+        ~absent:(fun _ -> labelf "`-%t" pr_lbl)
+        ~present:(fun _ -> labelf "&gt;%t" pr_lbl)
+        ~either:(fun c _tl m _e ->
+            labelf "%s%t%s"
+              (if m then "?" else "")
+              pr_lbl
+              (if c then "(∅)" else "")
+          )
         rf
     in
-    make [Label [txt]]
+    make (Shape Diamond::color@txt)
 
-  let[@warning "-32"] group ty lbl l (g,sgs) =
-    let g, nested = List.fold_left (fun gh t -> snd (ty t gh)) (g,empty_subgraph) l in
-    g, add_subgraph (lbl,nested) sgs
+  let group ty id0 lbl l (g,sgs as gh) =
+    match l with
+    | [] -> gh
+    | first :: l ->
+      let gh = g,empty_subgraph in
+      let id, gh = ty first gh in
+      let g, nested = List.fold_left (fun gh t -> snd (ty t gh)) gh l in
+      let gh = (g, add_subgraph (lbl,nested) sgs) in
+      gh |> add none (Edge(id0,id))
 
   let rec inject_typ ?(follow_expansions=true) params ty0 (g,_ as gh) =
     let (id, color, desc) = Index.split params ty0 in
@@ -495,12 +536,12 @@ module Digraph = struct
   and poly_edge ~follow_expansions ~color params id0 gh ty =
     let id, gh = inject_typ ~follow_expansions params ty gh in
     match color with
-    | None -> add (make [Label ["bind"]]) (Edge (id0,id)) gh
+    | None -> add (labelfr "bind") (Edge (id0,id)) gh
     | Some c ->
         let gh = add (make [Label ["bind"]; Color c]) (Edge (id0,id)) gh in
         add ~user:true (make [filled c]) (Node id) gh
   and numbered_edge ~follow_expansions params id0 (i,gh) ty =
-    let l = labelf "%d" i in
+    let l = labelfr "%d" i in
     i + 1, edge ~follow_expansions params id0 l ty gh
   and numbered_edges ~follow_expansions params id0 l gh =
     snd @@ List.fold_left
@@ -508,9 +549,10 @@ module Digraph = struct
       (0,gh) l
   and node ~follow_expansions params color id tynode desc gh =
     let add_tynode l = add_node l color id tynode gh in
-    let mk fmt = labelk add_tynode fmt in
+    let mk fmt = labelk (fun l -> add_tynode (make l)) fmt in
     let numbered = numbered_edges ~follow_expansions params id in
     let edge = edge ~follow_expansions params id in
+    let group = group (inject_typ ~follow_expansions params) in
     let std_edge = edge std in
     match desc with
     | Types.Tvar name -> mk "%a" pretty_var name
@@ -527,14 +569,26 @@ module Digraph = struct
             (inject_typ ~follow_expansions:true)
             params id !abbrevs constr
     | Types.Tobject (t, name) ->
-        begin match !name with
-        | None -> mk "obj" |> std_edge t
-        | Some (p,tl) ->
-            mk "obj(%a)" Path.print p |> std_edge t |> numbered tl
-        end
+        let gh =
+          begin match !name with
+          | None -> mk "obj"
+          | Some (p,[]) -> (* invalid format *)
+              mk "obj(%a)" Path.print p
+          | Some (p, (rv_or_nil :: tl)) ->
+              match Types.get_desc rv_or_nil with
+              | Tnil ->
+                  mk "obj(%a)" Path.print p |> std_edge t |> numbered tl
+              | _ ->
+                  mk "obj(#%a)" Path.print p
+                  |> edge (labelfr "row variable") rv_or_nil
+                  |> numbered tl
+          end
+        in
+        group id (labelfr "Fields") [t] gh
     | Types.Tfield (f, k, t1, t2) ->
         mk "%s<SUP>%s</SUP>" f (string_of_field_kind k)
-        |> numbered [t1;t2]
+        |> std_edge t1
+        |> edge (make [Style Dotted]) t2
     | Types.Tnil -> mk "∅"
     | Types.Tlink t -> add_tynode (make [Style Dash]) |> std_edge t
     | Types.Tsubst (t, o) ->
@@ -547,15 +601,15 @@ module Digraph = struct
         List.fold_left (poly_edge ~follow_expansions ~color params id) gh tl
     | Types.Tvariant row ->
         let Row {fields; more; name; fixed; closed} = Types.row_repr row in
-        let gh, args = match name with
-          | None ->
-              mk "[Row(closed=%B,fixed=%a)]" closed Pp.row_fixed fixed,[]
+        let closed = if closed then "<SUP>closed</SUP>" else "" in
+        let gh = match name with
+          | None -> mk "[Row%s]" closed
           | Some (p,tl) ->
-              mk "[Row %a(closed=%B,fixed=%a)]"
-                Path.print p closed Pp.row_fixed fixed,
-              tl
+              mk "[Row %a%s]" Path.print p closed
+              |> numbered tl
         in
-        let gh = gh |> edge (make [Label ["more"]]) more |> numbered args in
+        let more_lbl = labelfr "%a row variable" Pp.row_fixed fixed in
+        let gh = gh |> edge more_lbl more in
         List.fold_left (field ~follow_expansions params id) gh fields
     | Types.Tpackage (p, fl) ->
         let types = List.map snd fl in
@@ -566,7 +620,8 @@ module Digraph = struct
   and field ~follow_expansions params id0 gh (name,rf)  =
     let id = Index.field ~name id0 in
     let fnode = Node id in
-    let gh = add (field_node name rf) fnode gh in
+    let color = colorize params (Index.color_id id) in
+    let gh = add (field_node color (Some name) rf) fnode gh in
     let gh = add none (Edge(id0,id)) gh in
     field_inside ~follow_expansions params id rf gh
   and field_inside ~follow_expansions params id rf gh =
@@ -582,19 +637,16 @@ module Digraph = struct
             | [x] -> edge ~follow_expansions params id none x gh
             | _ :: _ as tls ->
                 let label = make [Label ["⋀"]; filled lightgrey] in
-                group (inject_typ ~follow_expansions params) label tls gh
+                group (inject_typ ~follow_expansions params) id label tls gh
           in
           match e with
-          | None ->
-              let id_more = Index.field_more cell in
-              gh
-              |> add (make [Label ["None"]]) (Node id_more)
-              |> add none (Edge(id,id_more))
+          | None -> gh
           | Some f ->
-              let id_more = Index.field_more cell in
-              let gh = add (field_node "*more*" f) (Node id_more) gh in
-              let gh = add none (Edge(id,id_more)) gh in
-              field_inside ~follow_expansions params id_more f gh
+              let id_ext = Index.field_ext cell in
+              let color = colorize params (Index.color_id id_ext) in
+              let gh = add (field_node color None f) (Node id_ext) gh in
+              let gh = add none (Edge(id,id_ext)) gh in
+              field_inside ~follow_expansions params id_ext f gh
         )
       rf
 end

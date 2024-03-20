@@ -78,11 +78,17 @@ type style =
   | Dotted
   | Dash
 
+type shape =
+  | Ellipse
+  | Circle
+  | Diamond
+
 type modal =
 | Color of color
 | Font_color of color
 | Style of style
 | Label of string list
+| Shape of shape
 
 val label: modal list -> label
 
