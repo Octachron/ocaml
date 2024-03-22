@@ -136,6 +136,7 @@ let () =
 
 (** Debugging *)
 module G = Gprinttyp
+module Gd = G.Decoration
 let () =
   let tested = lazy (Sys.getenv_opt "ODEBUG") in
   G.debug_on := (fun () ->
@@ -144,12 +145,12 @@ let () =
     | Some _ -> true
   )
 
-let vis = G.(label [Style  (Filled (Some (Named "orchid")))] )
-let left = G.(label [Color green])
-let right = G.(label [Color blue])
-let link_to = G.(label [Color blue; Label ["link to"]])
-let unify_lbl = G.(label [Color green; Label ["unify with"]])
-let retry = G.(label [Label ["retry-after-failure"]; Color red])
+let vis = Gd.(make [filled (Named "orchid")])
+let left = Gd.(make [Color green])
+let right = Gd.(make [Color blue])
+let link_to = Gd.(make [Color blue; txt "link to"])
+let unify_lbl = Gd.(make [Color green; txt "unify with"])
+let retry = Gd.(make [txt "retry-after-failure"; Color red])
 let gparams = G.params
     ~ellide_links:true
     ~expansion_as_hyperedge:false
@@ -2221,6 +2222,7 @@ let unexpanded_diff ~got ~expected =
 
 (* Return whether [t0] occurs in [ty]. Objects are also traversed. *)
 let deep_occur t0 ty =
+  gtypes ~title:"deep_occur" [left, t0; right, ty];
   let rec occur_rec ty =
     if get_level ty >= get_level t0 && try_mark_node ty then begin
       if eq_type ty t0 then raise Occur;
