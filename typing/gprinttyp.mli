@@ -14,10 +14,10 @@
 (**************************************************************************)
 
 type params
-type label
+type decoration
 type element
 
-val types: title:string -> params -> (label * Types.type_expr) list -> unit
+val types: title:string -> params -> (decoration * Types.type_expr) list -> unit
 (** Print a graph to the file
     [asprintf "%s/%04d-%s-%a.dot"
        dump_dir
@@ -30,7 +30,7 @@ val types: title:string -> params -> (label * Types.type_expr) list -> unit
  See below for how to setup the context *)
 
 (** Full version of {!types} that allow to print any kind of graph entity *)
-val nodes: title:string -> params -> (label * element) list -> unit
+val nodes: title:string -> params -> (decoration * element) list -> unit
 
 val params:
   ?ellide_links:bool ->
@@ -62,52 +62,53 @@ val debug_off: (unit -> 'a) -> 'a
 val debug: (unit -> unit) -> unit
 
 (** {1 Node and decoration types} *)
+module Decoration: sig
+  type color =
+    | Named of string
+    | HSL of {h:float;s:float;l:float}
 
-type color =
-  | Named of string
-  | HSL of {h:float;s:float;l:float}
+  val green: color
+  val blue: color
+  val red:color
+  val purple:color
+  val hsl: h:float -> s:float -> l:float -> color
 
-val green: color
-val blue: color
-val red:color
-val purple:color
-val hsl: h:float -> s:float -> l:float -> color
+  type style =
+    | Filled of color option
+    | Dotted
+    | Dash
 
-type style =
-  | Filled of color option
-  | Dotted
-  | Dash
+  type shape =
+    | Ellipse
+    | Circle
+    | Diamond
 
-type shape =
-  | Ellipse
-  | Circle
-  | Diamond
-
-type modal =
-| Color of color
-| Font_color of color
-| Style of style
-| Label of string list
-| Shape of shape
-
-val label: modal list -> label
-
+  type property =
+    | Color of color
+    | Font_color of color
+    | Style of style
+    | Label of string list
+    | Shape of shape
+  val filled: color -> property
+  val txt: string -> property
+  val make: property list -> decoration
+end
 
 type dir = Toward | From
 val node: Types.type_expr -> element
 val edge: Types.type_expr -> Types.type_expr -> element
-val hyperedge: (dir * label * Types.type_expr) list -> element
+val hyperedge: (dir * decoration * Types.type_expr) list -> element
 
 (** {1 Node tracking functions }*)
 
 
 (** [register_type (lbl,ty)] adds the type [t] to all graph printed until
     {!forget} is called *)
-val register_type: label * Types.type_expr -> unit
+val register_type: decoration * Types.type_expr -> unit
 
 (** [register_subgraph params tys] groups together all types reachable from
     [tys] at this point in printed digraphs, until {!forget} is called *)
-val register_subgraph: params -> ?label:label -> Types.type_expr list -> unit
+val register_subgraph: params -> ?decoration:decoration -> Types.type_expr list -> unit
 
 
 (** Forget all recorded context types *)
