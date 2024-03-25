@@ -107,12 +107,9 @@ type decoration = Decoration.r
 type dir = Toward | From
 
 let txt = Decoration.txt
-
 let std = Decoration.none
 let dotted = Decoration.(make [Style Dotted])
 let memo = Decoration.(make [txt "expand"; Style Dash] )
-
-
 
 
 type params = {
@@ -156,13 +153,6 @@ let colorize params id =
        | 6 | _ -> 0.8
      in
      Some (Decoration.hsl ~h ~s ~l)
-
-let string_of_field_kind v =
-  match Types.field_kind_repr v with
-  | Fpublic -> "public"
-  | Fabsent -> "absent"
-  | Fprivate -> "private"
-
 
 module Index: sig
   type t = private
@@ -256,6 +246,7 @@ let empty_subgraph=
     subgraphes = [];
   }
 
+
 type 'index entity =
   | Node of 'index
   | Edge of 'index * 'index
@@ -271,7 +262,10 @@ let (.%()) map e =
   Option.value ~default:Decoration.none @@
   Entity_map.find_opt e map
 
-type digraph = Decoration.r Entity_map.t * subgraph
+type digraph = {
+  elts: Decoration.r Entity_map.t;
+  graph: subgraph
+}
 
 module Pp = struct
 
@@ -323,7 +317,6 @@ module Pp = struct
     | [] -> ()
     | l -> fprintf ppf "[@[<h>%a@]]" (list ~sep:semi property) l
 
-
   let row_fixed ppf = function
     | None -> fprintf ppf ""
     | Some Types.Fixed_private -> fprintf ppf "private"
@@ -331,6 +324,11 @@ module Pp = struct
     | Some Types.Univar _t -> fprintf ppf "univar"
     | Some Types.Reified _p -> fprintf ppf "reified"
 
+  let string_of_field_kind v =
+    match Types.field_kind_repr v with
+    | Fpublic -> "public"
+    | Fabsent -> "absent"
+    | Fprivate -> "private"
 
   let index ppf = function
     | Index.Main id -> fprintf ppf "i%d" id
@@ -373,25 +371,25 @@ module Pp = struct
     incr cluster_counter;
     fprintf ppf "cluster_%d" !cluster_counter
 
-  let rec subgraph graph ppf (d,sg) =
+  let rec subgraph elts ppf (d,sg) =
     fprintf ppf
       "@[<v 2>subgraph %t {@,\
        %a;@ \
        %a%a%a%a}@]@."
       pp_cluster
       inline_decoration d
-      (seq ~sep:empty (node graph)) (Node_set.to_seq sg.nodes)
-      (seq ~sep:empty (edge graph)) (Edge_set.to_seq sg.edges)
-      (seq ~sep:empty (hyperedge graph)) (Hyperedge_set.to_seq sg.hyperedges)
-      (list ~sep:empty (subgraph graph)) sg.subgraphes
+      (seq ~sep:empty (node elts)) (Node_set.to_seq sg.nodes)
+      (seq ~sep:empty (edge elts)) (Edge_set.to_seq sg.edges)
+      (seq ~sep:empty (hyperedge elts)) (Hyperedge_set.to_seq sg.hyperedges)
+      (list ~sep:empty (subgraph elts)) sg.subgraphes
 
 
-  let graph ppf (graph,sg) =
+  let graph ppf {elts;graph} =
     fprintf ppf "@[<v 2>digraph {@,%a%a%a%a}@]@."
-    (seq ~sep:empty (node graph)) (Node_set.to_seq sg.nodes)
-    (seq ~sep:empty (edge graph)) (Edge_set.to_seq sg.edges)
-    (seq ~sep:empty (hyperedge graph)) (Hyperedge_set.to_seq sg.hyperedges)
-    (list ~sep:empty (subgraph graph)) sg.subgraphes
+    (seq ~sep:empty (node elts)) (Node_set.to_seq graph.nodes)
+    (seq ~sep:empty (edge elts)) (Edge_set.to_seq graph.edges)
+    (seq ~sep:empty (hyperedge elts)) (Hyperedge_set.to_seq graph.hyperedges)
+    (list ~sep:empty (subgraph elts)) graph.subgraphes
 
 
 end
@@ -434,7 +432,14 @@ let pretty_var ppf name =
 
 module Digraph = struct
 
-    let add_to_subgraph s = function
+  type t = digraph = {
+    elts: Decoration.r Entity_map.t;
+    graph: subgraph
+  }
+
+  let empty = { elts = Entity_map.empty; graph = empty_subgraph }
+
+  let add_to_subgraph s = function
     | Node ty ->
         let nodes = Node_set.add ty s.nodes in
         { s with nodes }
@@ -445,28 +450,28 @@ module Digraph = struct
         let hyperedges = Hyperedge_set.add l s.hyperedges in
         { s with hyperedges }
 
-    let add_subgraph sub g =
-      { g with subgraphes = sub :: g.subgraphes }
+  let add_subgraph sub g =
+    { g with subgraphes = sub :: g.subgraphes }
 
-  let add ?(override=false) d entry (g,s) =
-    match Entity_map.find_opt entry g with
+  let add ?(override=false) d entry dg =
+    match Entity_map.find_opt entry dg.elts with
     | Some d' ->
         let d =
           if override then Decoration.merge d d'
           else Decoration.merge d' d
         in
-        Entity_map.add entry d g, s
+        { dg with elts = Entity_map.add entry d dg.elts }
     | None ->
-        let g = Entity_map.add entry d g in
-        g, add_to_subgraph s entry
+        let elts = Entity_map.add entry d dg.elts in
+        { elts; graph = add_to_subgraph dg.graph entry }
 
-  let rec hyperedges_of_memo ty params id abbrev gh =
+  let rec hyperedges_of_memo ty params id abbrev dg =
     match abbrev with
-    | Types.Mnil -> gh
+    | Types.Mnil -> dg
     | Types.Mcons (_priv, _p, t1, t2, rem) ->
-        let s, gh = ty params t1 gh in
-        let exp, gh = ty params t2 gh in
-        gh |>
+        let s, dg = ty params t1 dg in
+        let exp, dg = ty params t2 dg in
+        dg |>
         add memo
           (Hyperedge
              [From, dotted, id;
@@ -474,35 +479,35 @@ module Digraph = struct
               Toward, Decoration.make [txt "expand"], exp
              ])
         |> hyperedges_of_memo ty params id rem
-    | Types.Mlink rem -> hyperedges_of_memo ty params id !rem gh
+    | Types.Mlink rem -> hyperedges_of_memo ty params id !rem dg
 
-  let rec edges_of_memo ty params abbrev gh =
+  let rec edges_of_memo ty params abbrev dg =
     match abbrev with
-    | Types.Mnil -> gh
+    | Types.Mnil -> dg
     | Types.Mcons (_priv, _p, t1, t2, rem) ->
-        let x, gh = ty params t1 gh in
-        let y, gh = ty params t2 gh in
-        gh |> add memo (Edge (x,y)) |> edges_of_memo ty params rem
-    | Types.Mlink rem -> edges_of_memo ty params !rem gh
+        let x, dg = ty params t1 dg in
+        let y, dg = ty params t2 dg in
+        dg |> add memo (Edge (x,y)) |> edges_of_memo ty params rem
+    | Types.Mlink rem -> edges_of_memo ty params !rem dg
 
-  let expansions ty params id memo gh =
+  let expansions ty params id memo dg =
     if params.expansion_as_hyperedge then
-      hyperedges_of_memo ty params id memo gh
+      hyperedges_of_memo ty params id memo dg
     else
-      edges_of_memo ty params memo gh
+      edges_of_memo ty params memo dg
 
   let labelk k fmt = kasprintf (fun s -> k  [txt s]) fmt
   let labelf fmt = labelk Fun.id fmt
   let labelr fmt = labelk Decoration.make fmt
 
-  let add_node explicit_d color id tynode gh =
+  let add_node explicit_d color id tynode dg =
     let d = labelf "<SUB>%a</SUB>" Pp.prettier_index id in
     let d = match color with
     | None -> Decoration.make d
     | Some x -> Decoration.(make (filled x :: d))
     in
     let d = Decoration.merge explicit_d d in
-    add d tynode gh
+    add d tynode dg
 
   let field_node color lbl rf =
     let col = match color with
@@ -527,27 +532,27 @@ module Digraph = struct
     in
     Decoration.(make (Shape Diamond::col@lbl))
 
-  let group ty id0 lbl l (g,sgs as gh) =
+  let group ty id0 lbl l dg =
     match l with
-    | [] -> gh
+    | [] -> dg
     | first :: l ->
-      let gh = g,empty_subgraph in
-      let id, gh = ty first gh in
-      let g, nested = List.fold_left (fun gh t -> snd (ty t gh)) gh l in
-      let gh = (g, add_subgraph (lbl,nested) sgs) in
-      gh |> add std (Edge(id0,id))
+      let sub = { dg with graph = empty_subgraph } in
+      let id, sub = ty first sub in
+      let sub = List.fold_left (fun dg t -> snd (ty t dg)) sub l in
+      let dg = { sub with graph = add_subgraph (lbl,sub.graph) dg.graph } in
+      dg |> add std (Edge(id0,id))
 
   let split_fresh_typ params ty0 g =
     let (id, color, desc) = Index.split params ty0 in
     let tynode = Node id in
     if Entity_map.mem tynode g then id, None else id, Some (tynode,color,desc)
 
-  let rec inject_typ ?(follow_expansions=true) params ty0 (g, _  as gh) =
-    let id, next = split_fresh_typ params ty0 g in
+  let rec inject_typ ?(follow_expansions=true) params ty0 dg =
+    let id, next = split_fresh_typ params ty0 dg.elts in
     match next with
-    | None -> id, gh
+    | None -> id, dg
     | Some (tynode,color,desc) ->
-        id, node params color id tynode ~follow_expansions desc gh
+        id, node params color id tynode ~follow_expansions desc dg
   and edge ~follow_expansions params id0 lbl ty gh =
     let id, gh = inject_typ ~follow_expansions params ty gh in
     add lbl (Edge(id0,id)) gh
@@ -566,17 +571,16 @@ module Digraph = struct
     snd @@ List.fold_left
       (numbered_edge ~follow_expansions params id0)
       (0,gh) l
-  and node ~follow_expansions params color id tynode desc gh =
-    let add_tynode l = add_node l color id tynode gh in
+  and node ~follow_expansions params color id tynode desc dg =
+    let add_tynode l = add_node l color id tynode dg in
     let mk fmt = labelk (fun l -> add_tynode (Decoration.make l)) fmt in
     let numbered = numbered_edges ~follow_expansions params id in
     let edge = edge ~follow_expansions params id in
-    let _group = group (inject_typ ~follow_expansions params) in
     let std_edge = edge std in
     match desc with
     | Types.Tvar name -> mk "%a" pretty_var name
     | Types.Tarrow(l,t1,t2,_) ->
-       let gh = mk "→%a" exponent_of_label l in numbered [t1; t2] gh
+       let dg = mk "→%a" exponent_of_label l in numbered [t1; t2] dg
     | Types.Ttuple tl ->
         mk "," |> numbered tl
     | Types.Tconstr (p,tl,abbrevs) ->
@@ -588,7 +592,7 @@ module Digraph = struct
             (inject_typ ~follow_expansions:true)
             params id !abbrevs constr
     | Types.Tobject (t, name) ->
-        let emap, main as gh =
+        let dg =
           begin match !name with
           | None -> mk "[obj]"
           | Some (p,[]) -> (* invalid format *)
@@ -603,109 +607,117 @@ module Digraph = struct
                   |> numbered tl
           end
         in
-        begin match split_fresh_typ params t emap with
-        | _, None -> gh
+        begin match split_fresh_typ params t dg.elts with
+        | _, None -> dg
         | next_id, Some (_, color, desc) ->
             group_fields ~params ~follow_expansions ~prev_id:id
-              emap main empty_subgraph
+              dg.elts dg.graph empty_subgraph
               ~id:next_id ~color ~desc
         end
     | Types.Tfield _ ->
-        group_fields ~params ~follow_expansions ~prev_id:id (fst gh) (snd gh) empty_subgraph ~color ~id ~desc
+        group_fields ~params ~follow_expansions ~prev_id:id
+          dg.elts dg.graph empty_subgraph
+          ~color ~id ~desc
     | Types.Tnil -> mk "[Nil]"
     | Types.Tlink t -> add_tynode Decoration.(make [Style Dash]) |> std_edge t
     | Types.Tsubst (t, o) ->
-        let gh = add_tynode (labelr "[Subst]") |> std_edge t in
+        let dg = add_tynode (labelr "[Subst]") |> std_edge t in
         begin match o with
-        | None -> gh
-        | Some row -> edge (labelr "row variable") row gh
+        | None -> dg
+        | Some row -> edge (labelr "row variable") row dg
         end
     | Types.Tunivar name ->
         mk "%a<SUP>∀</SUP>" pretty_var name
     | Types.Tpoly (t, tl) ->
-        let gh = mk "∀" |> std_edge t in
-        List.fold_left (poly_edge ~follow_expansions ~color params id) gh tl
+        let dg = mk "∀" |> std_edge t in
+        List.fold_left (poly_edge ~follow_expansions ~color params id) dg tl
     | Types.Tvariant row ->
         let Row {fields; more; name; fixed; closed} = Types.row_repr row in
         let closed = if closed then "<SUP>closed</SUP>" else "" in
-        let gh = match name with
+        let dg = match name with
           | None -> mk "[Row%s]" closed
           | Some (p,tl) ->
               mk "[Row %a%s]" Path.print p closed
               |> numbered tl
         in
         let more_lbl = labelr "%a row variable" Pp.row_fixed fixed in
-        let emap, main = gh |> edge more_lbl more in
-        let emap, main, fields =
+        let dg = dg |> edge more_lbl more in
+        let elts, main, fields =
           List.fold_left (variant ~follow_expansions params id)
-            (emap,main,empty_subgraph) fields
+            (dg.elts, dg.graph, empty_subgraph)
+            fields
         in
-        emap, add_subgraph (labelr "polyvar", fields) main
+        { elts; graph = add_subgraph (labelr "polyvar", fields) main }
     | Types.Tpackage (p, fl) ->
         let types = List.map snd fl in
         mk "[mod %a with %a]"
           Path.print p
           Pp.(list ~sep:semi longident) (List.map fst fl)
         |> numbered types
-  and variant ~follow_expansions params id0 (emap,main,fields) (name,rf)  =
+  and variant ~follow_expansions params id0 (elts,main,fields) (name,rf)  =
     let id = Index.field ~name id0 in
     let fnode = Node id in
     let color = colorize params (Index.color_id id) in
-    let emap, fields = add (field_node color (Some name) rf) fnode (emap,fields) in
-    let emap, fields = add dotted (Edge(id0,id)) (emap,fields) in
-    let emap, main = variant_inside ~follow_expansions params id rf (emap,main) in
-    emap, main, fields
-  and variant_inside ~follow_expansions params id rf gh =
+    let fdigraph = { elts; graph=fields } in
+    let fdigraph = add (field_node color (Some name) rf) fnode fdigraph  in
+    let { elts; graph=fields} = add dotted (Edge(id0,id)) fdigraph in
+    let mdigraph = { elts; graph=main } in
+    let {elts; graph=main} = variant_inside ~follow_expansions params id rf mdigraph in
+    elts, main, fields
+  and variant_inside ~follow_expansions params id rf dg =
     Types.match_row_field
-      ~absent:(fun () -> gh)
+      ~absent:(fun () -> dg)
       ~present:(function
-          | None -> gh
-          | Some arg -> numbered_edges ~follow_expansions params id [arg] gh
+          | None -> dg
+          | Some arg -> numbered_edges ~follow_expansions params id [arg] dg
         )
       ~either:(fun _ tl _ (cell,e) ->
-          let gh = match tl with
-            | [] -> gh
-            | [x] -> edge ~follow_expansions params id std x gh
+          let dg = match tl with
+            | [] -> dg
+            | [x] -> edge ~follow_expansions params id std x dg
             | _ :: _ as tls ->
                 let label = Decoration.(make [txt "⋀"; filled lightgrey]) in
-                group (inject_typ ~follow_expansions params) id label tls gh
+                group (inject_typ ~follow_expansions params) id label tls dg
           in
           match e with
-          | None -> gh
+          | None -> dg
           | Some f ->
               let id_ext = Index.field_ext cell in
               let color = colorize params (Index.color_id id_ext) in
-              let gh = add (field_node color None f) (Node id_ext) gh in
-              let gh = add std (Edge(id,id_ext)) gh in
-              variant_inside ~follow_expansions params id_ext f gh
+              let dg = add (field_node color None f) (Node id_ext) dg in
+              let dg = add std (Edge(id,id_ext)) dg in
+              variant_inside ~follow_expansions params id_ext f dg
         )
       rf
-  and group_fields ~follow_expansions ~params ~prev_id emap main fields ~color ~id ~desc =
-    let add_tynode gh l = add_node l color id (Node id) gh in
-    let mk gh fmt = labelk (fun l -> add_tynode gh (Decoration.make l)) fmt in
-    let merge emap main fields =  emap, add_subgraph (labelr "fields", fields) main in
+  and group_fields ~follow_expansions ~params ~prev_id elts main fields ~color ~id ~desc =
+    let add_tynode dg l = add_node l color id (Node id) dg in
+    let mk dg fmt = labelk (fun l -> add_tynode dg (Decoration.make l)) fmt in
+    let merge elts ~main ~fields =
+      {elts; graph= add_subgraph (labelr "fields", fields) main }
+    in
     match desc with
     | Types.Tfield (f, k,typ, next) ->
-        let id_typ, (emap,main) = inject_typ ~follow_expansions params typ (emap,main) in
-        let (emap,fields) = mk  (emap,fields) "%s<SUP>%s</SUP>" f (string_of_field_kind k) in
-        let (emap,fields) = add dotted (Edge (prev_id,id)) (emap,fields) in
-        let (emap,main) = add (labelr "method type") (Edge(id,id_typ)) (emap,main) in
-        let id_next, next = split_fresh_typ params next emap in
+        let fdigraph = { elts; graph=fields } in
+        let fdigraph = mk fdigraph "%s<SUP>%s</SUP>" f (Pp.string_of_field_kind k) in
+        let {elts; graph=fields} = add dotted (Edge (prev_id,id)) fdigraph in
+        let id_typ, mdigraph = inject_typ ~follow_expansions params typ {elts; graph= main} in
+        let {elts; graph=main} = add (labelr "method type") (Edge(id,id_typ)) mdigraph in
+        let id_next, next = split_fresh_typ params next elts in
         begin match next with
-        | None -> (emap,fields)
+        | None -> {elts; graph=main}
         | Some (_,color,desc) ->
             group_fields ~follow_expansions ~params ~prev_id:id
-              emap main fields
+              elts main fields
               ~id:id_next ~desc ~color
         end
     | Types.Tvar name ->
-        let emap, fields = mk (emap,fields) "%a" pretty_var name in
-        let gh = merge emap main fields in
-        add (labelr "row variable") (Edge(prev_id,id)) gh
-    | Types.Tnil -> merge emap main fields
+        let {elts; graph=fields} = mk {elts; graph= fields } "%a" pretty_var name in
+        let dg = merge elts ~main ~fields in
+        add (labelr "row variable") (Edge(prev_id,id)) dg
+    | Types.Tnil -> merge elts ~main ~fields
     | _ ->
-        let gh = merge emap main fields in
-        node ~follow_expansions params color id (Node id) desc gh
+        let dg = merge elts ~main ~fields in
+        node ~follow_expansions params color id (Node id) desc dg
 end
 
 let params
@@ -722,38 +734,38 @@ let params
   }
 
 
-let translate ~follow_expansions params gh (label,entry) =
-  let node, gh = match entry with
+let translate ~follow_expansions params dg (label,entry) =
+  let node, dg = match entry with
     | Node ty ->
-        let id, gh = Digraph.inject_typ ~follow_expansions params ty gh in
-        Node id, gh
+        let id, dg = Digraph.inject_typ ~follow_expansions params ty dg in
+        Node id, dg
     | Edge (ty,ty') ->
-        let id, gh = Digraph.inject_typ ~follow_expansions params ty gh in
-        let id', gh = Digraph.inject_typ ~follow_expansions params ty' gh in
-        Edge(id,id'), gh
+        let id, dg = Digraph.inject_typ ~follow_expansions params ty dg in
+        let id', dg = Digraph.inject_typ ~follow_expansions params ty' dg in
+        Edge(id,id'), dg
     | Hyperedge l ->
-        let l, gh = List.fold_left (fun (l,gh) (d,lbl,ty) ->
-            let id, gh = Digraph.inject_typ ~follow_expansions params ty gh in
-            (d,lbl,id)::l, gh
-          ) ([],gh) l
+        let l, dg = List.fold_left (fun (l,dg) (d,lbl,ty) ->
+            let id, dg = Digraph.inject_typ ~follow_expansions params ty dg in
+            (d,lbl,id)::l, dg
+          ) ([],dg) l
         in
-       Hyperedge l, gh
+       Hyperedge l, dg
   in
-  Digraph.add ~override:true label node gh
+  Digraph.add ~override:true label node dg
 
-let add ?(follow_expansions=true) params ts gh =
-  List.fold_left (translate ~follow_expansions params) gh ts
+let add ?(follow_expansions=true) params ts dg =
+  List.fold_left (translate ~follow_expansions params) dg ts
 
-let empty_graph = Entity_map.empty, empty_subgraph
 
-let make ?follow_expansions params ts = add ?follow_expansions params ts empty_graph
+let make ?follow_expansions params ts =
+  add ?follow_expansions params ts Digraph.empty
 let pp = Pp.graph
 
-let add_subgraph params d elts (emap,g) =
-  let emap, sub = add params elts (emap,empty_subgraph) in
-  emap, Digraph.add_subgraph (d,sub) g
+let add_subgraph params d elts dg =
+  let sub = add params elts { dg with graph = empty_subgraph } in
+  { sub with graph = Digraph.add_subgraph (d,sub.graph) dg.graph }
 
-let group  (decoration, (_,sub)) (emap,main as gmain) =
+let group (decoration, {graph=sub; elts=_}) ({elts;graph=main} as gmain) =
   let nodes = Node_set.inter sub.nodes main.nodes in
   let edges = Edge_set.inter sub.edges main.edges in
   let hyperedges = Hyperedge_set.inter sub.hyperedges main.hyperedges in
@@ -762,12 +774,13 @@ let group  (decoration, (_,sub)) (emap,main as gmain) =
     || Hyperedge_set.cardinal hyperedges > 1
   then
   let sub = { nodes; edges; hyperedges; subgraphes=sub.subgraphes} in
-  emap,
-  { nodes = Node_set.diff main.nodes sub.nodes;
-    edges = Edge_set.diff main.edges sub.edges;
-    hyperedges = Hyperedge_set.diff main.hyperedges sub.hyperedges;
-    subgraphes = (decoration,sub) :: main.subgraphes
-  }
+  let graph =
+    { nodes = Node_set.diff main.nodes sub.nodes;
+      edges = Edge_set.diff main.edges sub.edges;
+      hyperedges = Hyperedge_set.diff main.hyperedges sub.hyperedges;
+      subgraphes = (decoration,sub) :: main.subgraphes
+    }
+  in { graph; elts}
   else gmain
 
 let file_counter = ref 0
