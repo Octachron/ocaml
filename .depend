@@ -580,6 +580,7 @@ typing/ctype.cmo : \
     parsing/location.cmi \
     utils/local_store.cmi \
     typing/ident.cmi \
+    typing/gprinttyp.cmi \
     typing/errortrace.cmi \
     typing/env.cmi \
     utils/clflags.cmi \
@@ -597,6 +598,7 @@ typing/ctype.cmx : \
     parsing/location.cmx \
     utils/local_store.cmx \
     typing/ident.cmx \
+    typing/gprinttyp.cmx \
     typing/errortrace.cmx \
     typing/env.cmx \
     utils/clflags.cmx \
@@ -1474,6 +1476,7 @@ typing/typecore.cmo : \
     parsing/longident.cmi \
     parsing/location.cmi \
     typing/ident.cmi \
+    typing/gprinttyp.cmi \
     typing/errortrace.cmi \
     typing/env.cmi \
     typing/ctype.cmi \
@@ -1508,6 +1511,7 @@ typing/typecore.cmx : \
     parsing/longident.cmx \
     parsing/location.cmx \
     typing/ident.cmx \
+    typing/gprinttyp.cmx \
     typing/errortrace.cmx \
     typing/env.cmx \
     typing/ctype.cmx \

@@ -134,6 +134,36 @@ let () =
       | _ -> None
     )
 
+(** Debugging *)
+module G = Gprinttyp
+module Gd = G.Decoration
+let () =
+  let tested = lazy (Sys.getenv_opt "ODEBUG") in
+  G.debug_on := (fun () ->
+    match Lazy.force tested with
+    | None -> false
+    | Some _ -> true
+  )
+
+let vis = Gd.(make [filled (Named "orchid")])
+let left = Gd.(make [Color green])
+let right = Gd.(make [Color blue])
+let link_to = Gd.(make [Color blue; txt "link to"])
+let unify_lbl = Gd.(make [Color green; txt "unify with"])
+let retry = Gd.(make [txt "retry-after-failure"; Color red])
+let gparams = G.params
+    ~ellide_links:true
+    ~expansion_as_hyperedge:false
+    ~short_ids:true
+    ()
+let gtypes ~title l =
+  G.debug (fun () -> G.types ~title gparams l)
+let gnodes ~title l =
+  G.debug (fun () -> G.nodes ~title gparams l)
+let gregister_subgraph l =
+  G.debug (fun () -> G.register_subgraph gparams l)
+
+
 exception Cannot_expand
 
 exception Cannot_apply
@@ -1534,6 +1564,9 @@ let subst env level priv abbrev oty params args body =
     undo_abbrev ();
     raise Cannot_subst
 
+let subst env level priv abbrev oty params args body =
+  G.debug_off (fun () ->  subst env level priv abbrev oty params args body)
+
 (*
    Default to generic level. Usually, only the shape of the type matters, not
    whether it is generic or not. [generic_level] might be somewhat slower, but
@@ -1631,6 +1664,7 @@ let expand_abbrev_gen kind find_type_expansion env ty =
           (* For gadts, remember type as non exportable *)
           (* The ambiguous level registered for ty' should be the highest *)
           (* if !trace_gadt_instances then begin *)
+          gregister_subgraph [ty'];
           let scope = Int.max lv (get_scope ty) in
           update_scope scope ty;
           update_scope scope ty';
@@ -1823,6 +1857,8 @@ let is_contractive env p =
 exception Occur
 
 let rec occur_rec env allow_recursive visited ty0 ty =
+  let vnodes f = List.map (fun x -> vis,f x) (TypeSet.elements visited) in
+  gtypes ~title:"occur_rec" ([left, ty0; right, ty ] @ vnodes Fun.id);
   if eq_type ty ty0 then raise Occur;
   match get_desc ty with
     Tconstr(p, _tl, _abbrev) ->
@@ -1833,6 +1869,8 @@ let rec occur_rec env allow_recursive visited ty0 ty =
         iter_type_expr (occur_rec env allow_recursive visited ty0) ty
       with Occur -> try
         let ty' = try_expand_head try_expand_safe env ty in
+        gnodes ~title:"occur_rec"
+          ((retry, G.edge ty ty'):: vnodes G.node);
         (* This call used to be inlined, but there seems no reason for it.
            Message was referring to change in rev. 1.58 of the CVS repo. *)
         occur_rec env allow_recursive visited ty0 ty'
@@ -1852,6 +1890,7 @@ let type_changed = ref false (* trace possible changes to the studied type *)
 let merge r b = if b then r := true
 
 let occur uenv ty0 ty =
+  gtypes ~title:"occur" [left, ty0; right, ty ];
   let env = get_env uenv in
   let allow_recursive = allow_recursive_equations uenv in
   let old = !type_changed in
@@ -1925,6 +1964,10 @@ let local_non_recursive_abbrev uenv p ty =
                    (*****************************)
                    (*  Polymorphic Unification  *)
                    (*****************************)
+
+let link_type' t1 t2 =
+  gnodes ~title:"link_type" [link_to, G.edge t1 t2];
+  link_type t1 t2
 
 (* Since we cannot duplicate universal variables, unification must
    be done at meta-level, using bindings in univar_pairs *)
@@ -2177,6 +2220,7 @@ let unexpanded_diff ~got ~expected =
 (* Return whether [t0] occurs in [ty]. Objects are also traversed. *)
 let deep_occur t0 ty =
   with_type_mark begin fun mark ->
+  gtypes ~title:"deep_occur" [left, t0; right, ty];
   let rec occur_rec ty =
     if get_level ty >= get_level t0 && try_mark_node mark ty then begin
       if eq_type ty t0 then raise Occur;
@@ -2634,7 +2678,7 @@ let unify1_var uenv t1 t2 =
         with Escape e ->
           raise_for Unify (Escape e)
       end;
-      link_type t1 t2;
+      link_type' t1 t2;
       true
   | exception Unify_trace _ when in_pattern_mode uenv ->
       false
@@ -2643,7 +2687,7 @@ let unify1_var uenv t1 t2 =
 let unify3_var uenv t1' t2 t2' =
   occur_for Unify uenv t1' t2;
   match occur_univar_for Unify (get_env uenv) t2 with
-  | () -> link_type t1' t2
+  | () -> link_type' t1' t2
   | exception Unify_trace _ when in_pattern_mode uenv ->
       reify uenv t1';
       reify uenv t2';
@@ -2677,6 +2721,7 @@ let unify3_var uenv t1' t2 t2' =
 *)
 
 let rec unify uenv t1 t2 =
+  gnodes ~title:"unify" [ unify_lbl, G.edge t1 t2 ];
   (* First step: special cases (optimizations) *)
   if unify_eq uenv t1 t2 then () else
   let reset_tracing = check_trace_gadt_instances (get_env uenv) in
@@ -2696,7 +2741,7 @@ let rec unify uenv t1 t2 =
         unify_univar_for Unify t1 t2 !univar_pairs;
         update_level_for Unify (get_env uenv) (get_level t1) t2;
         update_scope_for Unify (get_scope t1) t2;
-        link_type t1 t2
+        link_type' t1 t2
     | (Tconstr (p1, [], a1), Tconstr (p2, [], a2))
           when Path.same p1 p2
             (* This optimization assumes that t1 does not expand to t2
@@ -2728,7 +2773,7 @@ and unify2_rec uenv t10 t1 t20 t2 =
       then begin
         update_level_for Unify (get_env uenv) (get_level t1) t2;
         update_scope_for Unify (get_scope t1) t2;
-        link_type t1 t2
+        link_type' t1 t2
       end else
         let env = get_env uenv in
         if find_expansion_scope env p1 > find_expansion_scope env p2
@@ -2793,7 +2838,7 @@ and unify3 uenv t1 t1' t2 t2' =
       add_type_equality uenv t1' t2'
     else begin
       occur_for Unify uenv t1' t2;
-      link_type t1' t2
+      link_type' t1' t2
     end;
     try
       begin match (d1, d2) with
@@ -2943,7 +2988,7 @@ and unify3 uenv t1 t1' t2 t2' =
             forget_abbrev abbrev p;
             let t2'' = expand_head_unif (get_env uenv) t2 in
             if not (closed_parameterized_type tl t2'') then
-              link_type t2 t2'
+              link_type' t2 t2'
         | _ ->
             () (* t2 has already been expanded by update_level *)
     with Unify_trace trace ->
