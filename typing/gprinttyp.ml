@@ -1,3 +1,18 @@
+(**************************************************************************)
+(*                                                                        *)
+(*                                 OCaml                                  *)
+(*                                                                        *)
+(*             Florian Angeletti, projet Cambium, Inria Paris             *)
+(*                                                                        *)
+(*   Copyright 2024 Institut National de Recherche en Informatique et     *)
+(*     en Automatique.                                                    *)
+(*                                                                        *)
+(*   All rights reserved.  This file is distributed under the terms of    *)
+(*   the GNU Lesser General Public License version 2.1, with the          *)
+(*   special exception on linking described in the file LICENSE.          *)
+(*                                                                        *)
+(**************************************************************************)
+
 
 (* Print a raw type expression, with sharing *)
 open Format
@@ -256,6 +271,8 @@ let (.%()) map e =
   Option.value ~default:Decoration.none @@
   Entity_map.find_opt e map
 
+type digraph = Decoration.r Entity_map.t * subgraph
+
 module Pp = struct
 
   let semi ppf () = fprintf ppf ";@ "
@@ -378,8 +395,6 @@ module Pp = struct
 
 
 end
-
-
 
 
 
@@ -707,18 +722,18 @@ let params
   }
 
 
-let translate params gh (label,entry) =
+let translate ~follow_expansions params gh (label,entry) =
   let node, gh = match entry with
     | Node ty ->
-        let id, gh = Digraph.inject_typ params ty gh in
+        let id, gh = Digraph.inject_typ ~follow_expansions params ty gh in
         Node id, gh
     | Edge (ty,ty') ->
-        let id, gh = Digraph.inject_typ params ty gh in
-        let id', gh = Digraph.inject_typ params ty' gh in
+        let id, gh = Digraph.inject_typ ~follow_expansions params ty gh in
+        let id', gh = Digraph.inject_typ ~follow_expansions params ty' gh in
         Edge(id,id'), gh
     | Hyperedge l ->
         let l, gh = List.fold_left (fun (l,gh) (d,lbl,ty) ->
-            let id, gh = Digraph.inject_typ params ty gh in
+            let id, gh = Digraph.inject_typ ~follow_expansions params ty gh in
             (d,lbl,id)::l, gh
           ) ([],gh) l
         in
@@ -726,18 +741,34 @@ let translate params gh (label,entry) =
   in
   Digraph.add ~override:true label node gh
 
-let translate_entries params ts =
-  List.fold_left (translate params) (Entity_map.empty, empty_subgraph) ts
+let add ?(follow_expansions=true) params ts gh =
+  List.fold_left (translate ~follow_expansions params) gh ts
 
-let group_nodes sg (label,set) =
-  let set = Node_set.inter set sg.nodes in
-  if Node_set.cardinal set <= 1 then
-    sg
-  else
-    let nodes = Node_set.diff sg.nodes set in
-    let g = { empty_subgraph with nodes = set} in
-    let subgraphes =  (label,g) :: sg.subgraphes in
-    { sg with nodes; subgraphes }
+let empty_graph = Entity_map.empty, empty_subgraph
+
+let make ?follow_expansions params ts = add ?follow_expansions params ts empty_graph
+let pp = Pp.graph
+
+let add_subgraph params d elts (emap,g) =
+  let emap, sub = add params elts (emap,empty_subgraph) in
+  emap, Digraph.add_subgraph (d,sub) g
+
+let group  (decoration, (_,sub)) (emap,main as gmain) =
+  let nodes = Node_set.inter sub.nodes main.nodes in
+  let edges = Edge_set.inter sub.edges main.edges in
+  let hyperedges = Hyperedge_set.inter sub.hyperedges main.hyperedges in
+  if Node_set.cardinal nodes > 1
+    || Edge_set.cardinal edges > 1
+    || Hyperedge_set.cardinal hyperedges > 1
+  then
+  let sub = { nodes; edges; hyperedges; subgraphes=sub.subgraphes} in
+  emap,
+  { nodes = Node_set.diff main.nodes sub.nodes;
+    edges = Edge_set.diff main.edges sub.edges;
+    hyperedges = Hyperedge_set.diff main.hyperedges sub.hyperedges;
+    subgraphes = (decoration,sub) :: main.subgraphes
+  }
+  else gmain
 
 let file_counter = ref 0
 
@@ -754,7 +785,7 @@ let compact_loc ppf (loc:Warnings.loc) =
 type 'a context = 'a option ref * (Format.formatter -> 'a -> unit)
 
 let set_context (r,_pr) x = r := Some x
-let pp (r,pr) ppf = match !r with
+let pp_context (r,pr) ppf = match !r with
   | None -> ()
   | Some x -> fprintf ppf "%a" pr x
 
@@ -765,7 +796,7 @@ let with_context (r,_) x f =
 
 let global = ref None, pp_print_string
 let loc = ref None, compact_loc
-let context = [pp global; pp loc]
+let context = [pp_context global; pp_context loc]
 let dash ppf () = fprintf ppf "-"
 
 let node_register = ref []
@@ -775,13 +806,8 @@ let register_type (label,ty) =
 let subgraph_register = ref []
 let default_style = Decoration.(make [filled lightgrey])
 let register_subgraph params ?(decoration=default_style) tys =
-  let add_ty gh ty =
-    let _id, gh = Digraph.inject_typ ~follow_expansions:false params ty gh in
-    gh
-  in
-  let gh = Entity_map.empty, empty_subgraph in
-  let _g, sg = List.fold_left add_ty gh tys in
-  subgraph_register := (decoration, sg.nodes) :: !subgraph_register
+  let subgraph = make params (List.map (fun x -> Decoration.none, Node x) tys) in
+  subgraph_register := (decoration, subgraph) :: !subgraph_register
 
 let forget () =
   node_register := [];
@@ -806,13 +832,17 @@ let nodes ~title params ts =
   Out_channel.with_open_bin filename (fun ch ->
       let ppf = Format.formatter_of_out_channel ch in
       let ts = List.map (fun (l,t) -> l, t) ts in
-      let g, sg = translate_entries params (ts @ !node_register) in
-      let sg = List.fold_left group_nodes sg !subgraph_register in
-      Pp.graph ppf (g,sg)
+      let g = make params (ts @ !node_register) in
+      let g = List.fold_left (fun g sub -> group sub g) g !subgraph_register in
+      Pp.graph ppf g
     )
 
 let types ~title params ts =
   nodes ~title params (List.map (fun (lbl,ty) -> lbl, Node ty) ts)
+
+let make params elts = make ~follow_expansions:false params elts
+let add params elts = add ~follow_expansions:false params elts
+
 
 (** Debugging hooks *)
 let debug_on = ref (fun () -> false)

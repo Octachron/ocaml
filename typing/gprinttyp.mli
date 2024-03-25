@@ -16,6 +16,8 @@
 type params
 type decoration
 type element
+type digraph
+
 
 val types: title:string -> params -> (decoration * Types.type_expr) list -> unit
 (** Print a graph to the file
@@ -45,21 +47,14 @@ as a hyperedge between the node storing the memoized expansion, the expanded
 node and the expansion.
     - with [short_ids], we use an independent counter for node ids, in order to
      have shorter ids for small digraphs
+    - with [colorize] nodes are colorized according to their typechecker ids.
 *)
 
-(** {2 Contextual information for generated graphs} *)
-type 'a context
-val global: string context
-val loc: Warnings.loc context
-val set_context: 'a context -> 'a -> unit
-val with_context: 'a context -> 'a -> (unit -> 'b) -> 'b
+type dir = Toward | From
+val node: Types.type_expr -> element
+val edge: Types.type_expr -> Types.type_expr -> element
+val hyperedge: (dir * decoration * Types.type_expr) list -> element
 
-(** {1 Generic print debugging function} *)
-
-(** Conditional graph printing *)
-val debug_on: (unit -> bool) ref
-val debug_off: (unit -> 'a) -> 'a
-val debug: (unit -> unit) -> unit
 
 (** {1 Node and decoration types} *)
 module Decoration: sig
@@ -94,13 +89,32 @@ module Decoration: sig
   val make: property list -> decoration
 end
 
-type dir = Toward | From
-val node: Types.type_expr -> element
-val edge: Types.type_expr -> Types.type_expr -> element
-val hyperedge: (dir * decoration * Types.type_expr) list -> element
+(** {1 Digraph construction}*)
 
-(** {1 Node tracking functions }*)
+val make: params -> (decoration * element) list -> digraph
 
+val add: params -> (decoration * element) list -> digraph -> digraph
+
+(** add a subgraph to a digraph, only fresh nodes are added to the subgraph *)
+val add_subgraph:
+  params -> decoration -> (decoration * element) list -> digraph -> digraph
+
+(** groups existing nodes inside a subgraph *)
+val group: decoration * digraph -> digraph -> digraph
+
+val pp: Format.formatter -> digraph -> unit
+
+
+(** {1 Debugging helper functions } *)
+
+(** {2 Generic print debugging function} *)
+
+(** Conditional graph printing *)
+val debug_on: (unit -> bool) ref
+val debug_off: (unit -> 'a) -> 'a
+val debug: (unit -> unit) -> unit
+
+(** {2 Node tracking functions }*)
 
 (** [register_type (lbl,ty)] adds the type [t] to all graph printed until
     {!forget} is called *)
@@ -110,6 +124,14 @@ val register_type: decoration * Types.type_expr -> unit
     [tys] at this point in printed digraphs, until {!forget} is called *)
 val register_subgraph: params -> ?decoration:decoration -> Types.type_expr list -> unit
 
-
 (** Forget all recorded context types *)
 val forget : unit -> unit
+
+(** {2 Contextual information}
+
+  Those function can be used to modify the filename of the generated digraphs.*)
+type 'a context
+val global: string context
+val loc: Warnings.loc context
+val set_context: 'a context -> 'a -> unit
+val with_context: 'a context -> 'a -> (unit -> 'b) -> 'b
