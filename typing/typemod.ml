@@ -1943,6 +1943,18 @@ let enrich_module_type anchor name mty env =
   | Some p, Some name ->
       Mtype.enrich_modtype env (Pdot(p, name)) mty
 
+type recursive_binding = {
+  id: Ident.t option;
+  name: string option loc;
+  mty_decl: Typedtree.module_type;
+  modl: Typedtree.module_expr;
+  mty: Types.module_type;
+  loc: Location.t;
+  attrs: attributes;
+  shape: Shape.t;
+  uid: Shape.Uid.t;
+}
+
 let check_recmodule_inclusion env bindings =
   (* PR#4450, PR#4470: consider
         module rec X : DECL = MOD  where MOD has inferred type ACTUAL
@@ -1979,13 +1991,13 @@ let check_recmodule_inclusion env bindings =
       (* Generate fresh names Y_i for the rec. bound module idents X_i *)
       let bindings1 =
         List.map
-          (fun (id, _name, _mty_decl, _modl,
-                mty_actual, _attrs, _loc, shape, _uid) ->
+          (fun rb ->
              let ids =
                Option.map
-                 (fun id -> (id, Ident.create_scoped ~scope (Ident.name id))) id
+                 (fun id -> (id, Ident.create_scoped ~scope (Ident.name id)))
+                 rb.id
              in
-             (ids, mty_actual, shape))
+             (ids, rb.mty, rb.shape))
           bindings in
       (* Enter the Y_i in the environment with their actual types substituted
          by the input substitution s *)
@@ -2015,37 +2027,36 @@ let check_recmodule_inclusion env bindings =
     end else begin
       (* Base case: check inclusion of s(mty_actual) in s(mty_decl)
          and insert coercion if needed *)
-      let check_inclusion
-            (id, name, mty_decl, modl, mty_actual, attrs, loc, shape, uid) =
-        let mty_decl' = Subst.modtype (Rescope scope) s mty_decl.mty_type
-        and mty_actual' = subst_and_strengthen env scope s id mty_actual in
+      let check_inclusion rb =
+        let mty_decl' = Subst.modtype (Rescope scope) s rb.mty_decl.mty_type
+        and mty_actual' = subst_and_strengthen env scope s rb.id rb.mty in
         let coercion, shape =
           try
-            Includemod.modtypes_with_shape ~shape
-              ~loc:modl.mod_loc ~mark:Mark_both
+            Includemod.modtypes_with_shape ~shape:rb.shape
+              ~loc:rb.modl.mod_loc ~mark:Mark_both
               env mty_actual' mty_decl'
           with Includemod.Error msg ->
-            raise(Error(modl.mod_loc, env, Not_included msg)) in
+            raise(Error(rb.modl.mod_loc, env, Not_included msg)) in
         let modl' =
-            { mod_desc = Tmod_constraint(modl, mty_decl.mty_type,
-                Tmodtype_explicit mty_decl, coercion);
-              mod_type = mty_decl.mty_type;
+            { mod_desc = Tmod_constraint(rb.modl, rb.mty_decl.mty_type,
+                Tmodtype_explicit rb.mty_decl, coercion);
+              mod_type = rb.mty_decl.mty_type;
               mod_env = env;
-              mod_loc = modl.mod_loc;
+              mod_loc = rb.modl.mod_loc;
               mod_attributes = [];
              } in
         let mb =
           {
-            mb_id = id;
-            mb_name = name;
-            mb_uid = uid;
+            mb_id = rb.id;
+            mb_name = rb.name;
+            mb_uid = rb.uid;
             mb_presence = Mp_present;
             mb_expr = modl';
-            mb_attributes = attrs;
-            mb_loc = loc;
+            mb_attributes = rb.attrs;
+            mb_loc = rb.loc;
           }
         in
-        mb, shape, uid
+        mb, shape, rb.uid
       in
       List.map check_inclusion bindings
     end
@@ -2710,8 +2721,9 @@ and type_structure ?(toplevel = false) funct_body anchor env sstr =
           ) decls;
         let bindings1 =
           List.map2
-            (fun ({md_id=id; md_type=mty}, uid, _prev_shape)
-                 (name, _, smodl, attrs, loc) ->
+            (fun
+              ({md_id=id; md_type=mty_decl}, uid, _prev_shape)
+              (name, _, smodl, attrs, loc) ->
                let modl, shape =
                  Builtin_attributes.warning_scope attrs
                    (fun () ->
@@ -2719,26 +2731,26 @@ and type_structure ?(toplevel = false) funct_body anchor env sstr =
                         newenv smodl
                    )
                in
-               let mty' =
+               let mty =
                  enrich_module_type anchor name.txt modl.mod_type newenv
                in
-               (id, name, mty, modl, mty', attrs, loc, shape, uid))
-            decls sbind in
+               {id; name; mty_decl; modl; mty; attrs; loc; shape; uid })
+           decls sbind in
         let newenv = (* allow aliasing recursive modules from outside *)
           List.fold_left
-            (fun env (id_opt, _, mty, _, _, attrs, loc, shape, uid) ->
-               match id_opt with
+            (fun env (rb:recursive_binding) ->
+               match rb.id with
                | None -> env
                | Some id ->
                    let mdecl =
                      {
-                       md_type = mty.mty_type;
-                       md_attributes = attrs;
-                       md_loc = loc;
-                       md_uid = uid;
+                       md_type = rb.mty_decl.mty_type;
+                       md_attributes = rb.attrs;
+                       md_loc = rb.loc;
+                       md_uid = rb.uid;
                      }
                    in
-                   Env.add_module_declaration ~check:true ~shape
+                   Env.add_module_declaration ~check:true ~shape:rb.shape
                      id Mp_present mdecl env
             )
             env bindings1
