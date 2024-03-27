@@ -962,6 +962,22 @@ and approx_modtype_info env sinfo =
    mtd_uid = Uid.internal_not_actually_unique;
   }
 
+(** [type_skeleton_modtype] keeps only covariant type-level contents from a
+    module type to check if types are consistent. *)
+let rec type_skeleton_modtype = function
+    | Mty_signature s -> Mty_signature (List.filter_map typeonly_item s)
+    | Mty_ident _ -> Mty_signature []
+    | Mty_alias _  as m  -> m
+    | Mty_functor (_arg,res) ->
+        Mty_functor (Types.Unit, type_skeleton_modtype res)
+and typeonly_item = function
+  | Types.Sig_type _ as x -> Some x
+  | Sig_module (id,pres,md,rec_status,vis) ->
+      let md_type = type_skeleton_modtype md.md_type in
+      Some(Sig_module(id,pres, { md with md_type }, rec_status,vis))
+  | Sig_modtype _ | Sig_class_type _ | Sig_value _
+  | Sig_typext _ | Sig_class _ -> None
+
 let approx_modtype env smty =
   Warnings.without_warnings
     (fun () -> approx_modtype env smty)
@@ -1567,7 +1583,7 @@ and transl_signature ?(toplevel = false) env sg =
             rem,
             final_env
         | Psig_recmodule sdecls ->
-            let (tdecls, newenv) =
+            let (_, tdecls, newenv) =
               transl_recmodule_modtypes env sdecls in
             let decls =
               List.filter_map (fun (md, uid, _) ->
@@ -1808,6 +1824,9 @@ and transl_recmodule_modtypes env sdecls =
          (id_shape, pmd.pmd_name, md, ()))
       ids sdecls
   in
+  let type_skeleton =
+    List.map (fun (_,_,md,_) -> type_skeleton_modtype md.Types.md_type) init
+  in
   let env0 = make_env init in
   let dcl1 =
     Warnings.without_warnings
@@ -1835,7 +1854,7 @@ and transl_recmodule_modtypes env sdecls =
       tmd, md.Types.md_uid, Option.map snd id_shape
     ) sdecls dcl2
   in
-  (dcl2, env2)
+  (type_skeleton, dcl2, env2)
 
 (* Try to convert a module expression to a module path. *)
 
@@ -2709,7 +2728,7 @@ and type_structure ?(toplevel = false) funct_body anchor env sstr =
             )
             sbind
         in
-        let (decls, newenv) =
+        let (approx_decls, decls, newenv) =
           transl_recmodule_modtypes env
             (List.map (fun (name, smty, _smodl, attrs, loc) ->
                  {pmd_name=name; pmd_type=smty;
@@ -2754,6 +2773,13 @@ and type_structure ?(toplevel = false) funct_body anchor env sstr =
                      id Mp_present mdecl env
             )
             env bindings1
+        in
+        let () =
+          List.iter2 (fun sk_mty rb ->
+              let sk_actual = type_skeleton_modtype rb.mty in
+              ignore @@ Includemod.modtypes ~loc:rb.modl.mod_loc
+                        ~mark:Mark_neither env sk_actual sk_mty
+            ) approx_decls bindings1
         in
         let bindings2 =
           check_recmodule_inclusion newenv bindings1 in
