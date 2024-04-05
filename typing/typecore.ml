@@ -264,7 +264,7 @@ type recarg =
 let mk_expected ?explanation ty = { ty; explanation; }
 
 let case lhs rhs =
-  {c_lhs = lhs; c_cont = None; c_guard = None; c_rhs = rhs}
+  {c_lhs = lhs; c_guard = None; c_rhs = rhs}
 
 (* Typing of constants *)
 
@@ -1526,14 +1526,19 @@ let split_half_typed_cases env zipped_cases =
     | Some split_pat ->
         ({ htc.untyped_case with pattern = split_pat }, data) :: lst
   in
-  List.fold_right (fun (htc, data) (vals, exns) ->
+  List.fold_right (fun (htc, data) (vals, exns, effs) ->
       let pat = htc.typed_pat in
-      match split_pattern pat with
-      | Some _, Some _ when htc.untyped_case.has_guard ->
+      let sp = split_pattern pat in
+      match sp.value, sp.exn, sp.eff with
+      | Some _, Some _, _ when htc.untyped_case.has_guard ->
           raise (Error (pat.pat_loc, env,
                         Mixed_value_and_exception_patterns_under_guard))
-      | vp, ep -> add_case vals htc data vp, add_case exns htc data ep
-    ) zipped_cases ([], [])
+      | Some _, _, Some _ | _, Some _, Some _ -> assert false
+      | vp, ep, eff ->
+          add_case vals htc data vp,
+          add_case exns htc data ep,
+          add_case effs htc data eff
+    ) zipped_cases ([], [],[])
 
 let rec has_literal_pattern p = match p.ppat_desc with
   | Ppat_constant _
@@ -2543,7 +2548,7 @@ let rec final_subexpression exp =
   | Texp_sequence (_, e)
   | Texp_try (e, _, _)
   | Texp_ifthenelse (_, e, _)
-  | Texp_match (_, {c_rhs=e} :: _, _, _)
+  | Texp_match (_, {c_rhs=e} :: _, _)
   | Texp_letmodule (_, _, _, _, e)
   | Texp_letexception (_, e)
   | Texp_open (_, e)
@@ -2564,21 +2569,21 @@ let rec is_nonexpansive exp =
       is_nonexpansive body
   | Texp_apply(e, (_,None)::el) ->
       is_nonexpansive e && List.for_all is_nonexpansive_opt (List.map snd el)
-  | Texp_match(e, cases, _, _) ->
+  | Texp_match(e, cases, _) ->
      (* Not sure this is necessary, if [e] is nonexpansive then we shouldn't
          care if there are exception patterns. But the previous version enforced
          that there be none, so... *)
-      let contains_exception_pat pat =
+      let contains_computation_pat pat =
         exists_general_pattern { f = fun (type k) (p : k general_pattern) ->
           match p.pat_desc with
-          | Tpat_exception _ -> true
+          | Tpat_exception _ | Tpat_effect _  -> true
           | _ -> false } pat
       in
       is_nonexpansive e &&
       List.for_all
         (fun {c_lhs; c_guard; c_rhs} ->
            is_nonexpansive_opt c_guard && is_nonexpansive c_rhs
-           && not (contains_exception_pat c_lhs)
+           && not (contains_computation_pat c_lhs)
         ) cases
   | Texp_tuple el ->
       List.for_all is_nonexpansive el
@@ -2939,9 +2944,8 @@ let check_partial_application ~statement exp =
             | Texp_extension_constructor _ | Texp_ifthenelse (_, _, None)
             | Texp_function _ ->
                 check_statement ()
-            | Texp_match (_, cases, eff_cases, _) ->
-                List.iter (fun {c_rhs; _} -> check c_rhs) cases;
-                List.iter (fun {c_rhs; _} -> check c_rhs) eff_cases
+            | Texp_match (_, cases, _) ->
+                List.iter (fun {c_rhs; _} -> check c_rhs) cases
             | Texp_try (e, cases, eff_cases) ->
                 check e;
                 List.iter (fun {c_rhs; _} -> check c_rhs) cases;
@@ -3552,36 +3556,16 @@ and type_expect_
         with_local_level (fun () -> type_exp env sarg)
           ~post:(may_lower_contravariant_then_generalize env)
       in
-      let rec split_cases valc effc conts = function
-        | [] -> List.rev valc, List.rev effc, List.rev conts
-        | {pc_lhs = {ppat_desc=Ppat_effect(p1, p2)}} as c :: rest ->
-            split_cases valc
-              (({c with pc_lhs = p1}) :: effc) (p2 :: conts) rest
-        | c :: rest ->
-            split_cases (c :: valc) effc conts rest
-      in
-      let val_caselist, eff_caselist, eff_conts =
-        split_cases [] [] [] caselist
-      in
-      if val_caselist = [] && eff_caselist <> [] then
-        raise (Error (loc, env, No_value_clauses));
-      let val_cases, partial =
+      let cases, partial =
         type_cases Computation env arg.exp_type ty_expected_explained
-          ~check_if_total:true loc val_caselist
-      in
-      let eff_cases =
-        match eff_caselist with
-        | [] -> []
-        | eff_caselist ->
-            type_effect_cases Value env ty_expected_explained loc eff_caselist
-              eff_conts
+          ~check_if_total:true loc caselist
       in
       if
         List.for_all (fun c -> pattern_needs_partial_application_check c.c_lhs)
-          val_cases
+          cases
       then check_partial_application ~statement:false arg;
       re {
-        exp_desc = Texp_match(arg, val_cases, eff_cases, partial);
+        exp_desc = Texp_match(arg, cases, partial);
         exp_loc = loc; exp_extra = [];
         exp_type = instance ty_expected;
         exp_attributes = sexp.pexp_attributes;
@@ -4714,7 +4698,7 @@ and type_function
           (* We don't make use of [case_data] here so we pass unit. *)
           [ { pattern = pat; has_guard = false; needs_refute = false }, () ]
           ~type_body:begin
-            fun () pat ~ext_env ~cont:_ ~ty_expected ~ty_infer:_
+            fun () pat ~ext_env  ~ty_expected ~ty_infer:_
               ~contains_gadt:param_contains_gadt ->
               let _, params, body, newtypes, suffix_contains_gadt =
                 type_function ext_env rest body_constraint body
@@ -5630,21 +5614,20 @@ and type_statement ?explanation env sexp =
 *)
 and map_half_typed_cases
   : type k ret case_data.
-    ?additional_checks_for_split_cases:((_ * ret) list -> unit) -> ?conts:_
+    ?additional_checks_for_split_cases:((_ * ret) list -> unit)
     -> k pattern_category -> _ -> _ -> _ -> _
     -> (untyped_case * case_data) list
     -> type_body:(
         case_data
         -> k general_pattern (* the typed pattern *)
         -> ext_env:_ (* environment with module variables / pattern variables *)
-        -> cont:_
         -> ty_expected:_ (* type to check body in scope of *)
         -> ty_infer:_ (* type to infer for body *)
         -> contains_gadt:_ (* whether the pattern contains a GADT *)
         -> ret)
     -> check_if_total:bool (* if false, assume Partial right away *)
     -> ret list * partial
-  = fun ?additional_checks_for_split_cases ?conts
+  = fun ?additional_checks_for_split_cases
     category env ty_arg ty_res loc caselist ~type_body ~check_if_total ->
   (* ty_arg is _fully_ generalized *)
   let patterns = List.map (fun ((x : untyped_case), _) -> x.pattern) caselist in
@@ -5767,18 +5750,12 @@ and map_half_typed_cases
     end
   in
   (* type bodies *)
-  let half_typed_cases_cont_list =
-    match conts with
-    | None -> List.map (fun x -> (x, None)) half_typed_cases
-    | Some conts ->
-        List.map2 (fun x cont -> (x, cont)) half_typed_cases conts
-  in
   let ty_res' = instance ty_res in
   let result = with_local_level_if_principal ~post:ignore begin fun () ->
     List.map
-    (fun ({ typed_pat = pat; branch_env = ext_env;
+    (fun { typed_pat = pat; branch_env = ext_env;
            pat_vars = pvs; module_vars = mvs;
-           case_data; contains_gadt; _ }, cont)
+           case_data; contains_gadt; _ }
         ->
         let ext_env =
           if contains_gadt then
@@ -5796,25 +5773,15 @@ and map_half_typed_cases
             ~check_as:(fun s -> Warnings.Unused_var s)
         in
         let ext_env = add_module_variables ext_env mvs in
-        let cont, ext_env' =
-          match cont with
-          | Some (id, desc) ->
-              let ext_env =
-                Env.add_value ~check:(fun s -> Warnings.Unused_var_strict s)
-                  id desc ext_env
-              in
-                Some id, ext_env
-          | None -> None, ext_env
-        in
         let ty_expected =
           if contains_gadt && not !Clflags.principal then
             (* Take a generic copy of [ty_res] again to allow propagation of
                 type information from preceding branches *)
             correct_levels ty_res
           else ty_res in
-        type_body case_data pat ~ext_env:ext_env' ~cont ~ty_expected
+        type_body case_data pat ~ext_env ~ty_expected
           ~ty_infer:ty_res' ~contains_gadt)
-    half_typed_cases_cont_list
+    half_typed_cases
   end in
   let do_init = may_contain_gadts || needs_exhaust_check in
   let ty_arg_check =
@@ -5833,7 +5800,7 @@ and map_half_typed_cases
      corresponding element in [result] before handing it off to the caller's
      custom checks.
   *)
-  let val_cases_with_result, exn_cases_with_result =
+  let val_cases_with_result, exn_cases_with_result, _eff_cases_with_result =
     match category with
     | Value ->
         let val_cases =
@@ -5843,7 +5810,7 @@ and map_half_typed_cases
             half_typed_cases
             result
         in
-        (val_cases : (pattern Parmatch.parmatch_case * ret) list), []
+        (val_cases : (pattern Parmatch.parmatch_case * ret) list), [], []
     | Computation ->
         split_half_typed_cases env (List.combine half_typed_cases result)
   in
@@ -5885,11 +5852,11 @@ and map_half_typed_cases
 
 (* Typing of match cases *)
 and type_cases
-    : type k . k pattern_category -> _ -> _ -> _ -> ?conts:_ ->
+    : type k . k pattern_category -> _ -> _ -> _ ->
                check_if_total:bool -> _ -> Parsetree.case list ->
                k case list * partial
   = fun category env
-        ty_arg ty_res_explained ?conts ~check_if_total loc caselist ->
+        ty_arg ty_res_explained ~check_if_total loc caselist ->
   let { ty = ty_res; explanation } = ty_res_explained in
   let caselist =
     List.map (fun case -> Parmatch.untyped_case case, case) caselist
@@ -5898,21 +5865,15 @@ and type_cases
      is to typecheck the guards and the cases, and then to check for some
      warnings that can fire in the presence of guards.
   *)
-  map_half_typed_cases ?conts category env ty_arg ty_res loc caselist
+  map_half_typed_cases category env ty_arg ty_res loc caselist
     ~check_if_total
     ~type_body:begin
-      fun { pc_guard; pc_rhs } pat ~ext_env ~cont ~ty_expected ~ty_infer
+      fun { pc_guard; pc_rhs } pat ~ext_env  ~ty_expected ~ty_infer
           ~contains_gadt:_ ->
         let guard =
           match pc_guard with
           | None -> None
           | Some scond ->
-            (* It is crucial that the continuation is not used in the
-               `when' expression as the extent of the continuation is
-               yet to be determined. We make the continuation
-               inaccessible by typing the `when' expression using the
-               environment `ext_env' which does not bind the
-               continuation variable. *)
             Some
               (type_expect ext_env scond
                 (mk_expected ~explanation:When_guard Predef.type_bool))
@@ -5922,7 +5883,6 @@ and type_cases
         in
         {
           c_lhs = pat;
-          c_cont = cont;
           c_guard = guard;
           c_rhs = {exp with exp_type = ty_infer}
         }
@@ -5995,9 +5955,9 @@ and type_effect_cases
   let ty_eff = newgenty (Tconstr (Path.Pident id,[],ref Mnil)) in
   let ty_arg = Predef.type_eff ty_eff in
   let ty_cont = Predef.type_continuation ty_eff ty_res in
-  let conts = List.map (type_continuation_pat env ty_cont) conts in
+  let _conts = List.map (type_continuation_pat env ty_cont) conts in
   let cases, _ = type_cases category new_env ty_arg
-    ty_res_explained ~conts ~check_if_total:false loc caselist
+    ty_res_explained  ~check_if_total:false loc caselist
   in
   cases
   end

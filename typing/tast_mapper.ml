@@ -297,6 +297,11 @@ let pat
        (as_computation_pattern (sub.pat sub (p :> pattern))).pat_desc
     | Tpat_exception p ->
        Tpat_exception (sub.pat sub p)
+    | Tpat_effect (p,k) ->
+       Tpat_effect (
+         sub.pat sub p,
+         Option.map (fun (i,s) -> i, map_loc sub s) k
+       )
     | Tpat_or (p1, p2, rd) ->
         Tpat_or (sub.pat sub p1, sub.pat sub p2, rd)
   in
@@ -362,11 +367,10 @@ let expr sub x =
           sub.expr sub exp,
           List.map (tuple2 id (Option.map (sub.expr sub))) list
         )
-    | Texp_match (exp, cases, eff_cases, p) ->
+    | Texp_match (exp, cases, p) ->
         Texp_match (
           sub.expr sub exp,
           List.map (sub.case sub) cases,
-          List.map (sub.case sub) eff_cases,
           p
         )
     | Texp_try (exp, exn_cases, eff_cases) ->
@@ -845,12 +849,11 @@ let value_bindings sub (rec_flag, list) =
 
 let case
   : type k . mapper -> k case -> k case
-  = fun sub {c_lhs; c_guard; c_rhs; c_cont} ->
+  = fun sub {c_lhs; c_guard; c_rhs} ->
   {
     c_lhs = sub.pat sub c_lhs;
     c_guard = Option.map (sub.expr sub) c_guard;
-    c_rhs = sub.expr sub c_rhs;
-    c_cont
+    c_rhs = sub.expr sub c_rhs
   }
 
 let value_binding sub x =

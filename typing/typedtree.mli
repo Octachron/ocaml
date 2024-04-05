@@ -140,6 +140,8 @@ and 'k pattern_desc =
          *)
   | Tpat_exception : value general_pattern -> computation pattern_desc
         (** exception P *)
+  | Tpat_effect: value general_pattern * (Ident.t * string loc) option -> computation pattern_desc
+        (** effect E, k *)
   (* generic constructions *)
   | Tpat_or :
       'k general_pattern * 'k general_pattern * Types.row_desc option ->
@@ -211,7 +213,7 @@ and expression_desc =
                          (Labelled "y", Some (Texp_constant Const_int 3))
                         ])
          *)
-  | Texp_match of expression * computation case list * value case list * partial
+  | Texp_match of expression * computation case list * partial
         (** match E0 with
             | P1 -> E1
             | P2 | exception P3 -> E2
@@ -219,7 +221,7 @@ and expression_desc =
             | effect P4 k -> E4
 
             [Texp_match (E0, [(P1, E1); (P2 | exception P3, E2);
-                              (exception P4, E3)], [(P4, E4)],  _)]
+                              (exception P4, E3); ( effect P4 k, E4)],  _)]
          *)
   | Texp_try of expression * value case list * value case list
          (** try E with
@@ -295,7 +297,6 @@ and meth =
 and 'k case =
     {
      c_lhs: 'k general_pattern;
-     c_cont: Ident.t option;
      c_guard: expression option;
      c_rhs: expression;
     }
@@ -916,9 +917,15 @@ val pat_bound_idents_full:
   'k general_pattern ->
   (Ident.t * string loc * Types.type_expr * Types.Uid.t) list
 
+type split_pattern =
+  { value: pattern option;
+    exn: pattern option;
+    eff:pattern option;
+  }
+
 (** Splits an or pattern into its value (left) and exception (right) parts. *)
 val split_pattern:
-  computation general_pattern -> pattern option * pattern option
+  computation general_pattern -> split_pattern
 
 (** Whether an expression looks nice as the subject of a sentence in a error
     message. *)
