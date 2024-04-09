@@ -1527,7 +1527,7 @@ let fresh_effect_types env loc ty_res () =
   let ty_eff = newgenty (Tconstr (Path.Pident id,[],ref Mnil)) in
   let ty_arg = Predef.type_eff ty_eff in
   let ty_cont = Predef.type_continuation ty_eff ty_res in
-  new_env, (ty_arg, ty_cont)
+  new_env, Some (ty_arg, ty_cont)
 
 (* Used to split patterns into value cases and exception cases. *)
 let split_half_typed_cases env zipped_cases =
@@ -1641,23 +1641,22 @@ let as_comp_pattern
 (** [type_pat] propagates the expected type, and
     unification may update the typing environment. *)
 let rec type_pat
-  : type k . type_pat_state -> k pattern_category ->
+  : type k . ?eff_typ:(type_expr*type_expr) ->type_pat_state -> k pattern_category ->
       no_existentials: existential_restriction option ->
       penv: Pattern_env.t -> Parsetree.pattern -> type_expr
-    -> eff_typ:(type_expr*type_expr) ->
-      k general_pattern
-  = fun tps category ~no_existentials ~penv sp expected_ty ~eff_typ ->
+     -> k general_pattern
+  = fun ?eff_typ tps category ~no_existentials ~penv sp expected_ty ->
   Builtin_attributes.warning_scope sp.ppat_attributes
     (fun () ->
-       type_pat_aux tps category ~no_existentials ~penv sp expected_ty ~eff_typ
+       type_pat_aux tps category ~no_existentials ~penv sp expected_ty ?eff_typ
     )
 
 and type_pat_aux
-  : type k . type_pat_state -> k pattern_category -> no_existentials:_ ->
-         penv:Pattern_env.t -> _ -> _ -> eff_typ:_ -> k general_pattern
-  = fun tps category ~no_existentials ~penv sp expected_ty ~eff_typ:expected_effect_ty ->
+  : type k . ?eff_typ:_ -> type_pat_state -> k pattern_category -> no_existentials:_ ->
+         penv:Pattern_env.t -> _ -> _  -> k general_pattern
+  = fun ?eff_typ:expected_effect_ty tps category ~no_existentials ~penv sp expected_ty ->
   let type_pat tps category ?(penv=penv) =
-    type_pat tps category ~no_existentials ~penv ~eff_typ:expected_effect_ty
+    type_pat tps category ~no_existentials ~penv ?eff_typ:expected_effect_ty
   in
   let loc = sp.ppat_loc in
   let solve_expected (x : pattern) : pattern =
@@ -2042,16 +2041,20 @@ and type_pat_aux
         pat_attributes = sp.ppat_attributes;
       }
   | Ppat_effect (p,k) ->
+      let eff_ty, cont_ty = match expected_effect_ty with
+        | None -> assert false
+        | Some (e,c) -> e, c
+      in
       let k =
         match k.ppat_desc with
         | Ppat_any -> None
         | Ppat_var name ->
-            let ty = instance (snd expected_effect_ty) in
+            let ty = instance cont_ty in
             let id, _uid = enter_variable tps loc name ty sp.ppat_attributes in
             Some (id, name)
         | _ -> assert false
       in
-      let p = type_pat tps Value p (fst expected_effect_ty) in
+      let p = type_pat tps Value p eff_ty in
       rcp {
         pat_desc = Tpat_effect (p, k);
         pat_loc = sp.ppat_loc;
@@ -2115,14 +2118,14 @@ let add_module_variables env module_variables =
     end
   ) env module_variables_as_list
 
-let type_pat tps category ?no_existentials penv =
-  type_pat tps category ~no_existentials ~penv
+let type_pat ?eff_typ tps category ?no_existentials penv =
+  type_pat ?eff_typ tps category ~no_existentials ~penv
 
-let type_pattern category ~lev env spat expected_ty ~eff_typ allow_modules =
+let type_pattern category ~lev env ?eff_typ spat expected_ty allow_modules =
   let tps = create_type_pat_state allow_modules in
   let new_penv = Pattern_env.make env
       ~equations_scope:lev ~allow_recursive_equations:false in
-  let pat = type_pat tps category new_penv spat expected_ty ~eff_typ in
+  let pat = type_pat tps category new_penv spat expected_ty ?eff_typ in
   let { tps_pattern_variables = pvs;
         tps_module_variables = mvs;
         tps_pattern_force = pattern_forces;
@@ -2134,13 +2137,12 @@ let type_pattern_list
   =
   let tps = create_type_pat_state allow_modules in
   let equations_scope = get_current_level () in
-  let eff_typ = newvar (), newvar () in
   let new_penv = Pattern_env.make env
       ~equations_scope ~allow_recursive_equations:false in
   let type_pat (attrs, pat) ty =
     Builtin_attributes.warning_scope ~ppwarning:false attrs
       (fun () ->
-         type_pat tps category ~no_existentials ~eff_typ new_penv pat ty
+         type_pat tps category ~no_existentials new_penv pat ty
       )
   in
   let patl = List.map2 type_pat spatl expected_tys in
@@ -2157,8 +2159,7 @@ let type_class_arg_pattern cl_num val_env met_env l spat =
   let new_penv = Pattern_env.make val_env
       ~equations_scope ~allow_recursive_equations:false in
   let pat =
-    let eff_typ = newvar (), newvar () in
-    type_pat tps Value ~eff_typ ~no_existentials:In_class_args new_penv spat nv in
+    type_pat tps Value ~no_existentials:In_class_args new_penv spat nv in
   if has_variants pat then begin
     Parmatch.pressure_variants val_env [pat];
     finalize_variants pat;
@@ -2208,8 +2209,7 @@ let type_self_pattern env spat =
   let new_penv = Pattern_env.make env
       ~equations_scope ~allow_recursive_equations:false in
   let pat =
-    let eff_typ = newvar (), newvar () in
-    type_pat ~eff_typ tps Value ~no_existentials:In_self_pattern new_penv spat nv in
+    type_pat tps Value ~no_existentials:In_self_pattern new_penv spat nv in
   List.iter (fun f -> f()) tps.tps_pattern_force;
   pat, tps.tps_pattern_variables
 
@@ -3602,6 +3602,13 @@ and type_expect_
         exp_env = env }
   | Pexp_try(sbody, caselist) ->
       let body = type_expect env sbody ty_expected_explained in
+      List.iter (fun case -> match case.pc_lhs.ppat_desc with
+          | Ppat_exception _ ->
+              let pat = case.pc_lhs in
+              raise (Error (pat.ppat_loc, env,
+                            Exception_pattern_disallowed))
+          | _ -> ()
+        ) caselist;
       let cases, _ =
         type_cases Computation env Predef.type_exn ty_expected_explained
           ~check_if_total:false loc caselist
@@ -5652,7 +5659,12 @@ and map_half_typed_cases
     if (may_contain_gadts || erase_either) && not !Clflags.principal
     then correct_levels ty_arg else ty_arg
   in
-  let env, eff_typ = fresh_effect_types env loc ty_res () in
+  let with_effect = List.exists (function {ppat_desc=Ppat_effect _;_} -> true | _ -> false) patterns in
+  let env, eff_typ =
+    if with_effect then
+      fresh_effect_types env loc ty_res ()
+    else env, None
+  in
   let rec is_var spat =
     match spat.ppat_desc with
       Ppat_any | Ppat_var _ -> true
@@ -5698,7 +5710,7 @@ and map_half_typed_cases
                   (fun () -> instance ?partial:take_partial_instance ty_arg)
               in
               let (pat, ext_env, force, pvs, mvs) =
-                type_pattern category ~lev env pattern ty_arg ~eff_typ allow_modules
+                type_pattern category ~lev env pattern ty_arg ?eff_typ allow_modules
               in
               pattern_force := force @ !pattern_force;
               { typed_pat = pat;
