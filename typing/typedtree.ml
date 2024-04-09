@@ -107,7 +107,7 @@ and expression_desc =
   | Texp_function of function_param list * function_body
   | Texp_apply of expression * (arg_label * expression option) list
   | Texp_match of expression * computation case list * partial
-  | Texp_try of expression * value case list * value case list
+  | Texp_try of expression * computation case list
   | Texp_tuple of expression list
   | Texp_construct of
       Longident.t loc * constructor_description * expression list
@@ -867,10 +867,11 @@ let rec alpha_pat
 
 let mkloc = Location.mkloc
 let mknoloc = Location.mknoloc
+type continuation_pattern = (Ident.t * string loc) option
 type split_pattern =
   { value: pattern option;
     exn: pattern option;
-    eff:pattern option;
+    eff:(pattern * continuation_pattern) option;
   }
 
 let split_pattern pat =
@@ -914,7 +915,7 @@ let split_pattern pat =
         combine_opts (into_effect cpat) effs1 effs2
   in
   let value, exn, eff = split_pattern pat in
-  { value; exn; eff= Option.map fst eff }
+  { value; exn; eff  }
 
 (* Expressions are considered nominal if they can be used as the subject of a
    sentence or action. In practice, we consider that an expression is nominal

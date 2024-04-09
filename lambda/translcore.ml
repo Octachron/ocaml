@@ -153,6 +153,24 @@ let fuse_method_arity parent_params parent_body =
     -> parent_params @ method_params, method_body
   | _ -> parent_params, parent_body
 
+
+let split_cases pat_list =
+  let pat_seq = List.to_seq pat_list in
+  let split_patterns =
+    Seq.map (fun case -> split_pattern case.c_lhs, case ) pat_seq in
+  let split (v,exn,eff) (sp, case) =
+    let may_cons f x l = match x with
+      | None -> l
+        | Some x -> f x :: l
+      in
+      let case_and_cont (x,k) = { case with c_lhs = x }, k in
+      let case x = { case with c_lhs = x } in
+      may_cons case sp.value v, may_cons case sp.exn exn,
+      may_cons case_and_cont sp.eff eff
+    in
+    let v, exns, effs = Seq.fold_left split ([],[],[]) split_patterns in
+    List.rev v, List.rev exns, List.rev effs
+
 (* Translation of expressions *)
 
 let rec iter_exn_names f pat =
@@ -244,13 +262,19 @@ and transl_exp0 ~in_new_scope ~scopes e =
            (transl_exp ~scopes funct) oargs (of_location ~scopes e.exp_loc))
   | Texp_match(arg, pat_expr_list, partial) ->
       transl_generic_match ~scopes e arg pat_expr_list partial
-  | Texp_try(body, pat_expr_list, []) ->
-      let id = Typecore.name_cases "exn" pat_expr_list in
-      Ltrywith(transl_exp ~scopes body, id,
-               Matching.for_trywith ~scopes e.exp_loc (Lvar id)
-                 (transl_cases_try ~scopes pat_expr_list))
-  | Texp_try(body, exn_pat_expr_list, eff_pat_expr_list) ->
-      transl_handler ~scopes e body None exn_pat_expr_list eff_pat_expr_list
+  | Texp_try(body, pat_expr_list) ->
+      let exns, other, effs = split_cases pat_expr_list in
+      assert (other=[]);
+      if effs = [] then
+        let id = Typecore.name_cases "exn" exns in
+        Ltrywith(transl_exp ~scopes body, id,
+                 Matching.for_trywith ~scopes e.exp_loc (Lvar id)
+                   (transl_cases_try ~scopes exns))
+      else
+        transl_handler ~scopes e body
+          ~values:None
+          ~exns
+          ~effs
   | Texp_tuple el ->
       let ll, shape = transl_list_with_shape ~scopes el in
       begin try
@@ -590,21 +614,24 @@ and transl_guard ~scopes guard rhs =
       event_before ~scopes cond
         (Lifthenelse(transl_exp ~scopes cond, expr, staticfail))
 
-and transl_cont (type a) cont (lhs:a general_pattern) body =
-  match cont, lhs.pat_desc with
-  | Some id1, Tpat_effect (_,Some (id2,_)) ->
-      Llet(Alias, Pgenval, id2, Lvar id1, body)
-  | None, Tpat_effect (_,Some _) -> assert false
-  | None, _
-  | Some _, _ -> body
+and transl_cont (type a) cont pat_cont body =
+  match pat_cont with
+  | Some (id2,_) -> Llet(Alias, Pgenval, id2, Lvar cont, body)
+  |  None -> body
 
-and transl_case ~scopes ?cont {c_lhs; c_guard; c_rhs} =
-  (c_lhs, transl_cont cont c_lhs (transl_guard ~scopes c_guard c_rhs))
+and transl_case ~scopes {c_lhs; c_guard; c_rhs} =
+  (c_lhs, transl_guard ~scopes c_guard c_rhs)
 
-and transl_cases ~scopes ?cont cases =
-  let cases =
-    List.filter (fun c -> c.c_rhs.exp_desc <> Texp_unreachable) cases in
-  List.map (transl_case ?cont ~scopes) cases
+and transl_cases_with_cont ~cont ~scopes cases =
+  cases
+  |> List.filter (fun (c,_) -> c.c_rhs.exp_desc <> Texp_unreachable)
+  |> List.map (fun (c,k) ->
+      c.c_lhs, transl_cont cont k (transl_guard ~scopes c.c_guard c.c_rhs)
+    )
+
+and transl_cases ~scopes cases =
+  let cases = List.filter (fun c -> c.c_rhs.exp_desc <> Texp_unreachable) cases in
+  List.map (transl_case ~scopes) cases
 
 and transl_case_try ~scopes {c_lhs; c_guard; c_rhs} =
   iter_exn_names Translprim.add_exception_ident c_lhs;
@@ -1058,21 +1085,13 @@ and transl_record ~scopes loc env fields repres opt_init_expr =
   end
 
 and transl_generic_match ~scopes e arg pat_list partial =
-  let split_patterns = List.map (fun case -> split_pattern case.c_lhs, case ) pat_list in
-  if List.exists (fun (sp,_) -> sp.eff <> None) split_patterns then
-    let split (v,exn,eff) (sp, case) =
-      let may_cons x l = match x with
-        | None -> l
-        | Some x -> { case with c_lhs = x } :: l
-      in
-      may_cons sp.value v, may_cons sp.exn exn, may_cons sp.eff eff
-    in
-    let val_cases, exn_cases, eff_cases =
-      List.fold_left split ([],[],[]) split_patterns
-    in
-    transl_handler ~scopes e arg (Some (val_cases,partial)) exn_cases eff_cases
+  let split_pats = List.map (fun case -> split_pattern case.c_lhs, case ) pat_list in
+  if List.exists (fun (sp,_) -> sp.eff <> None) split_pats then
+    let values, exns, effs = split_cases pat_list in
+    transl_handler ~scopes e arg ~values:(Some (values,partial))
+      ~exns ~effs
   else
-    transl_match ~scopes e arg split_patterns partial
+    transl_match ~scopes e arg split_pats partial
 and transl_match ~scopes e arg pat_expr_list partial =
   let rewrite_case (val_cases, exn_cases, static_handlers as acc)
         (sp, ({ c_guard; c_rhs; c_lhs=_ } as case)) =
@@ -1183,9 +1202,9 @@ and transl_match ~scopes e arg pat_expr_list partial =
 and prim_alloc_stack =
   Pccall (Primitive.simple ~name:"caml_alloc_stack" ~arity:3 ~alloc:true)
 
-and transl_handler ~scopes e body val_caselist exn_caselist eff_caselist =
+and transl_handler ~scopes e body ~values ~exns ~(effs: (_ Typedtree.case*_) list) =
   let val_fun =
-    match val_caselist with
+    match values with
     | None ->
         let param = Ident.create_local "param" in
         lfunction ~kind:Curried ~params:[param, Pgenval]
@@ -1203,17 +1222,17 @@ and transl_handler ~scopes e body val_caselist exn_caselist eff_caselist =
           ~loc:Loc_unknown ~body
   in
   let exn_fun =
-    let exn_cases = transl_cases ~scopes exn_caselist in
-    let param = Typecore.name_cases "exn" exn_caselist in
+    let exn_cases = transl_cases ~scopes exns in
+    let param = Typecore.name_cases "exn" exns in
     let body = Matching.for_trywith ~scopes e.exp_loc (Lvar param) exn_cases in
     lfunction ~kind:Curried ~params:[param, Pgenval] ~return:Pgenval
       ~attr:default_function_attribute ~loc:Loc_unknown ~body
   in
   let eff_fun =
-    let param = Typecore.name_cases "eff" eff_caselist in
+    let param = Typecore.name_cases "eff" (List.map fst effs) in
     let cont = Ident.create_local "k" in
     let cont_tail = Ident.create_local "ktail" in
-    let eff_cases = transl_cases ~scopes ~cont eff_caselist in
+    let eff_cases = transl_cases_with_cont ~cont ~scopes effs in
     let body =
       Matching.for_handler ~scopes e.exp_loc (Lvar param) (Lvar cont)
         (Lvar cont_tail) eff_cases

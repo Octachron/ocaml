@@ -223,7 +223,7 @@ and expression_desc =
             [Texp_match (E0, [(P1, E1); (P2 | exception P3, E2);
                               (exception P4, E3); ( effect P4 k, E4)],  _)]
          *)
-  | Texp_try of expression * value case list * value case list
+  | Texp_try of expression * computation case list
          (** try E with
             | P1 -> E1
             | effect P2 k -> E2
@@ -917,10 +917,12 @@ val pat_bound_idents_full:
   'k general_pattern ->
   (Ident.t * string loc * Types.type_expr * Types.Uid.t) list
 
+type continuation_pattern = (Ident.t * string Asttypes.loc) option
+
 type split_pattern =
   { value: pattern option;
     exn: pattern option;
-    eff:pattern option;
+    eff:(pattern * continuation_pattern) option;
   }
 
 (** Splits an or pattern into its value (left) and exception (right) parts. *)

@@ -315,10 +315,9 @@ let expr sub {exp_loc; exp_extra; exp_desc; exp_env; exp_attributes; _} =
   | Texp_match (exp, cases, _) ->
       sub.expr sub exp;
       List.iter (sub.case sub) cases
-  | Texp_try (exp, cases, effs) ->
+  | Texp_try (exp, cases) ->
       sub.expr sub exp;
-      List.iter (sub.case sub) cases;
-      List.iter (sub.case sub) effs
+      List.iter (sub.case sub) cases
   | Texp_tuple list -> List.iter (sub.expr sub) list
   | Texp_construct (lid, _, args) ->
       iter_loc sub lid;

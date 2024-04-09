@@ -373,11 +373,10 @@ let expr sub x =
           List.map (sub.case sub) cases,
           p
         )
-    | Texp_try (exp, exn_cases, eff_cases) ->
+    | Texp_try (exp, exn_cases) ->
         Texp_try (
           sub.expr sub exp,
-          List.map (sub.case sub) exn_cases,
-          List.map (sub.case sub) eff_cases
+          List.map (sub.case sub) exn_cases
         )
     | Texp_tuple list ->
         Texp_tuple (List.map (sub.expr sub) list)

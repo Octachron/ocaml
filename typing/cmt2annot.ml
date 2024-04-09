@@ -102,9 +102,8 @@ let rec iterator ~scope rebuild_env =
         bind_bindings body.exp_loc bindings
     | Texp_match (_, f1, _) ->
         bind_cases f1
-    | Texp_try (_, f1, f2) ->
-        bind_cases f1;
-        bind_cases f2
+    | Texp_try (_, f1) ->
+        bind_cases f1
     | Texp_function (params, _) ->
         List.iter (bind_function_param exp.exp_loc) params
     | Texp_letmodule (_, modname, _, _, body ) ->

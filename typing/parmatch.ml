@@ -1835,7 +1835,7 @@ let pressure_variants_in_computation_pattern tdefs patl =
   in
   pressure_variants tdefs val_pss;
   pressure_variants tdefs exn_pss;
-  pressure_variants tdefs eff_pss
+  pressure_variants tdefs (List.map fst eff_pss)
 
 
 (*****************************)

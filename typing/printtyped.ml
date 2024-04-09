@@ -363,11 +363,10 @@ and expression i ppf x =
       line i ppf "Texp_match%a\n" fmt_partiality partial;
       expression i ppf e;
       list i case ppf l
-  | Texp_try (e, l1, l2) ->
+  | Texp_try (e, cases) ->
       line i ppf "Texp_try\n";
       expression i ppf e;
-      list i case ppf l1;
-      list i case ppf l2;
+      list i case ppf cases
   | Texp_tuple (l) ->
       line i ppf "Texp_tuple\n";
       list i expression ppf l;

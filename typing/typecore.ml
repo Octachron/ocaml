@@ -379,23 +379,6 @@ let is_principal ty =
 
 (* Typing of patterns *)
 
-(* Simplified patterns for effect continuations *)
-let type_continuation_pat env expected_ty sp =
-  let loc = sp.ppat_loc in
-  match sp.ppat_desc with
-  | Ppat_any -> None
-  | Ppat_var name ->
-      let id = Ident.create_local name.txt in
-      let desc =
-        { val_type = expected_ty; val_kind = Val_reg;
-          Types.val_loc = loc; val_attributes = [];
-          val_uid = Uid.mk ~current_unit:(Env.get_unit_name ()); }
-      in
-        Some (id, desc)
-  | Ppat_extension ext ->
-      raise (Error_forward (Builtin_attributes.error_of_extension ext))
-  | _ -> raise (Error (loc, env, Invalid_continuation_pattern))
-
 (* unification inside type_exp and type_expect *)
 let unify_exp_types loc env ty expected_ty =
   (* Format.eprintf "@[%a@ %a@]@." Printtyp.raw_type_expr exp.exp_type
@@ -1519,6 +1502,33 @@ type ('case_pattern, 'case_data) half_typed_case =
     module_vars: module_variables;
     contains_gadt: bool; }
 
+let fresh_effect_types env loc ty_res () =
+  let decl = {
+    type_params = [];
+    type_arity = 0;
+    type_kind = Type_abstract Definition;
+    type_private = Public;
+    type_manifest = None;
+    type_variance = [];
+    type_separability = [];
+    type_is_newtype = true;
+    type_expansion_scope = Btype.lowest_level;
+    type_loc = loc;
+    type_attributes = [];
+    type_immediate = Unknown;
+    type_unboxed_default = false;
+    type_uid = Uid.mk ~current_unit:(Env.get_unit_name ());
+  }
+  in
+  let name = Ctype.get_new_abstract_name env "<effect>" in
+  let scope = create_scope () in
+  let id = Ident.create_scoped ~scope name in
+  let new_env = Env.add_type ~check:false id decl env in
+  let ty_eff = newgenty (Tconstr (Path.Pident id,[],ref Mnil)) in
+  let ty_arg = Predef.type_eff ty_eff in
+  let ty_cont = Predef.type_continuation ty_eff ty_res in
+  new_env, (ty_arg, ty_cont)
+
 (* Used to split patterns into value cases and exception cases. *)
 let split_half_typed_cases env zipped_cases =
   let add_case lst htc data = function
@@ -1633,20 +1643,21 @@ let as_comp_pattern
 let rec type_pat
   : type k . type_pat_state -> k pattern_category ->
       no_existentials: existential_restriction option ->
-      penv: Pattern_env.t -> Parsetree.pattern -> type_expr ->
+      penv: Pattern_env.t -> Parsetree.pattern -> type_expr
+    -> eff_typ:(type_expr*type_expr) ->
       k general_pattern
-  = fun tps category ~no_existentials ~penv sp expected_ty ->
+  = fun tps category ~no_existentials ~penv sp expected_ty ~eff_typ ->
   Builtin_attributes.warning_scope sp.ppat_attributes
     (fun () ->
-       type_pat_aux tps category ~no_existentials ~penv sp expected_ty
+       type_pat_aux tps category ~no_existentials ~penv sp expected_ty ~eff_typ
     )
 
 and type_pat_aux
   : type k . type_pat_state -> k pattern_category -> no_existentials:_ ->
-         penv:Pattern_env.t -> _ -> _ -> k general_pattern
-  = fun tps category ~no_existentials ~penv sp expected_ty ->
+         penv:Pattern_env.t -> _ -> _ -> eff_typ:_ -> k general_pattern
+  = fun tps category ~no_existentials ~penv sp expected_ty ~eff_typ:expected_effect_ty ->
   let type_pat tps category ?(penv=penv) =
-    type_pat tps category ~no_existentials ~penv
+    type_pat tps category ~no_existentials ~penv ~eff_typ:expected_effect_ty
   in
   let loc = sp.ppat_loc in
   let solve_expected (x : pattern) : pattern =
@@ -2030,8 +2041,25 @@ and type_pat_aux
         pat_env = !!penv;
         pat_attributes = sp.ppat_attributes;
       }
-  | Ppat_effect _ ->
-      raise (Error (loc, !!penv, Effect_pattern_below_toplevel))
+  | Ppat_effect (p,k) ->
+      let k =
+        match k.ppat_desc with
+        | Ppat_any -> None
+        | Ppat_var name ->
+            let ty = instance (snd expected_effect_ty) in
+            let id, _uid = enter_variable tps loc name ty sp.ppat_attributes in
+            Some (id, name)
+        | _ -> assert false
+      in
+      let p = type_pat tps Value p (fst expected_effect_ty) in
+      rcp {
+        pat_desc = Tpat_effect (p, k);
+        pat_loc = sp.ppat_loc;
+        pat_extra = [];
+        pat_type = expected_ty;
+        pat_env = !!penv;
+        pat_attributes = sp.ppat_attributes;
+      }
   | Ppat_extension ext ->
       raise (Error_forward (Builtin_attributes.error_of_extension ext))
 
@@ -2090,11 +2118,11 @@ let add_module_variables env module_variables =
 let type_pat tps category ?no_existentials penv =
   type_pat tps category ~no_existentials ~penv
 
-let type_pattern category ~lev env spat expected_ty allow_modules =
+let type_pattern category ~lev env spat expected_ty ~eff_typ allow_modules =
   let tps = create_type_pat_state allow_modules in
   let new_penv = Pattern_env.make env
       ~equations_scope:lev ~allow_recursive_equations:false in
-  let pat = type_pat tps category new_penv spat expected_ty in
+  let pat = type_pat tps category new_penv spat expected_ty ~eff_typ in
   let { tps_pattern_variables = pvs;
         tps_module_variables = mvs;
         tps_pattern_force = pattern_forces;
@@ -2106,12 +2134,13 @@ let type_pattern_list
   =
   let tps = create_type_pat_state allow_modules in
   let equations_scope = get_current_level () in
+  let eff_typ = newvar (), newvar () in
   let new_penv = Pattern_env.make env
       ~equations_scope ~allow_recursive_equations:false in
   let type_pat (attrs, pat) ty =
     Builtin_attributes.warning_scope ~ppwarning:false attrs
       (fun () ->
-         type_pat tps category ~no_existentials new_penv pat ty
+         type_pat tps category ~no_existentials ~eff_typ new_penv pat ty
       )
   in
   let patl = List.map2 type_pat spatl expected_tys in
@@ -2128,7 +2157,8 @@ let type_class_arg_pattern cl_num val_env met_env l spat =
   let new_penv = Pattern_env.make val_env
       ~equations_scope ~allow_recursive_equations:false in
   let pat =
-    type_pat tps Value ~no_existentials:In_class_args new_penv spat nv in
+    let eff_typ = newvar (), newvar () in
+    type_pat tps Value ~eff_typ ~no_existentials:In_class_args new_penv spat nv in
   if has_variants pat then begin
     Parmatch.pressure_variants val_env [pat];
     finalize_variants pat;
@@ -2178,7 +2208,8 @@ let type_self_pattern env spat =
   let new_penv = Pattern_env.make env
       ~equations_scope ~allow_recursive_equations:false in
   let pat =
-    type_pat tps Value ~no_existentials:In_self_pattern new_penv spat nv in
+    let eff_typ = newvar (), newvar () in
+    type_pat ~eff_typ tps Value ~no_existentials:In_self_pattern new_penv spat nv in
   List.iter (fun f -> f()) tps.tps_pattern_force;
   pat, tps.tps_pattern_variables
 
@@ -2546,7 +2577,7 @@ let rec final_subexpression exp =
   match exp.exp_desc with
     Texp_let (_, _, e)
   | Texp_sequence (_, e)
-  | Texp_try (e, _, _)
+  | Texp_try (e, _)
   | Texp_ifthenelse (_, e, _)
   | Texp_match (_, {c_rhs=e} :: _, _)
   | Texp_letmodule (_, _, _, _, e)
@@ -2946,10 +2977,9 @@ let check_partial_application ~statement exp =
                 check_statement ()
             | Texp_match (_, cases, _) ->
                 List.iter (fun {c_rhs; _} -> check c_rhs) cases
-            | Texp_try (e, cases, eff_cases) ->
+            | Texp_try (e, cases) ->
                 check e;
-                List.iter (fun {c_rhs; _} -> check c_rhs) cases;
-                List.iter (fun {c_rhs; _} -> check c_rhs) eff_cases
+                List.iter (fun {c_rhs; _} -> check c_rhs) cases
             | Texp_ifthenelse (_, e1, Some e2) ->
                 check e1; check e2
             | Texp_let (_, _, e) | Texp_sequence (_, e) | Texp_open (_, e)
@@ -3572,30 +3602,12 @@ and type_expect_
         exp_env = env }
   | Pexp_try(sbody, caselist) ->
       let body = type_expect env sbody ty_expected_explained in
-      let rec split_cases exnc effc conts = function
-        | [] -> List.rev exnc, List.rev effc, List.rev conts
-        | {pc_lhs = {ppat_desc=Ppat_effect(p1, p2)}} as c :: rest ->
-            split_cases exnc
-              (({c with pc_lhs = p1}) :: effc) (p2 :: conts) rest
-        | c :: rest ->
-            split_cases (c :: exnc) effc conts rest
-      in
-      let exn_caselist, eff_caselist, eff_conts =
-        split_cases [] [] [] caselist
-      in
-      let exn_cases, _ =
-        type_cases Value env Predef.type_exn ty_expected_explained
-          ~check_if_total:false loc exn_caselist
-      in
-      let eff_cases =
-        match eff_caselist with
-        | [] -> []
-        | eff_caselist ->
-            type_effect_cases Value env ty_expected_explained loc eff_caselist
-              eff_conts
+      let cases, _ =
+        type_cases Computation env Predef.type_exn ty_expected_explained
+          ~check_if_total:false loc caselist
       in
       re {
-        exp_desc = Texp_try(body, exn_cases, eff_cases);
+        exp_desc = Texp_try(body, cases);
         exp_loc = loc; exp_extra = [];
         exp_type = body.exp_type;
         exp_attributes = sexp.pexp_attributes;
@@ -5640,6 +5652,7 @@ and map_half_typed_cases
     if (may_contain_gadts || erase_either) && not !Clflags.principal
     then correct_levels ty_arg else ty_arg
   in
+  let env, eff_typ = fresh_effect_types env loc ty_res () in
   let rec is_var spat =
     match spat.ppat_desc with
       Ppat_any | Ppat_var _ -> true
@@ -5685,7 +5698,7 @@ and map_half_typed_cases
                   (fun () -> instance ?partial:take_partial_instance ty_arg)
               in
               let (pat, ext_env, force, pvs, mvs) =
-                type_pattern category ~lev env pattern ty_arg allow_modules
+                type_pattern category ~lev env pattern ty_arg ~eff_typ allow_modules
               in
               pattern_force := force @ !pattern_force;
               { typed_pat = pat;
@@ -5918,48 +5931,6 @@ and type_function_cases_expect
     in
     unify_exp_types loc env ty_fun (instance ty_expected);
     cases, partial, ty_fun
-  end
-
-and type_effect_cases
-    : type k . k pattern_category ->
-           _ -> _ -> _ -> Parsetree.case list -> _
-             ->
-           k case list
-  = fun category env ty_res_explained loc caselist conts ->
-  let { ty = ty_res; explanation = _ } = ty_res_explained in
-  let _ = newvar () in
-  (* remember original level *)
-  with_local_level begin fun () ->
-  (* Create a fake abstract type declaration for effect type. *)
-  let decl = {
-    type_params = [];
-    type_arity = 0;
-    type_kind = Type_abstract Definition;
-    type_private = Public;
-    type_manifest = None;
-    type_variance = [];
-    type_separability = [];
-    type_is_newtype = true;
-    type_expansion_scope = Btype.lowest_level;
-    type_loc = loc;
-    type_attributes = [];
-    type_immediate = Unknown;
-    type_unboxed_default = false;
-    type_uid = Uid.mk ~current_unit:(Env.get_unit_name ());
-  }
-  in
-  let name = Ctype.get_new_abstract_name env "effect" in
-  let scope = create_scope () in
-  let id = Ident.create_scoped ~scope name in
-  let new_env = Env.add_type ~check:false id decl env in
-  let ty_eff = newgenty (Tconstr (Path.Pident id,[],ref Mnil)) in
-  let ty_arg = Predef.type_eff ty_eff in
-  let ty_cont = Predef.type_continuation ty_eff ty_res in
-  let _conts = List.map (type_continuation_pat env ty_cont) conts in
-  let cases, _ = type_cases category new_env ty_arg
-    ty_res_explained  ~check_if_total:false loc caselist
-  in
-  cases
   end
 
 (* Typing of let bindings *)
