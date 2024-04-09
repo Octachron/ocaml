@@ -56,6 +56,7 @@ type pattern_variable =
     pv_loc: Location.t;
     pv_as_var: bool;
     pv_attributes: Typedtree.attributes;
+    pv_continuation: bool;
     pv_uid : Uid.t;
   }
 

@@ -481,6 +481,7 @@ type pattern_variable =
     pv_loc: Location.t;
     pv_as_var: bool;
     pv_attributes: attributes;
+    pv_continuation: bool;
     pv_uid : Uid.t;
   }
 
@@ -571,8 +572,8 @@ let maybe_add_pattern_variables_ghost loc_let env pv =
        end
     ) pv env
 
-let enter_variable ?(is_module=false) ?(is_as_variable=false) tps loc name ty
-    attrs =
+let enter_variable ?(is_module=false) ?(is_as_variable=false)
+    ?(is_continuation=false) tps loc name ty attrs =
   if List.exists (fun {pv_id; _} -> Ident.name pv_id = name.txt)
       tps.tps_pattern_variables
   then raise(Error(loc, Env.empty, Multiply_bound_variable name.txt));
@@ -608,7 +609,8 @@ let enter_variable ?(is_module=false) ?(is_as_variable=false) tps loc name ty
      pv_loc = loc;
      pv_as_var = is_as_variable;
      pv_attributes = attrs;
-     pv_uid} :: tps.tps_pattern_variables;
+     pv_uid;
+     pv_continuation = is_continuation } :: tps.tps_pattern_variables;
   id, pv_uid
 
 let sort_pattern_variables vs =
@@ -2050,7 +2052,9 @@ and type_pat_aux
         | Ppat_any -> None
         | Ppat_var name ->
             let ty = instance cont_ty in
-            let id, _uid = enter_variable tps loc name ty sp.ppat_attributes in
+            let id, _uid =
+              enter_variable ~is_continuation:true tps loc name ty sp.ppat_attributes
+            in
             Some (id, name)
         | _ -> assert false
       in
@@ -2069,15 +2073,18 @@ and type_pat_aux
 let iter_pattern_variables_type f : pattern_variable list -> unit =
   List.iter (fun {pv_type; _} -> f pv_type)
 
-let add_pattern_variables ?check ?check_as env pv =
+let add_pattern_variables ~with_continuation ?check ?check_as env pv =
   List.fold_right
-    (fun {pv_id; pv_type; pv_loc; pv_as_var; pv_attributes; pv_uid} env ->
-       let check = if pv_as_var then check_as else check in
-       Env.add_value ?check pv_id
-         {val_type = pv_type; val_kind = Val_reg; Types.val_loc = pv_loc;
-          val_attributes = pv_attributes;
-          val_uid = pv_uid;
-         } env
+    (fun {pv_id; pv_type; pv_loc; pv_as_var; pv_attributes; pv_uid;
+          pv_continuation} env ->
+       if pv_continuation && not with_continuation then env
+       else
+         let check = if pv_as_var then check_as else check in
+         Env.add_value ?check pv_id
+           {val_type = pv_type; val_kind = Val_reg; Types.val_loc = pv_loc;
+            val_attributes = pv_attributes;
+            val_uid = pv_uid;
+           } env
     )
     pv env
 
@@ -4717,7 +4724,7 @@ and type_function
           (* We don't make use of [case_data] here so we pass unit. *)
           [ { pattern = pat; has_guard = false; needs_refute = false }, () ]
           ~type_body:begin
-            fun () pat ~ext_env  ~ty_expected ~ty_infer:_
+            fun () pat ~when_env:_ ~ext_env  ~ty_expected ~ty_infer:_
               ~contains_gadt:param_contains_gadt ->
               let _, params, body, newtypes, suffix_contains_gadt =
                 type_function ext_env rest body_constraint body
@@ -5639,7 +5646,8 @@ and map_half_typed_cases
     -> type_body:(
         case_data
         -> k general_pattern (* the typed pattern *)
-        -> ext_env:_ (* environment with module variables / pattern variables *)
+        -> when_env:_ (* environment with module/pattern variables *)
+        -> ext_env:_ (* `when_env` + continuation variables *)
         -> ty_expected:_ (* type to check body in scope of *)
         -> ty_infer:_ (* type to infer for body *)
         -> contains_gadt:_ (* whether the pattern contains a GADT *)
@@ -5659,8 +5667,12 @@ and map_half_typed_cases
     if (may_contain_gadts || erase_either) && not !Clflags.principal
     then correct_levels ty_arg else ty_arg
   in
-  let with_effect = List.exists (function {ppat_desc=Ppat_effect _;_} -> true | _ -> false) patterns in
   let env, eff_typ =
+    let with_effect =
+      List.exists
+        (function {ppat_desc=Ppat_effect _;_} -> true | _ -> false)
+        patterns
+    in
     if with_effect then
       fresh_effect_types env loc ty_res ()
     else env, None
@@ -5792,19 +5804,24 @@ and map_half_typed_cases
            branch environments by adding the variables (and module variables)
            from the patterns.
         *)
-        let ext_env =
-          add_pattern_variables ext_env pvs
+        let when_env =
+          add_pattern_variables ~with_continuation:false ext_env pvs
             ~check:(fun s -> Warnings.Unused_var_strict s)
             ~check_as:(fun s -> Warnings.Unused_var s)
         in
-        let ext_env = add_module_variables ext_env mvs in
+        let when_env = add_module_variables when_env mvs in
+        let ext_env =
+          add_pattern_variables ~with_continuation:true when_env pvs
+            ~check:(fun s -> Warnings.Unused_var_strict s)
+            ~check_as:(fun s -> Warnings.Unused_var s)
+        in
         let ty_expected =
           if contains_gadt && not !Clflags.principal then
             (* Take a generic copy of [ty_res] again to allow propagation of
                 type information from preceding branches *)
             correct_levels ty_res
           else ty_res in
-        type_body case_data pat ~ext_env ~ty_expected
+        type_body case_data pat ~when_env ~ext_env ~ty_expected
           ~ty_infer:ty_res' ~contains_gadt)
     half_typed_cases
   end in
@@ -5893,14 +5910,14 @@ and type_cases
   map_half_typed_cases category env ty_arg ty_res loc caselist
     ~check_if_total
     ~type_body:begin
-      fun { pc_guard; pc_rhs } pat ~ext_env  ~ty_expected ~ty_infer
+      fun { pc_guard; pc_rhs } pat ~when_env ~ext_env ~ty_expected ~ty_infer
           ~contains_gadt:_ ->
         let guard =
           match pc_guard with
           | None -> None
           | Some scond ->
             Some
-              (type_expect ext_env scond
+              (type_expect when_env scond
                 (mk_expected ~explanation:When_guard Predef.type_bool))
         in
         let exp =
@@ -6003,7 +6020,7 @@ and type_let ?check ?check_strict
          we type-checked expressions before patterns, then we could call
          [add_module_variables] here.
       *)
-      let new_env = add_pattern_variables new_env pvs in
+      let new_env = add_pattern_variables ~with_continuation:true new_env pvs in
       let pat_list =
         List.map
           (fun pat -> {pat with pat_type = instance pat.pat_type})
