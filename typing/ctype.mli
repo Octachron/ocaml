@@ -171,6 +171,9 @@ val generic_instance: type_expr -> type_expr
         (* Same as instance, but new nodes at generic_level *)
 val instance_list: type_expr list -> type_expr list
         (* Take an instance of a list of type schemes *)
+
+val get_new_abstract_name : Env.t -> string -> string
+
 val new_local_type:
         ?loc:Location.t ->
         ?manifest_and_scope:(type_expr * int) ->
@@ -260,8 +263,6 @@ type typedecl_extraction_result =
 
 val extract_concrete_typedecl:
         Env.t -> type_expr -> typedecl_extraction_result
-
-val get_new_abstract_name : Env.t -> string -> string
 
 val unify: Env.t -> type_expr -> type_expr -> unit
         (* Unify the two types given. Raise [Unify] if not possible. *)
