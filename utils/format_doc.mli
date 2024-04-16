@@ -100,28 +100,6 @@ module Immutable: sig
 
 end
 
- (*
-val iter: ?sep:(doc -> doc)
-  -> (('a -> unit) -> 'b -> unit)
-  -> ('a -> doc -> doc) -> 'b ->
-  doc -> doc
-
-
-val array: ?sep:(doc->doc) -> ('a -> doc -> 'doc) -> 'a array -> doc -> doc
-val seq: ?sep:(doc->doc) -> ('a -> doc -> 'doc) -> 'a Seq.t -> doc -> doc
-
-val text: string -> doc -> doc
-
-val result: ok:('a -> doc -> doc) -> error:('b -> doc -> doc) ->
-  ('a,'b) result -> doc -> doc
-
-val either: left:('a -> doc -> doc) -> right:('b -> doc -> doc) ->
-  ('a,'b) Either.t -> doc -> doc
-*)
-
-
-
-
 module Ref: sig
   type ('a,'b) fmt = ('a, doc ref, unit,'b) format4
   val printf: doc ref -> ('a, unit) fmt -> 'a
@@ -195,6 +173,10 @@ val pp_print_tab: unit printer
 val pp_print_tbreak: formatter -> int -> int -> unit
 
 val pp_print_flush: unit printer
+
+(** {1 Separators }*)
+
+val comma: unit printer
 
 (** {1 Compiler output} *)
 

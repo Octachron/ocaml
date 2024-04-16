@@ -1967,8 +1967,7 @@ module Reaching_path = struct
             (Style.as_inline_code Printtyp.prepared_type_expr) outer
             (Style.as_inline_code Printtyp.prepared_type_expr) inner
     in
-    let comma ppf () = Fmt.fprintf ppf ",@ " in
-    (Fmt.pp_print_list ~pp_sep:comma pp_step) ppf reaching_path
+    Fmt.(pp_print_list ~pp_sep:comma) pp_step ppf reaching_path
 
   let pp_colon ppf path =
     Fmt.fprintf ppf ":@;<1 2>@[<v>%a@]" pp path

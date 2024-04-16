@@ -782,7 +782,6 @@ let did_you_mean ppf get_choices =
   | [] -> ()
   | choices ->
     let rest, last = split_last choices in
-    let comma ppf () = fprintf ppf ", " in
      fprintf ppf "@\n@{<hint>Hint@}: Did you mean %a%s%a?@?"
        (pp_print_list ~pp_sep:comma Style.inline_code) rest
        (if rest = [] then "" else " or ")

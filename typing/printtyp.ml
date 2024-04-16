@@ -2323,8 +2323,7 @@ let print_path p =
 let print_tag ppf s = Style.inline_code ppf ("`" ^ s)
 
 let print_tags ppf tags  =
-  let comma ppf () = Fmt.fprintf ppf ",@ " in
-  Fmt.pp_print_list ~pp_sep:comma print_tag ppf tags
+  Fmt.(pp_print_list ~pp_sep:comma) print_tag ppf tags
 
 let is_unit env ty =
   match get_desc (Ctype.expand_head env ty) with

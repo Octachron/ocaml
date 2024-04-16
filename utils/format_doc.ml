@@ -525,6 +525,7 @@ let pp_print_option  ?(none=fun _ () -> ()) elt ppf o = match ppf with
       rdoc :=
         Immutable.option ~none:(doc_printer none ()) (doc_printer elt) o !rdoc
 
+let comma ppf () = fprintf ppf ",@ "
 
 let pp_two_columns ?(sep = "|") ?max_lines ppf (lines: (string * string) list) =
   let left_column_size =
