@@ -40,27 +40,16 @@ type element =
   | Newline
   | If_newline
 
-type doc = {front: element list; back:element list}
+type doc = { rev:element list } [@@unboxed]
 
 type t = doc
 
-let empty : doc = { front = []; back = [] }
+let empty : doc = { rev = [] }
 
-let to_list doc = doc.front @ List.rev doc.back
-
-let _prepend x doc = { doc with front = x :: doc.front }
-
-
-let add x doc = { doc with back = x :: doc.back }
-
-
-let fold f acc doc =
-  let first = List.fold_left f acc doc.front in
-  let back = List.fold_left f first (List.rev doc.back) in
-  back
-
-
-let append left right = fold (fun doc elt -> add elt doc) left right
+let to_list doc = List.rev doc.rev
+let add x doc = { rev = x :: doc.rev }
+let fold f acc doc = List.fold_left f acc (to_list doc)
+let append left right = { rev = right.rev @ left.rev }
 
 let format_open_box_gen ppf kind indent =
   match kind with
@@ -113,7 +102,6 @@ module Immutable = struct
   let char c doc = add (Data (String.make 1 c)) doc
   let bool c doc = add (Data (Bool.to_string c)) doc
 
-
   let break ~spaces ~indent doc = add (Simple_break {spaces; indent}) doc
   let space doc = break ~spaces:1 ~indent:0 doc
   let cut = break ~spaces:0 ~indent:0
@@ -141,7 +129,6 @@ module Immutable = struct
     | a :: (_ :: _ as q) ->
         doc |> elt a |> sep |> list ~sep elt q
 
-
   let option ?(none=Fun.id) elt o doc = match o with
     | None -> none doc
     | Some x -> elt x doc
@@ -164,15 +151,11 @@ module Immutable = struct
          as it is unclear what a right semantics would be *)
       | _ -> subtext len left (right + 1) s doc
 
-
   let text s doc =
     subtext (String.length s) 0 0 s doc
 
   type ('a,'b) fmt = ('a, doc, doc, 'b) format4
   type printer = doc -> doc
-
-
-
 
   let output_formatting_lit fmting_lit doc =
     let open CamlinternalFormatBasics in
@@ -244,10 +227,7 @@ module Immutable = struct
 
   let msg fmt = kmsg Fun.id fmt
 
-
-
 end
-
 
 
 module Ref = struct
@@ -544,7 +524,6 @@ let pp_print_option  ?(none=fun _ () -> ()) elt ppf o = match ppf with
   | Doc rdoc ->
       rdoc :=
         Immutable.option ~none:(doc_printer none ()) (doc_printer elt) o !rdoc
-
 
 
 let pp_two_columns ?(sep = "|") ?max_lines ppf (lines: (string * string) list) =
