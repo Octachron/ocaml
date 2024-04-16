@@ -149,15 +149,15 @@ let report_error ppf = function
         (Dynlink.error_message e)
   | Unbound_identifier lid ->
       fprintf ppf "@[Unbound identifier %a@]@."
-     quoted_longident lid
+        quoted_longident lid
   | Unavailable_module(md, lid) ->
       fprintf ppf
         "@[The debugger does not contain the code for@ %a.@ \
-           Please load an implementation of %s first.@]@."
-       quoted_longident lid md
+         Please load an implementation of %s first.@]@."
+        quoted_longident lid md
   | Wrong_type lid ->
       fprintf ppf "@[%a has the wrong type for a printing function.@]@."
-      quoted_longident lid
+        quoted_longident lid
   | No_active_printer lid ->
       fprintf ppf "@[%a is not currently active as a printing function.@]@."
-     quoted_longident lid
+        quoted_longident lid
