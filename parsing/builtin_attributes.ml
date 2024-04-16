@@ -107,8 +107,8 @@ let string_of_opt_payload p =
   | Some s -> s
   | None -> ""
 
+module Style = Misc.Style
 let error_of_extension ext =
-  let pmsg = Format_doc.Immutable.msg in
   let submessage_from main_loc main_txt = function
     | {pstr_desc=Pstr_extension
            (({txt = ("ocaml.error"|"error"); loc}, p), _)} ->
@@ -116,18 +116,18 @@ let error_of_extension ext =
         | PStr([{pstr_desc=Pstr_eval
                      ({pexp_desc=Pexp_constant(Pconst_string(msg,_,_))}, _)}
                ]) ->
-            { Location.loc; txt = Format_doc.(Immutable.text msg empty) }
+            Location.msg ~loc "%a" Format_doc.pp_print_text msg
         | _ ->
-            let txt =
-              pmsg "Invalid syntax for sub-message of extension '%s'." main_txt
-            in
-            { Location.loc; txt }
+            Location.msg ~loc "Invalid syntax for sub-message of extension %a."
+              Style.inline_code main_txt
         end
     | {pstr_desc=Pstr_extension (({txt; loc}, _), _)} ->
-        { Location.loc; txt = pmsg "Uninterpreted extension '%s'." txt }
+        Location.msg ~loc "Uninterpreted extension '%a'."
+          Style.inline_code txt
     | _ ->
-        { Location.loc = main_loc; txt = pmsg
-              "Invalid syntax for sub-message of extension '%s'." main_txt }
+        Location.msg ~loc:main_loc
+          "Invalid syntax for sub-message of extension %a."
+          Style.inline_code main_txt
   in
   match ext with
   | ({txt = ("ocaml.error"|"error") as txt; loc}, p) ->
