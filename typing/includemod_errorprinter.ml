@@ -214,7 +214,7 @@ let show_locs ppf (loc1, loc2) =
 
 let dmodtype mty =
   let tmty = Printtyp.tree_of_modtype mty in
-  Fmt.dprintf "%a" Oprint.(print out_module_type) tmty
+  Fmt.dprintf "%a" !Oprint.out_module_type tmty
 
 let space ppf () = Fmt.fprintf ppf "@ "
 
@@ -611,10 +611,10 @@ let core env id x =
   | Err.Value_descriptions diff ->
       Fmt.dprintf "@[<v>@[<hv>%s:@;<1 2>%a@ %s@;<1 2>%a@]%a%a%t@]"
         "Values do not match"
-        Oprint.(print out_sig_item)
+        !Oprint.out_sig_item
         (Printtyp.tree_of_value_description id diff.got)
         "is not included in"
-        Oprint.(print out_sig_item)
+        !Oprint.out_sig_item
         (Printtyp.tree_of_value_description id diff.expected)
         (Includecore.report_value_mismatch
            "the first" "the second" env) diff.symptom
@@ -623,10 +623,10 @@ let core env id x =
   | Err.Type_declarations diff ->
       Fmt.dprintf "@[<v>@[<hv>%s:@;<1 2>%a@ %s@;<1 2>%a@]%a%a%t@]"
         "Type declarations do not match"
-        Oprint.(print out_sig_item)
+        !Oprint.out_sig_item
         (Printtyp.tree_of_type_declaration id diff.got Trec_first)
         "is not included in"
-        Oprint.(print out_sig_item)
+        !Oprint.out_sig_item
         (Printtyp.tree_of_type_declaration id diff.expected Trec_first)
         (Includecore.report_type_mismatch
            "the first" "the second" "declaration" env) diff.symptom
@@ -635,10 +635,10 @@ let core env id x =
   | Err.Extension_constructors diff ->
       Fmt.dprintf "@[<v>@[<hv>%s:@;<1 2>%a@ %s@;<1 2>%a@]@ %a%a%t@]"
         "Extension declarations do not match"
-        Oprint.(print out_sig_item)
+        !Oprint.out_sig_item
         (Printtyp.tree_of_extension_constructor id diff.got Text_first)
         "is not included in"
-        Oprint.(print out_sig_item)
+        !Oprint.out_sig_item
         (Printtyp.tree_of_extension_constructor id diff.expected Text_first)
         (Includecore.report_extension_constructor_mismatch
            "the first" "the second" "declaration" env) diff.symptom
@@ -648,9 +648,9 @@ let core env id x =
       Fmt.dprintf
         "@[<hv 2>Class type declarations do not match:@ \
          %a@;<1 -2>does not match@ %a@]@ %a%t"
-        Oprint.(print out_sig_item)
+        !Oprint.out_sig_item
         (Printtyp.tree_of_cltype_declaration id diff.got Trec_first)
-        Oprint.(print out_sig_item)
+        !Oprint.out_sig_item
         (Printtyp.tree_of_cltype_declaration id diff.expected Trec_first)
         (Includeclass.report_error Type_scheme) diff.symptom
         Printtyp.Conflicts.print_explanations
@@ -660,8 +660,8 @@ let core env id x =
       Fmt.dprintf
         "@[<hv 2>Class declarations do not match:@ \
          %a@;<1 -2>does not match@ %a@]@ %a%t"
-        Oprint.(print out_sig_item) t1
-        Oprint.(print out_sig_item) t2
+        !Oprint.out_sig_item t1
+        !Oprint.out_sig_item t2
         (Includeclass.report_error Type_scheme) symptom
         Printtyp.Conflicts.print_explanations
 
@@ -676,22 +676,22 @@ let module_types {Err.got=mty1; expected=mty2} =
   Fmt.dprintf
     "@[<hv 2>Modules do not match:@ \
      %a@;<1 -2>is not included in@ %a@]"
-    Oprint.(print out_module_type) (Printtyp.tree_of_modtype mty1)
-    Oprint.(print out_module_type) (Printtyp.tree_of_modtype mty2)
+    !Oprint.out_module_type (Printtyp.tree_of_modtype mty1)
+    !Oprint.out_module_type (Printtyp.tree_of_modtype mty2)
 
 let eq_module_types {Err.got=mty1; expected=mty2} =
   Fmt.dprintf
     "@[<hv 2>Module types do not match:@ \
      %a@;<1 -2>is not equal to@ %a@]"
-    Oprint.(print out_module_type) (Printtyp.tree_of_modtype mty1)
-    Oprint.(print out_module_type) (Printtyp.tree_of_modtype mty2)
+    !Oprint.out_module_type (Printtyp.tree_of_modtype mty1)
+    !Oprint.out_module_type (Printtyp.tree_of_modtype mty2)
 
 let module_type_declarations id {Err.got=d1 ; expected=d2} =
   Fmt.dprintf
     "@[<hv 2>Module type declarations do not match:@ \
      %a@;<1 -2>does not match@ %a@]"
-    Oprint.(print out_sig_item) (Printtyp.tree_of_modtype_declaration id d1)
-    Oprint.(print out_sig_item) (Printtyp.tree_of_modtype_declaration id d2)
+    !Oprint.out_sig_item (Printtyp.tree_of_modtype_declaration id d1)
+    !Oprint.out_sig_item (Printtyp.tree_of_modtype_declaration id d2)
 
 let interface_mismatch ppf (diff: _ Err.diff) =
   Fmt.fprintf ppf

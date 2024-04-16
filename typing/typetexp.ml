@@ -874,7 +874,7 @@ open Format_doc
 open Printtyp
 module Style = Misc.Style
 let pp_tag ppf t = fprintf ppf "`%s" t
-let pp_type ppf ty = Style.as_inline_code Oprint.(print out_type) ppf ty
+let pp_type ppf ty = Style.as_inline_code !Oprint.out_type ppf ty
 
 let report_error env ppf = function
   | Unbound_type_variable (name, in_scope_names) ->

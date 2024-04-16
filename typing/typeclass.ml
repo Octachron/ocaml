@@ -1991,12 +1991,12 @@ let non_virtual_string_of_kind : kind -> string = function
 
 module Style=Misc.Style
 
-let out_type ppf t = Style.as_inline_code Oprint.(print out_type) ppf t
+let out_type ppf t = Style.as_inline_code !Oprint.out_type ppf t
 
 let report_error env ppf =
   let pp_args ppf args =
     let args = List.map (Printtyp.tree_of_typexp Type) args in
-    Style.as_inline_code Oprint.(print out_type_args) ppf args
+    Style.as_inline_code !Oprint.out_type_args ppf args
   in
   function
   | Repeated_parameter ->

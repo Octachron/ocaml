@@ -442,14 +442,14 @@ let tree_of_path ?disambiguation namespace p =
     (rewrite_double_underscore_paths !printing_env p)
 
 let path ppf p =
-  Oprint.(print out_ident) ppf (tree_of_path None p)
+  !Oprint.out_ident ppf (tree_of_path None p)
 
 let string_of_path p =
   Raw_format.asprintf "%a" (Fmt.compat path) p
 
 let strings_of_paths namespace p =
   let trees = List.map (tree_of_path namespace) p in
-  List.map (Fmt.asprintf "%a" Oprint.(print out_ident)) trees
+  List.map (Fmt.asprintf "%a" !Oprint.out_ident) trees
 
 let () = Env.print_path := path
 
@@ -848,7 +848,7 @@ let printer_iter_type_expr f ty =
       Btype.iter_type_expr f ty
 
 let quoted_ident ppf x =
-  Style.as_inline_code Oprint.(print out_ident) ppf x
+  Style.as_inline_code !Oprint.out_ident ppf x
 
 module Internal_names : sig
 
@@ -1342,7 +1342,7 @@ and tree_of_typfields mode rest = function
       (field :: fields, rest)
 
 let typexp mode ppf ty =
-  Oprint.(print out_type) ppf (tree_of_typexp mode ty)
+  !Oprint.out_type ppf (tree_of_typexp mode ty)
 
 let prepared_type_expr ppf ty = typexp Type ppf ty
 
@@ -1373,7 +1373,7 @@ let type_path ppf p =
   let (p', s) = best_type_path p in
   let p'' = if (s = Id) then p' else p in
   let t = tree_of_best_type_path p p'' in
-  Oprint.(print out_ident) ppf t
+  !Oprint.out_ident ppf t
 
 let tree_of_type_scheme ty =
   prepare_for_printing [ty];
@@ -1581,7 +1581,7 @@ let add_constructor_to_preparation c =
   Option.iter prepare_type c.cd_res
 
 let prepared_constructor ppf c =
-  Oprint.(print out_constr) ppf (tree_of_single_constructor c)
+  !Oprint.out_constr ppf (tree_of_single_constructor c)
 
 let constructor ppf c =
   reset_except_context ();
@@ -1591,7 +1591,7 @@ let constructor ppf c =
 let label ppf l =
   reset_except_context ();
   prepare_type l.ld_type;
-  Oprint.(print out_label) ppf (tree_of_label l)
+  !Oprint.out_label ppf (tree_of_label l)
 
 let tree_of_type_declaration id decl rs =
   Osig_type (tree_of_type_decl id decl, tree_of_rec rs)
@@ -1600,18 +1600,18 @@ let tree_of_prepared_type_declaration id decl rs =
   Osig_type (tree_of_prepared_type_decl id decl, tree_of_rec rs)
 
 let type_declaration id ppf decl =
-  Oprint.(print out_sig_item) ppf (tree_of_type_declaration id decl Trec_first)
+  !Oprint.out_sig_item ppf (tree_of_type_declaration id decl Trec_first)
 
 let add_type_declaration_to_preparation id decl =
   add_type_decl_to_preparation id decl
 
 let prepared_type_declaration id ppf decl =
-  Oprint.(print out_sig_item) ppf
+  !Oprint.out_sig_item ppf
     (tree_of_prepared_type_declaration id decl Trec_first)
 
 let constructor_arguments ppf a =
   let tys = tree_of_constructor_arguments a in
-  Oprint.(print out_type) ppf (Otyp_tuple tys)
+  !Oprint.out_type ppf (Otyp_tuple tys)
 
 (* Print an extension declaration *)
 
@@ -1701,11 +1701,11 @@ let tree_of_extension_constructor id ext es =
   prepared_tree_of_extension_constructor id ext es
 
 let extension_constructor id ppf ext =
-  Oprint.(print out_sig_item) ppf
+  !Oprint.out_sig_item ppf
     (tree_of_extension_constructor id ext Text_first)
 
 let prepared_extension_constructor id ppf ext =
-  Oprint.(print out_sig_item) ppf
+  !Oprint.out_sig_item ppf
     (prepared_tree_of_extension_constructor id ext Text_first)
 
 let extension_only_constructor id ppf ext =
@@ -1719,7 +1719,7 @@ let extension_only_constructor id ppf ext =
       ext.ext_ret_type
   in
   Fmt.fprintf ppf "@[<hv>%a@]"
-    Oprint.(print out_constr) {
+    !Oprint.out_constr {
       ocstr_name = name;
       ocstr_args = args;
       ocstr_return_type = ret;
@@ -1745,7 +1745,7 @@ let tree_of_value_description id decl =
   Osig_value vd
 
 let value_description id ppf decl =
-  Oprint.(print out_sig_item) ppf (tree_of_value_description id decl)
+  !Oprint.out_sig_item ppf (tree_of_value_description id decl)
 
 (* Print a class type *)
 
@@ -1850,7 +1850,7 @@ let rec tree_of_class_type mode params =
 let class_type ppf cty =
   reset ();
   prepare_class_type [] cty;
-  Oprint.(print out_class_type) ppf (tree_of_class_type Type [] cty)
+  !Oprint.out_class_type ppf (tree_of_class_type Type [] cty)
 
 let tree_of_class_param param variance =
   let ot_variance =
@@ -1886,7 +1886,7 @@ let tree_of_class_declaration id cl rs =
      tree_of_rec rs)
 
 let class_declaration id ppf cl =
-  Oprint.(print out_sig_item) ppf (tree_of_class_declaration id cl Trec_first)
+  !Oprint.out_sig_item ppf (tree_of_class_declaration id cl Trec_first)
 
 let tree_of_cltype_declaration id cl rs =
   let params = cl.clty_params in
@@ -1916,7 +1916,7 @@ let tree_of_cltype_declaration id cl rs =
      tree_of_rec rs)
 
 let cltype_declaration id ppf cl =
-  Oprint.(print out_sig_item) ppf (tree_of_cltype_declaration id cl Trec_first)
+  !Oprint.out_sig_item ppf (tree_of_cltype_declaration id cl Trec_first)
 
 (* Print a module type *)
 
@@ -2108,9 +2108,9 @@ and functor_param ~sep ~custom_printer id q =
 
 
 
-let modtype ppf mty = Oprint.(print out_module_type) ppf (tree_of_modtype mty)
+let modtype ppf mty = !Oprint.out_module_type ppf (tree_of_modtype mty)
 let modtype_declaration id ppf decl =
-  Oprint.(print out_sig_item) ppf (tree_of_modtype_declaration id decl)
+  !Oprint.out_sig_item ppf (tree_of_modtype_declaration id decl)
 
 (* For the toplevel: merge with tree_of_signature? *)
 
@@ -2124,7 +2124,7 @@ let print_items showval env x =
 (* Print a signature body (used by -i when compiling a .ml) *)
 
 let print_signature ppf tree =
-  fprintf ppf "@[<v>%a@]" Oprint.(print out_signature) tree
+  fprintf ppf "@[<v>%a@]" !Oprint.out_signature tree
 
 let signature ppf sg =
   fprintf ppf "%a" print_signature (tree_of_signature sg)
@@ -2203,10 +2203,10 @@ let trees_of_type_expansion mode Errortrace.{ty = t; expanded = t'} =
   end
 
 let pp_type ppf t =
-  Style.as_inline_code Oprint.(print out_type) ppf t
+  Style.as_inline_code !Oprint.out_type ppf t
 
 let quoted_ident ppf t =
-  Style.as_inline_code Oprint.(print out_ident) ppf t
+  Style.as_inline_code !Oprint.out_ident ppf t
 
 let type_expansion ppf = function
   | Same t -> pp_type ppf t
@@ -2318,7 +2318,7 @@ let may_prepare_expansion compact (Errortrace.{ty; expanded} as ty_exp) =
   | _ -> prepare_expansion ty_exp
 
 let print_path p =
-  Fmt.dprintf "%a" Oprint.(print out_ident) (tree_of_path (Some Type) p)
+  Fmt.dprintf "%a" !Oprint.out_ident (tree_of_path (Some Type) p)
 
 let print_tag ppf s = Style.inline_code ppf ("`" ^ s)
 

@@ -1974,7 +1974,7 @@ module Reaching_path = struct
     Fmt.fprintf ppf ":@;<1 2>@[<v>%a@]" pp path
 end
 
-let quoted_type ppf ty = Style.as_inline_code Oprint.(print out_type) ppf ty
+let quoted_type ppf ty = Style.as_inline_code !Oprint.out_type ppf ty
 let report_error ppf = function
   | Repeated_parameter ->
       fprintf ppf "A type parameter occurs several times"

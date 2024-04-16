@@ -18,7 +18,6 @@ open Outcometree
 type 'a printer = 'a Format_doc.printer ref
 type 'a toplevel_printer = (Format.formatter -> 'a -> unit) ref
 
-val print: 'a printer -> 'a Format_doc.printer
 val out_ident: out_ident printer
 val out_value : out_value toplevel_printer
 val out_label : (string * bool * out_type ) printer
