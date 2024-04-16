@@ -1954,25 +1954,24 @@ module Reaching_path = struct
           List.iter Printtyp.add_type_to_preparation [ty1; ty2]
     ) path
 
-  module Format = Format_doc
+  module Fmt = Format_doc
 
   let pp ppf reaching_path =
     let pp_step ppf = function
       | Expands_to (ty, body) ->
-          Format.fprintf ppf "%a = %a"
+          Fmt.fprintf ppf "%a = %a"
             (Style.as_inline_code Printtyp.prepared_type_expr) ty
             (Style.as_inline_code Printtyp.prepared_type_expr) body
       | Contains (outer, inner) ->
-          Format.fprintf ppf "%a contains %a"
+          Fmt.fprintf ppf "%a contains %a"
             (Style.as_inline_code Printtyp.prepared_type_expr) outer
             (Style.as_inline_code Printtyp.prepared_type_expr) inner
     in
-    let comma ppf () = Format.fprintf ppf ",@ " in
-    Format.(pp_print_list ~pp_sep:comma pp_step) ppf reaching_path
+    let comma ppf () = Fmt.fprintf ppf ",@ " in
+    (Fmt.pp_print_list ~pp_sep:comma pp_step) ppf reaching_path
 
   let pp_colon ppf path =
-  Format.fprintf ppf ":@;<1 2>@[<v>%a@]"
-    pp path
+    Fmt.fprintf ppf ":@;<1 2>@[<v>%a@]" pp path
 end
 
 let quoted_type ppf ty = Style.as_inline_code Oprint.(print out_type) ppf ty

@@ -6327,7 +6327,7 @@ let spellcheck_idents ppf unbound valid_idents =
   spellcheck ppf (Ident.name unbound) (List.map Ident.name valid_idents)
 
 open Format_doc
-module Format = Format_doc
+module Fmt = Format_doc
 
 let longident = Printtyp.longident
 
@@ -6357,7 +6357,7 @@ let report_literal_type_constraint expected_type const =
       Some '.'
     else None
   in
-  let pp_const ppf (c,s) = Format.fprintf ppf "%s%c" c s in
+  let pp_const ppf (c,s) = Fmt.fprintf ppf "%s%c" c s in
   match const_str, suffix with
   | Some c, Some s -> [
       Location.msg
@@ -6435,10 +6435,10 @@ let report_unification_error ~loc ?sub env err
 
 let report_this_function ppf funct =
   match Typedtree.nominal_exp_doc Printtyp.longident funct with
-  | None -> Format.fprintf ppf "This function"
+  | None -> Fmt.fprintf ppf "This function"
   | Some name ->
-    Format.fprintf ppf "The function %a"
-      (Style.as_inline_code Format.pp_doc) name
+    Fmt.fprintf ppf "The function %a"
+      (Style.as_inline_code Fmt.pp_doc) name
 
 let report_too_many_arg_error ~funct ~func_ty ~previous_arg_loc
     ~extra_arg_loc ~returns_unit loc =
@@ -6470,7 +6470,7 @@ let report_too_many_arg_error ~funct ~func_ty ~previous_arg_loc
      @ It is applied to too many arguments@]"
     report_this_function funct Printtyp.type_expr func_ty
 
-let msg = Format.doc_printf
+let msg = Fmt.doc_printf
 
 let report_error ~loc env =
   function
@@ -6697,7 +6697,7 @@ let report_error ~loc env =
         Printtyp.report_unification_error ppf env err
 
           intro
-          (Format.doc_printf "but is here used with type");
+          (Fmt.doc_printf "but is here used with type");
         if b then
           fprintf ppf
             ".@.@[<hov>This simple coercion was not fully general.@ \
@@ -6767,8 +6767,8 @@ let report_error ~loc env =
         This is only allowed when the real type is known."
   | Less_general (kind, err) ->
       report_unification_error ~loc env err
-        (Format.doc_printf "This %s has type" kind)
-        (Format.doc_printf "which is less general than")
+        (Fmt.doc_printf "This %s has type" kind)
+        (Fmt.doc_printf "which is less general than")
   | Modules_not_allowed ->
       Location.errorf ~loc "Modules are not allowed in this pattern."
   | Cannot_infer_signature ->
@@ -6870,8 +6870,8 @@ let report_error ~loc env =
         (msg "but it was expected to have type")
   | Bindings_type_clash(err) ->
       report_unification_error ~loc env err
-        (Format.doc_printf "These bindings have type")
-        (Format.doc_printf  "but bindings were expected of type")
+        (Fmt.doc_printf "These bindings have type")
+        (Fmt.doc_printf  "but bindings were expected of type")
   | Unbound_existential (ids, ty) ->
       let pp_ident ppf id = pp_print_string ppf (Ident.name id) in
       let pp_type ppf (ids,ty)=

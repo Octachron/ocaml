@@ -31,7 +31,7 @@ module Style = Misc.Style
 
 (* Print a long identifier *)
 
-module Format = Format_doc
+module Fmt = Format_doc
 open Format_doc
 
 let rec longident ppf = function
@@ -87,7 +87,7 @@ module Namespace = struct
 
 
   let pp ppf x =
-    Format.pp_print_string ppf (Shape.Sig_component_kind.to_string x)
+    Fmt.pp_print_string ppf (Shape.Sig_component_kind.to_string x)
 
   (** The two functions below should never access the filesystem,
       and thus use {!in_printing_env} rather than directly
@@ -165,12 +165,13 @@ module Conflicts = struct
       end
 
   let pp_explanation ppf r=
-    Format.fprintf ppf "@[<v 2>%a:@,Definition of %s %a@]"
+    Fmt.fprintf ppf "@[<v 2>%a:@,Definition of %s %a@]"
       Location.print_loc r.location (Sig_component_kind.to_string r.kind)
       Style.inline_code r.name
 
   let print_located_explanations ppf l =
-    Format.fprintf ppf "@[<v>%a@]" (Format.pp_print_list pp_explanation) l
+    Fmt.fprintf ppf "@[<v>%a@]"
+      (Fmt.pp_print_list pp_explanation) l
 
   let reset () = explanations := M.empty
   let list_explanations () =
@@ -180,8 +181,8 @@ module Conflicts = struct
 
 
   let print_toplevel_hint ppf l =
-    let conj ppf () = Format.fprintf ppf " and@ " in
-    let pp_namespace_plural ppf n = Format.fprintf ppf "%as" Namespace.pp n in
+    let conj ppf () = Fmt.fprintf ppf " and@ " in
+    let pp_namespace_plural ppf n = Fmt.fprintf ppf "%as" Namespace.pp n in
     let root_names = List.map (fun r -> r.kind, r.root_name) l in
     let unique_root_names = List.sort_uniq Stdlib.compare root_names in
     let submsgs = Array.make Namespace.size [] in
@@ -192,7 +193,7 @@ module Conflicts = struct
       match names with
       | [] -> ()
       | [namespace, a] ->
-          Format.fprintf ppf
+          Fmt.fprintf ppf
         "@ \
          @[<2>@{<hint>Hint@}: The %a %a has been defined multiple times@ \
          in@ this@ toplevel@ session.@ \
@@ -201,14 +202,14 @@ module Conflicts = struct
         Namespace.pp namespace
         Style.inline_code a Namespace.pp namespace
       | (namespace, _) :: _ :: _ ->
-      Format.fprintf ppf
+      Fmt.fprintf ppf
         "@ \
          @[<2>@{<hint>Hint@}: The %a %a have been defined multiple times@ \
          in@ this@ toplevel@ session.@ \
          Some toplevel values still refer to@ old@ versions@ of@ those@ %a.\
          @ Did you try to redefine them?@]"
         pp_namespace_plural namespace
-        Format.(pp_print_list ~pp_sep:conj Style.inline_code)
+        Fmt.(pp_print_list ~pp_sep:conj Style.inline_code)
         (List.map snd names)
         pp_namespace_plural namespace in
     Array.iter (pp_submsg ppf) submsgs
@@ -222,7 +223,7 @@ module Conflicts = struct
     in
     begin match l with
     | [] -> ()
-    | l -> Format.fprintf ppf "@,%a" print_located_explanations l
+    | l -> Fmt.fprintf ppf "@,%a" print_located_explanations l
     end;
     (* if there are name collisions in a toplevel session,
        display at least one generic hint by namespace *)
@@ -444,11 +445,11 @@ let path ppf p =
   Oprint.(print out_ident) ppf (tree_of_path None p)
 
 let string_of_path p =
-  Raw_format.asprintf "%a" (Format.compat path) p
+  Raw_format.asprintf "%a" (Fmt.compat path) p
 
 let strings_of_paths namespace p =
   let trees = List.map (tree_of_path namespace) p in
-  List.map (Format.asprintf "%a" Oprint.(print out_ident)) trees
+  List.map (Fmt.asprintf "%a" Oprint.(print out_ident)) trees
 
 let () = Env.print_path := path
 
@@ -468,7 +469,7 @@ let string_of_label = function
 
 module Raw = struct
   open Raw_format
-  let path = Format_doc.compat path
+  let path = Fmt.compat path
 let raw_list pr ppf = function
     [] -> fprintf ppf "[]"
   | a :: l ->
@@ -855,7 +856,7 @@ module Internal_names : sig
 
   val add : Path.t -> unit
 
-  val print_explanations : Env.t -> Format.formatter -> unit
+  val print_explanations : Env.t -> Fmt.formatter -> unit
 
 end = struct
 
@@ -903,7 +904,7 @@ end = struct
             fprintf ppf
               "@ @[<2>@{<hint>Hint@}:@ %a@ and %a@ are existential types@ \
                bound by the constructor@ %a.@]"
-              (Format.pp_print_list
+              (Fmt.pp_print_list
                  ~pp_sep:(fun ppf () -> fprintf ppf ",@ ")
                  quoted_ident)
               (List.rev out_idents)
@@ -1717,7 +1718,7 @@ let extension_only_constructor id ppf ext =
       ext.ext_args
       ext.ext_ret_type
   in
-  Format.fprintf ppf "@[<hv>%a@]"
+  Fmt.fprintf ppf "@[<hv>%a@]"
     Oprint.(print out_constr) {
       ocstr_name = name;
       ocstr_args = args;
@@ -2090,11 +2091,11 @@ and tree_of_module id ?ellipsis mty rs =
 let rec functor_parameters ~sep custom_printer = function
   | [] -> ignore
   | [id,param] ->
-      Format.dprintf "%t%t"
+      Fmt.dprintf "%t%t"
         (custom_printer param)
         (functor_param ~sep ~custom_printer id [])
   | (id,param) :: q ->
-      Format.dprintf "%t%a%t"
+      Fmt.dprintf "%t%a%t"
         (custom_printer param)
         sep ()
         (functor_param ~sep ~custom_printer id q)
@@ -2137,7 +2138,7 @@ let printed_signature sourcefile ppf sg =
   && Conflicts.exists ()
   then begin
     let printer ppf =
-      Conflicts.print_explanations (Format_doc.make_formatter ppf)
+      Conflicts.print_explanations (Fmt.make_formatter ppf)
     in
     let conflicts = Raw_format.asprintf "%t" printer in
     Location.prerr_warning (Location.in_file sourcefile)
@@ -2145,7 +2146,7 @@ let printed_signature sourcefile ppf sg =
     Warnings.check_fatal ()
   end;
   Raw_format.fprintf ppf "%a"
-    (Format_doc.compat print_signature) t
+    (Fmt.compat print_signature) t
 
 (* Trace-specific printing *)
 
@@ -2289,7 +2290,7 @@ let rec filter_trace keep_last = function
   | _ :: rem -> filter_trace keep_last rem
 
 let type_path_list ppf l =
-  Format.pp_print_list ~pp_sep:(fun ppf () -> Format.pp_print_break ppf 2 0)
+  Fmt.pp_print_list ~pp_sep:(fun ppf () -> Fmt.pp_print_break ppf 2 0)
     type_path_expansion ppf l
 
 (* Hide variant name and var, to force printing the expanded type *)
@@ -2317,13 +2318,13 @@ let may_prepare_expansion compact (Errortrace.{ty; expanded} as ty_exp) =
   | _ -> prepare_expansion ty_exp
 
 let print_path p =
-  Format.dprintf "%a" Oprint.(print out_ident) (tree_of_path (Some Type) p)
+  Fmt.dprintf "%a" Oprint.(print out_ident) (tree_of_path (Some Type) p)
 
 let print_tag ppf s = Style.inline_code ppf ("`" ^ s)
 
 let print_tags ppf tags  =
-  let comma ppf () = Format.fprintf ppf ",@ " in
-  Format.pp_print_list ~pp_sep:comma print_tag ppf tags
+  let comma ppf () = Fmt.fprintf ppf ",@ " in
+  Fmt.pp_print_list ~pp_sep:comma print_tag ppf tags
 
 let is_unit env ty =
   match get_desc (Ctype.expand_head env ty) with
@@ -2611,7 +2612,7 @@ let error trace_format mode subst env tr txt1 ppf txt2 ty_expect_explanation =
 
 let report_error trace_format ppf mode env tr
       ?(subst = [])
-      ?(type_expected_explanation = Format_doc.empty)
+      ?(type_expected_explanation = Fmt.empty)
       txt1 txt2 =
   wrap_printing_env ~error:true env (fun () ->
     error trace_format mode subst env tr txt1 ppf txt2
@@ -2746,12 +2747,12 @@ let tree_of_type_declaration ident td rs =
 
 (** Compatibility module for Format printers *)
 module Compat = struct
-  let longident = Format_doc.compat longident
-  let path = Format_doc.compat path
-  let type_expr = Format_doc.compat type_expr
-  let shared_type_scheme = Format_doc.compat shared_type_scheme
-  let signature = Format_doc.compat signature
-  let class_type = Format_doc.compat class_type
-  let modtype = Format_doc.compat modtype
+  let longident = Fmt.compat longident
+  let path = Fmt.compat path
+  let type_expr = Fmt.compat type_expr
+  let shared_type_scheme = Fmt.compat shared_type_scheme
+  let signature = Fmt.compat signature
+  let class_type = Fmt.compat class_type
+  let modtype = Fmt.compat modtype
   let string_of_label = string_of_label
 end

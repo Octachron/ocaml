@@ -29,8 +29,6 @@ type ('l,'r,'diff) change =
   | Insert of {pos:int; insert:'r}
   | Delete of {pos:int; delete:'l}
 
-module Format = Format_doc
-
 let prefix ppf x =
   let kind = match x with
     | Change _ | Swap _ | Move _ -> Diffing.Modification
@@ -39,8 +37,8 @@ let prefix ppf x =
   in
   let style k ppf inner =
     let sty = Diffing.style k in
-    Format.pp_open_stag ppf (Misc.Style.Style sty);
-    Format.kfprintf (fun ppf -> Format.pp_close_stag ppf () ) ppf inner
+    Format_doc.pp_open_stag ppf (Misc.Style.Style sty);
+    Format_doc.kfprintf (fun ppf -> Format_doc.pp_close_stag ppf () ) ppf inner
   in
   match x with
   | Change (Name {pos; _ } | Type {pos; _})
