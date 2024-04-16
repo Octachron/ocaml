@@ -93,10 +93,7 @@ open Types
 open Typedtree
 open Lambda
 open Parmatch
-
-let pretty_line = Format_doc.compat Printpat.pretty_line
-let pretty_matrix = Format_doc.compat Printpat.pretty_matrix
-let pretty_pat = Printpat.pretty_pat
+open Printpat.Compat
 
 module Scoped_location = Debuginfo.Scoped_location
 
@@ -2800,7 +2797,7 @@ let mk_failaction_pos partial seen ctx defs =
       pp_partial partial
       Default_environment.pp defs
       (Format.pp_print_list ~pp_sep:Format.pp_print_cut
-         Printpat.pretty_pat) fail_pats
+         Printpat.Compat.pretty_pat) fail_pats
       Jumps.pp jmps
     ;
     (None, fail, jmps)

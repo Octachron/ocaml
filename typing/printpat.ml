@@ -152,19 +152,23 @@ let pretty_pat ppf p =
   top_pretty ppf p ;
   pp_print_flush ppf ()
 
-let pretty_pat ppf x = compat pretty_pat ppf x
-
 type 'k matrix = 'k general_pattern list list
 
 let pretty_line ppf line =
   fprintf ppf "@[";
   List.iter (fun p ->
-    Format_doc.fprintf ppf " <";
-    top_pretty ppf p;
-    Format_doc.fprintf ppf ">";
-  ) line
+      Format_doc.fprintf ppf " <";
+      top_pretty ppf p;
+      Format_doc.fprintf ppf ">";
+    ) line
 
 let pretty_matrix ppf (pss : 'k matrix) =
   Format.fprintf ppf "@[<v 2>  %a@]"
     (Format.pp_print_list ~pp_sep:Format.pp_print_cut pretty_line)
     pss
+
+module Compat = struct
+  let pretty_pat ppf x = compat pretty_pat ppf x
+  let pretty_line ppf x = compat pretty_line ppf x
+  let pretty_matrix ppf x = compat pretty_matrix ppf x
+end
