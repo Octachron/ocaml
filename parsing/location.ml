@@ -840,17 +840,15 @@ let report_error ppf err =
   print_report ppf err
 
 let mkerror loc sub txt =
-  Fmt.kdoc_printf (fun txt ->
-      { kind = Report_error; main = { loc; txt }; sub }
-    ) "%t" txt
-let errorf ?(loc = none) ?(sub = []) =
-  Fmt.kdprintf (mkerror loc sub)
+  { kind = Report_error; main = { loc; txt }; sub }
+
+let errorf ?(loc = none) ?(sub = []) = Fmt.kdoc_printf (mkerror loc sub)
 
 let error ?(loc = none) ?(sub = []) msg_str =
-  mkerror loc sub (fun ppf -> Fmt.pp_print_string ppf msg_str)
+  mkerror loc sub Fmt.(Immutable.string msg_str empty)
 
 let error_of_printer ?(loc = none) ?(sub = []) pp x =
-  mkerror loc sub (fun ppf -> pp ppf x)
+  mkerror loc sub (Fmt.doc_printf "%a" pp x)
 
 let error_of_printer_file print x =
   error_of_printer ~loc:(in_file !input_name) print x
@@ -1005,4 +1003,4 @@ let () =
     )
 
 let raise_errorf ?(loc = none) ?(sub = []) =
-  Fmt.kdprintf (fun txt -> raise (Error (mkerror loc sub txt)))
+  Fmt.kdoc_printf (fun txt -> raise (Error (mkerror loc sub txt)))
