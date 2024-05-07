@@ -302,9 +302,6 @@ type formatter =
 type 'a printer = formatter -> 'a -> unit
 
 
-let make_formatter fmt  = Format fmt
-let formatter_of_out_channel chan =
-  make_formatter (Format.formatter_of_out_channel chan)
 let make_doc d = Doc d
 
 let doc = function
@@ -514,17 +511,6 @@ let kfprintf k ppf (CamlinternalFormatBasics.Format (fmt, _))  =
     End_of_acc fmt
 let fprintf doc fmt = kfprintf ignore doc fmt
 
-let kasprintf k fmt =
-  let b = Buffer.create 20 in
-  let ppf = make_formatter (Format.formatter_of_buffer b) in
-  kfprintf
-    (fun ppf -> pp_print_flush ppf ();
-      let r = Buffer.contents b in
-      Buffer.reset b;
-      k r)
-    ppf fmt
-
-let asprintf fmt = kasprintf Fun.id fmt
 
 let kdprintf k (CamlinternalFormatBasics.Format (fmt, _)) =
   CamlinternalFormat.make_printf
@@ -545,8 +531,13 @@ let doc_printer f x doc =
   let r = ref doc in
   f (Doc r) x;
   !r
-let format_printer f ppf x = f (make_formatter ppf) x
+let format_printer f ppf x =
+  let doc = doc_printer f x empty in
+  format ppf doc
 let compat = format_printer
+
+let kasprintf k fmt = kdoc_printf (fun doc -> k (Format.asprintf "%a" format doc)) fmt
+let asprintf fmt = kasprintf Fun.id fmt
 
 
 let pp_print_iter ?(pp_sep=pp_print_cut) iter elt ppf c = match ppf with

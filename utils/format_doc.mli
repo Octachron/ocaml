@@ -140,8 +140,6 @@ type formatter
 type 'a printer = formatter -> 'a -> unit
 
 
-val make_formatter: Format.formatter -> formatter
-val formatter_of_out_channel: out_channel -> formatter
 val make_doc: doc ref -> formatter
 val compat: 'a printer -> Format.formatter -> 'a -> unit
 val approx: (Format.formatter -> unit) -> formatter -> unit
