@@ -123,15 +123,36 @@ module Immutable = struct
   let open_tag stag doc = add (Open_tag stag) doc
   let close_tag doc = add Close_tag doc
 
+  let iter ?(sep=Fun.id) ~iter:iterator elt l doc =
+    let first = ref false in
+    let rdoc = ref doc in
+    let print x =
+      if !first then (first := false; rdoc := elt x !rdoc)
+      else rdoc := !rdoc |> sep |> elt x
+    in
+    iterator print l;
+    !rdoc
+
   let rec list ?(sep=Fun.id) elt l doc = match l with
     | [] -> doc
     | [a] -> elt a doc
     | a :: (_ :: _ as q) ->
         doc |> elt a |> sep |> list ~sep elt q
 
+  let array ?sep elt a doc = iter ?sep ~iter:Array.iter elt a doc
+  let seq ?sep elt s doc = iter ?sep ~iter:Seq.iter elt s doc
+
   let option ?(none=Fun.id) elt o doc = match o with
     | None -> none doc
     | Some x -> elt x doc
+
+  let either ~left ~right x doc = match x with
+    | Either.Left x -> left x doc
+    | Either.Right x -> right x doc
+
+  let result ~ok ~error x doc = match x with
+    | Ok x -> ok x doc
+    | Error x -> error x doc
 
   (* To format free-flowing text *)
   let rec subtext len left right s doc =
@@ -155,7 +176,8 @@ module Immutable = struct
     subtext (String.length s) 0 0 s doc
 
   type ('a,'b) fmt = ('a, doc, doc, 'b) format4
-  type printer = doc -> doc
+  type printer0 = doc -> doc
+  type 'a printer = 'a -> printer0
 
   let output_formatting_lit fmting_lit doc =
     let open CamlinternalFormatBasics in
@@ -300,6 +322,25 @@ let pp_print_string ppf s = match ppf with
   | Format ppf -> Format.pp_print_string ppf s
   | Doc rdoc -> rdoc := Immutable.string s !rdoc
 
+let pp_print_as ppf size s = match ppf with
+  | Format ppf -> Format.pp_print_as ppf size s
+  | Doc rdoc -> rdoc := !rdoc |> Immutable.with_size size |> Immutable.string s
+
+let pp_print_substring ~pos ~len ppf s = match ppf with
+  | Format ppf -> Format.pp_print_substring ~pos ~len ppf s
+  | Doc rdoc -> rdoc := Immutable.string (String.sub s pos len) !rdoc
+
+let pp_print_substring_as ~pos ~len ppf size s = match ppf with
+  | Format ppf -> Format.pp_print_substring_as ~pos ~len ppf size s
+  | Doc rdoc -> rdoc :=
+        !rdoc
+        |> Immutable.with_size size
+        |> Immutable.string (String.sub s pos len)
+
+let pp_print_bytes ppf s = match ppf with
+  | Format ppf -> Format.pp_print_bytes ppf s
+  | Doc rdoc -> rdoc := Immutable.string (Bytes.to_string s) !rdoc
+
 let pp_print_text ppf s = match ppf with
   | Format ppf -> Format.pp_print_text ppf s
   | Doc rdoc -> rdoc := Immutable.text s !rdoc
@@ -316,6 +357,12 @@ let pp_print_float ppf f = match ppf with
   | Format ppf -> Format.pp_print_float ppf f
   | Doc rdoc -> rdoc := Immutable.float f !rdoc
 
+let pp_print_bool ppf b = match ppf with
+  | Format ppf -> Format.pp_print_bool ppf b
+  | Doc rdoc -> rdoc := Immutable.bool b !rdoc
+
+let pp_print_nothing _ _ = ()
+
 let pp_close_box ppf () = match ppf with
   | Format ppf -> Format.pp_close_box ppf ()
   | Doc rdoc -> rdoc := Immutable.close_box !rdoc
@@ -327,6 +374,11 @@ let pp_close_stag ppf () = match ppf with
 let pp_print_break ppf spaces indent = match ppf with
   | Format ppf -> Format.pp_print_break ppf spaces indent
   | Doc rdoc -> rdoc := Immutable.break ~spaces ~indent !rdoc
+
+let pp_print_custom_break ppf ~fits ~breaks = match ppf with
+  | Format ppf -> Format.pp_print_custom_break ~fits ~breaks ppf
+  | Doc rdoc -> rdoc := Immutable.custom_break ~fits ~breaks !rdoc
+
 
 let pp_print_space ppf () = pp_print_break ppf 1 0
 let pp_print_cut ppf () = pp_print_break ppf 0 0
@@ -344,11 +396,9 @@ let pp_print_newline ppf () = match ppf with
   | Format ppf -> Format.pp_print_newline ppf ()
   | Doc rdoc -> rdoc := Immutable.force_stop !rdoc
 
-
-let pp_print_as ppf size x = match ppf with
-  | Format ppf -> Format.pp_print_as ppf size x
-  | Doc rdoc ->
-      rdoc := !rdoc |> Immutable.with_size size |> Immutable.string x
+let pp_print_if_newline ppf () = match ppf with
+  | Format ppf -> Format.pp_print_if_newline ppf ()
+  | Doc rdoc -> rdoc := Immutable.if_newline !rdoc
 
 let pp_open_stag ppf stag = match ppf with
   | Format ppf -> Format.pp_open_stag ppf stag
@@ -496,25 +546,53 @@ let doc_printer f x doc =
   f (Doc r) x;
   !r
 let format_printer f ppf x = f (make_formatter ppf) x
+let compat = format_printer
+
+
+let pp_print_iter ?(pp_sep=pp_print_cut) iter elt ppf c = match ppf with
+  | Format ppf ->
+      Format.pp_print_iter ~pp_sep:(compat pp_sep) iter (compat elt) ppf c
+  | Doc rdoc ->
+      let sep = doc_printer pp_sep () in
+      rdoc:= Immutable.iter ~sep ~iter (doc_printer elt) c !rdoc
 
 let pp_print_list ?(pp_sep=pp_print_cut) elt ppf l = match ppf with
   | Format ppf ->
-      let pp_sep ppf () = pp_sep (Format ppf) () in
-      let elt ppf x = elt (Format ppf) x in
-      Format.pp_print_list ~pp_sep elt ppf l
+      Format.pp_print_list ~pp_sep:(compat pp_sep) (compat elt) ppf l
   | Doc rdoc ->
       rdoc :=
         Immutable.list ~sep:(doc_printer pp_sep ()) (doc_printer elt) l !rdoc
 
+let pp_print_array ?pp_sep elt ppf a =
+  pp_print_iter ?pp_sep Array.iter elt ppf a
+let pp_print_seq ?pp_sep elt ppf s = pp_print_iter ?pp_sep Seq.iter elt ppf s
 
 let pp_print_option  ?(none=fun _ () -> ()) elt ppf o = match ppf with
   | Format ppf ->
-      let none ppf x = none (Format ppf) x in
-      let elt ppf x = elt(Format ppf) x in
-      Format.pp_print_option ~none elt ppf o
+      Format.pp_print_option ~none:(compat none) (compat elt) ppf o
   | Doc rdoc ->
       rdoc :=
-        Immutable.option ~none:(doc_printer none ()) (doc_printer elt) o !rdoc
+        Immutable.option
+          ~none:(doc_printer none ())
+          (doc_printer elt) o !rdoc
+
+let pp_print_result  ~ok ~error ppf r = match ppf with
+  | Format ppf ->
+      Format.pp_print_result ~ok:(compat ok) ~error:(compat error) ppf r
+  | Doc rdoc ->
+      rdoc :=
+        Immutable.result ~ok:(doc_printer ok) ~error:(doc_printer error)
+          r !rdoc
+
+let pp_print_either  ~left ~right ppf e = match ppf with
+  | Format ppf ->
+      Format.pp_print_either ~left:(compat left) ~right:(compat right) ppf e
+  | Doc rdoc ->
+      rdoc :=
+        Immutable.either
+          ~left:(doc_printer left) ~right:(doc_printer right)
+          e !rdoc
+
 
 let comma ppf () = fprintf ppf ",@ "
 
@@ -539,7 +617,6 @@ let pp_two_columns ?(sep = "|") ?max_lines ppf (lines: (string * string) list) =
     ) lines;
   fprintf ppf "@]"
 
-let compat = format_printer
 let approx pr ppf = match ppf with
   | Format ppf -> pr ppf
   | Doc _ ->

@@ -52,51 +52,59 @@ val fold: ('acc -> element -> 'acc) -> 'acc -> doc -> 'acc
 module Immutable: sig
   type ('a,'b) fmt = ('a, doc, doc,'b) format4
 
-  type printer = doc -> doc
+  type printer0 = doc -> doc
+  type 'a printer = 'a -> printer0
 
-  val printf: ('a, printer) fmt -> 'a
+  val printf: ('a, printer0) fmt -> 'a
   val msg: ('a,doc) fmt -> 'a
   val kmsg: (doc -> 'b) -> ('a,'b) fmt -> 'a
   val kprintf: (doc -> 'b) -> ('a, doc -> 'b) fmt -> 'a
 
-  val open_box: box_type -> int -> printer
-  val close_box: printer
+  val open_box: box_type -> int -> printer0
+  val close_box: printer0
 
-  val text: string -> printer
-  val string: string -> printer
-  val bytes: bytes -> printer
-  val with_size: int -> printer
+  val text: string printer
+  val string: string printer
+  val bytes: bytes printer
+  val with_size: int printer
 
-  val int: int -> printer
-  val float: float -> printer
-  val char: char -> printer
-  val bool: bool -> printer
+  val int: int printer
+  val float: float printer
+  val char: char printer
+  val bool: bool printer
 
-  val space: printer
-  val cut: printer
-  val break: spaces:int -> indent:int -> printer
+  val space: printer0
+  val cut: printer0
+  val break: spaces:int -> indent:int -> printer0
 
   val custom_break:
-    fits:(string * int * string as 'a) -> breaks:'a -> printer
-  val force_newline: printer
-  val if_newline: printer
+    fits:(string * int * string as 'a) -> breaks:'a -> printer0
+  val force_newline: printer0
+  val if_newline: printer0
 
-  val flush: printer
-  val force_stop: printer
+  val flush: printer0
+  val force_stop: printer0
 
-  val open_tbox: printer
-  val set_tab: printer
-  val tab: printer
-  val tab_break: width:int -> offset:int -> printer
-  val close_tbox: printer
+  val open_tbox: printer0
+  val set_tab: printer0
+  val tab: printer0
+  val tab_break: width:int -> offset:int -> printer0
+  val close_tbox: printer0
 
-  val open_tag: stag -> printer
-  val close_tag: printer
+  val open_tag: stag printer
+  val close_tag: printer0
 
-  val list:
-    ?sep:(doc->doc) -> ('a -> printer) -> 'a list -> printer
+  val list: ?sep:printer0 -> 'a printer -> 'a list printer
+  val iter:
+    ?sep:printer0 -> iter:(('a -> unit) -> 'b -> unit) -> 'a printer
+    ->'b printer
+  val array: ?sep:printer0 -> 'a printer -> 'a array printer
+  val seq: ?sep:printer0 -> 'a printer -> 'a Seq.t printer
 
-  val option: ?none:(doc->doc) -> ('a -> doc -> doc) -> 'a option -> doc -> doc
+
+  val option: ?none:printer0 -> 'a printer -> 'a option printer
+  val result: ok:'a printer -> error:'e printer -> ('a,'e) result printer
+  val either: left:'a printer -> right:'b printer -> ('a,'b) Either.t printer
 
 end
 
@@ -139,40 +147,71 @@ val kdprintf:
 val doc_printf: ('a, formatter, unit, doc) format4 -> 'a
 val kdoc_printf: (doc -> 'r) -> ('a, formatter, unit, 'r) format4 -> 'a
 
-val doc_printer: 'a printer -> 'a -> Immutable.printer
+val doc_printer: 'a printer -> 'a Immutable.printer
 val pp_doc: doc printer
 
+(** {1 String printers } *)
 val pp_print_string: string printer
+val pp_print_substring: pos:int -> len:int -> string printer
 val pp_print_text: string printer
+val pp_print_bytes: bytes printer
+
+val pp_print_as: formatter -> int -> string -> unit
+val pp_print_substring_as:
+  pos:int -> len:int -> formatter -> int -> string -> unit
+
 val pp_print_char: char printer
 val pp_print_int: int printer
 val pp_print_float: float printer
-val pp_print_newline: unit printer
+val pp_print_bool: bool printer
+val pp_print_nothing: unit printer
 
-val pp_print_list:
-  ?pp_sep:unit printer -> 'a printer -> 'a list printer
+(** {1 Printer combinator }*)
+val pp_print_iter:
+  ?pp_sep:unit printer -> (('a -> unit) -> 'b -> unit) ->
+  'a printer -> 'b printer
+
+val pp_print_list: ?pp_sep:unit printer -> 'a printer -> 'a list printer
+val pp_print_array: ?pp_sep:unit printer -> 'a printer -> 'a array printer
+val pp_print_seq: ?pp_sep:unit printer -> 'a printer -> 'a Seq.t printer
+
+val pp_print_option: ?none:unit printer -> 'a printer -> 'a option printer
+
+val pp_print_result:
+  ok:'a printer -> error:'e printer -> ('a,'e) result printer
+
+val pp_print_either:
+  left:'a printer -> right:'b printer -> ('a,'b) Either.t printer
 
 
-val pp_print_option:
-  ?none:(unit printer) -> 'a printer -> 'a option printer
+
+(** {1 Boxes and tags }*)
 val pp_open_stag: Format.stag printer
 val pp_close_stag: unit printer
 
 val pp_open_box: int printer
 val pp_close_box: unit printer
 
+(** {1 Break hints} *)
 val pp_print_space: unit printer
 val pp_print_cut: unit printer
 val pp_print_break: formatter -> int -> int -> unit
+val pp_print_custom_break:
+  formatter -> fits:(string * int * string as 'c) -> breaks:'c -> unit
 
-
+(** {1 Tabulations }*)
 val pp_open_tbox: unit printer
 val pp_close_tbox: unit printer
 val pp_set_tab: unit printer
 val pp_print_tab: unit printer
 val pp_print_tbreak: formatter -> int -> int -> unit
 
+(** {1 Newlines and flushing }*)
+val pp_print_if_newline: unit printer
+val pp_force_newline: unit printer
 val pp_print_flush: unit printer
+val pp_print_newline: unit printer
+
 
 (** {1 Separators }*)
 
