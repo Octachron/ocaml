@@ -4,7 +4,7 @@
 (*                                                                        *)
 (*             Florian Angeletti, projet Cambium, Inria Paris             *)
 (*                                                                        *)
-(*   Copyright 2023 Institut National de Recherche en Informatique et     *)
+(*   Copyright 2024 Institut National de Recherche en Informatique et     *)
 (*     en Automatique.                                                    *)
 (*                                                                        *)
 (*   All rights reserved.  This file is distributed under the terms of    *)
@@ -13,8 +13,21 @@
 (*                                                                        *)
 (**************************************************************************)
 
-(** Composable document for the Format formatting engine *)
+(** Composable document for the {!Format} formatting engine. *)
 
+(** This module introduces a pure and immutable document type which represents a
+    sequence of formatting instructions to be printed by a formatting engine at
+    later point. At the same time, it also provides format string interpreter
+    which produces this document type from format string and their associated
+    printer.
+
+
+    The module is designed to be source compatible with code defining format
+    printers: replacing `Format` by `Format_doc` in your code will convert
+    `Format` printers to `Format_doc` printers.
+*)
+
+(** Format box types as an ADT *)
 type box_type =
   | H
   | V
@@ -24,6 +37,7 @@ type box_type =
 
 type stag = Format.stag
 
+(** Base formatting instruction recognized by {!Format} *)
 type element =
   | Data of string
   | With_size of int
@@ -41,11 +55,18 @@ type element =
   | Newline
   | If_newline
 
+ (** Immutable document type*)
 type t
 type doc = t
 
+(** Empty document *)
 val empty: t
+
+(** [format ppf doc] sends the format instruction of [doc] to the Format's
+    formatter [doc]. *)
 val format: Format.formatter -> doc -> unit
+
+(** Fold over a document as a sequence of instructions *)
 val fold: ('acc -> element -> 'acc) -> 'acc -> doc -> 'acc
 
 
