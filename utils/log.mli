@@ -83,9 +83,10 @@ module type Root = sig
   val new_version: version -> id scheme_version
 end
 
-module New_root_scheme(): Root
-module New_record(Root:Def)(): Record with type root := Root.id
-module New_sum(Root:Def)(): Sum with type root := Root.id
+module type Name = sig val name: string end
+module New_root_scheme: Name -> () -> Root
+module New_record(Root:Def): Name -> () -> (Record with type root := Root.id)
+module New_sum(Root:Def): Name -> () -> (Sum with type root := Root.id)
 
 val new_key: 'id scheme_version -> 'id def -> string -> 'a typ -> ('a,'id) key
 
@@ -138,6 +139,10 @@ module Backends : sig
   val fmt: t
   val json: t
   val sexp: t
+end
+
+module Json_schema:sig
+  val pp: Format.formatter -> 'a def -> unit
 end
 
 val set: ('a,'b) key  -> 'a -> 'b log -> unit

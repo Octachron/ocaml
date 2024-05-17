@@ -67,6 +67,7 @@ and key_metadata =
 and 'a def = {
   scheme_version: version ref;
   scheme_status: scheme_status ref;
+  scheme_name: string;
   mutable keys: (Keys.key * key_metadata) list;
   version_key: (version,'a) key option;
   validity_key: (bool,'a) key option;
@@ -204,7 +205,9 @@ module New_local_def() = struct
   type log = id t
 end
 
-module New_root_scheme() = struct
+module type Name = sig val name: string end
+
+module New_root_scheme(Name:Name)() = struct
   include New_local_def ()
   let scheme =
     let version_key = Some (version_key ()) in
@@ -218,6 +221,7 @@ module New_root_scheme() = struct
       }
     in
     { scheme_version = ref first_version;
+      scheme_name = Name.name;
       scheme_status = ref major_scheme_update;
       keys = [ metakey "valid" Bool; metakey "version" version_ty ];
       version_key;
@@ -240,10 +244,11 @@ module New_root_scheme() = struct
       version
 end
 
-module New_record(Root:Def)() = struct
+module New_record(Root:Def)(Name:Name)() = struct
   include New_local_def ()
   let scheme =
     { scheme_version = Root.scheme.scheme_version;
+      scheme_name = String.concat "/" [Root.scheme.scheme_name; Name.name];
       scheme_status =  Root.scheme.scheme_status;
       keys = [];
       version_key=None;
@@ -254,11 +259,13 @@ module New_record(Root:Def)() = struct
     let derived_version x = x
 end
 
-module New_sum(Root:Def)() = struct
+module New_sum(Root:Def)(Name:Name)() = struct
   include New_local_def ()
   let scheme =
-    { scheme_version = Root.scheme.scheme_version;
-      scheme_status =  Root.scheme.scheme_status;
+    let root = Root.scheme in
+    { scheme_version = root.scheme_version;
+      scheme_name = String.concat "/" [root.scheme_name; Name.name];
+      scheme_status = root.scheme_status;
       keys = [];
       version_key=None;
       validity_key = None;
@@ -845,10 +852,10 @@ end
 
 let slist = List { optional=true; elt=String }
 
-module Compiler_root = New_root_scheme ()
+module Compiler_root = New_root_scheme (struct let name ="compiler" end)()
 
 module Debug = struct
-  include New_record(Compiler_root)()
+  include New_record(Compiler_root)(struct let name = "debug" end)()
   let v1 = derived_version Compiler_root.v1
   let parsetree = new_key v1 "parsetree" (Option String)
   let source = new_key v1 "source" (Option String)
@@ -873,7 +880,8 @@ module Debug = struct
   let cmm_invariant = new_key v1 "cmm_invariant" (Option String)
 end
 
-module Error = New_record (Compiler_root)()
+module Error =
+  New_record (Compiler_root)(struct let name = "error_report" end)()
 
 module Compiler = struct
   include Compiler_root
@@ -882,7 +890,7 @@ end
 
 let dloc = List { optional=true; elt = Doc}
 module Toplevel = struct
-  include New_root_scheme()
+  include New_root_scheme(struct let name="toplevel" end)()
   let output = new_key v1 "output" Doc
   let backtrace = new_key v1 "backtrace" (Option Doc)
   let compiler_log =
@@ -894,3 +902,92 @@ end
 let log_if dlog key flag printer x =
   if flag then
     Format.kasprintf (fun s -> dlog.%[key] <- Some (s)) "%a" printer x
+
+
+let comma ppf () = Format.fprintf ppf ",@ "
+
+module Json_schema = struct
+  let string s ppf = Format.fprintf ppf "%S" s
+  let field f pr ppf = Format.fprintf ppf {|%S: %t,|} f pr
+  let header =
+      [
+        (field "$schema" @@
+         string "https://json-schema.org/draft/2020-12/schema");
+        (field "$id" @@
+         string "https://github.com/ocaml/schema/compiler.schema.json");
+      ]
+
+  let tfield  x = field "type" (string x)
+  let record prs =
+    Format.dprintf "{@,%a@,}"
+      (Format.pp_print_list (|>)) prs
+
+  let sref x =
+    record [ field "$ref" @@ Format.dprintf "#/$defs/%s" x.scheme_name]
+
+  let array prs =
+    Format.dprintf "[@,%a@,]"
+      (Format.pp_print_list ~pp_sep:comma (|>)) prs
+
+  let rec typ: type a b. a typ -> Format.formatter -> unit = function
+    | Int -> tfield {|"integer"|}
+    | Bool -> tfield {|"bool"|}
+    | Unit -> tfield {|"int"|}
+    | String -> tfield {|"string"|}
+    | Doc -> tfield {|"string"|}
+    | List e ->
+        Format.dprintf "%t%t"
+          (tfield  {|"array"|})
+          (field "items" @@ record [typ e.elt] )
+    | Option x -> typ x
+    | Pair (x,y) -> tuple_typ [typ x; typ y]
+    | Triple (x,y,z) -> tuple_typ [typ x; typ y; typ z]
+    | Quadruple (x,y,z,w) -> tuple_typ [typ x;typ y; typ z; typ w]
+    | Sum x -> sref x
+    | Record x -> sref x
+    | Custom x -> typ x.default
+  and tuple_typ = fun l ->
+    Format.dprintf "%t%t"
+      (tfield  {|"array"|})
+      (field "items" @@ array @@
+       List.map (fun x -> record [x]) l
+      )
+
+  let const name = field "const" @@ string name
+  let sum x =
+    let constructor ppf (name, Key_metadata kty) =
+      tuple_typ [const name; typ kty.typ] ppf in
+    let constructors ppf =
+      Format.pp_print_list ~pp_sep:comma constructor ppf x.keys in
+    record [ field "oneOf" constructors ]
+
+
+  let fields x =
+    List.map (fun (k, Key_metadata kty) -> field k (typ kty.typ)) x.keys
+
+  let rec refs: type a. a typ -> (string * (Format.formatter -> unit)) list =
+    fun ty -> match ty with
+      | Sum x ->
+          (x.scheme_name, sum x) :: subrefs x
+      | Record x -> (x.scheme_name, record (fields x)) :: subrefs x
+      | Doc -> []
+      | Int -> []
+      | Bool -> []
+      | String -> []
+      | Unit -> []
+      | List x -> refs x.elt
+      | Option x -> refs x
+      | Pair (x,y) -> refs x @ refs y
+      | Triple (x,y,z) -> refs x @ refs y @ refs z
+      | Quadruple (x,y,z,w) -> refs x @ refs y @ refs z @ refs w
+      | Custom t -> refs t.default
+and subrefs: type a. a def -> (string * (Format.formatter -> unit)) list
+    = fun sch ->
+  List.concat_map (function (_,Key_metadata kty) -> refs kty.typ) sch.keys
+
+  let pp ppf sch =
+    let refs = subrefs sch in
+    let defs = record (List.map (fun (k,pr) -> field k pr) refs) in
+    record (header @ (field "$defs" defs) :: fields sch) ppf
+
+  end

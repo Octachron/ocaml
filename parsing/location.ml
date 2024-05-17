@@ -682,7 +682,7 @@ module Error_log = struct[@warning "-unused-value-declaration"]
   open Log
   let v1 = Compiler.v1
 
-  module Kind = New_sum(Compiler)()
+  module Kind = New_sum(Compiler)(struct let name="error_kind" end)()
   let report_error = Kind.new_constr v1 "Report_error" Unit
   let report_alert = Kind.new_constr v1  "Report_alert"  String
   let report_alert_as_error = Kind.new_constr v1 "Report_alert_as_error" String
@@ -763,7 +763,7 @@ module Error_log = struct[@warning "-unused-value-declaration"]
     }
   let loc = Log.Error.new_key v1 "loc" loc_typ
 
-  module Msg = New_record(Compiler)()
+  module Msg = New_record(Compiler)(struct let name="error_msg" end)()
   let msg = Msg.new_key v1 "msg" Doc
   let msg_loc = Msg.new_key v1 "loc" loc_typ
   let msg_typ =
