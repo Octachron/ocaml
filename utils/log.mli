@@ -142,7 +142,7 @@ module Backends : sig
 end
 
 module Json_schema:sig
-  val pp: Format.formatter -> 'a def -> unit
+  val pp: Format.formatter -> 'a log -> unit
 end
 
 val set: ('a,'b) key  -> 'a -> 'b log -> unit

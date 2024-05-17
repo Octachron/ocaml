@@ -908,7 +908,7 @@ let comma ppf () = Format.fprintf ppf ",@ "
 
 module Json_schema = struct
   let string s ppf = Format.fprintf ppf "%S" s
-  let field f pr ppf = Format.fprintf ppf {|%S: %t,|} f pr
+  let field f pr ppf = Format.fprintf ppf {|@[<b 2>%S:@ %t@]|} f pr
   let header =
       [
         (field "$schema" @@
@@ -918,27 +918,27 @@ module Json_schema = struct
       ]
 
   let tfield  x = field "type" (string x)
-  let record prs =
-    Format.dprintf "{@,%a@,}"
-      (Format.pp_print_list (|>)) prs
+  let obj prs =
+    Format.dprintf "{@,%a@;<0 -2>}"
+      (Format.pp_print_list ~pp_sep:comma (|>)) prs
 
   let sref x =
-    record [ field "$ref" @@ Format.dprintf "#/$defs/%s" x.scheme_name]
+    field "$ref" @@ Format.dprintf {|"#/$defs/%s"|} x.scheme_name
 
   let array prs =
-    Format.dprintf "[@,%a@,]"
+    Format.dprintf "[@,%a@;<0 -2>]"
       (Format.pp_print_list ~pp_sep:comma (|>)) prs
 
   let rec typ: type a b. a typ -> Format.formatter -> unit = function
-    | Int -> tfield {|"integer"|}
-    | Bool -> tfield {|"bool"|}
-    | Unit -> tfield {|"int"|}
-    | String -> tfield {|"string"|}
-    | Doc -> tfield {|"string"|}
+    | Int -> tfield {|integer|}
+    | Bool -> tfield {|bool|}
+    | Unit -> tfield {|int|}
+    | String -> tfield {|string|}
+    | Doc -> tfield {|string|}
     | List e ->
-        Format.dprintf "%t%t"
-          (tfield  {|"array"|})
-          (field "items" @@ record [typ e.elt] )
+        Format.dprintf "%t,@ %t"
+          (tfield  {|array|})
+          (field "items" @@ obj [typ e.elt] )
     | Option x -> typ x
     | Pair (x,y) -> tuple_typ [typ x; typ y]
     | Triple (x,y,z) -> tuple_typ [typ x; typ y; typ z]
@@ -947,47 +947,61 @@ module Json_schema = struct
     | Record x -> sref x
     | Custom x -> typ x.default
   and tuple_typ = fun l ->
-    Format.dprintf "%t%t"
-      (tfield  {|"array"|})
+    Format.dprintf "%t,@ %t"
+      (tfield  {|array|})
       (field "items" @@ array @@
-       List.map (fun x -> record [x]) l
+       List.map (fun x -> obj [x]) l
       )
 
   let const name = field "const" @@ string name
   let sum x =
-    let constructor ppf (name, Key_metadata kty) =
-      tuple_typ [const name; typ kty.typ] ppf in
-    let constructors ppf =
-      Format.pp_print_list ~pp_sep:comma constructor ppf x.keys in
-    record [ field "oneOf" constructors ]
-
+    let constructor (name, Key_metadata kty) =
+      obj [tuple_typ [const name; typ kty.typ]] in
+    obj [ field "oneOf" (array (List.map constructor x.keys)) ]
 
   let fields x =
-    List.map (fun (k, Key_metadata kty) -> field k (typ kty.typ)) x.keys
+    List.map
+      (fun (k, Key_metadata kty) -> field k (obj [typ kty.typ]))
+      x.keys
 
-  let rec refs: type a. a typ -> (string * (Format.formatter -> unit)) list =
+  let record_fields x =
+    [
+      field "type" @@ string "object";
+      field "properties" @@ obj (fields x)
+    ]
+
+  let simple_record x = obj (record_fields x)
+
+  let union a =
+    List.fold_left (fun m acc -> Keys.union (fun _ x _ -> Some x) m acc)
+      Keys.empty
+      a
+  let rec refs: type a. a typ -> (Format.formatter -> unit) Keys.t =
     fun ty -> match ty with
       | Sum x ->
-          (x.scheme_name, sum x) :: subrefs x
-      | Record x -> (x.scheme_name, record (fields x)) :: subrefs x
-      | Doc -> []
-      | Int -> []
-      | Bool -> []
-      | String -> []
-      | Unit -> []
+          Keys.add x.scheme_name (sum x) (subrefs x)
+      | Record x ->
+          Keys.add x.scheme_name (simple_record x) (subrefs x)
+      | Doc -> Keys.empty
+      | Int -> Keys.empty
+      | Bool -> Keys.empty
+      | String -> Keys.empty
+      | Unit -> Keys.empty
       | List x -> refs x.elt
       | Option x -> refs x
-      | Pair (x,y) -> refs x @ refs y
-      | Triple (x,y,z) -> refs x @ refs y @ refs z
-      | Quadruple (x,y,z,w) -> refs x @ refs y @ refs z @ refs w
+      | Pair (x,y) -> union [refs x; refs y]
+      | Triple (x,y,z) -> union [refs x; refs y; refs z]
+      | Quadruple (x,y,z,w) -> union [refs x; refs y; refs z; refs w]
       | Custom t -> refs t.default
-and subrefs: type a. a def -> (string * (Format.formatter -> unit)) list
+and subrefs: type a. a def -> (Format.formatter -> unit) Keys.t
     = fun sch ->
-  List.concat_map (function (_,Key_metadata kty) -> refs kty.typ) sch.keys
+  union (List.map (fun (_,Key_metadata kty) -> refs kty.typ) sch.keys)
 
-  let pp ppf sch =
+  let pp ppf log =
+    let sch = log.scheme in
     let refs = subrefs sch in
-    let defs = record (List.map (fun (k,pr) -> field k pr) refs) in
-    record (header @ (field "$defs" defs) :: fields sch) ppf
+    let defs =
+      obj (List.map (fun (k,pr) -> field k pr) @@ Keys.bindings refs) in
+    obj (header @ (field "$defs" defs) :: record_fields sch) ppf
 
   end
