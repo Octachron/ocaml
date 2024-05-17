@@ -425,6 +425,7 @@ let log_format_reader = {
   usage={|expected "stdout", "json", or "sexp"|};
   env_var = "OCAML_LOG_FORMAT"
 }
+let dump_log_schema = ref false
 
 let unboxed_types = ref false
 

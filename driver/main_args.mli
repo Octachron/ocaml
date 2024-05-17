@@ -70,7 +70,8 @@ module type Core_options = sig
   val _dshape : unit -> unit
   val _drawlambda : unit -> unit
   val _dlambda : unit -> unit
-
+  val _log_format : string -> unit
+  val _dlog_schema: unit -> unit
 end
 
 module type Compiler_options = sig
@@ -118,7 +119,6 @@ module type Compiler_options = sig
   val _where : unit -> unit
   val _color : string -> unit
   val _error_style : string -> unit
-  val _log_format : string -> unit
 
   val _match_context_rows : int -> unit
   val _dtimings : unit -> unit
@@ -143,7 +143,6 @@ module type Toplevel_options = sig
   val _args0 : string -> string array
   val _color : string -> unit
   val _error_style : string -> unit
-  val _log_format : string -> unit
   val _eval: string -> unit
 end
 

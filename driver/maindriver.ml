@@ -29,6 +29,8 @@ let process continue argv log ppf =
   Compenv.parse_arguments (ref argv) Compenv.anonymous program;
   Compmisc.read_clflags_from_env ();
   let log = main_log log ppf in
+  if !Clflags.dump_log_schema then
+    Format.fprintf ppf "%a@." Log.Json_schema.pp log;
   if !Clflags.plugin then
     Compenv.fatal "-plugin is only supported up to OCaml 4.08.0";
   begin try
