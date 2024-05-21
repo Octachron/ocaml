@@ -964,10 +964,17 @@ module Json_schema = struct
       (fun (k, Key_metadata kty) -> field k (obj [typ kty.typ]))
       x.keys
 
+  let required_fields x =
+    List.filter_map
+      (fun (k, kinfo) -> if is_optional kinfo then None else Some(string k))
+      x.keys
+
+
   let record_fields x =
     [
       field "type" @@ string "object";
-      field "properties" @@ obj (fields x)
+      field "properties" @@ obj (fields x);
+      field "required" @@ array (required_fields x)
     ]
 
   let simple_record x = obj (record_fields x)
