@@ -134,7 +134,7 @@ module Backends : sig
     name:string;
     make:
       'a. Misc.Color.setting option -> version -> Format.formatter ref ->
-      'a def -> 'a log;
+       'a def -> with_schema:bool -> 'a log;
   }
   val fmt: t
   val json: t
@@ -142,7 +142,8 @@ module Backends : sig
 end
 
 module Json_schema:sig
-  val pp: Format.formatter -> 'a log -> unit
+  val pp_log: Format.formatter -> 'a log -> unit
+  val pp:  'a def -> Format.formatter -> unit
 end
 
 val set: ('a,'b) key  -> 'a -> 'b log -> unit
@@ -179,8 +180,6 @@ val itemf :
 
 val itemd :
   (doc list,'a) key -> 'a log -> ('b, Format.formatter, unit) format -> 'b
-
-
 
 
 module Record: sig
