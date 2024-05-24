@@ -405,7 +405,7 @@ let try_run_directive log dir_name pdir_arg =
 
 
 let log_on_formatter ppf =
-  let version = Log.(version Toplevel.scheme) in
+  let version = Log.(Version.current_version Compiler_log_version.history) in
   let backend = Option.value ~default:Log.Backends.fmt !Clflags.log_format in
   backend.make !Clflags.color version (ref ppf)
     ~with_schema:false Log.Toplevel.scheme

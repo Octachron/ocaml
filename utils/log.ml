@@ -13,9 +13,96 @@
 (*                                                                        *)
 (**************************************************************************)
 
-type version = { major:int; minor:int }
-type version_range = { introduction: version; deprecation: version option }
-let first_version = { major = 0; minor = 0 }
+
+
+
+module Version = struct
+
+  type t = { major:int; minor:int }
+
+  type error =
+    | Duplicate_key of string
+    | Time_travel of t * t
+    | Sealed_version of t
+  exception Error of error
+  let pp_error ppf = function
+    | Time_travel _ ->
+        Format.fprintf ppf "Key from the future"
+    | Duplicate_key s ->
+        Format.fprintf ppf "Duplicated key: %s" s
+    | Sealed_version _ ->
+        Format.fprintf ppf "Sealed version"
+
+  let error e =
+    Format.eprintf "Log error %a@." pp_error e;
+    raise (Error e)
+
+
+  type range = { introduction: t; deprecation: t option }
+
+  type base_event =
+    | Creation
+    | New_key of string
+    | Deprecation of string
+    | Deletion of string
+    | Seal
+
+  type event =
+    { scheme: string option; version:t; event:base_event }
+  type _ history = {
+    mutable current: t;
+    mutable events: event list
+  }
+
+  type 'a update = {
+    v:t;
+    history:'a history;
+    minor_update:bool;
+  }
+
+  let breaking_change update = if update.minor_update then
+      error (Sealed_version update.history.current)
+
+  let register_event update scheme event =
+    let h = update.history in
+    h.events <- { scheme; version=update.v; event} :: h.events
+
+  let zeroth = { major = 0; minor = 0}
+  let first = { major = 1; minor = 0 }
+
+  let new_version history version =
+    let sv = history.current in
+    if version <= sv  then error (Time_travel (version, sv));
+    let minor_update = version.major = sv.major in
+    history.current <- version;
+    { v=version; minor_update; history }
+
+  let current_version history = history.current
+
+  open Format
+  let pp_version ppf x = fprintf ppf "v%d.%d" x.minor x.major
+
+  let pp_base_event ppf =
+    function
+    | Creation -> fprintf ppf "Creation"
+    | New_key name -> fprintf ppf "Key %S" name
+    | Deprecation name -> fprintf ppf "Deprecation %S" name
+    | Seal -> fprintf ppf "Seal"
+    | Deletion name -> fprintf ppf "Deletion %S" name
+
+  let pp_base ppf e =
+    fprintf ppf "%a, %a, %a@,"
+      (pp_print_option pp_print_string) e.scheme
+      pp_version e.version
+      pp_base_event e.event
+
+  let pp_history ppf v =
+    fprintf ppf "@[<v>%a]]." (pp_print_list pp_base) v.events
+
+
+end
+type version = Version.t = { major:int; minor:int }
+
 
 type doc = Format.formatter -> unit
 
@@ -25,10 +112,6 @@ module Keys = Map.Make(K)
 type _ extension = ..
 
 type empty = Empty_tag
-
-type scheme_status =
-  | Sealed
-  | Open of { minor_changes: bool; breaking_changes: bool }
 
 type polarity = Positive | Negative
 
@@ -64,12 +147,8 @@ and key_metadata =
         deprecation: version option } ->
       key_metadata
 and 'a def = {
-  scheme_version: version ref;
-  scheme_status: scheme_status ref;
   scheme_name: string;
   mutable keys: (Keys.key * key_metadata) list;
-  version_key: (version,'a) key option;
-  validity_key: (bool,'a) key option;
   polarity: polarity;
 }
 and 'a prod = {
@@ -100,48 +179,20 @@ and printer = { print: 'a. Format.formatter -> 'a prod -> unit; }
 
 type 'a t = 'a log
 
-type error =
-  | Duplicate_key of string
-  | Time_travel of version * version
-  | Sealed_version of version
-exception Error of error
-let pp_error ppf = function
-  | Time_travel _ ->
-      Format.fprintf ppf "Key from the future"
-  | Duplicate_key s ->
-      Format.fprintf ppf "Duplicated key: %s" s
-  | Sealed_version _ ->
-      Format.fprintf ppf "Sealed version"
-
-
-let error e =
-  Format.eprintf "Log error %a@." pp_error e;
-  raise (Error e)
 
 let (.!()<-) scheme key metadata =
   scheme.keys <- (key.name, metadata) :: scheme.keys
 
 
-let minor_change scheme =
-  match !(scheme.scheme_status) with
-  | Sealed | Open { minor_changes = false; _ } ->
-      error (Sealed_version !(scheme.scheme_version))
-  | Open { minor_changes=true; _ } -> ()
 
-let breaking_change scheme =
-  match !(scheme.scheme_status) with
-  | Sealed | Open { breaking_changes = false; _ } ->
-      error (Sealed_version !(scheme.scheme_version))
-  | Open { breaking_changes=true; _ } -> ()
-
-let new_key version scheme name typ =
+let new_key update scheme name typ =
   begin match scheme.polarity with
-  | Positive -> minor_change scheme
-  | Negative -> breaking_change scheme
+  | Positive -> ()
+  | Negative -> Version.breaking_change update
   end;
-  if List.mem_assoc name scheme.keys then error (Duplicate_key name);
+  if List.mem_assoc name scheme.keys then Version.(error (Duplicate_key name));
   let metadata = Key_metadata {
-    version;
+    version=update.Version.v;
     deprecation=None;
     typ
   }
@@ -151,50 +202,50 @@ let new_key version scheme name typ =
     typ; id = Type.Id.make ();
   } in
   scheme.!(key) <- metadata;
+  Version.register_event update (Some scheme.scheme_name) (New_key name);
   key
 
 
 type _ extension += Version: version extension
-type 'a scheme_version = version
 
 let version_ty =
-  let pull v = v.major, v.minor in
+  let pull v = Version.(v.major, v.minor) in
   Custom { id = Version; pull; default = Pair (Int,Int) }
 
 let make_key typ name = { name; typ; id = Type.Id.make () }
-let version_key () = make_key version_ty "version"
-let validity_key () = make_key Bool "valid"
+let version_key = make_key version_ty "version"
+let validity_key = make_key Bool "valid"
 
 module type Def = sig
   type id
+  type vl
   type scheme = id def
   type log = id t
   type nonrec 'a key = ('a,id) key
   val scheme: scheme
+  val deprecate: vl Version.update -> 'a key -> unit
+  val delete: vl Version.update -> 'a key -> unit
+  val seal: vl Version.update -> unit
 end
 
 module type Record = sig
-  type root
   include Def
-  val new_key: 'a scheme_version  -> string -> 'a typ -> 'a key
+  val new_key: vl Version.update  -> string -> 'a typ -> 'a key
 end
 
 module type Sum = sig
-  type root
   include Def
-  val new_constr: id scheme_version -> string -> 'a typ -> 'a key
+  val new_constr: vl Version.update -> string -> 'a typ -> 'a key
 end
 
-module type Root = sig
-  include Def
-  val v1: id scheme_version
-  val new_key: 'a scheme_version  -> string -> 'a typ -> 'a key
-  val new_version: version -> id scheme_version
+module type Version_line = sig
+  type id
+  val history: id Version.history
+  val v1: id Version.update
 end
 
 
-let major_scheme_update = Open { minor_changes = true; breaking_changes = true}
-let minor_scheme_update = Open { minor_changes = true; breaking_changes = false}
+
 
 module New_local_def() = struct
   type id
@@ -203,73 +254,72 @@ module New_local_def() = struct
   type log = id t
 end
 
-module type Name = sig val name: string end
 
-module New_root_scheme(Name:Name)() = struct
-  include New_local_def ()
-  let scheme =
-    let version_key = Some (version_key ()) in
-    let validity_key = Some (validity_key ()) in
-    let metakey name typ =
-      name,
-      Key_metadata {
-        version = first_version;
-        deprecation = None;
-        typ
-      }
-    in
-    { scheme_version = ref first_version;
-      scheme_name = Name.name;
-      scheme_status = ref major_scheme_update;
-      keys = [ metakey "valid" Bool; metakey "version" version_ty ];
-      version_key;
-      validity_key;
-      polarity=Positive;
-    }
-    let new_key v name ty = new_key v scheme name ty
+module New_root() = struct
+  type id
+  let history = {
+    Version.current = Version.zeroth;
+    events = [];
+  }
 
-    let v1 = first_version
-    let new_version version =
-      let sv = !(scheme.scheme_version) in
-      if version <= sv  then error (Time_travel (version, sv))
-      else (
-        scheme.scheme_version := version;
-        let update =
-          if version.major > sv.major then major_scheme_update
-          else minor_scheme_update in
-        scheme.scheme_status := update
-      );
-      version
+  let v1 = Version.new_version history Version.first
 end
 
-module New_record(Root:Def)(Name:Name)() = struct
-  include New_local_def ()
-  let scheme =
-    { scheme_version = Root.scheme.scheme_version;
-      scheme_name = String.concat "/" [Root.scheme.scheme_name; Name.name];
-      scheme_status =  Root.scheme.scheme_status;
-      keys = [];
-      version_key=None;
-      validity_key=None;
-      polarity=Positive;
-    }
-    let new_key v name ty = new_key v scheme name ty
-    let derived_version x = x
+let (.!()) scheme key =
+  match List.assoc_opt key.name scheme.keys with
+  | Some x -> x
+  | None -> assert false
+
+let deprecate_key u key scheme =
+  let Key_metadata r = scheme.!(key) in
+  Version.register_event u (Some scheme.scheme_name) (Deprecation key.name);
+  scheme.!(key) <-
+    Key_metadata { r with deprecation = Some u.Version.v }
+
+let delete_key u key scheme =
+  let Key_metadata r = scheme.!(key) in
+  Version.register_event u (Some scheme.scheme_name) (Deletion key.name);
+  scheme.!(key) <-
+    Key_metadata { r with deprecation = Some u.Version.v }
+
+let seal update scheme =
+  Version.register_event update (Some scheme.scheme_name) Seal
+
+module type Info = sig
+  type vl
+  val name: string
+  val update: vl Version.update
 end
 
-module New_sum(Root:Def)(Name:Name)() = struct
+
+module New_record(Vl:Version_line)(Info:Info with type vl:=Vl.id)() = struct
   include New_local_def ()
   let scheme =
-    let root = Root.scheme in
-    { scheme_version = root.scheme_version;
-      scheme_name = String.concat "/" [root.scheme_name; Name.name];
-      scheme_status = root.scheme_status;
+    {
+      scheme_name = Info.name;
       keys = [];
-      version_key=None;
-      validity_key = None;
+      polarity=Positive;
+    }
+    let () = Version.register_event Info.update (Some (Info.name)) Creation
+    let new_key v name ty = new_key v scheme name ty
+    let deprecate u k = deprecate_key u k scheme
+    let delete u k = delete_key u k scheme
+    let seal u = seal u scheme
+end
+
+module New_sum(Vl:Version_line)(Info:Info with type vl:=Vl.id)() = struct
+  include New_local_def ()
+  let scheme =
+    {
+      scheme_name = Info.name;
+      keys = [];
       polarity = Negative;
     }
-    let new_constr v name ty = new_key v scheme name ty
+    let () = Version.register_event Info.update (Some (Info.name)) Creation
+    let new_constr u name ty = new_key u scheme name ty
+    let deprecate u k = deprecate_key u k scheme
+    let delete u k = delete_key u k scheme
+    let seal u = seal u scheme
 end
 
 
@@ -277,28 +327,15 @@ end
 let enum key = Enum key
 let constr key x = Constr(key,x)
 
-let (.!()) scheme key =
-  match List.assoc_opt key.name scheme.keys with
-  | Some x -> x
-  | None -> assert false
 
-let deprecate_key key scheme =
-  let Key_metadata r = scheme.!(key) in
-  scheme.!(key) <-
-    Key_metadata { r with deprecation = Some !(scheme.scheme_version) }
 
 (** {1:log_scheme_versionning  Current version of the log } *)
 
-let version scheme = !(scheme.scheme_version)
-
-let seal_version scheme =
-  scheme.scheme_status := Sealed
 
 
 let version_range key scheme =
   let Key_metadata r =  scheme.!(key) in
-  { introduction = r.version; deprecation = r.deprecation }
-
+  { Version.introduction = r.version; deprecation = r.deprecation }
 
 
 module Record = struct
@@ -382,22 +419,16 @@ module Store = struct
       List.filter_map field (List.rev keys)
 
 
-  let rec validate: type id. toplevel:bool -> id def -> id prod -> bool =
-    fun ~toplevel sch st ->
+  let rec validate: type id. ?toplevel:version -> id def -> id prod -> bool =
+    fun ?toplevel sch st ->
     (* don't add validation metakeys to empty sublog*)
-    let st =
-      if not toplevel && List.is_empty (trim sch.keys st) then
-        { fields = Keys.empty } else st
-    in
-    Option.iter (fun key -> record st ~key !(sch.scheme_version))
-      sch.version_key;
-    match sch.validity_key with
-      | None ->  validate_fields sch.keys st.fields
-      | Some key ->
-          record st ~key false (* the validation key is part of the scheme *);
-          let r = validate_fields sch.keys st.fields in
-          record st ~key r;
-          r
+    let valid = validate_fields sch.keys st.fields in
+    Option.iter (fun v ->
+        record st ~key:version_key v;
+        record st ~key:validity_key valid
+      ) toplevel;
+    valid
+
 
   and validate_fields: type id.
     (Keys.key * key_metadata) list -> id sum Keys.t -> bool =
@@ -414,7 +445,7 @@ module Store = struct
     | _, Some (Constr (k,v)) -> validate_value v k.typ
   and validate_value: type a. a -> a typ -> bool = fun v typ ->
     match typ with
-    | Record m -> validate ~toplevel:false m v
+    | Record m -> validate m v
     | Int -> true
     | Bool -> true
     | Doc -> true
@@ -775,7 +806,7 @@ let flush: type a. a log -> unit = fun log ->
   begin match log.mode with
   | Direct d -> Fmt.flush d
   | Store st ->
-      ignore (Store.validate ~toplevel:true log.scheme st.data);
+      ignore (Store.validate ~toplevel:log.version log.scheme st.data);
       Option.iter (fun (out,{print}) ->
           let ppf = !(out.ppf) in
           print ppf st.data
@@ -821,11 +852,16 @@ let tmp scheme = {
 
 let slist = List { optional=true; elt=String }
 
-module Compiler_root = New_root_scheme (struct let name ="compiler" end)()
+module Compiler_log_version = New_root()
 
 module Debug = struct
-  include New_record(Compiler_root)(struct let name = "debug" end)()
-  let v1 = derived_version Compiler_root.v1
+  let v1 = Compiler_log_version.v1
+  include New_record(Compiler_log_version)
+      (struct
+        let name = "debug"
+        let update = v1
+      end)
+      ()
   let parsetree = new_key v1 "parsetree" (Option String)
   let source = new_key v1 "source" (Option String)
   let typedtree = new_key v1 "typedtree" (Option String)
@@ -847,25 +883,45 @@ module Debug = struct
   let mach = new_key v1 "mach" slist
   let linear = new_key v1 "linear" slist
   let cmm_invariant = new_key v1 "cmm_invariant" (Option String)
+  let () = seal v1
 end
 
 module Error =
-  New_record (Compiler_root)(struct let name = "error_report" end)()
+    New_record(Compiler_log_version)
+      (struct
+        let name = "error_report"
+        let update = Compiler_log_version.v1
+      end)
+      ()
 
 module Compiler = struct
-  include Compiler_root
-  let debug = new_key v1 "debug" (Option (Record Debug.scheme))
+  let v1 = Compiler_log_version.v1
+  include New_record(Compiler_log_version)
+      (struct
+        let name = "compiler"
+        let update = v1
+      end)
+      ()
+  let debug = new_key v1  "debug" (Option (Record Debug.scheme))
 end
 
 let dloc = List { optional=true; elt = Doc}
 module Toplevel = struct
-  include New_root_scheme(struct let name="toplevel" end)()
+  let v1 = Compiler_log_version.v1
+  include New_record(Compiler_log_version)
+      (struct
+        let name = "toplevel"
+        let update = v1
+      end)
+      ()
+  let v1 = Compiler_log_version.v1
   let output = new_key v1 "output" Doc
   let backtrace = new_key v1 "backtrace" (Option Doc)
   let compiler_log =
     new_key v1 "compiler_log" (Option (Record Compiler.scheme))
   let errors = new_key v1 "errors" dloc
   let trace = new_key v1 "trace" dloc
+  let () = seal v1
 end
 
 let log_if dlog key flag printer x =

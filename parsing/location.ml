@@ -680,9 +680,11 @@ type report = {
 module Error_log = struct[@warning "-unused-value-declaration"]
   type lc = t
   open Log
-  let v1 = Compiler.v1
+  module Vl = Compiler_log_version
+  let v1 = Vl.v1
 
-  module Kind = New_sum(Compiler)(struct let name="error_kind" end)()
+  module Kind = New_sum(Vl)(struct let name="error_kind" let update = v1 end)()
+
   let report_error = Kind.new_constr v1 "Report_error" Unit
   let report_alert = Kind.new_constr v1  "Report_alert"  String
   let report_alert_as_error = Kind.new_constr v1 "Report_alert_as_error" String
@@ -763,7 +765,7 @@ module Error_log = struct[@warning "-unused-value-declaration"]
     }
   let loc = Log.Error.new_key v1 "loc" loc_typ
 
-  module Msg = New_record(Compiler)(struct let name="error_msg" end)()
+  module Msg = New_record(Vl)(struct let name="error_msg" let update=v1 end)()
   let msg = Msg.new_key v1 "msg" Doc
   let msg_loc = Msg.new_key v1 "loc" loc_typ
   let msg_typ =
@@ -778,6 +780,8 @@ module Error_log = struct[@warning "-unused-value-declaration"]
   let quotable_locs =
     Log.Error.new_key v1 "quotable_locs" Log.(List {optional=true; elt=loc_typ})
 
+  let () = Log.Error.seal v1
+
   let pull (report:report) =
     let open Log.Record in
     make [
@@ -791,11 +795,11 @@ module Error_log = struct[@warning "-unused-value-declaration"]
   let report_typ = Custom { id = Error; pull; default = Record Error.scheme }
 
   let key = Log.Compiler.new_key v1 "error" (Option report_typ)
-
   let warnings =
     Log.Compiler.new_key v1 "warnings" (List {optional=true; elt=report_typ})
   let alerts =
     Log.Compiler.new_key v1 "alerts" (List {optional=true; elt=report_typ})
+  let () = Log.Error.seal v1
 
 end
 
@@ -1016,7 +1020,7 @@ let () =
 let formatter_for_warnings = ref Format.err_formatter
 
 let create_log_on_formatter_ref ppf =
-  let version = Log.(version Compiler.scheme) in
+  let version = Log.(Version.current_version Compiler_log_version.history)  in
   let backend = Option.value ~default:Log.Backends.fmt !Clflags.log_format in
   let log =
     backend.make !Clflags.color version ~with_schema:!Clflags.dump_log_schema
