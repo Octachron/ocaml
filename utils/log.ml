@@ -48,7 +48,7 @@ module Version = struct
     | Seal
 
   type event =
-    { scheme: string option; version:t; event:base_event }
+    { scheme: string; version:t; event:base_event }
   type _ history = {
     mutable current: t;
     mutable events: event list
@@ -91,14 +91,14 @@ module Version = struct
     | Deletion name -> fprintf ppf "Deletion %S" name
 
   let pp_base ppf e =
-    fprintf ppf "%a, %a, %a"
-      (pp_print_option pp_print_string) e.scheme
+    fprintf ppf "%s, %a, %a"
+      e.scheme
       pp_version e.version
       pp_base_event e.event
 
   let group_history events =
     let module M = Map.Make(struct
-        type nonrec t = string option * t
+        type nonrec t = string * t
         let compare: t -> t -> int = Stdlib.compare
       end)
     in
@@ -108,7 +108,7 @@ module Version = struct
       M.add k (e.event::prev) m
     in
     let m = List.fold_left add M.empty events in
-    let reconstruct (s,v) e = { event=e; scheme=n; version=v} in
+    let reconstruct (s,v) e = { event=e; scheme=s; version=v} in
     List.concat_map (fun (g,l) -> List.map (reconstruct g) l) (M.bindings m)
 
   let pp_history ppf h =
@@ -217,7 +217,7 @@ let new_key update scheme name typ =
     typ; id = Type.Id.make ();
   } in
   scheme.!(key) <- metadata;
-  Version.register_event update (Some scheme.scheme_name) (New_key name);
+  Version.register_event update scheme.scheme_name (New_key name);
   key
 
 
@@ -294,18 +294,18 @@ let (.!()) scheme key =
 
 let deprecate_key u key scheme =
   let Key_metadata r = scheme.!(key) in
-  Version.register_event u (Some scheme.scheme_name) (Deprecation key.name);
+  Version.register_event u scheme.scheme_name (Deprecation key.name);
   scheme.!(key) <-
     Key_metadata { r with deprecation = Some u.Version.v }
 
 let delete_key u key scheme =
   let Key_metadata r = scheme.!(key) in
-  Version.register_event u (Some scheme.scheme_name) (Deletion key.name);
+  Version.register_event u scheme.scheme_name (Deletion key.name);
   scheme.!(key) <-
     Key_metadata { r with deprecation = Some u.Version.v }
 
 let seal update scheme =
-  Version.register_event update (Some scheme.scheme_name) Seal
+  Version.register_event update scheme.scheme_name Seal
 
 module type Info = sig
   type vl
@@ -322,7 +322,7 @@ module New_record(Vl:Version_line)(Info:Info with type vl:=Vl.id)() = struct
       keys = [];
       polarity=Positive;
     }
-    let () = Version.register_event Info.update (Some (Info.name)) Creation
+    let () = Version.register_event Info.update Info.name Creation
     let new_key v name ty = new_key v scheme name ty
     let deprecate u k = deprecate_key u k scheme
     let delete u k = delete_key u k scheme
@@ -337,7 +337,7 @@ module New_sum(Vl:Version_line)(Info:Info with type vl:=Vl.id)() = struct
       keys = [];
       polarity = Negative;
     }
-    let () = Version.register_event Info.update (Some (Info.name)) Creation
+    let () = Version.register_event Info.update Info.name Creation
     let new_constr u name ty = new_key u scheme name ty
     let deprecate u k = deprecate_key u k scheme
     let delete u k = delete_key u k scheme
