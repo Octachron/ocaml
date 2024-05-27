@@ -510,7 +510,8 @@ clean::
 	rm -f $(addprefix tools/ocamlopt,p p.opt p.exe p.opt.exe)
 
 TOOLS_NAT = $(TOOLS_TO_INSTALL_NAT)
-TOOLS_BYT = $(TOOLS_TO_INSTALL_BYT) dumpobj primreq stripdebug cmpbyt
+TOOLS_BYT = $(TOOLS_TO_INSTALL_BYT) dumpobj primreq stripdebug cmpbyt \
+  ocamlloginfo
 
 TOOLS_NAT_PROGRAMS = $(addprefix tools/,$(TOOLS_NAT))
 TOOLS_BYT_PROGRAMS = $(addprefix tools/,$(TOOLS_BYT))
@@ -540,7 +541,7 @@ $(foreach PROGRAM, $(OCAML_PROGRAMS),\
 
 OCAML_BYTECODE_PROGRAMS = expunge \
   $(TOOLS_BYT_PROGRAMS) \
-  $(addprefix tools/, cvt_emit make_opcodes ocamltex) \
+  $(addprefix tools/, cvt_emit make_opcodes ocamltex ocamlloginfo) \
   debugger/ocamldebug
 
 $(foreach PROGRAM, $(OCAML_BYTECODE_PROGRAMS),\
@@ -2224,6 +2225,12 @@ beforedepend:: $(addprefix tools/,opnames.ml make_opcodes.ml)
 ocamlobjinfo_LIBRARIES = \
   $(addprefix compilerlibs/,ocamlcommon ocamlbytecomp ocamlmiddleend)
 ocamlobjinfo_SOURCES = tools/objinfo.mli tools/objinfo.ml
+
+# Display info on the compilerlog
+
+ocamlloginfo_LIBRARIES = \
+  $(addprefix compilerlibs/,ocamlcommon)
+ocamlloginfo_SOURCES = tools/loginfo.mli tools/loginfo.ml
 
 # Scan object files for required primitives
 

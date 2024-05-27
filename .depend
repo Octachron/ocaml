@@ -6506,6 +6506,7 @@ toplevel/topcommon.cmo : \
     typing/oprint.cmi \
     utils/misc.cmi \
     parsing/longident.cmi \
+    utils/log.cmi \
     parsing/location.cmi \
     utils/load_path.cmi \
     parsing/lexer.cmi \
@@ -6536,6 +6537,7 @@ toplevel/topcommon.cmx : \
     typing/oprint.cmx \
     utils/misc.cmx \
     parsing/longident.cmx \
+    utils/log.cmx \
     parsing/location.cmx \
     utils/load_path.cmx \
     parsing/lexer.cmx \
@@ -6571,12 +6573,14 @@ toplevel/topdirs.cmo : \
     toplevel/topprinters.cmi \
     toplevel/toploop.cmi \
     toplevel/topeval.cmi \
+    toplevel/topcommon.cmi \
     typing/printtyp.cmi \
     typing/predef.cmi \
     typing/path.cmi \
     parsing/parsetree.cmi \
     utils/misc.cmi \
     parsing/longident.cmi \
+    utils/log.cmi \
     parsing/location.cmi \
     utils/load_path.cmi \
     typing/ident.cmi \
@@ -6596,12 +6600,14 @@ toplevel/topdirs.cmx : \
     toplevel/topprinters.cmx \
     toplevel/toploop.cmx \
     toplevel/topeval.cmi \
+    toplevel/topcommon.cmx \
     typing/printtyp.cmx \
     typing/predef.cmx \
     typing/path.cmx \
     parsing/parsetree.cmi \
     utils/misc.cmx \
     parsing/longident.cmx \
+    utils/log.cmx \
     parsing/location.cmx \
     utils/load_path.cmx \
     typing/ident.cmx \
@@ -6616,10 +6622,12 @@ toplevel/topdirs.cmx : \
     parsing/ast_helper.cmx \
     toplevel/topdirs.cmi
 toplevel/topdirs.cmi : \
-    parsing/longident.cmi
+    parsing/longident.cmi \
+    utils/log.cmi
 toplevel/topeval.cmi : \
     toplevel/topcommon.cmi \
-    parsing/parsetree.cmi
+    parsing/parsetree.cmi \
+    utils/log.cmi
 toplevel/toploop.cmo : \
     utils/warnings.cmi \
     typing/typetexp.cmi \
@@ -6695,6 +6703,7 @@ toplevel/trace.cmi : \
     typing/types.cmi \
     typing/path.cmi \
     parsing/longident.cmi \
+    utils/log.cmi \
     typing/env.cmi
 toplevel/byte/topeval.cmo : \
     utils/warnings.cmi \
@@ -6717,6 +6726,7 @@ toplevel/byte/topeval.cmo : \
     typing/outcometree.cmi \
     utils/misc.cmi \
     bytecomp/meta.cmi \
+    utils/log.cmi \
     parsing/location.cmi \
     utils/load_path.cmi \
     typing/includemod.cmi \
@@ -6751,6 +6761,7 @@ toplevel/byte/topeval.cmx : \
     typing/outcometree.cmi \
     utils/misc.cmx \
     bytecomp/meta.cmx \
+    utils/log.cmx \
     parsing/location.cmx \
     utils/load_path.cmx \
     typing/includemod.cmx \
@@ -6766,7 +6777,8 @@ toplevel/byte/topeval.cmx : \
     toplevel/byte/topeval.cmi
 toplevel/byte/topeval.cmi : \
     toplevel/topcommon.cmi \
-    parsing/parsetree.cmi
+    parsing/parsetree.cmi \
+    utils/log.cmi
 toplevel/byte/topmain.cmo : \
     typing/types.cmi \
     toplevel/byte/trace.cmi \
@@ -6777,6 +6789,7 @@ toplevel/byte/topmain.cmo : \
     typing/printtyp.cmi \
     typing/path.cmi \
     driver/main_args.cmi \
+    utils/log.cmi \
     parsing/location.cmi \
     typing/env.cmi \
     typing/ctype.cmi \
@@ -6794,6 +6807,7 @@ toplevel/byte/topmain.cmx : \
     typing/printtyp.cmx \
     typing/path.cmx \
     driver/main_args.cmx \
+    utils/log.cmx \
     parsing/location.cmx \
     typing/env.cmx \
     typing/ctype.cmx \
@@ -6812,6 +6826,7 @@ toplevel/byte/trace.cmo : \
     utils/misc.cmi \
     bytecomp/meta.cmi \
     parsing/longident.cmi \
+    utils/log.cmi \
     typing/ctype.cmi \
     parsing/asttypes.cmi \
     toplevel/byte/trace.cmi
@@ -6825,6 +6840,7 @@ toplevel/byte/trace.cmx : \
     utils/misc.cmx \
     bytecomp/meta.cmx \
     parsing/longident.cmx \
+    utils/log.cmx \
     typing/ctype.cmx \
     parsing/asttypes.cmi \
     toplevel/byte/trace.cmi
@@ -6832,6 +6848,7 @@ toplevel/byte/trace.cmi : \
     typing/types.cmi \
     typing/path.cmi \
     parsing/longident.cmi \
+    utils/log.cmi \
     typing/env.cmi
 toplevel/native/topeval.cmo : \
     utils/warnings.cmi \
@@ -6899,13 +6916,13 @@ toplevel/native/topeval.cmx : \
     toplevel/native/topeval.cmi
 toplevel/native/topeval.cmi : \
     toplevel/topcommon.cmi \
-    parsing/parsetree.cmi
+    parsing/parsetree.cmi \
+    utils/log.cmi
 toplevel/native/tophooks.cmo : \
     toplevel/topcommon.cmi \
     asmcomp/proc.cmi \
     utils/misc.cmi \
     utils/log.cmi \
-    parsing/location.cmi \
     lambda/lambda.cmi \
     middle_end/flambda/import_approx.cmi \
     middle_end/flambda/flambda_middle_end.cmi \
@@ -6924,7 +6941,6 @@ toplevel/native/tophooks.cmx : \
     asmcomp/proc.cmx \
     utils/misc.cmx \
     utils/log.cmx \
-    parsing/location.cmx \
     lambda/lambda.cmx \
     middle_end/flambda/import_approx.cmx \
     middle_end/flambda/flambda_middle_end.cmx \
@@ -6940,12 +6956,14 @@ toplevel/native/tophooks.cmx : \
     toplevel/native/tophooks.cmi
 toplevel/native/tophooks.cmi : \
     toplevel/topcommon.cmi \
+    utils/log.cmi \
     lambda/lambda.cmi
 toplevel/native/topmain.cmo : \
     toplevel/toploop.cmi \
     toplevel/native/topeval.cmi \
     toplevel/topcommon.cmi \
     driver/main_args.cmi \
+    utils/log.cmi \
     parsing/location.cmi \
     driver/compmisc.cmi \
     driver/compenv.cmi \
@@ -6956,6 +6974,7 @@ toplevel/native/topmain.cmx : \
     toplevel/native/topeval.cmx \
     toplevel/topcommon.cmx \
     driver/main_args.cmx \
+    utils/log.cmx \
     parsing/location.cmx \
     driver/compmisc.cmx \
     driver/compenv.cmx \
@@ -6972,6 +6991,7 @@ toplevel/native/trace.cmi : \
     typing/types.cmi \
     typing/path.cmi \
     parsing/longident.cmi \
+    utils/log.cmi \
     typing/env.cmi
 lex/common.cmo : \
     lex/syntax.cmi \
@@ -7166,6 +7186,13 @@ tools/lintapidiff.cmx : \
     typing/ident.cmx \
     tools/lintapidiff.cmi
 tools/lintapidiff.cmi :
+tools/loginfo.cmo : \
+    utils/log.cmi \
+    tools/loginfo.cmi
+tools/loginfo.cmx : \
+    utils/log.cmx \
+    tools/loginfo.cmi
+tools/loginfo.cmi :
 tools/make_opcodes.cmo : \
     tools/make_opcodes.cmi
 tools/make_opcodes.cmx : \
@@ -7306,11 +7333,13 @@ tools/ocamlprof.cmi :
 tools/ocamltex.cmo : \
     otherlibs/unix/unix.cmi \
     toplevel/toploop.cmi \
+    toplevel/topcommon.cmi \
     parsing/syntaxerr.cmi \
     otherlibs/str/str.cmi \
     parsing/parsetree.cmi \
     parsing/parse.cmi \
     utils/misc.cmi \
+    utils/log.cmi \
     parsing/location.cmi \
     utils/load_path.cmi \
     parsing/lexer.cmi \
@@ -7323,11 +7352,13 @@ tools/ocamltex.cmo : \
 tools/ocamltex.cmx : \
     otherlibs/unix/unix.cmx \
     toplevel/toploop.cmx \
+    toplevel/topcommon.cmx \
     parsing/syntaxerr.cmx \
     otherlibs/str/str.cmx \
     parsing/parsetree.cmi \
     parsing/parse.cmx \
     utils/misc.cmx \
+    utils/log.cmx \
     parsing/location.cmx \
     utils/load_path.cmx \
     parsing/lexer.cmx \
