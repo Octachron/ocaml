@@ -197,9 +197,12 @@ end
 (** Compiler logs *)
 
 module Compiler_log_version: Version_line
+module type Compiler_record = Record with type vl := Compiler_log_version.id
+module type Compiler_sum = Sum with type vl := Compiler_log_version.id
+
 
 module Debug: sig
-  include Record with type vl := Compiler_log_version.id
+  include Compiler_record
   val source: string option key
   val parsetree: string option key
   val typedtree: string option key
@@ -222,13 +225,13 @@ module Debug: sig
 end
 
 module Compiler: sig
-  include Record with type vl := Compiler_log_version.id
+  include Compiler_record
   val debug: Debug.id prod option key
 end
-module Error: Record with type vl := Compiler_log_version.id
+module Error: Compiler_record
 
 module Toplevel: sig
-  include Record with type vl := Compiler_log_version.id
+  include Compiler_record
   val output: doc key
   val backtrace: doc option key
   val compiler_log: Compiler.id prod option key

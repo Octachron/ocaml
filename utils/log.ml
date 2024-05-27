@@ -80,7 +80,7 @@ module Version = struct
   let current_version history = history.current
 
   open Format
-  let pp_version ppf x = fprintf ppf "v%d.%d" x.minor x.major
+  let pp_version ppf x = fprintf ppf "v%d.%d" x.major x.minor
 
   let pp_base_event ppf =
     function
@@ -91,13 +91,28 @@ module Version = struct
     | Deletion name -> fprintf ppf "Deletion %S" name
 
   let pp_base ppf e =
-    fprintf ppf "%a, %a, %a@,"
+    fprintf ppf "%a, %a, %a"
       (pp_print_option pp_print_string) e.scheme
       pp_version e.version
       pp_base_event e.event
 
-  let pp_history ppf v =
-    fprintf ppf "@[<v>%a]]." (pp_print_list pp_base) v.events
+  let group_history events =
+    let module M = Map.Make(struct
+        type nonrec t = string option * t
+        let compare: t -> t -> int = Stdlib.compare
+      end)
+    in
+    let add m e =
+      let k = (e.scheme, e.version) in
+      let prev = Option.value ~default:[] (M.find_opt k m) in
+      M.add k (e.event::prev) m
+    in
+    let m = List.fold_left add M.empty events in
+    let reconstruct (s,v) e = { event=e; scheme=n; version=v} in
+    List.concat_map (fun (g,l) -> List.map (reconstruct g) l) (M.bindings m)
+
+  let pp_history ppf h =
+    fprintf ppf "@[<v>%a@]." (pp_print_list pp_base) (group_history h.events)
 
 
 end
@@ -215,6 +230,13 @@ let version_ty =
 let make_key typ name = { name; typ; id = Type.Id.make () }
 let version_key = make_key version_ty "version"
 let validity_key = make_key Bool "valid"
+
+let metakey key =
+  key.name,
+  Key_metadata { typ = key.typ; version = Version.zeroth; deprecation = None}
+let version_metakey = metakey version_key
+let validity_metakey = metakey validity_key
+
 
 module type Def = sig
   type id
@@ -853,6 +875,8 @@ let tmp scheme = {
 let slist = List { optional=true; elt=String }
 
 module Compiler_log_version = New_root()
+module type Compiler_record = Record with type vl := Compiler_log_version.id
+module type Compiler_sum = Sum with type vl := Compiler_log_version.id
 
 module Debug = struct
   let v1 = Compiler_log_version.v1
@@ -981,12 +1005,12 @@ module Json_schema = struct
   let fields x =
     List.map
       (fun (key, Key_metadata kty) -> item ~key (obj [typ kty.typ]))
-      x.keys
+      x
 
   let required_fields x =
     List.filter_map
       (fun (k, kinfo) -> if is_optional kinfo then None else Some(string k))
-      x.keys
+      x
 
   let obj_typ = item ~key:"type" (string "object")
 
@@ -1011,7 +1035,7 @@ module Json_schema = struct
       | Sum x ->
           Keys.add x.scheme_name (sum x) (subrefs x)
       | Record x ->
-          Keys.add x.scheme_name (simple_record x) (subrefs x)
+          Keys.add x.scheme_name (simple_record x.keys) (subrefs x)
       | Doc -> Keys.empty
       | Int -> Keys.empty
       | Bool -> Keys.empty
@@ -1028,13 +1052,14 @@ and subrefs: type a. a def -> (Format.formatter -> unit) Keys.t
   union (List.map (fun (_,Key_metadata kty) -> refs kty.typ) sch.keys)
 
    let pp sch ppf =
-    let defs = match Keys.bindings (subrefs sch) with
-      | [] -> []
-      | defs ->
-          let prs = List.map (fun (key,pr) -> item ~key pr) defs in
-          [item ~key:"$defs" @@ obj prs]
-    in
-    obj (header @ defs @ schema_field :: record_fields sch) ppf
+     let keys = version_metakey :: validity_metakey :: sch.keys in
+     let defs = match Keys.bindings (subrefs sch) with
+       | [] -> []
+       | defs ->
+           let prs = List.map (fun (key,pr) -> item ~key pr) defs in
+           [item ~key:"$defs" @@ obj prs]
+     in
+     obj (header @ defs @ schema_field :: record_fields keys) ppf
 
    let schema_item sch = item ~key:"schema" (pp sch)
 
