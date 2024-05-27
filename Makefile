@@ -541,7 +541,7 @@ $(foreach PROGRAM, $(OCAML_PROGRAMS),\
 
 OCAML_BYTECODE_PROGRAMS = expunge \
   $(TOOLS_BYT_PROGRAMS) \
-  $(addprefix tools/, cvt_emit make_opcodes ocamltex ocamlloginfo) \
+  $(addprefix tools/, cvt_emit make_opcodes ocamltex) \
   debugger/ocamldebug
 
 $(foreach PROGRAM, $(OCAML_BYTECODE_PROGRAMS),\
