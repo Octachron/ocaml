@@ -691,6 +691,7 @@ module Error_log = struct[@warning "-unused-value-declaration"]
   let report_warning = Kind.new_constr v1 "Report_warning" String
   let report_warning_as_error =
     Kind.new_constr v1 "Report_warning_as_error" String
+  let () = Kind.seal v1
 
   let (<$>) = constr
 
@@ -768,6 +769,7 @@ module Error_log = struct[@warning "-unused-value-declaration"]
   module Msg = New_record(Vl)(struct let name="error_msg" let update=v1 end)()
   let msg = Msg.new_key v1 "msg" Doc
   let msg_loc = Msg.new_key v1 "loc" loc_typ
+  let () = Msg.seal v1
   let msg_typ =
     let pull m = Log.Record.(make [ msg =: m.txt; msg_loc =: m.loc ]) in
     Custom { id = Msg; pull; default = Record Msg.scheme }
@@ -799,7 +801,7 @@ module Error_log = struct[@warning "-unused-value-declaration"]
     Log.Compiler.new_key v1 "warnings" (List {optional=true; elt=report_typ})
   let alerts =
     Log.Compiler.new_key v1 "alerts" (List {optional=true; elt=report_typ})
-  let () = Log.Error.seal v1
+  let () = Log.Compiler.seal v1
 
 end
 

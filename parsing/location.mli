@@ -263,8 +263,15 @@ val default_warning_reporter: t -> Warnings.t -> report option
 (** {2 Printing warnings} *)
 
 module Error_log: sig
-  type _ Log.extension += Error: report Log.extension
+  type _ Log.extension +=
+    | Error_kind: report_kind Log.extension
+    | Error: report Log.extension
+    | Location: t Log.extension
+    | Msg: Log.doc loc Log.extension
   val warnings: report list Log.Compiler.key
+  module Kind: Log.Compiler_sum
+  module Msg: Log.Compiler_record
+
 end
 
 val formatter_for_warnings : formatter ref
