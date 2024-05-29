@@ -22,26 +22,12 @@ module Keys = Map.Make(K)
 module Version = struct
 
   type t = { major:int; minor:int }
+  type range = { introduction: t; deprecation: t option }
 
   type error =
     | Duplicate_key of string
     | Time_travel of t * t
     | Sealed_version of t
-  exception Error of error
-  let pp_error ppf = function
-    | Time_travel _ ->
-        Format.fprintf ppf "Key from the future"
-    | Duplicate_key s ->
-        Format.fprintf ppf "Duplicated key: %s" s
-    | Sealed_version _ ->
-        Format.fprintf ppf "Sealed version"
-
-  let error e =
-    Format.eprintf "Log error %a@." pp_error e;
-    raise (Error e)
-
-
-  type range = { introduction: t; deprecation: t option }
 
   type base_event =
     | Creation
@@ -49,6 +35,7 @@ module Version = struct
     | Deprecation of string
     | Deletion of string
     | Seal
+    | Error of error
 
   type event =
     { scheme: string; version:t; event:base_event }
@@ -63,19 +50,25 @@ module Version = struct
     minor_update:bool;
   }
 
-  let breaking_change update = if update.minor_update then
-      error (Sealed_version update.history.current)
-
   let register_event update scheme event =
     let h = update.history in
     h.events <- { scheme; version=update.v; event} :: h.events
+
+  let error update sch err = register_event update sch (Error err)
+
+  let breaking_change update sch = if update.minor_update then
+      error update sch (Sealed_version update.history.current)
 
   let zeroth = { major = 0; minor = 0}
   let first = { major = 1; minor = 0 }
 
   let new_version history version =
     let sv = history.current in
-    if version <= sv  then error (Time_travel (version, sv));
+    if version <= sv  then begin
+      let error=Error (Time_travel (version, sv)) in
+      let event = { scheme=""; version=sv; event=error} in
+      history.events <- event :: history.events
+    end;
     let minor_update = version.major = sv.major in
     history.current <- version;
     { v=version; minor_update; history }
@@ -85,6 +78,15 @@ module Version = struct
   open Format
   let pp_version ppf x = fprintf ppf "v%d.%d" x.major x.minor
 
+  let pp_error ppf = function
+    | Time_travel (v,x) ->
+        Format.fprintf ppf "Error: future key (%a<%a)" pp_version v pp_version x
+    | Duplicate_key s ->
+        Format.fprintf ppf "Error: duplicate %s" s
+    | Sealed_version v ->
+        Format.fprintf ppf "Error: seal breach %a" pp_version v
+
+
   let pp_base_event ppf =
     function
     | Creation -> fprintf ppf "Creation"
@@ -92,6 +94,7 @@ module Version = struct
     | Deprecation name -> fprintf ppf "Deprecation %S" name
     | Seal -> fprintf ppf "Seal"
     | Deletion name -> fprintf ppf "Deletion %S" name
+    | Error e -> pp_error ppf e
 
   let pp_history ppf h =
     let events = h.events in
@@ -205,9 +208,10 @@ let (.!()<-) scheme key metadata =
 let new_key update scheme name typ =
   begin match scheme.polarity with
   | Positive -> ()
-  | Negative -> Version.breaking_change update
+  | Negative -> Version.breaking_change update scheme.scheme_name
   end;
-  if List.mem_assoc name scheme.keys then Version.(error (Duplicate_key name));
+  if List.mem_assoc name scheme.keys then
+    Version.(error update scheme.scheme_name (Duplicate_key name));
   let metadata = Key_metadata {
     version=update.Version.v;
     deprecation=None;
