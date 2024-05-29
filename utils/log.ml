@@ -14,6 +14,9 @@
 (**************************************************************************)
 
 
+module K = struct type t = string let compare = compare end
+module Keys = Map.Make(K)
+
 
 
 module Version = struct
@@ -90,39 +93,39 @@ module Version = struct
     | Seal -> fprintf ppf "Seal"
     | Deletion name -> fprintf ppf "Deletion %S" name
 
-  let pp_base ppf e =
-    fprintf ppf "%s, %a, %a"
-      e.scheme
-      pp_version e.version
-      pp_base_event e.event
-
-  let group_history events =
-    let module M = Map.Make(struct
-        type nonrec t = string * t
+  let pp_history ppf h =
+    let events = h.events in
+    let module Vmap = Map.Make(struct
+        type nonrec t = t
         let compare: t -> t -> int = Stdlib.compare
       end)
     in
     let add m e =
-      let k = (e.scheme, e.version) in
-      let prev = Option.value ~default:[] (M.find_opt k m) in
-      M.add k (e.event::prev) m
+      let sch_map =
+        Option.value ~default:Vmap.empty (Keys.find_opt e.scheme m) in
+      let prev = Option.value ~default:[] (Vmap.find_opt e.version sch_map) in
+      let sch_map = Vmap.add e.version (e.event::prev) sch_map in
+      Keys.add e.scheme sch_map m
     in
-    let m = List.fold_left add M.empty events in
-    let reconstruct (s,v) e = { event=e; scheme=s; version=v} in
-    List.concat_map (fun (g,l) -> List.map (reconstruct g) l) (M.bindings m)
-
-  let pp_history ppf h =
-    fprintf ppf "@[<v>%a@]." (pp_print_list pp_base) (group_history h.events)
-
+    let m = List.fold_left add Keys.empty events in
+    let pp_version ppf scheme_version events =
+      Format.fprintf ppf "@[<v 2>%a@,%a@]"
+        pp_version scheme_version
+        (pp_print_list pp_base_event) events
+    in
+    let pp_scheme ppf (scheme_name,scheme_map) =
+      Format.fprintf ppf "@[<v 2>%s@," scheme_name;
+      Vmap.iter (pp_version ppf) scheme_map;
+      Format.fprintf ppf "@]"
+    in
+    Format.fprintf ppf "@[<v>%a@]"
+      Format.(pp_print_seq pp_scheme) (Keys.to_seq m)
 
 end
 type version = Version.t = { major:int; minor:int }
 
 
 type doc = Format.formatter -> unit
-
-module K = struct type t = string let compare = compare end
-module Keys = Map.Make(K)
 
 type _ extension = ..
 
@@ -199,7 +202,6 @@ let (.!()<-) scheme key metadata =
   scheme.keys <- (key.name, metadata) :: scheme.keys
 
 
-
 let new_key update scheme name typ =
   begin match scheme.polarity with
   | Positive -> ()
@@ -265,8 +267,6 @@ module type Version_line = sig
   val history: id Version.history
   val v1: id Version.update
 end
-
-
 
 
 module New_local_def() = struct
