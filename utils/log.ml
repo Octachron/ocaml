@@ -104,25 +104,25 @@ module Version = struct
       end)
     in
     let add m e =
-      let sch_map =
-        Option.value ~default:Vmap.empty (Keys.find_opt e.scheme m) in
-      let prev = Option.value ~default:[] (Vmap.find_opt e.version sch_map) in
-      let sch_map = Vmap.add e.version (e.event::prev) sch_map in
-      Keys.add e.scheme sch_map m
+      let map_at_v =
+        Option.value ~default:Keys.empty (Vmap.find_opt e.version m) in
+      let prev = Option.value ~default:[] (Keys.find_opt e.scheme map_at_v) in
+      let map_at_v = Keys.add e.scheme (e.event::prev) map_at_v in
+      Vmap.add e.version map_at_v m
     in
-    let m = List.fold_left add Keys.empty events in
-    let pp_version ppf scheme_version events =
-      Format.fprintf ppf "@[<v 2>%a@,%a@]"
-        pp_version scheme_version
+    let m = List.fold_left add Vmap.empty events in
+    let pp_scheme_at_v ppf scheme_name events =
+      Format.fprintf ppf "@[<v 2>%s@,%a@]@,"
+        scheme_name
         (pp_print_list pp_base_event) events
     in
-    let pp_scheme ppf (scheme_name,scheme_map) =
-      Format.fprintf ppf "@[<v 2>%s@," scheme_name;
-      Vmap.iter (pp_version ppf) scheme_map;
+    let pp_version ppf (version, map_at_v) =
+      Format.fprintf ppf "@[<v 2>%a@," pp_version version;
+      Keys.iter (pp_scheme_at_v ppf) map_at_v;
       Format.fprintf ppf "@]"
     in
     Format.fprintf ppf "@[<v>%a@]"
-      Format.(pp_print_seq pp_scheme) (Keys.to_seq m)
+      Format.(pp_print_seq pp_version) (Vmap.to_seq m)
 
 end
 type version = Version.t = { major:int; minor:int }
@@ -149,7 +149,7 @@ type 'a typ =
   | Quadruple: 'a typ * 'b typ * 'c typ * 'd typ ->
       ('a * 'b * 'c * 'd) typ
   | Sum: 'a def -> 'a sum typ
-  | Record: 'id def -> 'id prod typ
+  | Record: 'id def -> 'id record typ
   | Custom: { id :'b extension; pull: ('b -> 'a); default: 'a typ} ->
       'b typ
 
@@ -158,6 +158,7 @@ and ('a,'b) key = {
   typ: 'a typ;
   id: 'a Type.Id.t;
 }
+and 'a field = Field: ('a,'b) key * 'a -> 'b field
 and 'a sum =
   | Constr: ('a,'b) key * 'a -> 'b sum
   | Enum: (unit,'b) key -> 'b sum
@@ -172,9 +173,7 @@ and 'a def = {
   mutable keys: (Keys.key * key_metadata) list;
   polarity: polarity;
 }
-and 'a prod = {
-    mutable fields: 'a sum Keys.t
-  }
+and 'a record = 'a field Keys.t ref
 
 type ppf_with_close =
   {
@@ -193,9 +192,9 @@ type 'a log =
   }
 and 'a mode =
   | Direct of ppf_with_close
-  | Store of { data:'a prod; out:(ppf_with_close * printer) option }
+  | Store of { data:'a record; out:(ppf_with_close * printer) option }
 
-and printer = { print: 'a. Format.formatter -> 'a prod -> unit; }
+and printer = { print: 'a. Format.formatter -> 'a record -> unit; }
 
 
 type 'a t = 'a log
@@ -258,12 +257,13 @@ end
 
 module type Record = sig
   include Def
-  val new_key: vl Version.update  -> string -> 'a typ -> 'a key
+  val new_field: vl Version.update  -> string -> 'a typ -> 'a key
 end
 
 module type Sum = sig
   include Def
-  val new_constr: vl Version.update -> string -> 'a typ -> 'a key
+  val new_constr: vl Version.update -> string -> 'a typ -> 'a -> id sum
+  val new_constr0: vl Version.update -> string -> id sum
 end
 
 module type Version_line = sig
@@ -327,7 +327,7 @@ module New_record(Vl:Version_line)(Info:Info with type vl:=Vl.id)() = struct
       polarity=Positive;
     }
     let () = Version.register_event Info.update Info.name Creation
-    let new_key v name ty = new_key v scheme name ty
+    let new_field v name ty = new_key v scheme name ty
     let deprecate u k = deprecate_key u k scheme
     let delete u k = delete_key u k scheme
     let seal u = seal u scheme
@@ -342,16 +342,17 @@ module New_sum(Vl:Version_line)(Info:Info with type vl:=Vl.id)() = struct
       polarity = Negative;
     }
     let () = Version.register_event Info.update Info.name Creation
-    let new_constr u name ty = new_key u scheme name ty
+    let new_constr u name ty =
+      let k = new_key u scheme name ty in
+      fun x -> Constr(k,x)
+    let new_constr0 u name =
+      let k = new_key u scheme name Unit in
+      Enum k
+
     let deprecate u k = deprecate_key u k scheme
     let delete u k = delete_key u k scheme
     let seal u = seal u scheme
 end
-
-
-
-let enum key = Enum key
-let constr key x = Constr(key,x)
 
 
 
@@ -365,15 +366,15 @@ let version_range key scheme =
 
 
 module Record = struct
-  let (=:) = constr
-  let field_name = function    | Enum k -> k.name
-    | Constr (k,_) -> k.name
+  let (^=) k x = Field(k,x)
+  let field_name (Field (k,_)) = k.name
   let make fields =
     let fields = List.fold_left (fun fields field ->
-
         Keys.add (field_name field) field fields
       ) Keys.empty fields
-        in { fields }
+    in
+    ref fields
+  let fields x = !x
 end
 
 (*
@@ -403,52 +404,49 @@ let[@warning "-32"] version_typ =
     | Option _, None -> true
     | Option ty, Some x -> is_empty ty x
     | Record _, x ->
-        Keys.for_all is_empty_field x.fields
+        Keys.for_all is_empty_field !x
     | _ -> false
-  and is_empty_field: type a. _ -> a sum -> bool = fun _ ->
-    function
-    | Enum _ -> false
-    | Constr(kt,x) -> is_empty kt.typ x
+  and is_empty_field: type a. _ -> a field -> bool =
+    fun _ (Field (kt,x)) -> is_empty kt.typ x
 
 module Store = struct
-
+  open Record
   let record:
-    type ty s. s prod -> key:(ty,s) key -> ty -> unit =
+    type ty s. s record -> key:(ty,s) key -> ty -> unit =
       fun store ~key x ->
-        store.fields <- Keys.add key.name (constr key x) store.fields
+        store := Keys.add key.name (key^=x) !store
 
-  let get (type a b) (key: (a,b) key) (st:b prod): a option =
-    match Keys.find_opt key.name st.fields with
+
+  let get (type a b) (key: (a,b) key) (st:b record): a option =
+    match Keys.find_opt key.name (fields st) with
     | None -> None
-    | Some (Enum _) -> None
-    | Some (Constr(k,x)) ->
+    | Some (Field(k,x)) ->
         match Type.Id.provably_equal k.id key.id with
         | None -> None
         | Some Type.Equal -> Some x
 
-  let cons: type ty s. s prod -> key:(ty list,s) key -> ty -> unit =
+  let cons: type ty s. s record -> key:(ty list,s) key -> ty -> unit =
     fun store ~key x ->
       let l = match get key store with
         | None -> [x]
         | Some l -> x :: l
       in
-      store.fields <- Keys.add key.name (constr key l) store.fields
+      store := Keys.add key.name (key^=l) (fields store)
 
   let trim keys prod =
      let field (key,_)  =
-        match Keys.find_opt key prod.fields with
-        | Some (Enum _) as c -> c
+        match Keys.find_opt key (fields prod) with
         | None -> None
-        | Some (Constr (kt,x)) as c ->
+        | Some (Field (kt,x)) as c ->
             if is_empty kt.typ x then None else c
       in
       List.filter_map field (List.rev keys)
 
 
-  let rec validate: type id. ?toplevel:version -> id def -> id prod -> bool =
+  let rec validate: type id. ?toplevel:version -> id def -> id record -> bool =
     fun ?toplevel sch st ->
     (* don't add validation metakeys to empty sublog*)
-    let valid = validate_fields sch.keys st.fields in
+    let valid = validate_fields sch.keys (fields st) in
     Option.iter (fun v ->
         record st ~key:version_key v;
         record st ~key:validity_key valid
@@ -457,18 +455,17 @@ module Store = struct
 
 
   and validate_fields: type id.
-    (Keys.key * key_metadata) list -> id sum Keys.t -> bool =
+    (Keys.key * key_metadata) list -> id field Keys.t -> bool =
     fun metadata data ->
     List.fold_left (fun valid (k,kmd) ->
        valid && validate_key (is_optional kmd) (Keys.find_opt k data)
       ) true metadata
-  and validate_key: type a. bool -> a sum option -> bool  =
+  and validate_key: type a. bool -> a field option -> bool  =
     fun opt k ->
     match opt, k with
     | true, None -> true
     | _, None -> false
-    | _, Some (Enum _) -> true
-    | _, Some (Constr (k,v)) -> validate_value v k.typ
+    | _, Some (Field (k,v)) -> validate_value v k.typ
   and validate_value: type a. a -> a typ -> bool = fun v typ ->
     match typ with
     | Record m -> validate m v
@@ -622,16 +619,14 @@ module Fmt = struct
     conv -> extension_printer -> key:string -> a typ -> a -> pr =
     fun conv ext ~key ty x ppf -> item conv ~key (elt conv ext ty x) ppf
   and fields: type p.
-    conv -> extension_printer -> (_ * p prod)  -> pr list
+    conv -> extension_printer -> (_ * p record)  -> pr list
     = fun conv ext (keys,prod) ->
       let fields = Store.trim keys prod in
-      let pp_field = function
-        | Enum kt -> elt_item conv ext ~key:kt.name kt.typ ()
-        | Constr (kt,x) -> elt_item conv ext ~key:kt.name kt.typ x
+      let pp_field (Field (kt,x))= elt_item conv ext ~key:kt.name kt.typ x
       in
       List.map pp_field fields
 
-  and elt_record: type p. conv -> extension_printer -> (_ * p prod) -> pr =
+  and elt_record: type p. conv -> extension_printer -> (_ * p record) -> pr =
     fun conv ext x -> record conv (fields conv ext x)
 
   let direct = {
@@ -735,19 +730,19 @@ let redirect log key ?(close=ignore) ppf  =
   log.redirections <-
     Keys.add key.name {initialized=ref false;ppf;close} log.redirections
 
-let key_scheme: type a b. (a prod,b) key -> a def  = fun key ->
+let key_scheme: type a b. (a record,b) key -> a def  = fun key ->
   match key.typ with
   | Custom _ -> assert false
   | Record sch -> sch
 
-let item_key_scheme: type a b. (a prod list,b) key -> a def  = fun key ->
+let item_key_scheme: type a b. (a record list,b) key -> a def  = fun key ->
   match key.typ with
   | Custom _ -> assert false
   | List { elt=Custom _ ; _ } -> assert false
   | List { elt=Record sch; _ } -> sch
   | _ -> .
 
-let option_key_scheme: type a b. (a prod option,b) key -> a def  = fun key ->
+let option_key_scheme: type a b. (a record option,b) key -> a def  = fun key ->
   match key.typ with
   | Custom _ -> assert false
   | Option (Custom _) -> assert false
@@ -765,7 +760,7 @@ let generic_detach key_scheme store lift extract log key =
           match Option.bind (Store.get key st.data) extract with
           | Some data -> data
           | None ->
-              let data = { fields = Keys.empty } in
+              let data = Record.make [] in
               store st.data ~key (lift data); data
         in
         let out = match st.out, out with
@@ -837,7 +832,7 @@ let flush: type a. a log -> unit = fun log ->
           let ppf = !(out.ppf) in
           print ppf st.data
         ) st.out;
-        st.data.fields <- Keys.empty
+        st.data := Keys.empty
   end;
   Keys.iter (fun _ -> Fmt.flush) log.redirections
 
@@ -859,11 +854,9 @@ let replay source dest =
   match source.mode with
   | Direct _ -> ()
   | Store st ->
-      Keys.iter (fun _ field ->
-          match field with
-          | Enum key ->  dest.%[key] <- ()
-          | Constr(key,x) -> dest.%[key] <- x
-          ) st.data.fields
+      Keys.iter
+        (fun _ (Field(key,x)) -> dest.%[key] <- x )
+        (Record.fields st.data)
 
 (** {1:log_creation }*)
 
@@ -872,7 +865,7 @@ let tmp scheme = {
   redirections = Keys.empty;
   version = {major=0; minor=0};
   scheme;
-  mode = Store { out=None; data= {fields=Keys.empty} }
+  mode = Store { out=None; data=Record.make [] }
 }
 
 
@@ -890,27 +883,27 @@ module Debug = struct
         let update = v1
       end)
       ()
-  let parsetree = new_key v1 "parsetree" (Option String)
-  let source = new_key v1 "source" (Option String)
-  let typedtree = new_key v1 "typedtree" (Option String)
-  let shape = new_key v1 "shape" (Option String)
-  let instr = new_key v1 "instr" (Option String)
-  let lambda = new_key v1 "lambda" (Option String)
-  let raw_lambda = new_key v1 "raw_lambda" (Option String)
-  let flambda = new_key v1 "flambda" slist
-  let raw_flambda = new_key v1 "raw_flambda" slist
-  let clambda = new_key v1 "clambda" slist
-  let raw_clambda = new_key v1 "raw_clambda" slist
-  let cmm = new_key v1 "cmm" slist
+  let parsetree = new_field v1 "parsetree" (Option String)
+  let source = new_field v1 "source" (Option String)
+  let typedtree = new_field v1 "typedtree" (Option String)
+  let shape = new_field v1 "shape" (Option String)
+  let instr = new_field v1 "instr" (Option String)
+  let lambda = new_field v1 "lambda" (Option String)
+  let raw_lambda = new_field v1 "raw_lambda" (Option String)
+  let flambda = new_field v1 "flambda" slist
+  let raw_flambda = new_field v1 "raw_flambda" slist
+  let clambda = new_field v1 "clambda" slist
+  let raw_clambda = new_field v1 "raw_clambda" slist
+  let cmm = new_field v1 "cmm" slist
   let remove_free_vars_equal_to_args =
-    new_key v1 "remove-free-vars-equal-to-args" slist
+    new_field v1 "remove-free-vars-equal-to-args" slist
   let unbox_free_vars_of_closures =
-    new_key v1 "unbox-free-vars-of-closures" slist
-  let unbox_closures = new_key v1 "unbox-closures" slist
-  let unbox_specialised_args = new_key v1 "unbox-specialised-args" slist
-  let mach = new_key v1 "mach" slist
-  let linear = new_key v1 "linear" slist
-  let cmm_invariant = new_key v1 "cmm_invariant" (Option String)
+    new_field v1 "unbox-free-vars-of-closures" slist
+  let unbox_closures = new_field v1 "unbox-closures" slist
+  let unbox_specialised_args = new_field v1 "unbox-specialised-args" slist
+  let mach = new_field v1 "mach" slist
+  let linear = new_field v1 "linear" slist
+  let cmm_invariant = new_field v1 "cmm_invariant" (Option String)
   let () = seal v1
 end
 
@@ -930,7 +923,7 @@ module Compiler = struct
         let update = v1
       end)
       ()
-  let debug = new_key v1  "debug" (Option (Record Debug.scheme))
+  let debug = new_field v1  "debug" (Option (Record Debug.scheme))
 end
 
 let dloc = List { optional=true; elt = Doc}
@@ -943,12 +936,12 @@ module Toplevel = struct
       end)
       ()
   let v1 = Compiler_log_version.v1
-  let output = new_key v1 "output" Doc
-  let backtrace = new_key v1 "backtrace" (Option Doc)
+  let output = new_field v1 "output" Doc
+  let backtrace = new_field v1 "backtrace" (Option Doc)
   let compiler_log =
-    new_key v1 "compiler_log" (Option (Record Compiler.scheme))
-  let errors = new_key v1 "errors" dloc
-  let trace = new_key v1 "trace" dloc
+    new_field v1 "compiler_log" (Option (Record Compiler.scheme))
+  let errors = new_field v1 "errors" dloc
+  let trace = new_field v1 "trace" dloc
   let () = seal v1
 end
 
@@ -1077,7 +1070,7 @@ module Backends = struct
 
   let with_conv conv settings version ?schema_printer ppf scheme ~with_schema =
     let print ppf r =
-      if Keys.is_empty r.fields then () else
+      if Keys.is_empty (Record.fields r) then () else
         let fields = Fmt.fields conv Fmt.no_extension (scheme.keys,r) in
         let fields = match with_schema, schema_printer with
           | false, _ | _, None -> fields
@@ -1089,7 +1082,7 @@ module Backends = struct
       settings;
       redirections = Keys.empty;
       mode = Store {
-          data={fields=Keys.empty};
+          data= Record.make [];
           out = Some ({initialized=ref false;ppf;close=ignore},{print})
         };
       scheme;

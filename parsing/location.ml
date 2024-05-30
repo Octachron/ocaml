@@ -685,7 +685,7 @@ module Error_log = struct[@warning "-unused-value-declaration"]
 
   module Kind = New_sum(Vl)(struct let name="error_kind" let update = v1 end)()
 
-  let report_error = Kind.new_constr v1 "Report_error" Unit
+  let report_error = Kind.new_constr0 v1 "Report_error"
   let report_alert = Kind.new_constr v1  "Report_alert"  String
   let report_alert_as_error = Kind.new_constr v1 "Report_alert_as_error" String
   let report_warning = Kind.new_constr v1 "Report_warning" String
@@ -693,7 +693,6 @@ module Error_log = struct[@warning "-unused-value-declaration"]
     Kind.new_constr v1 "Report_warning_as_error" String
   let () = Kind.seal v1
 
-  let (<$>) = constr
 
   type loc_summary = {
     file: string option;
@@ -742,11 +741,11 @@ module Error_log = struct[@warning "-unused-value-declaration"]
     | Msg: doc loc extension
 
   let pull = function
-    | Report_error -> Log.enum report_error
-    | Report_warning w -> report_warning <$> w
-    | Report_warning_as_error w -> report_warning_as_error <$> w
-    | Report_alert w -> report_alert <$> w
-    | Report_alert_as_error w -> report_alert_as_error <$> w
+    | Report_error -> report_error
+    | Report_warning w -> report_warning w
+    | Report_warning_as_error w -> report_warning_as_error w
+    | Report_alert w -> report_alert w
+    | Report_alert_as_error w -> report_alert_as_error w
 
 
   let loc_typ =
@@ -764,43 +763,44 @@ module Error_log = struct[@warning "-unused-value-declaration"]
       pull = (fun l -> let l = loc_summary l in l.file, l.lines, l.chars);
       default = loc_typ
     }
-  let loc = Log.Error.new_key v1 "loc" loc_typ
+  let loc = Log.Error.new_field v1 "loc" loc_typ
 
   module Msg = New_record(Vl)(struct let name="error_msg" let update=v1 end)()
-  let msg = Msg.new_key v1 "msg" Doc
-  let msg_loc = Msg.new_key v1 "loc" loc_typ
+  let msg = Msg.new_field v1 "msg" Doc
+  let msg_loc = Msg.new_field v1 "loc" loc_typ
   let () = Msg.seal v1
   let msg_typ =
-    let pull m = Log.Record.(make [ msg =: m.txt; msg_loc =: m.loc ]) in
+    let pull m = Log.Record.(make [ msg ^= m.txt; msg_loc ^= m.loc ]) in
     Custom { id = Msg; pull; default = Record Msg.scheme }
 
-  let kind = Log.Error.new_key v1 "kind"
+  let kind = Log.Error.new_field v1 "kind"
       (Custom { id = Error_kind; pull; default = Sum Kind.scheme })
 
-  let main = Log.Error.new_key v1 "main" msg_typ
-  let sub = Log.Error.new_key v1 "sub" Log.(List {optional=true; elt=msg_typ})
+  let main = Log.Error.new_field v1 "main" msg_typ
+  let sub = Log.Error.new_field v1 "sub" Log.(List {optional=true; elt=msg_typ})
   let quotable_locs =
-    Log.Error.new_key v1 "quotable_locs" Log.(List {optional=true; elt=loc_typ})
+    Log.Error.new_field v1 "quotable_locs"
+      Log.(List {optional=true; elt=loc_typ})
 
   let () = Log.Error.seal v1
 
   let pull (report:report) =
     let open Log.Record in
     make [
-      kind =: report.kind;
-      main =: report.main;
-      sub =: report.sub;
-      quotable_locs =: report.quotable_locs
+      kind ^= report.kind;
+      main ^= report.main;
+      sub ^= report.sub;
+      quotable_locs ^= report.quotable_locs
     ]
 
 
   let report_typ = Custom { id = Error; pull; default = Record Error.scheme }
 
-  let key = Log.Compiler.new_key v1 "error" (Option report_typ)
+  let key = Log.Compiler.new_field v1 "error" (Option report_typ)
   let warnings =
-    Log.Compiler.new_key v1 "warnings" (List {optional=true; elt=report_typ})
+    Log.Compiler.new_field v1 "warnings" (List {optional=true; elt=report_typ})
   let alerts =
-    Log.Compiler.new_key v1 "alerts" (List {optional=true; elt=report_typ})
+    Log.Compiler.new_field v1 "alerts" (List {optional=true; elt=report_typ})
   let () = Log.Compiler.seal v1
 
 end

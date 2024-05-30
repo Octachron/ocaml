@@ -41,7 +41,8 @@ end
 type version = Version.t = { major:int; minor:int }
 
 type !'a sum
-type !'a prod
+type !'a field
+type !'a record
 
 type empty = Empty_tag
 
@@ -60,7 +61,7 @@ type 'a typ =
   | Quadruple: 'a typ * 'b typ * 'c typ * 'd typ ->
       ('a * 'b * 'c * 'd) typ
   | Sum: 'a def -> 'a sum typ
-  | Record: 'id def -> 'id prod typ
+  | Record: 'id def -> 'id record typ
   | Custom: { id :'b extension; pull: ('b -> 'a); default: 'a typ} ->
       'b typ
 
@@ -85,12 +86,13 @@ end
 
 module type Record = sig
   include Def
-  val new_key: vl Version.update  -> string -> 'a typ -> 'a key
+  val new_field: vl Version.update  -> string -> 'a typ -> 'a key
 end
 
 module type Sum = sig
   include Def
-  val new_constr: vl Version.update -> string -> 'a typ -> 'a key
+  val new_constr: vl Version.update -> string -> 'a typ -> 'a -> id sum
+  val new_constr0: vl Version.update -> string -> id sum
 end
 
 module type Info = sig
@@ -104,9 +106,6 @@ module New_record (Vl:Version_line):
   (Info with type vl:=Vl.id)-> () -> (Record with type vl := Vl.id)
 module New_sum (Vl:Version_line):
   (Info with type vl:=Vl.id) -> () -> (Sum with type vl := Vl.id)
-
-val enum: (unit, 'id) key -> 'id sum
-val constr: ('a,'id) key -> 'a -> 'id sum
 
 val version_range: (_,'id) key -> 'id def -> Version.range
 
@@ -161,9 +160,9 @@ val redirect: 'id log -> ('a,'id) key ->
 val (.%[]<-): 'b log -> ('a,'b) key -> 'a -> unit
 val replay: 'a log -> 'a log -> unit
 
-val detach: 'id log -> ('id2 prod, 'id) key -> 'id2 log
-val detach_item: 'id log -> ('id2 prod list, 'id) key -> 'id2 log
-val detach_option: 'id log -> ('id2 prod option, 'id) key -> 'id2 log
+val detach: 'id log -> ('id2 record, 'id) key -> 'id2 log
+val detach_item: 'id log -> ('id2 record list, 'id) key -> 'id2 log
+val detach_option: 'id log -> ('id2 record option, 'id) key -> 'id2 log
 
 
 val f : (string,'a) key -> 'a log -> ('b, Format.formatter, unit) format -> 'b
@@ -190,8 +189,8 @@ val itemd :
 
 
 module Record: sig
-  val (=:): ('a,'b) key -> 'a -> 'b sum
-  val make: 'a sum list -> 'a prod
+  val (^=): ('a,'b) key -> 'a -> 'b field
+  val make: 'a field list -> 'a record
 end
 
 (** Compiler logs *)
@@ -226,7 +225,7 @@ end
 
 module Compiler: sig
   include Compiler_record
-  val debug: Debug.id prod option key
+  val debug: Debug.id record option key
 end
 module Error: Compiler_record
 
@@ -234,7 +233,7 @@ module Toplevel: sig
   include Compiler_record
   val output: doc key
   val backtrace: doc option key
-  val compiler_log: Compiler.id prod option key
+  val compiler_log: Compiler.id record option key
   val errors: doc list key
   val trace: doc list key
 end
