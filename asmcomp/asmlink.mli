@@ -16,7 +16,6 @@
 (* Link a set of .cmx/.o files and produce an executable or a plugin *)
 
 open Misc
-open Format
 
 val link: log:Log.Debug.log -> string list -> string -> unit
 

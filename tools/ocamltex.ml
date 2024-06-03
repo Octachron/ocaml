@@ -203,10 +203,8 @@ module Toplevel = struct
 
   let exec (_,ppf) p =
     let log = Topcommon.log_on_formatter ppf in
-    let clog = Topcommon.compiler_log log in
-    let dlog = Log.detach_option clog Log.Compiler.debug in
     try
-      ignore @@ Toploop.execute_phrase true (log, dlog) p
+      ignore @@ Toploop.execute_phrase true log p
     with exn ->
       report_exception (snd error_fmt) exn
     ;

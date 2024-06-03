@@ -874,6 +874,10 @@ let pp_report reporter ppf report =
       Format.fprintf ppf "@,%a" (pp_submsg kind) msg
     ) msgs
   in
+  let pp_footnote ppf = function
+    | None -> ()
+    | Some msg -> Format.fprintf ppf "@,%a" reporter.pp_msg msg
+  in
     (* Make sure we keep [num_loc_lines] updated.
        The tabulation box is here to give submessage the option
        to be aligned with the main message box
@@ -881,7 +885,7 @@ let pp_report reporter ppf report =
     separate_new_message' ppf;
     print_updating_num_loc_lines ppf (fun ppf () ->
       reporter.pp_quotable_locs ppf report.quotable_locs;
-      Format.fprintf ppf "@[<v>%a%a%a: %a%a%a%a@]"
+      Format.fprintf ppf "@[<v>%a%a%a: %a%a%a%a%a@]"
       Format.pp_open_tbox ()
       reporter.pp_main_loc (report.kind, report.main.loc)
       reporter.pp_report_kind report.kind
@@ -889,6 +893,7 @@ let pp_report reporter ppf report =
       reporter.pp_msg report.main.txt
       (pp_submsgs report.kind) report.sub
       Format.pp_close_tbox ()
+      pp_footnote report.footnote
     ) ();
     incr num_loc_lines
 

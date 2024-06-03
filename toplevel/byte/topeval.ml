@@ -15,7 +15,6 @@
 
 (* The interactive toplevel loop *)
 
-open Format
 open Misc
 open Parsetree
 open Types
@@ -71,14 +70,13 @@ include Topcommon.MakeEvalPrinter(EvalBase)
 
 let may_trace = ref false (* Global lock on tracing *)
 
-let load_lambda ppf lam =
-  if !Clflags.dump_rawlambda then fprintf ppf "%a@." Printlambda.lambda lam;
+let load_lambda dlog lam =
+  let log_if flag key pr x = Log.log_if dlog key flag pr x in
+  log_if !Clflags.dump_rawlambda Log.Debug.raw_lambda Printlambda.lambda lam;
   let slam = Simplif.simplify_lambda lam in
-  if !Clflags.dump_lambda then fprintf ppf "%a@." Printlambda.lambda slam;
+  log_if !Clflags.dump_lambda Log.Debug.lambda Printlambda.lambda slam;
   let instrs, can_free = Bytegen.compile_phrase slam in
-  if !Clflags.dump_instr then
-    fprintf ppf "%a@."
-    Printinstr.instrlist instrs;
+  log_if !Clflags.dump_instr Log.Debug.instr Printinstr.instrlist instrs;
   let (code, reloc, events) =
     Emitcode.to_memory instrs
   in
@@ -119,7 +117,7 @@ let pr_item =
 
 (* Execute a toplevel phrase *)
 
-let execute_phrase print_outcome ppf phr =
+let execute_phrase print_outcome log phr =
   match phr with
   | Ptop_def sstr ->
       let oldenv = !toplevel_env in
@@ -127,17 +125,20 @@ let execute_phrase print_outcome ppf phr =
       let (str, sg, sn, shape, newenv) =
         Typemod.type_toplevel_phrase oldenv sstr
       in
-      if !Clflags.dump_typedtree then Printtyped.implementation ppf str;
+      let log_if key flag pr x =Log.log_if (debug_log log) key flag pr x in
+      log_if Log.Debug.typedtree !Clflags.dump_typedtree
+        Printtyped.implementation str;
       let sg' = Typemod.Signature_names.simplify newenv sn sg in
       ignore (Includemod.signatures ~mark:Mark_positive oldenv sg sg');
       Typecore.force_delayed_checks ();
       let shape = Shape_reduce.local_reduce Env.empty shape in
-      if !Clflags.dump_shape then Shape.print ppf shape;
+      log_if Log.Debug.shape !Clflags.dump_shape Shape.print shape;
       let lam = Translmod.transl_toplevel_definition str in
       Warnings.check_fatal ();
       begin try
         toplevel_env := newenv;
-        let res = load_lambda ppf lam in
+        Format.printf "%!";
+        let res = load_lambda (debug_log log) lam in
         let out_phr =
           match res with
           | Result v ->
@@ -164,17 +165,18 @@ let execute_phrase print_outcome ppf phr =
         begin match out_phr with
         | Ophr_signature [] -> ()
         | _ ->
-            Location.separate_new_message ppf;
-            !print_out_phrase ppf out_phr;
+            Location.separate_new_message log;
+            Log.d Log.Toplevel.output log "%a" !print_out_phrase out_phr
         end;
         if Printexc.backtrace_status ()
         then begin
           match !backtrace with
             | None -> ()
             | Some b ->
-                Location.separate_new_message ppf;
-                pp_print_string ppf b;
-                pp_print_flush ppf ();
+                Location.separate_new_message log;
+                (* avoid duplicating the newline *)
+                let b = String.trim b in
+                Log.o Log.Toplevel.backtrace log "%s" b;
                 backtrace := None;
         end;
         begin match out_phr with
@@ -185,7 +187,7 @@ let execute_phrase print_outcome ppf phr =
         toplevel_env := oldenv; raise x
       end
   | Ptop_dir {pdir_name = {Location.txt = dir_name}; pdir_arg } ->
-      try_run_directive ppf dir_name pdir_arg
+      try_run_directive log dir_name pdir_arg
 
 let execute_phrase print_outcome ppf phr =
   try execute_phrase print_outcome ppf phr
@@ -202,21 +204,21 @@ open Cmo_format
 
 exception Load_failed
 
-let check_consistency ppf filename cu =
+let check_consistency log filename cu =
   try Env.import_crcs ~source:filename cu.cu_imports
   with Persistent_env.Consistbl.Inconsistency {
       unit_name = name;
       inconsistent_source = user;
       original_source = auth;
     } ->
-    fprintf ppf "@[<hv 0>The files %s@ and %s@ \
-                 disagree over interface %s@]@."
+    Log.itemd Log.Toplevel.errors log "@[<hv 0>The files %s@ and %s@ \
+                 disagree over interface %s@]"
             user auth name;
     raise Load_failed
 
 (* This is basically Dynlink.Bytecode.run with no digest *)
-let load_compunit ic filename ppf compunit =
-  check_consistency ppf filename compunit;
+let load_compunit ic filename log compunit =
+  check_consistency log filename compunit;
   seek_in ic compunit.cu_pos;
   let code =
     Bigarray.Array1.create Bigarray.Char Bigarray.c_layout compunit.cu_codesize
@@ -242,23 +244,25 @@ let load_compunit ic filename ppf compunit =
     record_backtrace ();
     may_trace := false;
     Symtable.restore_state initial_symtable;
-    print_exception_outcome ppf exn;
+    Log.d Log.Toplevel.output log "%a" print_exception_outcome exn;
     raise Load_failed
   end
 
-let rec load_file recursive ppf name =
+let rec load_file recursive log name =
   let filename =
     try Some (Load_path.find name) with Not_found -> None
   in
   match filename with
-  | None -> fprintf ppf "Cannot find file %s.@." name; false
+  | None ->
+      Log.itemd Log.Toplevel.errors log "Cannot find file %s." name;
+      false
   | Some filename ->
       let ic = open_in_bin filename in
       Misc.try_finally
         ~always:(fun () -> close_in ic)
-        (fun () -> really_load_file recursive ppf name filename ic)
+        (fun () -> really_load_file recursive log name filename ic)
 
-and really_load_file recursive ppf name filename ic =
+and really_load_file recursive log name filename ic =
   let buffer = really_input_string ic (String.length Config.cmo_magic_number) in
   try
     if buffer = Config.cmo_magic_number then begin
@@ -275,14 +279,14 @@ and really_load_file recursive ppf name filename ic =
                 begin match Load_path.find_normalized file with
                 | exception Not_found -> ()
                 | file ->
-                    if not (load_file recursive ppf file) then raise Load_failed
+                    if not (load_file recursive log file) then raise Load_failed
                 end
             | Reloc_getcompunit _
             | Reloc_literal _ | Reloc_getpredef _ | Reloc_setcompunit _
             | Reloc_primitive _ -> ()
           )
           cu.cu_reloc;
-      load_compunit ic filename ppf cu;
+      load_compunit ic filename log cu;
       true
     end else
       if buffer = Config.cma_magic_number then begin
@@ -294,15 +298,16 @@ and really_load_file recursive ppf name filename ic =
             let name = Dll.extract_dll_name dllib in
             try Dll.open_dlls Dll.For_execution [name]
             with Failure reason ->
-              fprintf ppf
-                "Cannot load required shared library %s.@.Reason: %s.@."
+              Log.itemd Log.Toplevel.errors log
+                "@[<v>Cannot load required shared library %s.@,Reason: %s.@]"
                 name reason;
               raise Load_failed)
           lib.lib_dllibs;
-        List.iter (load_compunit ic filename ppf) lib.lib_units;
+        List.iter (load_compunit ic filename log) lib.lib_units;
         true
       end else begin
-        fprintf ppf "File %s is not a bytecode object file.@." name;
+         Log.itemd Log.Toplevel.errors log
+           "File %s is not a bytecode object file." name;
         false
       end
   with Load_failed -> false

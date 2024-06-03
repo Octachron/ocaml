@@ -253,7 +253,7 @@ Error: Type
 
 class printable_point y = object (s)
   inherit point y
-  method print = Format.print_int s#get_x
+  method print = Format.print_int s#get_x; Format.print_flush ()
 end;;
 [%%expect{|
 class printable_point :
@@ -284,7 +284,8 @@ class printable_color_point y c = object (self)
     super#print;
     Format.print_string ", ";
     Format.print_string (self#color);
-    Format.print_string ")"
+    Format.print_string ")";
+    Format.print_flush ();
 end;;
 [%%expect{|
 Line 3, characters 2-36:
@@ -372,7 +373,8 @@ class virtual ['a] lst () = object (self)
     Format.print_string "(";
     self#iter (fun x -> f x; Format.print_string "::");
     Format.print_string "[]";
-    Format.print_string ")"
+    Format.print_string ")";
+    Format.print_flush ()
 end and ['a] nil () = object
   inherit ['a] lst ()
   method null = true
@@ -605,7 +607,7 @@ val sort : (#comparable as 'a) list -> 'a list = <fun>
 |}];;
 let pr l =
   List.map (fun c -> Format.print_int c#x; Format.print_string " ") l;
-  Format.print_newline ();;
+  Format.print_flush ();;
 [%%expect{|
 Line 2, characters 2-69:
 2 |   List.map (fun c -> Format.print_int c#x; Format.print_string " ") l;
@@ -621,13 +623,11 @@ val l : int_comparable list = [<obj>; <obj>; <obj>]
 |}];;
 pr l;;
 [%%expect{|
-5 2 4
-- : unit = ()
+5 2 4 - : unit = ()
 |}];;
 pr (sort l);;
 [%%expect{|
-2 4 5
-- : unit = ()
+2 4 5 - : unit = ()
 |}];;
 let l = [new int_comparable2 2; new int_comparable2 0];;
 [%%expect{|
@@ -635,13 +635,11 @@ val l : int_comparable2 list = [<obj>; <obj>]
 |}];;
 pr l;;
 [%%expect{|
-2 0
-- : unit = ()
+2 0 - : unit = ()
 |}];;
 pr (sort l);;
 [%%expect{|
-0 2
-- : unit = ()
+0 2 - : unit = ()
 |}];;
 
 let min (x : #comparable) y =

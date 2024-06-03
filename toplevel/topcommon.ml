@@ -23,14 +23,13 @@ open Format
 open Parsetree
 open Outcometree
 open Ast_helper
-
 (* Hooks for parsing functions *)
 
 let parse_toplevel_phrase = ref Parse.toplevel_phrase
 let parse_use_file = ref Parse.use_file
 let print_location = Location.print_loc
 let print_error = Location.print_report
-let print_warning = Location.print_warning
+let log_warning = Location.log_warning
 let input_name = Location.input_name
 
 let parse_mod_use_file name lb =
@@ -195,7 +194,7 @@ let record_backtrace () =
   if Printexc.backtrace_status ()
   then backtrace := Some (Printexc.get_backtrace ())
 
-let preprocess_phrase ppf phr =
+let preprocess_phrase debug phr =
   let phr =
     match phr with
     | Ptop_def str ->
@@ -205,8 +204,10 @@ let preprocess_phrase ppf phr =
         Ptop_def str
     | phr -> phr
   in
-  if !Clflags.dump_parsetree then Printast.top_phrase ppf phr;
-  if !Clflags.dump_source then Pprintast.top_phrase ppf phr;
+  Log.log_if debug Log.Debug.parsetree !Clflags.dump_parsetree
+    Printast.top_phrase phr;
+  Log.log_if debug Log.Debug.source !Clflags.dump_source
+    Pprintast.top_phrase phr;
   phr
 
 (* Phrase buffer that stores the last toplevel phrase (see
@@ -309,12 +310,14 @@ let is_command_like_name s =
 (* The table of toplevel directives.
    Filled by functions from module topdirs. *)
 
+type 'a directive = Log.Toplevel.log -> 'a -> unit
+
 type directive_fun =
-  | Directive_none of (unit -> unit)
-  | Directive_string of (string -> unit)
-  | Directive_int of (int -> unit)
-  | Directive_ident of (Longident.t -> unit)
-  | Directive_bool of (bool -> unit)
+  | Directive_none of unit directive
+  | Directive_string of string directive
+  | Directive_int of int directive
+  | Directive_ident of Longident.t directive
+  | Directive_bool of bool directive
 
 type directive_info = {
   section: string;
@@ -340,36 +343,36 @@ let all_directive_names () =
   Hashtbl.fold (fun dir _ acc -> dir::acc) directive_table []
 
 module Style = Misc.Style
-let inline_code = Format_doc.compat Style.inline_code
+let inline_code = Style.inline_code
 
-let try_run_directive ppf dir_name pdir_arg =
+let try_run_directive log dir_name pdir_arg =
+  let log_error fmt = Log.itemd Log.Toplevel.errors log fmt in
   begin match get_directive dir_name with
   | None ->
-      fprintf ppf "Unknown directive %a." inline_code dir_name;
       let directives = all_directive_names () in
-      Format_doc.compat Misc.did_you_mean ppf
-        (fun () -> Misc.spellcheck directives dir_name);
-      fprintf ppf "@.";
+      log_error "Unknown directive %a.%a" Style.inline_code dir_name
+        Misc.did_you_mean
+          (fun () -> Misc.spellcheck directives dir_name);
       false
   | Some d ->
       match d, pdir_arg with
-      | Directive_none f, None -> f (); true
-      | Directive_string f, Some {pdira_desc = Pdir_string s} -> f s; true
+      | Directive_none f, None -> f log (); true
+      | Directive_string f, Some {pdira_desc = Pdir_string s} -> f log s; true
       | Directive_int f, Some {pdira_desc = Pdir_int (n,None) } ->
          begin match Misc.Int_literal_converter.int n with
-         | n -> f n; true
+         | n -> f log n; true
          | exception _ ->
-           fprintf ppf "Integer literal exceeds the range of \
-                        representable integers for directive %a.@."
-                   inline_code dir_name;
-           false
+             log_error "Integer literal exceeds the range of \
+                  representable integers for directive %a."
+               Style.inline_code dir_name;
+             false
          end
       | Directive_int _, Some {pdira_desc = Pdir_int (_, Some _)} ->
-          fprintf ppf "Wrong integer literal for directive %a.@."
-            inline_code dir_name;
+          log_error "Wrong integer literal for directive %a."
+            Style.inline_code dir_name;
           false
-      | Directive_ident f, Some {pdira_desc = Pdir_ident lid} -> f lid; true
-      | Directive_bool f, Some {pdira_desc = Pdir_bool b} -> f b; true
+      | Directive_ident f, Some {pdira_desc = Pdir_ident lid} -> f log lid; true
+      | Directive_bool f, Some {pdira_desc = Pdir_bool b} -> f log b; true
       | _ ->
           let dir_type  = match d with
           | Directive_none _   -> `None
@@ -386,20 +389,42 @@ let try_run_directive ppf dir_name pdir_arg =
           | Some {pdira_desc = Pdir_bool _}   -> `Bool
           in
           let pp_type ppf = function
-          | `None -> Format.fprintf ppf "no argument"
+          | `None -> Format_doc.fprintf ppf "no argument"
           | `String ->
-              Format.fprintf ppf "a %a literal" inline_code "string"
+              Format_doc.fprintf ppf "a %a literal" inline_code "string"
           | `Int ->
-              Format.fprintf ppf "an %a literal" inline_code "string"
+              Format_doc.fprintf ppf "an %a literal" inline_code "string"
           | `Ident ->
-              Format.fprintf ppf "an identifier"
+              Format_doc.fprintf ppf "an identifier"
           | `Bool ->
-              Format.fprintf ppf "a %a literal" inline_code "bool"
+              Format_doc.fprintf ppf "a %a literal" inline_code "bool"
           in
-          fprintf ppf "Directive %a expects %a, got %a.@."
-            inline_code dir_name pp_type dir_type pp_type arg_type;
+          log_error "Directive %a expects %a, got %a."
+            Style.inline_code dir_name pp_type dir_type pp_type arg_type;
           false
   end
+
+
+let log_on_formatter ppf =
+  let version = Log.(Version.current_version Compiler_log_version.history) in
+  let backend = Option.value ~default:Log.Backends.fmt !Clflags.log_format in
+  let log = backend.make !Clflags.color version (ref ppf)
+      ~with_schema:false Log.Toplevel.scheme
+  in
+  let clog = Log.detach_option log Log.Toplevel.compiler_log in
+  Location.current_log := clog;
+  if !Location.formatter_for_warnings != Format.err_formatter then
+    begin
+      Log.redirect clog Location.Error_log.warnings
+        Location.formatter_for_warnings;
+    end;
+  log
+
+let compiler_log log =
+  Log.detach_option log Log.Toplevel.compiler_log
+
+let debug_log log = Log.detach_option (compiler_log log) Log.Compiler.debug
+
 
 (* Overriding exception printers with toplevel-specific ones *)
 
@@ -410,8 +435,8 @@ let loading_hint_printer ppf cu =
   let find_with_ext ext =
     try Some (Load_path.find_normalized (cu ^ ext)) with Not_found -> None
   in
-  fprintf ppf
-    "@.Hint: @[\
+    fprintf ppf
+    "Hint: @[\
      This means that the interface of a module is loaded, \
      but its implementation is not.@,";
   (* Filenames don't have to correspond to module names,

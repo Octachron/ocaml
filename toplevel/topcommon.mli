@@ -44,11 +44,16 @@ val toplevel_env : Env.t ref
 val initialize_toplevel_env : unit -> unit
         (* Initialize the typing environment for the toplevel *)
 val preprocess_phrase :
-      formatter -> Parsetree.toplevel_phrase ->  Parsetree.toplevel_phrase
+      Log.Debug.log -> Parsetree.toplevel_phrase ->  Parsetree.toplevel_phrase
         (* Preprocess the given toplevel phrase using regular and ppx
            preprocessors. Return the updated phrase. *)
 val record_backtrace : unit -> unit
 
+(*Log creation *)
+
+val log_on_formatter: Format.formatter -> Log.Toplevel.log
+val compiler_log: Log.Toplevel.log -> Log.Compiler.log
+val debug_log: Log.Toplevel.log -> Log.Debug.log
 
 (* Printing of values *)
 
@@ -61,16 +66,14 @@ val max_printer_steps: int ref
 
 type 'a printer := 'a Oprint.printer
 
-val print_out_value :
-  (formatter -> Outcometree.out_value -> unit) ref
+val print_out_value : Outcometree.out_value printer
 val print_out_type : Outcometree.out_type printer
 val print_out_class_type :  Outcometree.out_class_type printer
 val print_out_module_type : Outcometree.out_module_type printer
 val print_out_type_extension : Outcometree.out_type_extension printer
 val print_out_sig_item :  Outcometree.out_sig_item printer
 val print_out_signature :  Outcometree.out_sig_item list printer
-val print_out_phrase :
-  (formatter -> Outcometree.out_phrase -> unit) ref
+val print_out_phrase : Outcometree.out_phrase printer
 
 
 exception Undefined_global of string
@@ -97,11 +100,12 @@ module MakeEvalPrinter (_ : EVAL_BASE) : sig
 
   module Printer: Genprintval.S with type t = Obj.t
 
-  val print_value: Env.t -> Printer.t -> formatter -> Types.type_expr -> unit
+  val print_value:
+    Env.t -> Printer.t -> Format_doc.formatter -> Types.type_expr -> unit
 
-  val print_untyped_exception: formatter -> Printer.t -> unit
+  val print_untyped_exception: Printer.t Format_doc.printer
 
-  val print_exception_outcome : formatter -> exn -> unit
+  val print_exception_outcome : exn Format_doc.printer
     (* Print an exception resulting from the evaluation of user code. *)
 
   val outval_of_value:
@@ -127,12 +131,14 @@ end
 
 (* Interface with toplevel directives *)
 
+type 'a directive = Log.Toplevel.log -> 'a -> unit
+
 type directive_fun =
-  | Directive_none of (unit -> unit)
-  | Directive_string of (string -> unit)
-  | Directive_int of (int -> unit)
-  | Directive_ident of (Longident.t -> unit)
-  | Directive_bool of (bool -> unit)
+  | Directive_none of unit directive
+  | Directive_string of string directive
+  | Directive_int of int directive
+  | Directive_ident of Longident.t directive
+  | Directive_bool of bool directive
 
 type directive_info = {
   section: string;
@@ -150,7 +156,7 @@ val get_directive_info : string -> directive_info option
 val all_directive_names : unit -> string list
 
 val try_run_directive :
-  formatter -> string -> Parsetree.directive_argument option -> bool
+  Log.Toplevel.log -> string -> Parsetree.directive_argument option -> bool
 
 val[@deprecated] directive_table : (string, directive_fun) Hashtbl.t
   (* @deprecated please use [add_directive] instead of inserting
@@ -166,7 +172,7 @@ val parse_toplevel_phrase : (Lexing.lexbuf -> Parsetree.toplevel_phrase) ref
 val parse_use_file : (Lexing.lexbuf -> Parsetree.toplevel_phrase list) ref
 val print_location : formatter -> Location.t -> unit
 val print_error : formatter -> Location.error -> unit
-val print_warning : Location.t -> formatter -> Warnings.t -> unit
+val log_warning : Location.t -> Log.Compiler.log -> Warnings.t -> unit
 val input_name : string ref
 
 (* Hooks for external line editor *)

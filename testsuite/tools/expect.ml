@@ -128,13 +128,6 @@ let split_chunks phrases =
   in
   loop phrases [] []
 
-module Compiler_messages = struct
-  let capture ppf ~f =
-    Misc.protect_refs
-      [ R (Location.formatter_for_warnings, ppf) ]
-      f
-end
-
 let collect_formatters buf pps ~f =
   let ppb = Format.formatter_of_buffer buf in
   let out_functions = Format.pp_get_formatter_out_functions ppb () in
@@ -157,16 +150,20 @@ let collect_formatters buf pps ~f =
   | x             -> restore (); x
   | exception exn -> restore (); raise exn
 
-(* Invariant: ppf = Format.formatter_of_buffer buf *)
-let capture_everything buf ppf ~f =
-  collect_formatters buf [Format.std_formatter; Format.err_formatter]
-                     ~f:(fun () -> Compiler_messages.capture ppf ~f)
 
-let exec_phrase ppf phrase =
+(* Invariant: ppf = Format.formatter_of_buffer buf *)
+let capture_everything buf ~f =
+  collect_formatters buf [Format.std_formatter; Format.err_formatter]
+    ~f
+
+
+let exec_phrase log phrase =
+  let log_if flag kind pr x = Log.log_if (Topcommon.debug_log log) kind flag pr x in
   Location.reset ();
-  if !Clflags.dump_parsetree then Printast. top_phrase ppf phrase;
-  if !Clflags.dump_source    then Pprintast.top_phrase ppf phrase;
-  Toploop.execute_phrase true ppf phrase
+  log_if !Clflags.dump_parsetree Log.Debug.parsetree
+    Printast.top_phrase phrase;
+  log_if !Clflags.dump_source Log.Debug.source Pprintast.top_phrase phrase;
+  Toploop.execute_phrase true log phrase
 
 let parse_contents ~fname contents =
   let lexbuf = Lexing.from_string contents in
@@ -222,24 +219,22 @@ let eval_expect_file _fname ~file_contents =
   in
   let buf = Buffer.create 1024 in
   let ppf = Format.formatter_of_buffer buf in
-  let () = Misc.Style.set_tag_handling ~color:false ppf in
+  let log = Topcommon.log_on_formatter ppf in
   let exec_phrases phrases =
     let phrases =
       match min_line_number phrases with
       | None -> phrases
       | Some lnum -> shift_lines (1 - lnum) phrases
     in
-    (* For formatting purposes *)
-    Buffer.add_char buf '\n';
+    let () = Log.(itemd Toplevel.trace log "") in
     let _ : bool =
       List.fold_left phrases ~init:true ~f:(fun acc phrase ->
         acc &&
+        let clog = Topcommon.compiler_log log in
         let snap = Btype.snapshot () in
-        try
-          exec_phrase ppf phrase
-        with exn ->
+        let state = try exec_phrase log phrase with exn ->
           let bt = Printexc.get_raw_backtrace () in
-          begin try Location.report_exception ppf exn
+          begin try Location.log_exception clog exn
           with _ ->
             Format.fprintf ppf "Uncaught exception: %s\n%s\n"
               (Printexc.to_string exn)
@@ -247,19 +242,16 @@ let eval_expect_file _fname ~file_contents =
           end;
           Btype.backtrack snap;
           false
+        in
+        Log.flush log; state
       )
     in
-    Format.pp_print_flush ppf ();
-    let len = Buffer.length buf in
-    if len > 0 && Buffer.nth buf (len - 1) <> '\n' then
-      (* For formatting purposes *)
-      Buffer.add_char buf '\n';
     let s = Buffer.contents buf in
     Buffer.clear buf;
     Misc.delete_eol_spaces s
   in
   let corrected_expectations =
-    capture_everything buf ppf ~f:(fun () ->
+    capture_everything buf ~f:(fun () ->
       List.fold_left chunks ~init:[] ~f:(fun acc chunk ->
         let output = exec_phrases chunk.phrases in
         match eval_expectation chunk.expectation ~output with
@@ -271,7 +263,7 @@ let eval_expect_file _fname ~file_contents =
     match trailing_code with
     | None -> ""
     | Some phrases ->
-      capture_everything buf ppf ~f:(fun () -> exec_phrases phrases)
+      capture_everything buf ~f:(fun () -> exec_phrases phrases)
   in
   { corrected_expectations; trailing_output }
 
@@ -375,5 +367,7 @@ let () =
     Printf.eprintf "expect: no input file\n";
     exit 2
   with exn ->
-    Location.report_exception Format.err_formatter exn;
+    let log = Location.log_on_formatter ~prev:None Format.err_formatter in
+    Location.log_exception  log exn;
+    Log.flush log;
     exit 2

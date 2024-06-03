@@ -17,7 +17,6 @@
 
 [@@@ocaml.warning "+a-4-9-40-41-42"]
 
-open Format
 open Config
 open Clflags
 open Misc
