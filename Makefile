@@ -70,6 +70,7 @@ utils_SOURCES = $(addprefix utils/, \
   arg_helper.mli arg_helper.ml \
   local_store.mli local_store.ml \
   load_path.mli load_path.ml \
+  log.mli log.ml \
   clflags.mli clflags.ml \
   profile.mli profile.ml \
   terminfo.mli terminfo.ml \
@@ -210,7 +211,6 @@ ocamlbytecomp_SOURCES = \
   bytecomp/bytelink.mli bytecomp/bytelink.ml \
   bytecomp/bytelibrarian.mli bytecomp/bytelibrarian.ml \
   bytecomp/bytepackager.mli bytecomp/bytepackager.ml \
-  driver/errors.mli driver/errors.ml \
   driver/compile.mli driver/compile.ml \
   driver/maindriver.mli driver/maindriver.ml
 
@@ -269,7 +269,6 @@ asmcomp_SOURCES = \
   asmcomp/asmlink.mli asmcomp/asmlink.ml \
   asmcomp/asmlibrarian.mli asmcomp/asmlibrarian.ml \
   asmcomp/asmpackager.mli asmcomp/asmpackager.ml \
-  driver/opterrors.mli driver/opterrors.ml \
   driver/optcompile.mli driver/optcompile.ml \
   driver/optmaindriver.mli driver/optmaindriver.ml
 
@@ -526,7 +525,8 @@ clean::
 	rm -f $(addprefix tools/ocamlopt,p p.opt p.exe p.opt.exe)
 
 TOOLS_NAT = $(TOOLS_TO_INSTALL_NAT)
-TOOLS_BYT = $(TOOLS_TO_INSTALL_BYT) dumpobj primreq stripdebug cmpbyt
+TOOLS_BYT = $(TOOLS_TO_INSTALL_BYT) dumpobj primreq stripdebug cmpbyt #\
+  ocamlloginfo
 
 TOOLS_NAT_PROGRAMS = $(addprefix tools/,$(TOOLS_NAT))
 TOOLS_BYT_PROGRAMS = $(addprefix tools/,$(TOOLS_BYT))
@@ -2210,6 +2210,7 @@ ocamlprof_SOURCES = \
   arg_helper.mli arg_helper.ml \
   local_store.mli local_store.ml \
   load_path.mli load_path.ml \
+  log.mli log.ml \
   clflags.mli clflags.ml \
   terminfo.mli terminfo.ml \
   warnings.mli warnings.ml \
@@ -2232,6 +2233,7 @@ ocamlcp_ocamloptp_SOURCES = \
   build_path_prefix_map.mli build_path_prefix_map.ml \
   format_doc.mli format_doc.ml \
   misc.mli misc.ml \
+  log.mli log.ml \
   profile.mli profile.ml \
   warnings.mli warnings.ml \
   identifiable.mli identifiable.ml \
@@ -2275,6 +2277,7 @@ ocamlmktop_SOURCES = \
   arg_helper.mli arg_helper.ml \
   local_store.mli local_store.ml \
   load_path.mli load_path.ml \
+  log.mli log.ml \
   clflags.mli clflags.ml \
   profile.mli profile.ml \
   ccomp.mli ccomp.ml \
@@ -2310,6 +2313,12 @@ beforedepend:: $(addprefix tools/,opnames.ml make_opcodes.ml)
 ocamlobjinfo_LIBRARIES = \
   $(addprefix compilerlibs/,ocamlcommon ocamlbytecomp ocamlmiddleend)
 ocamlobjinfo_SOURCES = tools/objinfo.mli tools/objinfo.ml
+
+# Display info on the compilerlog
+
+ocamlloginfo_LIBRARIES = \
+  $(addprefix compilerlibs/,ocamlcommon)
+ocamlloginfo_SOURCES = tools/loginfo.mli tools/loginfo.ml
 
 # Scan object files for required primitives
 

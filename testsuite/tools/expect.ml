@@ -222,7 +222,7 @@ let eval_expect_file _fname ~file_contents =
   in
   let buf = Buffer.create 1024 in
   let ppf = Format.formatter_of_buffer buf in
-  let () = Misc.Style.set_tag_handling ppf in
+  let () = Misc.Style.set_tag_handling ~color:false ppf in
   let exec_phrases phrases =
     let phrases =
       match min_line_number phrases with

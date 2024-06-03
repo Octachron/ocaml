@@ -156,6 +156,17 @@ utils/local_store.cmo : \
 utils/local_store.cmx : \
     utils/local_store.cmi
 utils/local_store.cmi :
+utils/log.cmo : \
+    utils/misc.cmi \
+    utils/format_doc.cmi \
+    utils/log.cmi
+utils/log.cmx : \
+    utils/misc.cmx \
+    utils/format_doc.cmx \
+    utils/log.cmi
+utils/log.cmi : \
+    utils/misc.cmi \
+    utils/format_doc.cmi
 utils/misc.cmo : \
     utils/format_doc.cmi \
     utils/config.cmi \
@@ -358,8 +369,10 @@ parsing/builtin_attributes.cmi : \
     utils/misc.cmi \
     parsing/location.cmi
 parsing/camlinternalMenhirLib.cmo : \
+    utils/log.cmi \
     parsing/camlinternalMenhirLib.cmi
 parsing/camlinternalMenhirLib.cmx : \
+    utils/log.cmx \
     parsing/camlinternalMenhirLib.cmi
 parsing/camlinternalMenhirLib.cmi :
 parsing/depend.cmo : \

@@ -43,7 +43,7 @@
  (modules
    ;; UTILS
    config build_path_prefix_map misc identifiable numbers arg_helper
-   clflags profile terminfo ccomp format_doc warnings consistbl
+   clflags profile terminfo ccomp format_doc log warnings consistbl
    strongly_connected_components targetint load_path
    int_replace_polymorphic_compare binutils local_store lazy_backtrack diffing
    diffing_with_keys unit_info compression linkdeps
@@ -94,7 +94,7 @@
     bytegen bytelibrarian bytelink bytepackager emitcode printinstr
 
     ;; driver/
-    errors compile maindriver
+    compile maindriver
  ))
 
 (library
@@ -169,7 +169,7 @@
    linear_format
 
    ;; driver/
-   optcompile opterrors optmaindriver
+   optcompile optmaindriver
  )
 )
 
