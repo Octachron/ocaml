@@ -525,7 +525,7 @@ clean::
 	rm -f $(addprefix tools/ocamlopt,p p.opt p.exe p.opt.exe)
 
 TOOLS_NAT = $(TOOLS_TO_INSTALL_NAT)
-TOOLS_BYT = $(TOOLS_TO_INSTALL_BYT) dumpobj primreq stripdebug cmpbyt #\
+TOOLS_BYT = $(TOOLS_TO_INSTALL_BYT) dumpobj primreq stripdebug cmpbyt \
   ocamlloginfo
 
 TOOLS_NAT_PROGRAMS = $(addprefix tools/,$(TOOLS_NAT))
