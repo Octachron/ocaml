@@ -18,6 +18,6 @@
     arguments of such closures with those specialised arguments. *)
 
 val run
-  : ppf_dump:Format.formatter
+  : log:Log.Debug.log
   -> Flambda.set_of_closures
   -> Flambda.set_of_closures option

@@ -171,7 +171,8 @@ val show_filename: string -> string
 val print_filename: formatter -> string -> unit
 val print_loc: formatter -> t -> unit
 val print_locs: formatter -> t list -> unit
-val separate_new_message: formatter -> unit
+val separate_new_message: Log.Toplevel.log -> unit
+
 
 module Doc: sig
   val separate_new_message: unit Format_doc.printer
@@ -206,30 +207,20 @@ type report = {
   kind : report_kind;
   main : msg;
   sub : msg list;
-  footnote: Format_doc.t option
+  footnote: Format_doc.t option;
+  quotable_locs: t list;
 }
 
+
+type 'a printer := Format.formatter -> 'a -> unit
 type report_printer = {
-  (* The entry point *)
-  pp : report_printer ->
-    Format.formatter -> report -> unit;
-
-  pp_report_kind : report_printer -> report ->
-    Format.formatter -> report_kind -> unit;
-  pp_main_loc : report_printer -> report ->
-    Format.formatter -> t -> unit;
-  pp_main_txt : report_printer -> report ->
-    Format.formatter -> Format_doc.t -> unit;
-  pp_submsgs : report_printer -> report ->
-    Format.formatter -> msg list -> unit;
-  pp_submsg : report_printer -> report ->
-    Format.formatter -> msg -> unit;
-  pp_submsg_loc : report_printer -> report ->
-    Format.formatter -> t -> unit;
-  pp_submsg_txt : report_printer -> report ->
-    Format.formatter -> Format_doc.t -> unit;
+  pp_report_kind : report_kind printer;
+  pp_main_loc: (report_kind * t) printer;
+  pp_sub_loc : (report_kind * t) printer;
+  pp_msg : Format_doc.t printer;
+  pp_quotable_locs: t list printer;
 }
-(** A printer for [report]s, defined using open-recursion.
+(** A printer for [report]s.
     The goal is to make it easy to define new printers by re-using code from
     existing ones.
 *)
@@ -245,8 +236,12 @@ val best_toplevel_printer: unit -> report_printer
 
 (** {2 Printing a [report]} *)
 
+val pp_report: report_printer -> formatter -> report -> unit
+
 val print_report: formatter -> report -> unit
 (** Display an error or warning report. *)
+
+val log_report: Log.Compiler.log -> report -> unit
 
 val report_printer: (unit -> report_printer) ref
 (** Hook for redefining the printer of reports.
@@ -275,15 +270,28 @@ val default_warning_reporter: t -> Warnings.t -> report option
 
 (** {2 Printing warnings} *)
 
-val formatter_for_warnings : formatter ref
+module Error_log: sig
+  type _ Log.extension +=
+    | Error_kind: report_kind Log.extension
+    | Error: report Log.extension
+    | Location: t Log.extension
+    | Msg: Log.doc loc Log.extension
+  val warnings: report list Log.Compiler.key
+  module Kind: Log.Compiler_sum
+  module Msg: Log.Compiler_record
 
-val print_warning: t -> formatter -> Warnings.t -> unit
+end
+
+val formatter_for_warnings : formatter ref
+val current_log: Log.Compiler.log ref
+
+val log_warning: t -> Log.Compiler.log -> Warnings.t -> unit
 (** Prints a warning. This is simply the composition of [report_warning] and
    [print_report]. *)
 
 val prerr_warning: t -> Warnings.t -> unit
-(** Same as [print_warning], but uses [!formatter_for_warnings] as output
-   formatter. *)
+(** Same as [print_warning], but uses [!log_for_warnings] as output
+   log. *)
 
 (** {1 Reporting alerts} *)
 
@@ -301,12 +309,12 @@ val default_alert_reporter: t -> Warnings.alert -> report option
 
 (** {2 Printing alerts} *)
 
-val print_alert: t -> formatter -> Warnings.alert -> unit
+val log_alert: t -> Log.Compiler.log -> Warnings.alert -> unit
 (** Prints an alert. This is simply the composition of [report_alert] and
    [print_report]. *)
 
 val prerr_alert: t -> Warnings.alert -> unit
-(** Same as [print_alert], but uses [!formatter_for_warnings] as output
+(** Same as [print_alert], but uses [!log_for_warnings] as output
    formatter. *)
 
 val deprecated: ?def:t -> ?use:t -> t -> string -> unit
@@ -364,5 +372,11 @@ exception Already_displayed_error
 val raise_errorf: ?loc:t -> ?sub:msg list -> ?footnote:delayed_msg ->
   ('a, Format_doc.formatter, unit, 'b) format4 -> 'a
 
-val report_exception: formatter -> exn -> unit
-(** Reraise the exception if it is unknown. *)
+val log_exception: Log.Compiler.log -> exn -> unit
+(** Reraise the exception if it is unknown or log it. *)
+
+val log_on_formatter:
+  prev:Log.Compiler.log option -> Format.formatter -> Log.Compiler.log
+
+(** Store log events while waiting for log configuration*)
+val temporary_log: unit -> Log.Compiler.log

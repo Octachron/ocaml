@@ -414,6 +414,20 @@ let error_style_reader = {
   env_var = "OCAML_ERROR_STYLE";
 }
 
+let log_format = ref None
+let log_format_reader = {
+  parse = (function
+      | "stdout" -> Some Log.Backends.fmt
+      | "json" -> Some Log.Backends.json
+      | "sexp" -> Some Log.Backends.sexp
+      | _ -> None
+    );
+  print = (fun x -> x.Log.Backends.name);
+  usage={|expected "stdout", "json", or "sexp"|};
+  env_var = "OCAML_LOG_FORMAT"
+}
+let dump_log_schema = ref false
+
 let unboxed_types = ref false
 
 (* This is used by the -save-ir-after option. *)

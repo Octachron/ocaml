@@ -98,6 +98,7 @@ let read_clflags_from_env () =
   if Option.is_none !Clflags.color && no_color () then
     Clflags.color := Some Misc.Color.Never;
   set_from_env Clflags.error_style Clflags.error_style_reader;
+  set_from_env Clflags.log_format Clflags.log_format_reader;
   ()
 
 let rec make_directory dir =
@@ -106,6 +107,30 @@ let rec make_directory dir =
       make_directory (Filename.dirname dir);
       Sys.mkdir dir 0o777
     end
+
+let debug_log ~file_prefix main_log =
+  let with_ch ch =
+    let ppf = Format.formatter_of_out_channel ch in
+    ref ppf,
+    (fun () ->
+       Format.pp_print_flush ppf ();
+       close_out ch)
+  in
+  let ppf_and_close =
+    match !Clflags.dump_dir, !Clflags.dump_into_file with
+    | None, false -> None
+    | None, true -> Some (with_ch (open_out (file_prefix ^ ".dump")))
+    | Some d, _ ->
+        let () = make_directory Filename.(dirname @@ concat d @@ file_prefix) in
+        let _, ch =
+          Filename.open_temp_file ~temp_dir:d (file_prefix ^ ".")  ".dump"
+        in
+        Some (with_ch ch)
+    in
+    Option.iter
+      (fun (ppf,close) -> Log.redirect main_log Log.Compiler.debug ~close ppf)
+      ppf_and_close;
+    Log.detach_option main_log Log.Compiler.debug
 
 let with_ppf_dump ~file_prefix f =
   let with_ch ch =

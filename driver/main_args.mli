@@ -70,7 +70,8 @@ module type Core_options = sig
   val _dshape : unit -> unit
   val _drawlambda : unit -> unit
   val _dlambda : unit -> unit
-
+  val _log_format : string -> unit
+  val _dlog_schema: unit -> unit
 end
 
 module type Compiler_options = sig

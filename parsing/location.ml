@@ -106,8 +106,6 @@ let num_loc_lines = ref 0
    example for the current toplevel phrase. We use this to print
    a blank line between messages of the same batch.
 *)
-let is_first_message () =
-  !num_loc_lines = 0
 
 (* This is used by the toplevel to reset [num_loc_lines] before each phrase *)
 let reset () =
@@ -117,6 +115,9 @@ let reset () =
 let echo_eof () =
   print_newline ();
   incr num_loc_lines
+
+(* This is used by the toplevel and the report printers below. *)
+let is_first_message () = !num_loc_lines = 0
 
 (* Code printing errors and warnings must be wrapped using this function, in
    order to update [num_loc_lines].
@@ -212,65 +213,82 @@ module Doc = struct
   let filename ppf file =
     Fmt.pp_print_string ppf (show_filename file)
 
+type summary = {
+  filename:string option;
+  start_line: int option;
+  end_line: int option;
+  characters: (int * int) option
+}
+
+let summarize_loc loc =
+    let file_valid = function
+    | "_none_" ->
+        (* This is a dummy placeholder, but we print it anyway to please editors
+           that parse locations in error messages (e.g. Emacs). *)
+        true
+    | "" | "//toplevel//" -> false
+    | _ -> true
+  in
+  let line_valid line = line > 0 in
+  let chars_valid ~startchar ~endchar = startchar <> -1 && endchar <> -1 in
+  let file =
+    (* According to the comment in location.mli, if [pos_fname] is "", we must
+       use [!input_name]. *)
+    if loc.loc_start.pos_fname = "" then !input_name
+    else loc.loc_start.pos_fname
+  in
+  let startline = loc.loc_start.pos_lnum in
+  let endline = loc.loc_end.pos_lnum in
+  let startchar = loc.loc_start.pos_cnum - loc.loc_start.pos_bol in
+  let endchar = loc.loc_end.pos_cnum - loc.loc_end.pos_bol in
+  {
+    filename = if file_valid file then Some file else None;
+    start_line =  if line_valid startline then Some startline else None;
+    end_line = if line_valid endline then Some endline else None;
+    characters =
+      if chars_valid ~startchar ~endchar then Some (startchar,endchar)
+      else None
+  }
+
+
 (* Best-effort printing of the text describing a location, of the form
    'File "foo.ml", line 3, characters 10-12'.
 
    Some of the information (filename, line number or characters numbers) in the
    location might be invalid; in which case we do not print it.
  *)
-  let loc ppf loc =
-    setup_tags ();
-    let file_valid = function
-      | "_none_" ->
-          (* This is a dummy placeholder, but we print it anyway to please
-             editors that parse locations in error messages (e.g. Emacs). *)
-          true
-      | "" | "//toplevel//" -> false
-      | _ -> true
-    in
-    let line_valid line = line > 0 in
-    let chars_valid ~startchar ~endchar = startchar <> -1 && endchar <> -1 in
+let loc ppf loc =
+  let summary = summarize_loc loc in
+  setup_tags ();
+  let first = ref true in
+  let capitalize s =
+    if !first then (first := false; String.capitalize_ascii s)
+    else s in
+  let comma () =
+    if !first then () else Fmt.fprintf ppf ", " in
+  Fmt.fprintf ppf "@{<loc>";
+  Option.iter
+    (fun f ->
+       Fmt.fprintf ppf "%s \"%a\"" (capitalize "file") filename f
+    )
+    summary.filename
+  ;
 
-    let file =
-      (* According to the comment in location.mli, if [pos_fname] is "", we must
-         use [!input_name]. *)
-      if loc.loc_start.pos_fname = "" then !input_name
-      else loc.loc_start.pos_fname
-    in
-    let startline = loc.loc_start.pos_lnum in
-    let endline = loc.loc_end.pos_lnum in
-    let startchar = loc.loc_start.pos_cnum - loc.loc_start.pos_bol in
-    let endchar = loc.loc_end.pos_cnum - loc.loc_end.pos_bol in
-
-    let first = ref true in
-    let capitalize s =
-      if !first then (first := false; String.capitalize_ascii s)
-      else s in
-    let comma () =
-      if !first then () else Fmt.fprintf ppf ", " in
-
-    Fmt.fprintf ppf "@{<loc>";
-
-    if file_valid file then
-      Fmt.fprintf ppf "%s \"%a\"" (capitalize "file") filename file;
-
-    (* Print "line 1" in the case of a dummy line number. This is to please the
-       existing setup of editors that parse locations in error messages (e.g.
-       Emacs). *)
+  (* Print "line 1" in the case of a dummy line number. This is to please the
+     existing setup of editors that parse locations in error messages (e.g.
+     Emacs). *)
+  comma ();
+  let start_line = Option.value ~default:1 summary.start_line in
+  let end_line = Option.value ~default:start_line summary.end_line in
+  begin if start_line = end_line then
+    Fmt.fprintf ppf "%s %i" (capitalize "line") start_line
+  else
+    Fmt.fprintf ppf "%s %i-%i" (capitalize "lines") start_line end_line
+  end;
+  Option.iter ( fun (startchar,endchar) ->
     comma ();
-    let startline = if line_valid startline then startline else 1 in
-    let endline = if line_valid endline then endline else startline in
-    begin if startline = endline then
-        Fmt.fprintf ppf "%s %i" (capitalize "line") startline
-      else
-        Fmt.fprintf ppf "%s %i-%i" (capitalize "lines") startline endline
-    end;
-
-    if chars_valid ~startchar ~endchar then (
-      comma ();
-      Fmt.fprintf ppf "%s %i-%i" (capitalize "characters") startchar endchar
-    );
-
+    Fmt.fprintf ppf "%s %i-%i" (capitalize "characters") startchar endchar
+  ) summary.characters;
     Fmt.fprintf ppf "@}"
 
   (* Print a comma-separated list of locations *)
@@ -284,7 +302,13 @@ end
 let print_filename = Fmt.compat Doc.filename
 let print_loc = Fmt.compat Doc.loc
 let print_locs = Fmt.compat Doc.locs
-let separate_new_message ppf = Fmt.compat Doc.separate_new_message ppf ()
+let separate_new_message' ppf = Fmt.compat Doc.separate_new_message ppf ()
+let separate_new_message log =
+  if not (is_first_message ()) then begin
+    Log.separate log;
+    incr num_loc_lines
+  end
+
 
 (******************************************************************************)
 (* An interval set structure; additionally, it stores user-provided information
@@ -663,27 +687,146 @@ type report = {
   main : msg;
   sub : msg list;
   footnote: Fmt.t option;
+  quotable_locs: t list;
 }
 
-type report_printer = {
-  (* The entry point *)
-  pp : report_printer ->
-    Format.formatter -> report -> unit;
+module Error_log = struct[@warning "-unused-value-declaration"]
+  type lc = t
+  open Log
+  module Vl = Compiler_log_version
+  let v1 = Vl.v1
 
-  pp_report_kind : report_printer -> report ->
-    Format.formatter -> report_kind -> unit;
-  pp_main_loc : report_printer -> report ->
-    Format.formatter -> t -> unit;
-  pp_main_txt : report_printer -> report ->
-    Format.formatter -> Fmt.t -> unit;
-  pp_submsgs : report_printer -> report ->
-    Format.formatter -> msg list -> unit;
-  pp_submsg : report_printer -> report ->
-    Format.formatter -> msg -> unit;
-  pp_submsg_loc : report_printer -> report ->
-    Format.formatter -> t -> unit;
-  pp_submsg_txt : report_printer -> report ->
-    Format.formatter -> Fmt.t -> unit;
+  module Kind = New_sum(Vl)(struct let name="error_kind" let update = v1 end)()
+
+  let report_error = Kind.new_constr0 v1 "Report_error"
+  let report_alert = Kind.new_constr v1  "Report_alert"  String
+  let report_alert_as_error = Kind.new_constr v1 "Report_alert_as_error" String
+  let report_warning = Kind.new_constr v1 "Report_warning" String
+  let report_warning_as_error =
+    Kind.new_constr v1 "Report_warning_as_error" String
+  let () = Kind.seal v1
+
+
+  type loc_summary = {
+    file: string option;
+    lines: int option * int option;
+    chars: (int * int) option
+  }
+
+
+  let loc_summary loc =
+    let line_valid line = if line > 0 then Some line else None in
+    let chars_valid ~startchar ~endchar =
+      if startchar <> -1 && endchar <> -1 then Some (startchar, endchar)
+      else None
+    in
+    let file =
+      (* According to the comment in location.mli, if [pos_fname] is "", we must
+         use [!input_name]. *)
+      if loc.loc_start.Lexing.pos_fname = "" then !input_name
+      else loc.loc_start.pos_fname
+    in
+    let file = match file with
+      | "_none_" ->
+          (* This is a dummy placeholder, but we print it anyway to please
+             editors that parse locations in error messages (e.g. Emacs). *)
+          Some file
+      | "" | "//toplevel//" -> None
+      | _ -> Some file
+    in
+
+    let chars = chars_valid
+        ~startchar:(loc.loc_start.pos_cnum - loc.loc_start.pos_bol)
+        ~endchar:(loc.loc_end.pos_cnum - loc.loc_end.pos_bol)
+    in
+    {
+      file;
+      lines = line_valid loc.loc_start.pos_lnum,
+              line_valid loc.loc_end.pos_lnum;
+      chars;
+    }
+
+
+  type _ extension +=
+    | Error_kind: report_kind extension
+    | Error: report extension
+    | Location: lc extension
+    | Msg: doc loc extension
+
+  let pull = function
+    | Report_error -> report_error
+    | Report_warning w -> report_warning w
+    | Report_warning_as_error w -> report_warning_as_error w
+    | Report_alert w -> report_alert w
+    | Report_alert_as_error w -> report_alert_as_error w
+
+
+  let loc_typ =
+    Triple (Option String,
+            Pair (Option Int, Option Int),
+            Option (Pair (Int, Int))
+           )
+
+  let pull_loc l =
+    l.file, l.lines, l.chars
+
+  let loc_typ =
+    Custom {
+      id = Location;
+      pull = (fun l -> let l = loc_summary l in l.file, l.lines, l.chars);
+      default = loc_typ
+    }
+  let loc = Log.Error.new_field v1 "loc" loc_typ
+
+  let doc = Log.Structured_text.typ
+
+  module Msg = New_record(Vl)(struct let name="error_msg" let update=v1 end)()
+  let msg = Msg.new_field v1 "msg" doc
+  let msg_loc = Msg.new_field v1 "loc" loc_typ
+  let () = Msg.seal v1
+  let msg_typ =
+    let pull m = Log.Record.(make [ msg ^= m.txt; msg_loc ^= m.loc ]) in
+    Custom { id = Msg; pull; default = Record Msg.scheme }
+
+  let kind = Log.Error.new_field v1 "kind"
+      (Custom { id = Error_kind; pull; default = Sum Kind.scheme })
+
+  let main = Log.Error.new_field v1 "main" msg_typ
+  let sub = Log.Error.new_field v1 "sub" Log.(List {optional=true; elt=msg_typ})
+  let quotable_locs =
+    Log.Error.new_field v1 "quotable_locs"
+      Log.(List {optional=true; elt=loc_typ})
+
+  let () = Log.Error.seal v1
+
+  let pull (report:report) =
+    let open Log.Record in
+    make [
+      kind ^= report.kind;
+      main ^= report.main;
+      sub ^= report.sub;
+      quotable_locs ^= report.quotable_locs
+    ]
+
+
+  let report_typ = Custom { id = Error; pull; default = Record Error.scheme }
+
+  let key = Log.Compiler.new_field v1 "error" (Option report_typ)
+  let warnings =
+    Log.Compiler.new_field v1 "warnings" (List {optional=true; elt=report_typ})
+  let alerts =
+    Log.Compiler.new_field v1 "alerts" (List {optional=true; elt=report_typ})
+  let () = Log.Compiler.seal v1
+
+end
+
+type 'a printer = Format.formatter -> 'a -> unit
+type report_printer = {
+  pp_report_kind : report_kind printer;
+  pp_main_loc: (report_kind * t) printer;
+  pp_sub_loc : (report_kind * t) printer;
+  pp_msg : Format_doc.t printer;
+  pp_quotable_locs: t list printer;
 }
 
 let is_dummy_loc loc =
@@ -720,9 +863,39 @@ let error_style () =
   | Some setting -> setting
   | None -> Misc.Error_style.default_setting
 
+let pp_report reporter ppf report =
+  let pp_submsg kind ppf { loc; txt } =
+    Format.fprintf ppf "@[%a  %a@]"
+      reporter.pp_sub_loc (kind,loc)
+      reporter.pp_msg txt
+  in
+  let pp_submsgs kind ppf msgs =
+    List.iter (fun msg ->
+      Format.fprintf ppf "@,%a" (pp_submsg kind) msg
+    ) msgs
+  in
+    (* Make sure we keep [num_loc_lines] updated.
+       The tabulation box is here to give submessage the option
+       to be aligned with the main message box
+    *)
+    separate_new_message' ppf;
+    print_updating_num_loc_lines ppf (fun ppf () ->
+      reporter.pp_quotable_locs ppf report.quotable_locs;
+      Format.fprintf ppf "@[<v>%a%a%a: %a%a%a%a@]"
+      Format.pp_open_tbox ()
+      reporter.pp_main_loc (report.kind, report.main.loc)
+      reporter.pp_report_kind report.kind
+      Format.pp_set_tab ()
+      reporter.pp_msg report.main.txt
+      (pp_submsgs report.kind) report.sub
+      Format.pp_close_tbox ()
+    ) ();
+    incr num_loc_lines
+
+
 let batch_mode_printer : report_printer =
-  let pp_loc _self report ppf loc =
-    let tag = match report.kind with
+  let pp_loc ppf (kind,loc) =
+    let tag = match kind with
       | Report_warning_as_error _
       | Report_alert_as_error _
       | Report_error -> "error"
@@ -739,33 +912,12 @@ let batch_mode_printer : report_printer =
       | Misc.Error_style.Short ->
           ()
     in
-    Format.fprintf ppf "@[<v>%a:@ %a@]" print_loc loc
+    Format.fprintf ppf "@[<v>%a:@ %a@]"
+      print_loc loc
       (Fmt.compat highlight) loc
   in
-  let pp_txt ppf txt = Format.fprintf ppf "@[%a@]" Fmt.Doc.format txt in
-  let pp_footnote ppf f =
-    Option.iter (Format.fprintf ppf "@,%a" pp_txt) f
-  in
-  let pp self ppf report =
-    setup_tags ();
-    separate_new_message ppf;
-    (* Make sure we keep [num_loc_lines] updated.
-       The tabulation box is here to give submessage the option
-       to be aligned with the main message box
-    *)
-    print_updating_num_loc_lines ppf (fun ppf () ->
-      Format.fprintf ppf "@[<v>%a%a%a: %a%a%a%a%a@]@."
-      Format.pp_open_tbox ()
-      (self.pp_main_loc self report) report.main.loc
-      (self.pp_report_kind self report) report.kind
-      Format.pp_set_tab ()
-      (self.pp_main_txt self report) report.main.txt
-      (self.pp_submsgs self report) report.sub
-      pp_footnote report.footnote
-      Format.pp_close_tbox ()
-    ) ()
-  in
-  let pp_report_kind _self _ ppf = function
+  let pp_msg ppf txt = Format.fprintf ppf "@[%a@]" Fmt.Doc.format txt in
+  let pp_report_kind ppf = function
     | Report_error -> Format.fprintf ppf "@{<error>Error@}"
     | Report_warning w -> Format.fprintf ppf "@{<warning>Warning@} %s" w
     | Report_warning_as_error w ->
@@ -774,49 +926,30 @@ let batch_mode_printer : report_printer =
     | Report_alert_as_error w ->
         Format.fprintf ppf "@{<error>Error@} (alert %s)" w
   in
-  let pp_main_loc self report ppf loc =
-    pp_loc self report ppf loc
+  let pp_quotable_locs _ _  = () in
+  let pp_main_loc = pp_loc in
+  let pp_sub_loc ppf (_,loc as kloc) =
+    if not loc.loc_ghost then pp_loc ppf kloc
   in
-  let pp_main_txt _self _ ppf txt =
-    pp_txt ppf txt
-  in
-  let pp_submsgs self report ppf msgs =
-    List.iter (fun msg ->
-      Format.fprintf ppf "@,%a" (self.pp_submsg self report) msg
-    ) msgs
-  in
-  let pp_submsg self report ppf { loc; txt } =
-    Format.fprintf ppf "@[%a  %a@]"
-      (self.pp_submsg_loc self report) loc
-      (self.pp_submsg_txt self report) txt
-  in
-  let pp_submsg_loc self report ppf loc =
-    if not loc.loc_ghost then
-      pp_loc self report ppf loc
-  in
-  let pp_submsg_txt _self _ ppf loc =
-    pp_txt ppf loc
-  in
-  { pp; pp_report_kind; pp_main_loc; pp_main_txt;
-    pp_submsgs; pp_submsg; pp_submsg_loc; pp_submsg_txt }
+  { pp_report_kind; pp_msg; pp_sub_loc; pp_main_loc; pp_quotable_locs }
+
+let make_quotable_locs main sub =
+    let sub_locs = List.map (fun { loc; _ } -> loc) sub in
+    let all_locs = main.loc :: sub_locs in
+    List.filter is_quotable_loc all_locs
 
 let terminfo_toplevel_printer (lb: lexbuf): report_printer =
-  let pp self ppf err =
-    setup_tags ();
+  let pp_quotable_locs ppf locs =
     (* Highlight all toplevel locations of the report, instead of displaying
        the main location. Do it now instead of in [pp_main_loc], to avoid
        messing with Format boxes. *)
-    let sub_locs = List.map (fun { loc; _ } -> loc) err.sub in
-    let all_locs = err.main.loc :: sub_locs in
-    let locs_highlighted = List.filter is_quotable_loc all_locs in
-    highlight_terminfo lb ppf locs_highlighted;
-    batch_mode_printer.pp self ppf err
+       highlight_terminfo lb ppf locs
   in
-  let pp_main_loc _ _ _ _ = () in
-  let pp_submsg_loc _ _ ppf loc =
+  let pp_main_loc _ _ = () in
+  let pp_sub_loc ppf (_,loc) =
     if not loc.loc_ghost then
       Format.fprintf ppf "%a:@ " print_loc loc in
-  { batch_mode_printer with pp; pp_main_loc; pp_submsg_loc }
+  { batch_mode_printer with pp_main_loc; pp_sub_loc; pp_quotable_locs }
 
 let best_toplevel_printer () =
   setup_terminal ();
@@ -837,7 +970,9 @@ let report_printer = ref default_report_printer
 
 let print_report ppf report =
   let printer = !report_printer () in
-  printer.pp printer ppf report
+  pp_report printer ppf report
+
+let log_report log report = log.Log.%[Error_log.key] <- Some report
 
 (******************************************************************************)
 (* Reporting errors *)
@@ -845,11 +980,15 @@ let print_report ppf report =
 type error = report
 type delayed_msg = unit -> Fmt.t option
 
-let report_error ppf err =
-  print_report ppf err
 
 let mkerror loc sub footnote txt =
-  { kind = Report_error; main = { loc; txt }; sub; footnote=footnote () }
+  {
+    quotable_locs = make_quotable_locs { loc; txt } sub;
+    kind = Report_error;
+    main = { loc; txt };
+    sub;
+    footnote=footnote ()
+  }
 
 let errorf ?(loc = none) ?(sub = []) ?(footnote=Fun.const None) =
   Fmt.kdoc_printf (mkerror loc sub footnote)
@@ -877,8 +1016,8 @@ let default_warning_alert_reporter report mk (loc: t) w : report option =
       let sub = List.map (fun (loc, sub_message) ->
         { loc; txt = msg_of_str sub_message }
       ) sub_locs in
-      Some { kind; main; sub; footnote=None }
-
+      let quotable_locs = make_quotable_locs main sub in
+      Some { kind; main; sub; quotable_locs; footnote=None }
 
 let default_warning_reporter =
   default_warning_alert_reporter
@@ -891,14 +1030,45 @@ let default_warning_reporter =
 let warning_reporter = ref default_warning_reporter
 let report_warning loc w = !warning_reporter loc w
 
+let error_extension: type a. a Log.extension -> a printer option = function
+  | Error_log.Error -> Some print_report
+  | Error_log.Msg -> None
+  | _ -> None
+
+let () =
+  Log.Fmt.add_extension { extension = error_extension }
+
+
 let formatter_for_warnings = ref Format.err_formatter
 
-let print_warning loc ppf w =
+let create_log_on_formatter_ref ppf =
+  let version = Log.(Version.current_version Compiler_log_version.history)  in
+  let backend = Option.value ~default:Log.Backends.fmt !Clflags.log_format in
+  let log =
+    backend.make !Clflags.color version ~with_schema:!Clflags.dump_log_schema
+      ppf Log.Compiler.scheme
+  in
+  if !formatter_for_warnings != Format.err_formatter then
+    Log.redirect log Error_log.warnings formatter_for_warnings;
+  log
+
+let current_log = ref (create_log_on_formatter_ref formatter_for_warnings)
+
+
+let temporary_log () = Log.tmp Log.Compiler.scheme
+
+let log_on_formatter ~prev ppf =
+  let log = create_log_on_formatter_ref (ref ppf) in
+  current_log := log;
+  Option.iter (fun prev -> Log.replay prev log) prev;
+  log
+
+let log_warning loc log w =
   match report_warning loc w with
   | None -> ()
-  | Some report -> print_report ppf report
+  | Some report -> Log.( cons Error_log.warnings report log )
 
-let prerr_warning loc w = print_warning loc !formatter_for_warnings w
+let prerr_warning loc w = log_warning loc !current_log w
 
 let default_alert_reporter =
   default_warning_alert_reporter
@@ -911,12 +1081,12 @@ let default_alert_reporter =
 let alert_reporter = ref default_alert_reporter
 let report_alert loc w = !alert_reporter loc w
 
-let print_alert loc ppf w =
+let log_alert loc log w =
   match report_alert loc w with
   | None -> ()
-  | Some report -> print_report ppf report
+  | Some report -> Log.( log.%[Error_log.alerts] <- [report] )
 
-let prerr_alert loc w = print_alert loc !formatter_for_warnings w
+let prerr_alert loc w = log_alert loc !current_log w
 
 let alert ?(def = none) ?(use = none) ~kind loc message =
   prerr_alert loc {Warnings.kind; message; def; use}
@@ -993,15 +1163,17 @@ let () =
 
 external reraise : exn -> 'a = "%reraise"
 
-let report_exception ppf exn =
+let report_exception log exn =
   let rec loop n exn =
     match error_of_exn exn with
     | None -> reraise exn
     | Some `Already_displayed -> ()
-    | Some (`Ok err) -> report_error ppf err
+    | Some (`Ok err) -> log.Log.%[Error_log.key] <- Some err
     | exception exn when n > 0 -> loop (n-1) exn
   in
   loop 5 exn
+
+let log_exception = report_exception
 
 exception Error of error
 

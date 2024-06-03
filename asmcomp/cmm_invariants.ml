@@ -27,7 +27,8 @@ module Env : sig
 
   val jump : t -> cont:int -> arg_num:int -> unit
 
-  val report : Format.formatter -> bool
+  val report : Format.formatter -> unit
+  val in_error_state: unit -> bool
 end = struct
   type t = {
     bound_handlers : int Int.Map.t;
@@ -90,6 +91,7 @@ end = struct
     | exception Not_found -> unbound_handler cont
 
   let print_error ppf error =
+    Format.eprintf "Error@.";
     match error with
     | Unbound_handler { cont } ->
       if Int.Set.mem cont state.all_handlers then
@@ -112,14 +114,11 @@ end = struct
         jump_args
 
   let print_error_newline ppf error =
-    Format.fprintf ppf "%a@." print_error error
+    Format.fprintf ppf "%a" print_error error
 
   let report ppf =
-    if ErrorSet.is_empty state.errors then false
-    else begin
-      ErrorSet.iter (fun err -> print_error_newline ppf err) state.errors;
-      true
-    end
+      ErrorSet.iter (fun err -> print_error_newline ppf err) state.errors
+  let in_error_state () = not (ErrorSet.is_empty state.errors)
 end
 
 let rec check env (expr : Cmm.expression) =
@@ -174,7 +173,10 @@ let rec check env (expr : Cmm.expression) =
     check env body;
     check env handler
 
-let run ppf (fundecl : Cmm.fundecl) =
+let run log (fundecl : Cmm.fundecl) =
   let env = Env.init () in
   check env fundecl.fun_body;
-  Env.report ppf
+  let err = Env.in_error_state () in
+  Log.log_if log Log.Debug.cmm_invariant err
+    (fun ppf () -> Env.report ppf) ();
+  err

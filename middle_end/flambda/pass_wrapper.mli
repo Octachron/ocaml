@@ -16,8 +16,9 @@
 
 val register : pass_name:string -> unit
 
-val with_dump
-   : ppf_dump:Format.formatter
+val with_log
+   : log:Log.Debug.log
+  -> log_key: string list Log.Debug.key
   -> pass_name:string
   -> f:(unit -> 'b option)
   -> input:'a
