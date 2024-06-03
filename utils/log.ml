@@ -535,7 +535,8 @@ module Structured_text = struct
     let string_tag = new_constr v1 "String_tag" String
 
     type _ extension += Format_tag: Format.stag extension
-    let map: (Obj.Extension_constructor.t, Format.stag -> id sum) Hashtbl.t = Hashtbl.create 5
+    let map: (Obj.Extension_constructor.t, Format.stag -> id sum) Hashtbl.t =
+      Hashtbl.create 5
     let register ext conv =
       Hashtbl.replace map ext conv
     let typ =
@@ -544,7 +545,8 @@ module Structured_text = struct
         | x ->
             let ext = Obj.Extension_constructor.of_val x in
             match Hashtbl.find map ext with
-            | exception Not_found -> unknown (Obj.Extension_constructor.name ext)
+            | exception Not_found ->
+                unknown (Obj.Extension_constructor.name ext)
             | f -> f x
       in
       Custom { id = Format_tag; pull; default = Sum scheme}
@@ -599,7 +601,9 @@ module Structured_text = struct
       | Doc.Deprecated _ -> deprecated
     in
     let default = List {optional=false; elt = Sum scheme} in
-    let pull d = List.rev @@ Format_doc.Doc.fold (fun l x -> elt_pull x :: l ) [] d in
+    let pull d =
+      List.rev @@
+      Format_doc.Doc.fold (fun l x -> elt_pull x :: l ) [] d in
     Custom {id = Doc; default; pull }
 
   let register_tag = Format_tag.register
@@ -623,13 +627,14 @@ module Fmt = struct
     assoc_open:pr;
     assoc_close: pr;
     sep: unit printer;
-    open_with_label: string printer;
+    open_with_label: pr;
     label_sep: pr;
-    close_with_label: string printer
+    close_with_label: pr;
   }
 
   type conv = {
     string:string printer;
+    atom: string -> pr;
     assoc:assoc;
     list:list_convention;
   }
@@ -651,10 +656,11 @@ module Fmt = struct
     Format.fprintf ppf {|"|}
 
   let item conv ~key elt ppf =
-    conv.assoc.open_with_label ppf key;
+    conv.assoc.open_with_label ppf;
+    conv.atom key ppf;
     conv.assoc.label_sep ppf;
     elt ppf;
-    conv.assoc.close_with_label ppf key
+    conv.assoc.close_with_label ppf
 
   let list conv prs ppf =
     let pp_sep ppf () = conv.list.sep ppf in
@@ -708,9 +714,10 @@ module Fmt = struct
     | Sum _ ->
         begin match x with
         | Constr(kt,x) ->
-            elt conv {extension} (Pair(String,kt.typ)) (kt.name,x) ppf
-        | Enum kt ->
-            elt conv {extension} String kt.name ppf
+            list conv
+              [ conv.atom kt.name; elt conv {extension} kt.typ x ]
+              ppf
+        | Enum kt -> conv.atom kt.name ppf
         end
     | Record m -> elt_record conv {extension} (m.keys,x) ppf
     | Option e ->
@@ -735,6 +742,7 @@ module Fmt = struct
 
 
   let direct = {
+    atom = (fun _s -> ignore);
     string = Format.pp_print_string;
     list = {
       list_open = ignore;
@@ -744,10 +752,10 @@ module Fmt = struct
     assoc = {
       assoc_open = Format.dprintf "@[<v>";
       assoc_close = Format.dprintf "@]";
-      open_with_label = (fun _ -> ignore);
+      open_with_label = ignore;
       label_sep = ignore;
       sep = (fun ppf () -> Format.fprintf ppf "@,");
-      close_with_label = (fun _ -> ignore);
+      close_with_label = ignore;
     }
   }
 
@@ -756,21 +764,23 @@ module Fmt = struct
     and list_close = Format.dprintf ")@]"
     and sep = Format.dprintf "@ " in
     {
+      atom = (fun s ppf -> Format.pp_print_string ppf s);
       string = escape_string;
       list = {list_open; list_close; sep };
       assoc = {
         assoc_open = list_open;
         assoc_close = list_close;
-        open_with_label = (fun ppf -> Format.fprintf ppf "@[<b 2>(%s");
+        open_with_label = Format.dprintf "@[<b 2>(";
         sep = (fun ppf () -> sep ppf);
         label_sep = sep;
-        close_with_label = (fun ppf _ -> Format.fprintf ppf ")@]");
+        close_with_label = Format.dprintf ")@]";
       }
     }
 
   let json =
     {
       string = escape_string;
+      atom = (fun s ppf -> escape_string ppf s);
       list = {
         list_open=Format.dprintf "@[<b 2>[";
         list_close = Format.dprintf "@,]@]";
@@ -779,10 +789,10 @@ module Fmt = struct
       assoc = {
         assoc_open = Format.dprintf "@[<hv 2>{@ ";
         assoc_close = Format.dprintf "@;<0 -2>}@]";
-        open_with_label = (fun ppf -> Format.fprintf ppf "@[<b 2>%S");
+        open_with_label = Format.dprintf "@[<b 2>";
         label_sep = Format.dprintf "@ =@ ";
         sep = (fun ppf () -> Format.fprintf ppf ",@ ");
-        close_with_label = (fun ppf _ -> Format.fprintf ppf "@]");
+        close_with_label = Format.dprintf "@]";
       }
     }
 
