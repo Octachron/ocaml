@@ -6504,7 +6504,8 @@ let report_literal_type_constraint expected_type const =
   match const_str, suffix with
   | Some c, Some s -> [
       Location.msg
-        "@[@{<hint>Hint@}: Did you mean %a?@]"
+        "@[%a: Did you mean %a?@]"
+        Style.hint ()
         (Style.as_inline_code pp_const) (c,s)
     ]
   | _, _ -> []
@@ -6523,8 +6524,9 @@ let report_partial_application = function
       match get_desc tr.Errortrace.got.Errortrace.expanded with
       | Tarrow _ ->
           [ Location.msg
-              "@[@{<hint>Hint@}: This function application is partial,@ \
-               maybe some arguments are missing.@]" ]
+              "@[%a: This function application is partial,@ \
+               maybe some arguments are missing.@]" Style.hint ()
+          ]
       | _ -> []
     end
   | None -> []
@@ -6603,7 +6605,7 @@ let report_too_many_arg_error ~funct ~func_ty ~previous_arg_loc
       loc_ghost = false }
   in
   let hint_semicolon = if returns_unit then [
-      msg ~loc:tail_loc "@{<hint>Hint@}: Did you forget a ';'?";
+      msg ~loc:tail_loc "%a: Did you forget a ';'?" Style.hint ();
     ] else [] in
   let sub = hint_semicolon @ [
     msg ~loc:extra_arg_loc "This extra argument is not expected.";
@@ -6685,13 +6687,14 @@ let report_error ~loc env = function
        @]@ \
        @]@ \
        @[\
-       @[<2>@{<hint>Hint@}: \
+       @[<2>%a: \
        consider splitting the function definition into@ %a@ \
        where %a is the pattern with the GADT constructor that@ \
        introduces the local type equation%t.\
        @]"
       syntactic_arity
       (Style.as_inline_code Printtyp.type_expr) type_constraint
+      Style.hint ()
       Style.inline_code "fun ... gadt_pat -> fun ..."
       Style.inline_code "gadt_pat"
       (fun ppf ->
@@ -6842,9 +6845,9 @@ let report_error ~loc env = function
         if b then
           fprintf ppf
             ".@.@[<hov>This simple coercion was not fully general.@ \
-             @{<hint>Hint@}: Consider using a fully explicit coercion@ \
+             %a: Consider using a fully explicit coercion@ \
              of the form: %a@]"
-            Style.inline_code "(foo : ty1 :> ty2)"
+            Style.hint () Style.inline_code "(foo : ty1 :> ty2)"
       ) ()
   | Not_a_function (ty, explanation) ->
       Location.errorf ~loc

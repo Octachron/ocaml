@@ -766,8 +766,8 @@ let process_file file =
           "when parsing a caml_example environment in@ \
            %s, line %d:@,\
            the signature mode is only compatible with \"caml_example*\"@ \
-           @{<hint>Hint@}: did you forget to add \"*\"?"
-          file (line_number-2);
+           %a: did you forget to add \"*\"?"
+          file (line_number-2) (Format_doc.compat Misc.Style.hint) ()
   | Text_transform.Intersection {line;file;left;right} ->
       fatal
         "when evaluating a caml_example environment in %s, line %d:@ \
@@ -775,11 +775,12 @@ let process_file file =
          spanned the interval %d-%d,@ \
          intersecting with another \"%a\" transform @ \
          on the %d-%d interval.@ \
-         @{<hint>Hint@}: did you try to elide a code fragment \
+         %a: did you try to elide a code fragment \
          which raised a warning?"
         file (line-2)
         Text_transform.pp left.kind left.start left.stop
         Text_transform.pp right.kind right.start right.stop
+        (Format_doc.compat Misc.Style.hint) ()
   | Ellipsis.Unmatched_ellipsis {kind;start;stop} ->
       fatal "when evaluating a caml_example environment,@ \
              the %s mark at position %d-%d was unmatched"

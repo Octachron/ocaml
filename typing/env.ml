@@ -3574,8 +3574,9 @@ let report_lookup_error _loc env ppf = function
             Location.get_pos_info def_loc.Location.loc_start
           in
           fprintf ppf
-            "@.@[@{<hint>Hint@}: If this is a recursive definition,@ \
+            "@.@[%a: If this is a recursive definition,@ \
              you should add the %a keyword on line %i@]"
+            Style.hint ()
             Style.inline_code "rec"
             line
     end
@@ -3590,7 +3591,8 @@ let report_lookup_error _loc env ppf = function
       | exception Not_found -> spellcheck ppf extract_modules env lid;
       | _ ->
          fprintf ppf
-           "@.@[@{<hint>Hint@}: There is a module type named %a, %s@]"
+           "@.@[%a: There is a module type named %a, %s@]"
+           Style.hint ()
            quoted_longident lid
            "but module types are not modules"
     end
@@ -3609,7 +3611,8 @@ let report_lookup_error _loc env ppf = function
       | exception Not_found -> spellcheck ppf extract_classes env lid;
       | _ ->
          fprintf ppf
-           "@.@[@{<hint>Hint@}: There is a class type named %a, %s@]"
+           "@.@[%a: There is a class type named %a, %s@]"
+           Style.hint ()
            quoted_longident lid
            "but classes are not class types"
     end
@@ -3620,8 +3623,8 @@ let report_lookup_error _loc env ppf = function
       | exception Not_found -> spellcheck ppf extract_modtypes env lid;
       | _ ->
          fprintf ppf
-           "@.@[@{<hint>Hint@}: There is a module named %a, %s@]"
-           quoted_longident lid
+           "@.@[%a: There is a module named %a, %s@]"
+           Style.hint () quoted_longident lid
            "but modules are not module types"
     end
   | Unbound_cltype lid ->

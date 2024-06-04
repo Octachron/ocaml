@@ -266,7 +266,7 @@ let loc ppf loc =
     else s in
   let comma () =
     if !first then () else Fmt.fprintf ppf ", " in
-  Fmt.fprintf ppf "@{<loc>";
+  Fmt.pp_open_stag ppf Misc.Style.Loc;
   Option.iter
     (fun f ->
        Fmt.fprintf ppf "%s \"%a\"" (capitalize "file") filename f
@@ -923,13 +923,25 @@ let batch_mode_printer : report_printer =
   in
   let pp_msg ppf txt = Format.fprintf ppf "@[%a@]" Fmt.Doc.format txt in
   let pp_report_kind ppf = function
-    | Report_error -> Format.fprintf ppf "@{<error>Error@}"
-    | Report_warning w -> Format.fprintf ppf "@{<warning>Warning@} %s" w
+    | Report_error ->
+        Format.fprintf ppf "%aError@}"
+          Format.pp_open_stag Misc.Style.Error
+    | Report_warning w ->
+        Format.fprintf ppf "%aWarning@} %s"
+          Format.pp_open_stag Misc.Style.Warning
+          w
     | Report_warning_as_error w ->
-        Format.fprintf ppf "@{<error>Error@} (warning %s)" w
-    | Report_alert w -> Format.fprintf ppf "@{<warning>Alert@} %s" w
+        Format.fprintf ppf "%aError@} (warning %s)"
+          Format.pp_open_stag Misc.Style.Error
+          w
+    | Report_alert w ->
+        Format.fprintf ppf "%aAlert@} %s"
+          Format.pp_open_stag Misc.Style.Warning
+          w
     | Report_alert_as_error w ->
-        Format.fprintf ppf "@{<error>Error@} (alert %s)" w
+        Format.fprintf ppf "%aError@} (alert %s)"
+          Format.pp_open_stag Misc.Style.Error
+          w
   in
   let pp_quotable_locs _ _  = () in
   let pp_main_loc = pp_loc in

@@ -201,6 +201,9 @@ module Structured_text: sig
   type _ extension += Doc: Format_doc.Doc.t extension
   val register_tag:
     Obj.Extension_constructor.t -> (Format.stag -> Format_tag.id sum) -> unit
+  val register_tag0:
+    Compiler_log_version.id Version.update -> Obj.Extension_constructor.t
+    -> unit
 
   val typ: Format_doc.Doc.t typ
 end

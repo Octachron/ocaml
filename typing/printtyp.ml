@@ -190,19 +190,21 @@ module Conflicts = struct
       | [namespace, a] ->
           Fmt.fprintf ppf
         "@,\
-         @[<2>@{<hint>Hint@}: The %a %a has been defined multiple times@ \
+         @[<2>%a: The %a %a has been defined multiple times@ \
          in@ this@ toplevel@ session.@ \
          Some toplevel values still refer to@ old@ versions@ of@ this@ %a.\
          @ Did you try to redefine them?@]"
+        Style.hint ()
         Namespace.pp namespace
         Style.inline_code a Namespace.pp namespace
       | (namespace, _) :: _ :: _ ->
         Fmt.fprintf ppf
         "@,\
-         @[<2>@{<hint>Hint@}: The %a %a have been defined multiple times@ \
+         @[<2>%a: The %a %a have been defined multiple times@ \
          in@ this@ toplevel@ session.@ \
          Some toplevel values still refer to@ old@ versions@ of@ those@ %a.\
          @ Did you try to redefine them?@]"
+        Style.hint ()
         pp_namespace_plural namespace
         Fmt.(pp_print_list ~pp_sep:conj Style.inline_code)
         (List.map snd names)
@@ -761,14 +763,16 @@ end = struct
         | [] -> ()
         | [out_ident] ->
             fprintf ppf
-              "@ @[<2>@{<hint>Hint@}:@ %a@ is an existential type@ \
+              "@ @[<2>%a:@ %a@ is an existential type@ \
                bound by the constructor@ %a.@]"
+              Style.hint ()
               quoted_ident out_ident
               Style.inline_code constr
         | out_ident :: out_idents ->
             fprintf ppf
-              "@ @[<2>@{<hint>Hint@}:@ %a@ and %a@ are existential types@ \
+              "@ @[<2>%a:@ %a@ and %a@ are existential types@ \
                bound by the constructor@ %a.@]"
+              Style.hint ()
               (Fmt.pp_print_list
                  ~pp_sep:(fun ppf () -> fprintf ppf ",@ ")
                  quoted_ident)
@@ -2206,15 +2210,15 @@ let explanation_diff env t3 t4 =
   | Tarrow (_, ty1, ty2, _), _
     when is_unit env ty1 && unifiable env ty2 t4 ->
       Some (doc_printf
-          "@,@[@{<hint>Hint@}: Did you forget to provide %a as argument?@]"
-          Style.inline_code "()"
+          "@,@[%a: Did you forget to provide %a as argument?@]"
+          Style.hint () Style.inline_code "()"
         )
   | _, Tarrow (_, ty1, ty2, _)
     when is_unit env ty1 && unifiable env t3 ty2 ->
       Some (doc_printf
-          "@,@[@{<hint>Hint@}: Did you forget to wrap the expression using \
+          "@,@[%a: Did you forget to wrap the expression using \
            %a?@]"
-          Style.inline_code "fun () ->"
+          Style.hint () Style.inline_code "fun () ->"
         )
   | _ ->
       None

@@ -2275,10 +2275,11 @@ let report_error ppf = function
         "@[<hv>This private row type declaration is invalid.@ \
          The type expression on the right-hand side reduces to@;<1 2>%a@ \
          which does not have a free row type variable.@]@,\
-         @[<hv>@[@{<hint>Hint@}: If you intended to define a private \
+         @[<hv>@[%a: If you intended to define a private \
          type abbreviation,@ \
          write explicitly@]@;<1 2>%a@]"
         (Style.as_inline_code Printtyp.type_expr) ty
+        Style.hint ()
         (Style.as_inline_code pp_private) ty
 
 let () =

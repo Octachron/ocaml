@@ -902,12 +902,13 @@ let report_error env ppf = function
         "@[<v>@[The constructor %a is missing from the upper bound@ \
          (between %a@ and %a)@ of this polymorphic variant@ \
          but is present in@ its lower bound (after %a).@]@,\
-         @[@{<hint>Hint@}: Either add %a in the upper bound,@ \
+         @[%a: Either add %a in the upper bound,@ \
          or remove it@ from the lower bound.@]@]"
         (Style.as_inline_code pp_tag) l
         Style.inline_code "<"
         Style.inline_code ">"
         Style.inline_code ">"
+        Style.hint ()
         (Style.as_inline_code pp_tag) l
   | Constructor_mismatch (ty, ty') ->
       wrap_printing_env ~error:true env (fun ()  ->

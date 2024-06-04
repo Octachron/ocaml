@@ -429,9 +429,8 @@ module Functor_suberror = struct
   (** Print the list of params with style *)
   let pretty_params sep proj printer patch =
     let elt (x,param) =
-      let sty = Diffing.(style @@ classify x) in
       Fmt.dprintf "%a%t%a"
-        Fmt.pp_open_stag (Style.Style sty)
+        Fmt.pp_open_stag Diffing.(style @@ classify x)
         (printer param)
         Fmt.pp_close_stag ()
     in

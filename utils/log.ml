@@ -511,6 +511,7 @@ module Structured_text = struct
     let hv = new_constr0 v1 "HV"
     let hov = new_constr0 v1 "HoV"
     let b = new_constr0 v1 "B"
+    let () = seal v1
     type _ extension += Box_type: Doc.box_type extension
     let typ =
       let pull = function
@@ -531,14 +532,14 @@ module Structured_text = struct
         end
         )()
 
+
     let unknown = new_constr v1 "<Unknown>" String
     let string_tag = new_constr v1 "String_tag" String
 
     type _ extension += Format_tag: Format.stag extension
     let map: (Obj.Extension_constructor.t, Format.stag -> id sum) Hashtbl.t =
       Hashtbl.create 5
-    let register ext conv =
-      Hashtbl.replace map ext conv
+    let register_tag ext conv = Hashtbl.replace map ext conv
     let typ =
       let pull = function
         | Format.String_tag s -> string_tag s
@@ -550,6 +551,31 @@ module Structured_text = struct
             | f -> f x
       in
       Custom { id = Format_tag; pull; default = Sum scheme}
+
+    let register_tag0 v ext =
+      let name = Obj.Extension_constructor.name ext in
+      let name = match String.rindex name '.' with
+        | exception Not_found -> name
+        | dot -> String.sub name (dot+1) (String.length name - dot -1)
+      in
+      let constr = new_constr0 v name in
+      register_tag ext (fun _ -> constr)
+
+   let () =
+      Array.iter (register_tag0 v1)
+        Misc.Style.[|
+          [%extension_constructor Error];
+          [%extension_constructor Warning];
+          [%extension_constructor Loc];
+          [%extension_constructor Inline_code];
+          [%extension_constructor Hint];
+          [%extension_constructor Deletion];
+          [%extension_constructor Insertion];
+          [%extension_constructor Modification];
+          [%extension_constructor Preservation];
+        |];
+      seal v1
+
   end
 
 
@@ -579,6 +605,7 @@ module Structured_text = struct
   let if_newline = new_constr0 v1 "If_newline"
 
   let deprecated = new_constr0 v1 "<deprecated>"
+  let () = seal v1
 
   type _ extension += Doc: Doc.t extension
   let typ =
@@ -606,7 +633,9 @@ module Structured_text = struct
       Format_doc.Doc.fold (fun l x -> elt_pull x :: l ) [] d in
     Custom {id = Doc; default; pull }
 
-  let register_tag = Format_tag.register
+  let register_tag = Format_tag.register_tag
+  let register_tag0 = Format_tag.register_tag0
+
  end
 
 
@@ -1109,7 +1138,10 @@ module Json_schema = struct
   let const name = item ~key:"const" @@ string name
   let sum x =
     let constructor (name, Key_metadata kty) =
-      obj [tuple_typ [const name; typ kty.typ]] in
+      match kty.typ with
+      | Unit -> obj [const name]
+      | _ -> obj [tuple_typ [const name; typ kty.typ]]
+    in
     obj [ item ~key:"oneOf" (array (List.map constructor x.keys)) ]
 
   let fields x =
