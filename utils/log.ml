@@ -892,7 +892,7 @@ let option_key_scheme: type a b. (a record option,b) key -> a def  = fun key ->
   | Option (Record sch) -> sch
   | _ -> .
 
-let generic_detach key_scheme store lift extract log key =
+let generic_detach key_scheme ~store ~lift ~extract log key =
   let out = Keys.find_opt key.name log.redirections in
   let mode = match log.mode with
     | Direct d ->
@@ -921,11 +921,20 @@ let generic_detach key_scheme store lift extract log key =
   child
 
 let some x = Some x
-let detach log key = generic_detach key_scheme Store.record Fun.id some log key
+let detach log key =
+  generic_detach key_scheme
+    ~store:Store.record ~lift:Fun.id ~extract:some log key
 let detach_item log key =
-  generic_detach item_key_scheme Store.cons Fun.id (Fun.const None) log key
+  generic_detach item_key_scheme
+    ~store:Store.cons
+    ~lift:Fun.id
+    ~extract:(Fun.const None)
+    log key
 let detach_option log key =
-  generic_detach option_key_scheme Store.record some Fun.id log key
+  generic_detach option_key_scheme
+    ~store:Store.record
+    ~lift:some
+    ~extract:Fun.id log key
 
 let active_key log key =
   let Key_metadata m = log.scheme.!(key) in
