@@ -421,7 +421,9 @@ let log_on_formatter ppf =
   log
 
 let compiler_log log =
-  Log.detach_option log Log.Toplevel.compiler_log
+  let clog = Log.detach_option log Log.Toplevel.compiler_log in
+  Location.current_log := clog;
+  clog
 
 let debug_log log = Log.detach_option (compiler_log log) Log.Compiler.debug
 
