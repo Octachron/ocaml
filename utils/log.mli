@@ -135,7 +135,7 @@ module Backends : sig
     name:string;
     make:
       'a. Misc.Color.setting option -> version -> Format.formatter ref ->
-       'a def -> with_schema:bool -> 'a log;
+       'a def -> 'a log;
   }
   val fmt: t
   val json: t
@@ -229,6 +229,7 @@ module Debug: sig
   val mach: string list key
   val linear: string list key
   val cmm_invariant: string option key
+  val profile: string option key
 end
 
 module Compiler: sig

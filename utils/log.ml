@@ -189,11 +189,10 @@ and 'a mode =
   | Direct of ppf_with_close
   | Store of { data:'a record; out:(ppf_with_close * printer) option }
 
-and printer = { print: 'a. Format.formatter -> 'a record -> unit; }
-
+and typed_record = R: 'a def * 'a record -> typed_record
+and printer = Format.formatter -> typed_record -> unit
 
 type 'a t = 'a log
-
 
 let (.!()<-) scheme key metadata =
   scheme.keys <- (key.name, metadata) :: scheme.keys
@@ -858,7 +857,7 @@ module Fmt = struct
     else (Format.fprintf !(c.ppf) "@,@]%!"; c.initialized := false);
     c.close ()
 
-  let make color version ppf scheme ~with_schema:_ =
+  let make color version ppf scheme =
      {
       redirections = Keys.empty;
       settings=color;
@@ -945,8 +944,9 @@ let active_key log key =
 
 let set key x log =
   if not (active_key log key) then () else
-  match log.mode, Keys.find_opt key.name log.redirections with
-  | Direct d, r ->
+  match log.mode with
+  | Direct d ->
+    let r = Keys.find_opt key.name log.redirections in
     let out = Option.value ~default:d r in
     let ppf = !(out.ppf) in
     if not !(d.initialized) then
@@ -954,15 +954,12 @@ let set key x log =
     Format.fprintf ppf "@[<v>%t%a@]%!"
       Fmt.(elt_item direct !extensions ~key:key.name key.typ x)
      Fmt.direct.assoc.sep ();
-  | Store _, Some out ->
-      let ppf = !(out.ppf) in
-      Fmt.(elt_item direct !extensions) ~key:key.name key.typ x ppf
-  | Store st, None -> Store.record st.data ~key x
+  | Store st -> Store.record st.data ~key x
 
 let cons key x log =
-  match log.mode, Keys.find_opt key.name log.redirections with
-  | Direct _, _ | _, Some _ -> set key [x] log
-  | Store st, None -> Store.cons st.data ~key x
+  match log.mode with
+  | Direct _-> set key [x] log
+  | Store st -> Store.cons st.data ~key x
 
 let (.%[]<-) log key x = set key x log
 
@@ -979,10 +976,12 @@ let flush: type a. a log -> unit = fun log ->
   begin match log.mode with
   | Direct d -> Fmt.flush d
   | Store st ->
-      ignore (Store.validate ~toplevel:log.version log.scheme st.data);
-      Option.iter (fun (out,{print}) ->
+      let valid = Store.validate ~toplevel:log.version log.scheme st.data in
+      Store.record st.data ~key:version_key log.version;
+      Store.record st.data ~key:validity_key valid;
+      Option.iter (fun (out, print) ->
           let ppf = !(out.ppf) in
-          print ppf st.data
+          print ppf (R(log.scheme, st.data))
         ) st.out;
         st.data := Keys.empty
   end;
@@ -1055,6 +1054,7 @@ module Debug = struct
   let mach = new_field v1 "mach" slist
   let linear = new_field v1 "linear" slist
   let cmm_invariant = new_field v1 "cmm_invariant" (Option String)
+  let profile = new_field v1 "profile" (Option String)
   let () = seal v1
 end
 
@@ -1211,8 +1211,6 @@ and subrefs: type a. a def -> (Format.formatter -> unit) Keys.t
      in
      obj (header @ defs @ schema_field :: record_fields keys) ppf
 
-   let schema_item sch = item ~key:"schema" (pp sch)
-
   let pp_log ppf log =
     let sch = log.scheme in
     pp sch ppf
@@ -1221,14 +1219,10 @@ and subrefs: type a. a def -> (Format.formatter -> unit) Keys.t
 
 module Backends = struct
 
-  let with_conv conv settings version ?schema_printer ppf scheme ~with_schema =
-    let print ppf r =
+  let with_conv conv settings version ppf scheme =
+    let print ppf (R(def, r)) =
       if Keys.is_empty (Record.fields r) then () else
-        let fields = Fmt.fields conv Fmt.no_extension (scheme.keys,r) in
-        let fields = match with_schema, schema_printer with
-          | false, _ | _, None -> fields
-          | true, Some pr -> pr scheme :: fields
-        in
+        let fields = Fmt.fields conv Fmt.no_extension (def.keys,r) in
         Format.fprintf ppf "%t@." (Fmt.record conv fields)
     in
     { version;
@@ -1236,20 +1230,18 @@ module Backends = struct
       redirections = Keys.empty;
       mode = Store {
           data= Record.make [];
-          out = Some ({initialized=ref false;ppf;close=ignore},{print})
+          out = Some ({initialized=ref false;ppf;close=ignore}, print)
         };
       scheme;
     }
 
   let sexp color version ppf sch = with_conv Fmt.sexp color version ppf sch
-  let json color version ppf sch =
-    with_conv Fmt.json ~schema_printer:Json_schema.schema_item color
-      version ppf sch
+  let json color version ppf sch = with_conv Fmt.json color version ppf sch
 
   type t = {
     name:string;
     make: 'a. Misc.Color.setting option -> version -> Format.formatter ref
-      -> 'a def -> with_schema:bool -> 'a log;
+      -> 'a def -> 'a log;
   }
   let fmt = { name="stderr"; make = Fmt.make }
   let sexp = { name="sexp" ; make = sexp }

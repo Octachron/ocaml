@@ -29,14 +29,15 @@ let with_info ~native ~tool_name ~source_file ~output_prefix ~dump_ext ~log k =
   Env.set_unit_name (Unit_info.modname target);
   let env = Compmisc.initial_env() in
   let dump_file = String.concat "." [output_prefix; dump_ext] in
-  let debug_log = Compmisc.debug_log ~file_prefix:dump_file log in
-  k {
-    target;
-    env;
-    debug_log;
-    tool_name;
-    native;
-  }
+  Compmisc.with_debug_log ~file_prefix:dump_file log (fun debug_log ->
+      k {
+        target;
+        env;
+        debug_log;
+        tool_name;
+        native;
+      }
+    )
 
 
 

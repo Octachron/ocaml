@@ -417,8 +417,7 @@ let compiler_log log =
 let log_on_formatter ppf =
   let version = Log.(Version.current_version Compiler_log_version.history) in
   let backend = Option.value ~default:Log.Backends.fmt !Clflags.log_format in
-  let log = backend.make !Clflags.color version (ref ppf)
-      ~with_schema:false Log.Toplevel.scheme
+  let log = backend.make !Clflags.color version (ref ppf) Log.Toplevel.scheme
   in
   let _ = compiler_log log in
   log

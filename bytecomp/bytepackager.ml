@@ -215,7 +215,7 @@ let rename_append_pack_member packagename oc state m =
 
 (* Generate the code that builds the tuple representing the package module *)
 
-let build_global_target ~ppf_dump oc target_name state components coercion =
+let build_global_target ~log oc target_name state components coercion =
   let components =
     List.map (Option.map Compunit.to_ident) components
   in
@@ -223,8 +223,7 @@ let build_global_target ~ppf_dump oc target_name state components coercion =
     Translmod.transl_package
       components (Ident.create_persistent target_name) coercion in
   let lam = Simplif.simplify_lambda lam in
-  if !Clflags.dump_lambda then
-    Format.fprintf ppf_dump "%a@." Printlambda.lambda lam;
+  Log.log_if log Log.Debug.lambda !Clflags.dump_lambda Printlambda.lambda lam;
   let instrs =
     Bytegen.compile_implementation target_name lam in
   let size, pack_relocs, pack_events, pack_debug_dirs =
@@ -239,7 +238,7 @@ let build_global_target ~ppf_dump oc target_name state components coercion =
 
 (* Build the .cmo file obtained by packaging the given .cmo files. *)
 
-let package_object_files ~ppf_dump files target coercion =
+let package_object_files ~log files target coercion =
   let targetfile = Unit_info.Artifact.filename target in
   let targetname = Unit_info.Artifact.modname target in
   let members = map_left_right (read_member_info targetname) files in
@@ -288,7 +287,7 @@ let package_object_files ~ppf_dump files target coercion =
           | PM_impl _ -> Some m.pm_packed_ident)
         members in
     let state =
-      build_global_target ~ppf_dump oc targetname state components coercion in
+      build_global_target ~log oc targetname state components coercion in
     let pos_debug = pos_out oc in
     if !Clflags.debug && state.events <> [] then begin
       Compression.output_value oc (List.rev state.events);
@@ -326,7 +325,7 @@ let package_object_files ~ppf_dump files target coercion =
 
 (* The entry point *)
 
-let package_files ~ppf_dump initial_env files targetfile =
+let package_files ~log initial_env files targetfile =
   let files =
     List.map
       (fun f ->
@@ -338,7 +337,7 @@ let package_files ~ppf_dump initial_env files targetfile =
       let coercion =
         Typemod.package_units initial_env files (Unit_info.companion_cmi target)
       in
-      package_object_files ~ppf_dump files target coercion
+      package_object_files ~log files target coercion
     )
     ~exceptionally:(fun () -> remove_file targetfile)
 

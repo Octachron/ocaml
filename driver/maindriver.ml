@@ -80,9 +80,10 @@ let process continue argv log ppf =
     Compmisc.init_path ();
     let extracted_output = Compenv.extract_output !output_name in
     let revd = Compenv.get_objfiles ~with_ocamlparam:false in
-    Compmisc.with_ppf_dump ~file_prefix:extracted_output (fun ppf_dump ->
-        Bytepackager.package_files ~ppf_dump (Compmisc.initial_env ())
-          revd (extracted_output));
+    Compmisc.with_debug_log ~file_prefix:extracted_output log (fun log ->
+        Bytepackager.package_files ~log (Compmisc.initial_env ()) revd
+          extracted_output
+      );
     Warnings.check_fatal ();
   end
   else if not !Compenv.stop_early && !objfiles <> [] then begin
@@ -121,8 +122,11 @@ let main argv ppf =
         n
     | exception Continue
     | _ ->
-        Compmisc.with_ppf_dump ~file_prefix:"profile"
-          (fun ppf -> Profile.print ppf !Clflags.profile_columns);
+        let print_profile = not @@ List.is_empty !Clflags.profile_columns in
+        Compmisc.with_debug_log ~file_prefix:"profile" !log
+          (fun log -> Log.log_if log Log.Debug.profile print_profile
+              Profile.print !Clflags.profile_columns
+          );
         0
     | exception x ->
         Location.log_exception !log x;

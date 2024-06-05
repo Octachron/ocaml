@@ -108,48 +108,29 @@ let rec make_directory dir =
       Sys.mkdir dir 0o777
     end
 
-let debug_log ~file_prefix main_log =
+let dump_file ~file_prefix =
   let with_ch ch =
     let ppf = Format.formatter_of_out_channel ch in
     ref ppf,
-    (fun () ->
-       Format.pp_print_flush ppf ();
-       close_out ch)
+    (fun () -> flush ch; close_out ch)
   in
-  let ppf_and_close =
-    match !Clflags.dump_dir, !Clflags.dump_into_file with
-    | None, false -> None
-    | None, true -> Some (with_ch (open_out (file_prefix ^ ".dump")))
-    | Some d, _ ->
-        let () = make_directory Filename.(dirname @@ concat d @@ file_prefix) in
-        let _, ch =
-          Filename.open_temp_file ~temp_dir:d (file_prefix ^ ".")  ".dump"
-        in
-        Some (with_ch ch)
-    in
-    Option.iter
-      (fun (ppf,close) -> Log.redirect main_log Log.Compiler.debug ~close ppf)
-      ppf_and_close;
-    Log.detach_option main_log Log.Compiler.debug
+  match !Clflags.dump_dir, !Clflags.dump_into_file with
+  | None, false -> None
+  | None, true ->
+      Some (with_ch (open_out (file_prefix ^ ".dump")))
+  | Some d, _ ->
+      let () = make_directory Filename.(dirname @@ concat d @@ file_prefix) in
+      let _, ch =
+        Filename.open_temp_file ~temp_dir:d (file_prefix ^ ".")  ".dump"
+      in
+      Some (with_ch ch)
 
-let with_ppf_dump ~file_prefix f =
-  let with_ch ch =
-    let ppf = Format.formatter_of_out_channel ch in
-    ppf,
-    (fun () ->
-       Format.pp_print_flush ppf ();
-       close_out ch)
-  in
-  let ppf_dump, finally =
-    match !Clflags.dump_dir, !Clflags.dump_into_file with
-    | None, false -> Format.err_formatter, ignore
-    | None, true -> with_ch (open_out (file_prefix ^ ".dump"))
-    | Some d, _ ->
-        let () = make_directory Filename.(dirname @@ concat d @@ file_prefix) in
-        let _, ch =
-          Filename.open_temp_file ~temp_dir:d (file_prefix ^ ".")  ".dump"
-        in
-        with_ch ch
-
-  in
-  Misc.try_finally (fun () -> f ppf_dump) ~always:finally
+let with_debug_log ~file_prefix log f =
+  match dump_file ~file_prefix with
+  | None -> f (Log.detach_option log Log.Compiler.debug)
+  | Some (ppf,close) ->
+      Log.redirect log Log.Compiler.debug ~close ppf;
+      let dlog = Log.detach_option log Log.Compiler.debug in
+      let r = f dlog in
+      Log.close dlog;
+      r
