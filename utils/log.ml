@@ -29,7 +29,7 @@ module Version = struct
 
   type base_event =
     | Creation
-    | New_key of string
+    | New_key of {name:string; typ:string}
     | Deprecation of string
     | Deletion of string
     | Seal
@@ -88,7 +88,10 @@ module Version = struct
   let pp_base_event ppf =
     function
     | Creation -> fprintf ppf "Creation"
-    | New_key name -> fprintf ppf "Key %S" name
+    | New_key {name;typ} ->
+       if typ = "" then fprintf ppf "Key %s" name
+      else
+       fprintf ppf "Key %s, %s" name typ
     | Deprecation name -> fprintf ppf "Deprecation %S" name
     | Seal -> fprintf ppf "Seal"
     | Deletion name -> fprintf ppf "Deletion %S" name
@@ -197,6 +200,35 @@ type 'a t = 'a log
 let (.!()<-) scheme key metadata =
   scheme.keys <- (key.name, metadata) :: scheme.keys
 
+let rec pp_typ: type a. Format.formatter -> a typ -> unit = fun ppf -> function
+| Unit -> Format.pp_print_string ppf ""
+| Int -> Format.pp_print_string ppf "i"
+| Bool -> Format.pp_print_string ppf "b"
+| String -> Format.pp_print_string ppf "s"
+| List r ->
+  Format.fprintf ppf "l%s %a"
+    (if r.optional then "?" else "")
+    with_parens r.elt
+| Pair (x,y) -> Format.fprintf ppf "%a*%a" with_parens x with_parens y
+| Triple (x,y,z) ->
+    Format.fprintf ppf "%a*%a*%a" with_parens x with_parens y with_parens z
+| Quadruple (x,y,z,w) ->
+  Format.fprintf ppf "*%a*%a*%a*%a"
+    with_parens x with_parens y with_parens z with_parens w
+| Option elt -> Format.fprintf ppf "?%a" with_parens elt
+| Sum def -> Format.fprintf ppf "%s" def.scheme_name
+| Record def -> Format.fprintf ppf "%s" def.scheme_name
+| Custom r -> pp_typ ppf r.default
+and with_parens: type a. Format.formatter -> a typ -> unit = fun ppf elt ->
+  let parens_needed =  match elt with
+  | Pair _ -> true
+  | Triple _ -> true
+  | Quadruple _ -> true
+  | _ -> false
+  in
+  if parens_needed then Format.fprintf ppf "(%a)" pp_typ elt else pp_typ ppf elt
+
+
 
 let new_key update scheme name typ =
   begin match scheme.polarity with
@@ -216,7 +248,8 @@ let new_key update scheme name typ =
     typ; id = Type.Id.make ();
   } in
   scheme.!(key) <- metadata;
-  Version.register_event update scheme.scheme_name (New_key name);
+  Version.register_event update scheme.scheme_name
+    (New_key {name; typ=Format.asprintf "%a" pp_typ typ});
   key
 
 

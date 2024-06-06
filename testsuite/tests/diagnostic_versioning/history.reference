@@ -1,101 +1,101 @@
 v1.0
   box_type
     Creation
-    Key "H"
-    Key "V"
-    Key "HV"
-    Key "HoV"
-    Key "B"
+    Key H
+    Key V
+    Key HV
+    Key HoV
+    Key B
     Seal
   compiler
     Creation
-    Key "debug"
-    Key "error"
-    Key "warnings"
-    Key "alerts"
+    Key debug, ?debug
+    Key error, ?error_report
+    Key warnings, l? error_report
+    Key alerts, l? error_report
     Seal
   debug
     Creation
-    Key "parsetree"
-    Key "source"
-    Key "typedtree"
-    Key "shape"
-    Key "instr"
-    Key "lambda"
-    Key "raw_lambda"
-    Key "flambda"
-    Key "raw_flambda"
-    Key "clambda"
-    Key "raw_clambda"
-    Key "cmm"
-    Key "remove-free-vars-equal-to-args"
-    Key "unbox-free-vars-of-closures"
-    Key "unbox-closures"
-    Key "unbox-specialised-args"
-    Key "mach"
-    Key "linear"
-    Key "cmm_invariant"
-    Key "profile"
+    Key parsetree, ?s
+    Key source, ?s
+    Key typedtree, ?s
+    Key shape, ?s
+    Key instr, ?s
+    Key lambda, ?s
+    Key raw_lambda, ?s
+    Key flambda, l? s
+    Key raw_flambda, l? s
+    Key clambda, l? s
+    Key raw_clambda, l? s
+    Key cmm, l? s
+    Key remove-free-vars-equal-to-args, l? s
+    Key unbox-free-vars-of-closures, l? s
+    Key unbox-closures, l? s
+    Key unbox-specialised-args, l? s
+    Key mach, l? s
+    Key linear, l? s
+    Key cmm_invariant, ?s
+    Key profile, ?s
     Seal
   error_kind
     Creation
-    Key "Report_error"
-    Key "Report_alert"
-    Key "Report_alert_as_error"
-    Key "Report_warning"
-    Key "Report_warning_as_error"
+    Key Report_error
+    Key Report_alert, s
+    Key Report_alert_as_error, s
+    Key Report_warning, s
+    Key Report_warning_as_error, s
     Seal
   error_msg
     Creation
-    Key "msg"
-    Key "loc"
+    Key msg, l structured_text
+    Key loc, ?s*(?i*?i)*?(i*i)
     Seal
   error_report
     Creation
-    Key "loc"
-    Key "kind"
-    Key "main"
-    Key "sub"
-    Key "quotable_locs"
+    Key loc, ?s*(?i*?i)*?(i*i)
+    Key kind, error_kind
+    Key main, error_msg
+    Key sub, l? error_msg
+    Key quotable_locs, l? ?s*(?i*?i)*?(i*i)
     Seal
   format_tag
     Creation
-    Key "<Unknown>"
-    Key "String_tag"
-    Key "Error"
-    Key "Warning"
-    Key "Loc"
-    Key "Inline_code"
-    Key "Hint"
-    Key "Deletion"
-    Key "Insertion"
-    Key "Modification"
-    Key "Preservation"
+    Key <Unknown>, s
+    Key String_tag, s
+    Key Error
+    Key Warning
+    Key Loc
+    Key Inline_code
+    Key Hint
+    Key Deletion
+    Key Insertion
+    Key Modification
+    Key Preservation
     Seal
   structured_text
     Creation
-    Key "Text"
-    Key "With_size"
-    Key "Open_box"
-    Key "Close_box"
-    Key "Open_tag"
-    Key "Close_tag"
-    Key "Open_tbox"
-    Key "Close_tbox"
-    Key "Tab_break"
-    Key "Set_tab"
-    Key "Simple_break"
-    Key "Break"
-    Key "Flush"
-    Key "Newline"
-    Key "If_newline"
-    Key "<deprecated>"
+    Key Text, s
+    Key With_size, i
+    Key Open_box, box_type*i
+    Key Close_box
+    Key Open_tag, format_tag
+    Key Close_tag
+    Key Open_tbox
+    Key Close_tbox
+    Key Tab_break, i*i
+    Key Set_tab
+    Key Simple_break, i*i
+    Key Break, (s*i*s)*(s*i*s)
+    Key Flush, b
+    Key Newline
+    Key If_newline
+    Key <deprecated>
     Seal
   toplevel
     Creation
-    Key "output"
-    Key "backtrace"
-    Key "compiler_log"
-    Key "errors"
-    Key "trace"
+    Key output, l structured_text
+    Key backtrace, ?l structured_text
+    Key compiler_log, ?compiler
+    Key errors, l? l structured_text
+    Key trace, l? l structured_text
     Seal
