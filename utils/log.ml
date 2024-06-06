@@ -163,8 +163,10 @@ and 'a sum =
 and key_metadata =
     Key_metadata:
       { typ: 'a typ;
-        version:version;
-        deprecation: version option } ->
+        creation:version;
+        deprecation: version option;
+        deletion: version option;
+      } ->
       key_metadata
 and 'a def = {
   scheme_name: string;
@@ -238,8 +240,9 @@ let new_key update scheme name typ =
   if List.mem_assoc name scheme.keys then
     Version.(error update scheme.scheme_name (Duplicate_key name));
   let metadata = Key_metadata {
-    version=update.Version.v;
+    creation=update.Version.v;
     deprecation=None;
+    deletion=None;
     typ
   }
   in
@@ -265,7 +268,12 @@ let validity_key = make_key Bool "valid"
 
 let metakey key =
   key.name,
-  Key_metadata { typ = key.typ; version = Version.zeroth; deprecation = None}
+  Key_metadata {
+    typ = key.typ;
+    creation = Version.zeroth;
+    deprecation = None;
+    deletion = None
+  }
 let version_metakey = metakey version_key
 let validity_metakey = metakey validity_key
 
@@ -323,6 +331,13 @@ let (.!()) scheme key =
   | Some x -> x
   | None -> assert false
 
+let active_key version scheme key =
+  let Key_metadata m = scheme.!(key) in
+  not (version < m.creation) &&
+  match m.deletion with
+  | None -> true
+  | Some del -> version < del
+
 let deprecate_key u key scheme =
   let Key_metadata r = scheme.!(key) in
   Version.register_event u scheme.scheme_name (Deprecation key.name);
@@ -333,7 +348,7 @@ let delete_key u key scheme =
   let Key_metadata r = scheme.!(key) in
   Version.register_event u scheme.scheme_name (Deletion key.name);
   scheme.!(key) <-
-    Key_metadata { r with deprecation = Some u.Version.v }
+    Key_metadata { r with deletion = Some u.Version.v }
 
 let seal update scheme =
   Version.register_event update scheme.scheme_name Seal
@@ -389,7 +404,7 @@ end
 
 let version_range key scheme =
   let Key_metadata r =  scheme.!(key) in
-  { Version.introduction = r.version; deprecation = r.deprecation }
+  { Version.introduction = r.creation; deprecation = r.deprecation }
 
 
 module Record = struct
@@ -470,60 +485,88 @@ module Store = struct
       List.filter_map field (List.rev keys)
 
 
-  let rec validate: type id. ?toplevel:version -> id def -> id record -> bool =
-    fun ?toplevel sch st ->
+  let rec possibly_invalid: type a. a typ -> bool = function
+    | Unit -> false
+    | Int -> false
+    | String -> false
+    | Bool -> false
+    | Pair (x,y) -> possibly_invalid x || possibly_invalid y
+    | Triple (x,y,z) ->
+        possibly_invalid x || possibly_invalid y || possibly_invalid z
+    | Quadruple (x,y,z,w) ->
+        possibly_invalid x
+        || possibly_invalid y
+        || possibly_invalid z
+        || possibly_invalid w
+    | List r -> possibly_invalid r.elt
+    | Custom r -> possibly_invalid r.default
+    | Option e -> possibly_invalid e
+    | Sum _ -> true
+    | Record _ -> true
+
+  let rec validate: type id.
+    ?toplevel:bool -> version:version -> id def -> id record -> bool =
+    fun ?(toplevel=false) ~version sch st ->
     (* don't add validation metakeys to empty sublog*)
-    let valid = validate_fields sch.keys (fields st) in
-    Option.iter (fun v ->
-        record st ~key:version_key v;
-        record st ~key:validity_key valid
-      ) toplevel;
+    let valid = validate_fields ~version sch.keys (fields st) in
+    if toplevel then begin
+      record st ~key:version_key version;
+      record st ~key:validity_key valid
+    end;
     valid
 
-
   and validate_fields: type id.
-    (Keys.key * key_metadata) list -> id field Keys.t -> bool =
-    fun metadata data ->
+    version:version -> (Keys.key * key_metadata) list -> id field Keys.t
+    -> bool =
+    fun ~version metadata data ->
     List.fold_left (fun valid (k,kmd) ->
-       valid && validate_key (is_optional kmd) (Keys.find_opt k data)
+        valid
+        && validate_field ~version ~optional:(is_optional kmd)
+          (Keys.find_opt k data)
       ) true metadata
-  and validate_key: type a. bool -> a field option -> bool  =
-    fun opt k ->
-    match opt, k with
+  and validate_field: type a.
+    version:version -> optional:bool -> a field option -> bool =
+    fun ~version ~optional k ->
+    match optional, k with
     | true, None -> true
     | _, None -> false
-    | _, Some (Field (k,v)) -> validate_value v k.typ
-  and validate_value: type a. a -> a typ -> bool = fun v typ ->
+    | _, Some (Field (k,v)) -> validate_value ~version v k.typ
+  and validate_value: type a. version:version -> a -> a typ -> bool =
+    fun ~version v typ ->
     match typ with
-    | Record m -> validate m v
+    | Record m -> validate ~version m v
     | Int -> true
     | Bool -> true
     | String -> true
     | Custom _ -> true
     | Unit -> true
-    | List {elt; _} -> List.for_all (fun v -> validate_value v elt) v
+    | List {elt; _} ->
+        not (possibly_invalid elt)
+        || List.for_all (fun v -> validate_value ~version v elt) v
     | Option m ->
         Option.value ~default:true
-          (Option.map (fun v -> validate_value v m) v)
+          (Option.map (fun v -> validate_value ~version v m) v)
     | Pair (x,y) ->
         let vx, vy = v in
-        validate_value vx x && validate_value vy y
+        validate_value ~version vx x && validate_value ~version vy y
     | Triple (x,y,z) ->
         let vx, vy, vz = v in
-        validate_value vx x && validate_value vy y && validate_value vz z
+        validate_value ~version vx x
+        && validate_value ~version vy y
+        && validate_value ~version vz z
     | Quadruple (x,y,z,w) ->
         let vx, vy, vz, vw = v in
-        validate_value vx x
-        && validate_value vy y
-        && validate_value vz z
-        && validate_value vw w
-    | Sum _ ->
+        validate_value ~version vx x
+        && validate_value ~version vy y
+        && validate_value ~version vz z
+        && validate_value ~version vw w
+    | Sum def ->
         begin match v with
         | Enum _ -> true
-        | Constr(k, v) -> validate_value v k.typ
+        | Constr(k, v) ->
+            active_key version def k
+            && validate_value ~version v k.typ
         end
-
-
 end
 
 
@@ -968,15 +1011,8 @@ let detach_option log key =
     ~lift:some
     ~extract:Fun.id log key
 
-let active_key log key =
-  let Key_metadata m = log.scheme.!(key) in
-  not (log.version < m.version) &&
-  match m.deprecation with
-  | None -> true
-  | Some d -> d < log.version
-
 let set key x log =
-  if not (active_key log key) then () else
+  if not (active_key log.version log.scheme key) then () else
   match log.mode with
   | Direct d ->
     let r = Keys.find_opt key.name log.redirections in
@@ -1009,9 +1045,8 @@ let flush: type a. a log -> unit = fun log ->
   begin match log.mode with
   | Direct d -> Fmt.flush d
   | Store st ->
-      let valid = Store.validate ~toplevel:log.version log.scheme st.data in
-      Store.record st.data ~key:version_key log.version;
-      Store.record st.data ~key:validity_key valid;
+      let _valid =
+        Store.validate ~toplevel:true ~version:log.version log.scheme st.data in
       Option.iter (fun (out, print) ->
           let ppf = !(out.ppf) in
           print ppf (R(log.scheme, st.data))
