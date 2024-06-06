@@ -93,22 +93,7 @@
           "type" = "object",
           "properties" =
             {
-              "loc" =
-                {
-                  "type" = "array",
-                  "items" =
-                    [{ "type" = "string"},
-                      {
-                        "type" = "array",
-                        "items" =
-                          [{ "type" = "integer"}, { "type" = "integer"}]
-                      },
-                      {
-                        "type" = "array",
-                        "items" =
-                          [{ "type" = "integer"}, { "type" = "integer"}]
-                      }]
-                },
+              "loc" = { "$ref" = "#/$defs/loc"},
               "msg" =
                 {
                   "type" = "array",
@@ -123,25 +108,7 @@
           "properties" =
             {
               "quotable_locs" =
-                {
-                  "type" = "array",
-                  "items" =
-                    {
-                      "type" = "array",
-                      "items" =
-                        [{ "type" = "string"},
-                          {
-                            "type" = "array",
-                            "items" =
-                              [{ "type" = "integer"}, { "type" = "integer"}]
-                          },
-                          {
-                            "type" = "array",
-                            "items" =
-                              [{ "type" = "integer"}, { "type" = "integer"}]
-                          }]
-                    }
-                },
+                { "type" = "array", "items" = { "$ref" = "#/$defs/loc"}},
               "sub" =
                 {
                   "type" = "array",
@@ -149,22 +116,7 @@
                 },
               "main" = { "$ref" = "#/$defs/error_msg"},
               "kind" = { "$ref" = "#/$defs/error_kind"},
-              "loc" =
-                {
-                  "type" = "array",
-                  "items" =
-                    [{ "type" = "string"},
-                      {
-                        "type" = "array",
-                        "items" =
-                          [{ "type" = "integer"}, { "type" = "integer"}]
-                      },
-                      {
-                        "type" = "array",
-                        "items" =
-                          [{ "type" = "integer"}, { "type" = "integer"}]
-                      }]
-                }
+              "loc" = { "$ref" = "#/$defs/loc"}
             },
           "required" = ["main", "kind", "loc"]
         },
@@ -184,6 +136,25 @@
                 "type" = "array",
                 "items" = [{ "const" = "<Unknown>"}, { "type" = "string"}]
               }]
+        },
+      "loc" =
+        {
+          "type" = "object",
+          "properties" =
+            {
+              "characters" =
+                {
+                  "type" = "array",
+                  "items" = [{ "type" = "integer"}, { "type" = "integer"}]
+                },
+              "lines" =
+                {
+                  "type" = "array",
+                  "items" = [{ "type" = "integer"}, { "type" = "integer"}]
+                },
+              "file" = { "type" = "string"}
+            },
+          "required" = ["lines"]
         },
       "structured_text" =
         {

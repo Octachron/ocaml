@@ -200,6 +200,12 @@ let absolute_path s = (* This function could go into Filename *)
 let show_filename file =
   if !Clflags.absname then absolute_path file else file
 
+type summary = {
+  file:string option;
+  lines: int option * int option;
+  characters: (int * int) option
+}
+
 module Fmt = Format_doc
 module Doc = struct
 
@@ -213,12 +219,7 @@ module Doc = struct
   let filename ppf file =
     Fmt.pp_print_string ppf (show_filename file)
 
-type summary = {
-  filename:string option;
-  start_line: int option;
-  end_line: int option;
-  characters: (int * int) option
-}
+
 
 let summarize_loc loc =
     let file_valid = function
@@ -241,10 +242,10 @@ let summarize_loc loc =
   let endline = loc.loc_end.pos_lnum in
   let startchar = loc.loc_start.pos_cnum - loc.loc_start.pos_bol in
   let endchar = loc.loc_end.pos_cnum - loc.loc_end.pos_bol in
+  let validate_line l = if line_valid l then Some l else None in
   {
-    filename = if file_valid file then Some file else None;
-    start_line =  if line_valid startline then Some startline else None;
-    end_line = if line_valid endline then Some endline else None;
+    file = if file_valid file then Some file else None;
+    lines = validate_line startline, validate_line endline;
     characters =
       if chars_valid ~startchar ~endchar then Some (startchar,endchar)
       else None
@@ -271,15 +272,16 @@ let loc ppf loc =
     (fun f ->
        Fmt.fprintf ppf "%s \"%a\"" (capitalize "file") filename f
     )
-    summary.filename
+    summary.file
   ;
 
   (* Print "line 1" in the case of a dummy line number. This is to please the
      existing setup of editors that parse locations in error messages (e.g.
      Emacs). *)
   comma ();
-  let start_line = Option.value ~default:1 summary.start_line in
-  let end_line = Option.value ~default:start_line summary.end_line in
+  let start_line, end_line = summary.lines in
+  let start_line = Option.value ~default:1 start_line in
+  let end_line = Option.value ~default:start_line end_line in
   begin if start_line = end_line then
     Fmt.fprintf ppf "%s %i" (capitalize "line") start_line
   else
@@ -707,13 +709,6 @@ module Error_log = struct[@warning "-unused-value-declaration"]
   let () = Kind.seal v1
 
 
-  type loc_summary = {
-    file: string option;
-    lines: int option * int option;
-    chars: (int * int) option
-  }
-
-
   let loc_summary loc =
     let line_valid line = if line > 0 then Some line else None in
     let chars_valid ~startchar ~endchar =
@@ -735,7 +730,7 @@ module Error_log = struct[@warning "-unused-value-declaration"]
       | _ -> Some file
     in
 
-    let chars = chars_valid
+    let characters = chars_valid
         ~startchar:(loc.loc_start.pos_cnum - loc.loc_start.pos_bol)
         ~endchar:(loc.loc_end.pos_cnum - loc.loc_end.pos_bol)
     in
@@ -743,7 +738,7 @@ module Error_log = struct[@warning "-unused-value-declaration"]
       file;
       lines = line_valid loc.loc_start.pos_lnum,
               line_valid loc.loc_end.pos_lnum;
-      chars;
+      characters;
     }
 
 
@@ -761,28 +756,30 @@ module Error_log = struct[@warning "-unused-value-declaration"]
     | Report_alert_as_error w -> report_alert_as_error w
 
 
-  let loc_typ =
-    Triple (Option String,
-            Pair (Option Int, Option Int),
-            Option (Pair (Int, Int))
-           )
+  module Loc = struct
+    include New_record(Vl)(struct let name = "loc" let update = v1 end)()
+    let file = new_field v1 "file" (Option String)
+    let lines = new_field v1 "lines" (Pair (Option Int, Option Int))
+    let characters = new_field v1 "characters" (Option (Pair(Int,Int)))
+    let () = seal v1
+    let ctyp =
+      let pull l =
+        let l = loc_summary l in
+        let open Record in
+        make [file ^=l.file; lines ^= l.lines; characters ^= l.characters ]
+      in
+      Custom {
+        id = Location; pull; default = Record scheme
+      }
+  end
 
-  let pull_loc l =
-    l.file, l.lines, l.chars
-
-  let loc_typ =
-    Custom {
-      id = Location;
-      pull = (fun l -> let l = loc_summary l in l.file, l.lines, l.chars);
-      default = loc_typ
-    }
-  let loc = Log.Error.new_field v1 "loc" loc_typ
+  let loc = Log.Error.new_field v1 "loc" Loc.ctyp
 
   let doc = Log.Structured_text.typ
 
   module Msg = New_record(Vl)(struct let name="error_msg" let update=v1 end)()
   let msg = Msg.new_field v1 "msg" doc
-  let msg_loc = Msg.new_field v1 "loc" loc_typ
+  let msg_loc = Msg.new_field v1 "loc" Loc.ctyp
   let () = Msg.seal v1
   let msg_typ =
     let pull m = Log.Record.(make [ msg ^= m.txt; msg_loc ^= m.loc ]) in
@@ -795,7 +792,7 @@ module Error_log = struct[@warning "-unused-value-declaration"]
   let sub = Log.Error.new_field v1 "sub" Log.(List {optional=true; elt=msg_typ})
   let quotable_locs =
     Log.Error.new_field v1 "quotable_locs"
-      Log.(List {optional=true; elt=loc_typ})
+      Log.(List {optional=true; elt=Loc.ctyp})
 
   let () = Log.Error.seal v1
 

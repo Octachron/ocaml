@@ -48,15 +48,15 @@ v1.0
   error_msg
     Creation
     Key msg, l structured_text
-    Key loc, ?s*(?i*?i)*?(i*i)
+    Key loc, loc
     Seal
   error_report
     Creation
-    Key loc, ?s*(?i*?i)*?(i*i)
+    Key loc, loc
     Key kind, error_kind
     Key main, error_msg
     Key sub, l? error_msg
-    Key quotable_locs, l? ?s*(?i*?i)*?(i*i)
+    Key quotable_locs, l? loc
     Seal
   format_tag
     Creation
@@ -71,6 +71,12 @@ v1.0
     Key Insertion
     Key Modification
     Key Preservation
+    Seal
+  loc
+    Creation
+    Key file, ?s
+    Key lines, ?i*?i
+    Key characters, ?(i*i)
     Seal
   structured_text
     Creation
