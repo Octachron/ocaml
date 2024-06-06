@@ -131,6 +131,4 @@ let with_debug_log ~file_prefix log f =
   | Some (ppf,close) ->
       Log.redirect log Log.Compiler.debug ~close ppf;
       let dlog = Log.detach_option log Log.Compiler.debug in
-      let r = f dlog in
-      Log.close dlog;
-      r
+      Fun.protect ~finally:(fun () -> Log.close dlog) (fun () -> f dlog)
