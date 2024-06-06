@@ -1222,7 +1222,12 @@ module Backends = struct
   let with_conv conv settings version ppf scheme =
     let print ppf (R(def, r)) =
       if Keys.is_empty (Record.fields r) then () else
-        let fields = Fmt.fields conv Fmt.no_extension (def.keys,r) in
+        let fields =
+          let meta =
+            Fmt.fields conv Fmt.no_extension
+              ([version_metakey; validity_metakey],r) in
+          meta @ Fmt.fields conv Fmt.no_extension (def.keys,r)
+        in
         Format.fprintf ppf "%t@." (Fmt.record conv fields)
     in
     { version;
