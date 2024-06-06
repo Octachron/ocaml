@@ -526,7 +526,7 @@ clean::
 
 TOOLS_NAT = $(TOOLS_TO_INSTALL_NAT)
 TOOLS_BYT = $(TOOLS_TO_INSTALL_BYT) dumpobj primreq stripdebug cmpbyt \
-  ocamlloginfo
+  ocamldiaginfo
 
 TOOLS_NAT_PROGRAMS = $(addprefix tools/,$(TOOLS_NAT))
 TOOLS_BYT_PROGRAMS = $(addprefix tools/,$(TOOLS_BYT))
@@ -2316,9 +2316,9 @@ ocamlobjinfo_SOURCES = tools/objinfo.mli tools/objinfo.ml
 
 # Display info on the compilerlog
 
-ocamlloginfo_LIBRARIES = \
+ocamldiaginfo_LIBRARIES = \
   $(addprefix compilerlibs/,ocamlcommon)
-ocamlloginfo_SOURCES = tools/loginfo.mli tools/loginfo.ml
+ocamldiaginfo_SOURCES = tools/diaginfo.mli tools/diaginfo.ml
 
 # Scan object files for required primitives
 

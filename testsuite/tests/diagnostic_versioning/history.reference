@@ -1,0 +1,101 @@
+v1.0
+  box_type
+    Creation
+    Key "H"
+    Key "V"
+    Key "HV"
+    Key "HoV"
+    Key "B"
+    Seal
+  compiler
+    Creation
+    Key "debug"
+    Key "error"
+    Key "warnings"
+    Key "alerts"
+    Seal
+  debug
+    Creation
+    Key "parsetree"
+    Key "source"
+    Key "typedtree"
+    Key "shape"
+    Key "instr"
+    Key "lambda"
+    Key "raw_lambda"
+    Key "flambda"
+    Key "raw_flambda"
+    Key "clambda"
+    Key "raw_clambda"
+    Key "cmm"
+    Key "remove-free-vars-equal-to-args"
+    Key "unbox-free-vars-of-closures"
+    Key "unbox-closures"
+    Key "unbox-specialised-args"
+    Key "mach"
+    Key "linear"
+    Key "cmm_invariant"
+    Key "profile"
+    Seal
+  error_kind
+    Creation
+    Key "Report_error"
+    Key "Report_alert"
+    Key "Report_alert_as_error"
+    Key "Report_warning"
+    Key "Report_warning_as_error"
+    Seal
+  error_msg
+    Creation
+    Key "msg"
+    Key "loc"
+    Seal
+  error_report
+    Creation
+    Key "loc"
+    Key "kind"
+    Key "main"
+    Key "sub"
+    Key "quotable_locs"
+    Seal
+  format_tag
+    Creation
+    Key "<Unknown>"
+    Key "String_tag"
+    Key "Error"
+    Key "Warning"
+    Key "Loc"
+    Key "Inline_code"
+    Key "Hint"
+    Key "Deletion"
+    Key "Insertion"
+    Key "Modification"
+    Key "Preservation"
+    Seal
+  structured_text
+    Creation
+    Key "Text"
+    Key "With_size"
+    Key "Open_box"
+    Key "Close_box"
+    Key "Open_tag"
+    Key "Close_tag"
+    Key "Open_tbox"
+    Key "Close_tbox"
+    Key "Tab_break"
+    Key "Set_tab"
+    Key "Simple_break"
+    Key "Break"
+    Key "Flush"
+    Key "Newline"
+    Key "If_newline"
+    Key "<deprecated>"
+    Seal
+  toplevel
+    Creation
+    Key "output"
+    Key "backtrace"
+    Key "compiler_log"
+    Key "errors"
+    Key "trace"
+    Seal

@@ -91,7 +91,6 @@ utils/diffing.cmx : \
     utils/format_doc.cmx \
     utils/diffing.cmi
 utils/diffing.cmi : \
-    utils/misc.cmi \
     utils/format_doc.cmi
 utils/diffing_with_keys.cmo : \
     utils/misc.cmi \
@@ -2273,6 +2272,7 @@ bytecomp/bytepackager.cmo : \
     lambda/printlambda.cmi \
     typing/path.cmi \
     utils/misc.cmi \
+    utils/log.cmi \
     parsing/location.cmi \
     utils/load_path.cmi \
     bytecomp/instruct.cmi \
@@ -2297,6 +2297,7 @@ bytecomp/bytepackager.cmx : \
     lambda/printlambda.cmx \
     typing/path.cmx \
     utils/misc.cmx \
+    utils/log.cmx \
     parsing/location.cmx \
     utils/load_path.cmx \
     bytecomp/instruct.cmx \
@@ -2312,6 +2313,7 @@ bytecomp/bytepackager.cmx : \
     bytecomp/bytegen.cmx \
     bytecomp/bytepackager.cmi
 bytecomp/bytepackager.cmi : \
+    utils/log.cmi \
     utils/format_doc.cmi \
     typing/env.cmi \
     file_formats/cmo_format.cmi
@@ -7421,6 +7423,15 @@ tools/cvt_emit.cmo : \
 tools/cvt_emit.cmx : \
     tools/cvt_emit.cmi
 tools/cvt_emit.cmi :
+tools/diaginfo.cmo : \
+    utils/log.cmi \
+    parsing/location.cmi \
+    tools/diaginfo.cmi
+tools/diaginfo.cmx : \
+    utils/log.cmx \
+    parsing/location.cmx \
+    tools/diaginfo.cmi
+tools/diaginfo.cmi :
 tools/dumpobj.cmo : \
     bytecomp/symtable.cmi \
     tools/opnames.cmi \
@@ -7485,15 +7496,6 @@ tools/lintapidiff.cmx : \
     typing/ident.cmx \
     tools/lintapidiff.cmi
 tools/lintapidiff.cmi :
-tools/loginfo.cmo : \
-    utils/log.cmi \
-    parsing/location.cmi \
-    tools/loginfo.cmi
-tools/loginfo.cmx : \
-    utils/log.cmx \
-    parsing/location.cmx \
-    tools/loginfo.cmi
-tools/loginfo.cmi :
 tools/make_opcodes.cmo : \
     tools/make_opcodes.cmi
 tools/make_opcodes.cmx : \
@@ -7654,6 +7656,7 @@ tools/ocamltex.cmo : \
     parsing/location.cmi \
     utils/load_path.cmi \
     parsing/lexer.cmi \
+    utils/format_doc.cmi \
     driver/compmisc.cmi \
     driver/compenv.cmi \
     utils/clflags.cmi \
@@ -7673,6 +7676,7 @@ tools/ocamltex.cmx : \
     parsing/location.cmx \
     utils/load_path.cmx \
     parsing/lexer.cmx \
+    utils/format_doc.cmx \
     driver/compmisc.cmx \
     driver/compenv.cmx \
     utils/clflags.cmx \

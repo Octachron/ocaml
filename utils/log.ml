@@ -109,14 +109,14 @@ module Version = struct
       Vmap.add e.version map_at_v m
     in
     let m = List.fold_left add Vmap.empty events in
-    let pp_scheme_at_v ppf scheme_name events =
-      Format.fprintf ppf "@[<v 2>%s@,%a@]@,"
+    let pp_scheme_at_v ppf (scheme_name,events) =
+      Format.fprintf ppf "@[<v 2>%s@,%a@]"
         scheme_name
         (pp_print_list pp_base_event) events
     in
     let pp_version ppf (version, map_at_v) =
       Format.fprintf ppf "@[<v 2>%a@," pp_version version;
-      Keys.iter (pp_scheme_at_v ppf) map_at_v;
+      pp_print_seq pp_scheme_at_v ppf (Keys.to_seq map_at_v);
       Format.fprintf ppf "@]"
     in
     Format.fprintf ppf "@[<v>%a@]"

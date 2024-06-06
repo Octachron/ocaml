@@ -9,6 +9,26 @@
             [{ "const" = "B"}, { "const" = "HoV"}, { "const" = "HV"},
               { "const" = "V"}, { "const" = "H"}]
         },
+      "compiler" =
+        {
+          "type" = "object",
+          "properties" =
+            {
+              "alerts" =
+                {
+                  "type" = "array",
+                  "items" = { "$ref" = "#/$defs/error_report"}
+                },
+              "warnings" =
+                {
+                  "type" = "array",
+                  "items" = { "$ref" = "#/$defs/error_report"}
+                },
+              "error" = { "$ref" = "#/$defs/error_report"},
+              "debug" = { "$ref" = "#/$defs/debug"}
+            },
+          "required" = []
+        },
       "debug" =
         {
           "type" = "object",
@@ -252,12 +272,29 @@
           "items" = [{ "type" = "integer"}, { "type" = "integer"}]
         },
       "valid" = { "type" = "bool"},
-      "alerts" =
-        { "type" = "array", "items" = { "$ref" = "#/$defs/error_report"}},
-      "warnings" =
-        { "type" = "array", "items" = { "$ref" = "#/$defs/error_report"}},
-      "error" = { "$ref" = "#/$defs/error_report"},
-      "debug" = { "$ref" = "#/$defs/debug"}
+      "trace" =
+        {
+          "type" = "array",
+          "items" =
+            {
+              "type" = "array",
+              "items" = { "$ref" = "#/$defs/structured_text"}
+            }
+        },
+      "errors" =
+        {
+          "type" = "array",
+          "items" =
+            {
+              "type" = "array",
+              "items" = { "$ref" = "#/$defs/structured_text"}
+            }
+        },
+      "compiler_log" = { "$ref" = "#/$defs/compiler"},
+      "backtrace" =
+        { "type" = "array", "items" = { "$ref" = "#/$defs/structured_text"}},
+      "output" =
+        { "type" = "array", "items" = { "$ref" = "#/$defs/structured_text"}}
     },
-  "required" = ["version", "valid"]
+  "required" = ["version", "valid", "output"]
 }
