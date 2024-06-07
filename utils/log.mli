@@ -28,6 +28,7 @@ module Version: sig
   type range = { introduction: t; deprecation: t option }
   type 'a history
   type 'a update
+  val v: 'a update -> t
   val new_version: 'a history -> t -> 'a update
   val current_version: 'a history -> t
   val pp_version: Format.formatter -> t -> unit
@@ -144,7 +145,7 @@ end
 
 module Json_schema:sig
   val pp_log: Format.formatter -> 'a log -> unit
-  val pp:  'a def -> Format.formatter -> unit
+  val pp:  Version.t -> 'a def -> Format.formatter -> unit
 end
 
 val set: ('a,'b) key  -> 'a -> 'b log -> unit

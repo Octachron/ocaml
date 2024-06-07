@@ -47,6 +47,7 @@ module Version = struct
     history:'a history;
     minor_update:bool;
   }
+  let v x = x.v
 
   let register_event update scheme event =
     let h = update.history in
@@ -258,7 +259,7 @@ let new_key update scheme name typ =
 type _ extension += Version: version extension
 
 let version_ty =
-  let pull v = Version.(v.major, v.minor) in
+  let pull v = v.Version.major, v.Version.minor in
   Custom { id = Version; pull; default = Pair (Int,Int) }
 
 
@@ -326,13 +327,13 @@ let deprecate_key u key scheme =
   let Key_metadata r = scheme.!(key) in
   Version.register_event u scheme.scheme_name (Deprecation key.name);
   scheme.!(key) <-
-    Key_metadata { r with deprecation = Some u.Version.v }
+    Key_metadata { r with deprecation = Some (Version.v u) }
 
 let delete_key u key scheme =
   let Key_metadata r = scheme.!(key) in
   Version.register_event u scheme.scheme_name (Deletion key.name);
   scheme.!(key) <-
-    Key_metadata { r with deletion = Some u.Version.v }
+    Key_metadata { r with deletion = Some (Version.v u) }
 
 let seal update scheme =
   Version.register_event update scheme.scheme_name Seal
@@ -466,7 +467,8 @@ module Metadata = struct
   let version = new_field v1 "version" version_ty
   let valid = new_field v1 "valid" Bool
   let path = List { optional = false; elt = String}
-  let invalid_paths = new_field v1 "invalid_paths" (List {optional=true; elt=path})
+  let invalid_paths =
+    new_field v1 "invalid_paths" (List {optional=true; elt=path})
   let () = seal v1
   let universal_key = make_key "metadata" (Record scheme)
   let metakey = "metadata", key_metadata v1 universal_key
@@ -741,6 +743,8 @@ module Fmt = struct
     list:list_convention;
   }
 
+  let bool conv b ppf = conv.atom (if b then "true" else "false") ppf
+
   let escape_string ppf str =
     Format.fprintf ppf {|"|};
     for i = 0 to String.length str - 1 do
@@ -783,7 +787,7 @@ module Fmt = struct
     match typ with
     | Unit -> Format.pp_print_int ppf 0
     | Int -> Format.pp_print_int ppf x
-    | Bool -> Format.pp_print_bool ppf x
+    | Bool -> bool conv x ppf
     | String -> conv.string ppf x
     | Pair (a,b) ->
         let x,y = x in
@@ -1172,6 +1176,7 @@ let log_if dlog key flag printer x =
 module Json_schema = struct
   open Fmt
   let string s ppf = Format.fprintf ppf "%S" s
+  let bool = Fmt.bool json
   let item = Fmt.item json
   let header =
       [
@@ -1220,10 +1225,25 @@ module Json_schema = struct
     in
     obj [ item ~key:"oneOf" (array (List.map constructor x.keys)) ]
 
-  let fields x =
-    List.map
-      (fun (key, Key_metadata kty) -> item ~key (obj [typ kty.typ]))
-      x
+  let field v (key, Key_metadata km) =
+    match v with
+    | None -> Some (item ~key (obj [typ km.typ]))
+    | Some v ->
+        if (v < km.creation) then None else
+          match km.deletion with
+          | Some del when del <= v -> None
+          | _ ->
+              let typ = typ km.typ in
+              let fields =
+                match km.deprecation with
+                | Some depr when depr >= v ->
+                    let deprecated = item ~key:"deprecated" (bool true) in
+                    [typ; deprecated]
+                | _ -> [typ]
+              in
+              Some (item ~key (obj fields))
+
+  let fields v x = List.filter_map (field v) x
 
   let required_fields x =
     List.filter_map
@@ -1235,14 +1255,14 @@ module Json_schema = struct
   let schema_field =
     item ~key:"schema" @@ obj [obj_typ]
 
-  let record_fields x =
+  let record_fields v x =
     [
       obj_typ;
-      item ~key:"properties" @@ obj (fields x);
+      item ~key:"properties" @@ obj (fields v x);
       item ~key:"required" @@ array (required_fields x)
     ]
 
-  let simple_record x = obj (record_fields x)
+  let simple_record x = obj (record_fields None x)
 
   let union a =
     List.fold_left (fun m acc -> Keys.union (fun _ x _ -> Some x) m acc)
@@ -1270,7 +1290,7 @@ module Json_schema = struct
       union @@
       List.map (fun (_,Key_metadata kty) -> refs kty.typ) keys
 
-   let pp sch ppf =
+   let pp v sch ppf =
      let keys =Metadata.metakey :: sch.keys in
      let defs = match Keys.bindings (subrefs keys) with
        | [] -> []
@@ -1278,11 +1298,11 @@ module Json_schema = struct
            let prs = List.map (fun (key,pr) -> item ~key pr) defs in
            [item ~key:"$defs" @@ obj prs]
      in
-     obj (header @ defs @ schema_field :: record_fields keys) ppf
+     obj (header @ defs @ schema_field :: record_fields (Some v) keys) ppf
 
   let pp_log ppf log =
     let sch = log.scheme in
-    pp sch ppf
+    pp log.version sch ppf
 
   end
 
