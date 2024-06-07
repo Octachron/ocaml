@@ -78,6 +78,11 @@ v1.0
     Key lines, ?i*?i
     Key characters, ?(i*i)
     Seal
+  metadata
+    Creation
+    Key version, i*i
+    Key valid, b
+    Seal
   structured_text
     Creation
     Key Text, s

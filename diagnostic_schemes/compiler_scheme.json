@@ -136,6 +136,20 @@
             },
           "required" = ["lines"]
         },
+      "metadata" =
+        {
+          "type" = "object",
+          "properties" =
+            {
+              "valid" = { "type" = "bool"},
+              "version" =
+                {
+                  "type" = "array",
+                  "items" = [{ "type" = "integer"}, { "type" = "integer"}]
+                }
+            },
+          "required" = ["valid", "version"]
+        },
       "structured_text" =
         {
           "oneOf" =
@@ -217,12 +231,7 @@
   "type" = "object",
   "properties" =
     {
-      "version" =
-        {
-          "type" = "array",
-          "items" = [{ "type" = "integer"}, { "type" = "integer"}]
-        },
-      "valid" = { "type" = "bool"},
+      "metadata" = { "$ref" = "#/$defs/metadata"},
       "alerts" =
         { "type" = "array", "items" = { "$ref" = "#/$defs/error_report"}},
       "warnings" =
@@ -230,5 +239,5 @@
       "error" = { "$ref" = "#/$defs/error_report"},
       "debug" = { "$ref" = "#/$defs/debug"}
     },
-  "required" = ["version", "valid"]
+  "required" = ["metadata"]
 }

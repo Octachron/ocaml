@@ -232,6 +232,15 @@ and with_parens: type a. Format.formatter -> a typ -> unit = fun ppf elt ->
 
 
 
+let make_key name typ = { name; typ; id = Type.Id.make () }
+let key_metadata update key =
+   Key_metadata {
+    creation=update.Version.v;
+    deprecation=None;
+    deletion=None;
+    typ = key.typ
+  }
+
 let new_key update scheme name typ =
   begin match scheme.polarity with
   | Positive -> ()
@@ -239,43 +248,18 @@ let new_key update scheme name typ =
   end;
   if List.mem_assoc name scheme.keys then
     Version.(error update scheme.scheme_name (Duplicate_key name));
-  let metadata = Key_metadata {
-    creation=update.Version.v;
-    deprecation=None;
-    deletion=None;
-    typ
-  }
-  in
-  let key = {
-    name;
-    typ; id = Type.Id.make ();
-  } in
+  let key = make_key name typ in
+  let metadata = key_metadata update key in
   scheme.!(key) <- metadata;
   Version.register_event update scheme.scheme_name
     (New_key {name; typ=Format.asprintf "%a" pp_typ typ});
   key
-
 
 type _ extension += Version: version extension
 
 let version_ty =
   let pull v = Version.(v.major, v.minor) in
   Custom { id = Version; pull; default = Pair (Int,Int) }
-
-let make_key typ name = { name; typ; id = Type.Id.make () }
-let version_key = make_key version_ty "version"
-let validity_key = make_key Bool "valid"
-
-let metakey key =
-  key.name,
-  Key_metadata {
-    typ = key.typ;
-    creation = Version.zeroth;
-    deprecation = None;
-    deletion = None
-  }
-let version_metakey = metakey version_key
-let validity_metakey = metakey validity_key
 
 
 module type Def = sig
@@ -419,37 +403,23 @@ module Record = struct
   let fields x = !x
 end
 
-(*
-module V = New_def ()
-let major = V.new_key "major" Int
-let minor = V.new_key "minor" Int
-type _ extension += Version: version extension
-let () = seal_version V.scheme
 
 
-let[@warning "-32"] version_typ =
-  let pull v =
-    Record.(make [ major =: v.major; minor =: v.minor ] )
-  in
-  Custom { pull; id = Version; default = Record V.scheme}
-*)
+let is_optional (Key_metadata r) = match r.typ with
+  | List r -> r.optional
+  | Option _ -> true
+  | _ -> false
 
-
-  let is_optional (Key_metadata r) = match r.typ with
-    | List r -> r.optional
-    | Option _ -> true
-    | _ -> false
-
-  let rec is_empty: type a. a typ -> a -> bool = fun ty x ->
-    match ty, x with
-    | List {optional=true; elt=_ }, [] -> true
-    | Option _, None -> true
-    | Option ty, Some x -> is_empty ty x
-    | Record _, x ->
-        Keys.for_all is_empty_field !x
-    | _ -> false
-  and is_empty_field: type a. _ -> a field -> bool =
-    fun _ (Field (kt,x)) -> is_empty kt.typ x
+let rec is_empty: type a. a typ -> a -> bool = fun ty x ->
+  match ty, x with
+  | List {optional=true; elt=_ }, [] -> true
+  | Option _, None -> true
+  | Option ty, Some x -> is_empty ty x
+  | Record _, x ->
+      Keys.for_all is_empty_field !x
+  | _ -> false
+and is_empty_field: type a. _ -> a field -> bool =
+  fun _ (Field (kt,x)) -> is_empty kt.typ x
 
 module Store = struct
   open Record
@@ -483,7 +453,24 @@ module Store = struct
             if is_empty kt.typ x then None else c
       in
       List.filter_map field (List.rev keys)
+end
 
+module Compiler_log_version = New_root()
+
+module Metadata = struct
+  let v1 = Compiler_log_version.v1
+  include New_record(Compiler_log_version)(struct
+      let name = "metadata"
+      let update = v1
+    end)()
+  let version = new_field v1 "version" version_ty
+  let valid = new_field v1 "valid" Bool
+  let () = seal v1
+  let universal_key = make_key "metadata" (Record scheme)
+  let metakey = "metadata", key_metadata v1 universal_key
+end
+
+module Validation = struct
 
   let rec possibly_invalid: type a. a typ -> bool = function
     | Unit -> false
@@ -504,73 +491,72 @@ module Store = struct
     | Sum _ -> true
     | Record _ -> true
 
-  let rec validate: type id.
+  let rec record: type id.
     ?toplevel:bool -> version:version -> id def -> id record -> bool =
     fun ?(toplevel=false) ~version sch st ->
-    (* don't add validation metakeys to empty sublog*)
-    let valid = validate_fields ~version sch.keys (fields st) in
-    if toplevel then begin
-      record st ~key:version_key version;
-      record st ~key:validity_key valid
-    end;
-    valid
+      (* don't add validation metakeys to empty sublog*)
+      let valid = fields ~version sch.keys (Record.fields st) in
+      if toplevel then begin
+        let metadata = Record.(make [Metadata.version ^= version; Metadata.valid ^= valid ]) in
+        Store.record st ~key:Metadata.universal_key metadata
+      end;
+      valid
 
-  and validate_fields: type id.
+  and fields: type id.
     version:version -> (Keys.key * key_metadata) list -> id field Keys.t
     -> bool =
     fun ~version metadata data ->
-    List.fold_left (fun valid (k,kmd) ->
-        valid
-        && validate_field ~version ~optional:(is_optional kmd)
-          (Keys.find_opt k data)
-      ) true metadata
-  and validate_field: type a.
+      List.fold_left (fun valid (k,kmd) ->
+          valid
+          && field ~version ~optional:(is_optional kmd)
+            (Keys.find_opt k data)
+        ) true metadata
+  and field: type a.
     version:version -> optional:bool -> a field option -> bool =
     fun ~version ~optional k ->
-    match optional, k with
-    | true, None -> true
-    | _, None -> false
-    | _, Some (Field (k,v)) -> validate_value ~version v k.typ
-  and validate_value: type a. version:version -> a -> a typ -> bool =
+      match optional, k with
+      | true, None -> true
+      | _, None -> false
+      | _, Some (Field (k,v)) -> value ~version v k.typ
+  and value: type a. version:version -> a -> a typ -> bool =
     fun ~version v typ ->
-    match typ with
-    | Record m -> validate ~version m v
-    | Int -> true
-    | Bool -> true
-    | String -> true
-    | Custom _ -> true
-    | Unit -> true
-    | List {elt; _} ->
-        not (possibly_invalid elt)
-        || List.for_all (fun v -> validate_value ~version v elt) v
-    | Option m ->
-        Option.value ~default:true
-          (Option.map (fun v -> validate_value ~version v m) v)
-    | Pair (x,y) ->
-        let vx, vy = v in
-        validate_value ~version vx x && validate_value ~version vy y
-    | Triple (x,y,z) ->
-        let vx, vy, vz = v in
-        validate_value ~version vx x
-        && validate_value ~version vy y
-        && validate_value ~version vz z
-    | Quadruple (x,y,z,w) ->
-        let vx, vy, vz, vw = v in
-        validate_value ~version vx x
-        && validate_value ~version vy y
-        && validate_value ~version vz z
-        && validate_value ~version vw w
-    | Sum def ->
-        begin match v with
-        | Enum _ -> true
-        | Constr(k, v) ->
-            active_key version def k
-            && validate_value ~version v k.typ
-        end
+      match typ with
+      | Record m -> record ~version m v
+      | Int -> true
+      | Bool -> true
+      | String -> true
+      | Custom _ -> true
+      | Unit -> true
+      | List {elt; _} ->
+          not (possibly_invalid elt)
+          || List.for_all (fun v -> value ~version v elt) v
+      | Option m ->
+          Option.value ~default:true
+            (Option.map (fun v -> value ~version v m) v)
+      | Pair (x,y) ->
+          let vx, vy = v in
+          value ~version vx x && value ~version vy y
+      | Triple (x,y,z) ->
+          let vx, vy, vz = v in
+          value ~version vx x
+          && value ~version vy y
+          && value ~version vz z
+      | Quadruple (x,y,z,w) ->
+          let vx, vy, vz, vw = v in
+          value ~version vx x
+          && value ~version vy y
+          && value ~version vz z
+          && value ~version vw w
+      | Sum def ->
+          begin match v with
+          | Enum _ -> true
+          | Constr(k, v) ->
+              active_key version def k
+              && value ~version v k.typ
+          end
+
 end
 
-
-module Compiler_log_version = New_root()
 module Structured_text = struct
   module Doc = Format_doc.Doc
   let v1 = Compiler_log_version.v1
@@ -1046,7 +1032,7 @@ let flush: type a. a log -> unit = fun log ->
   | Direct d -> Fmt.flush d
   | Store st ->
       let _valid =
-        Store.validate ~toplevel:true ~version:log.version log.scheme st.data in
+        Validation.record ~toplevel:true ~version:log.version log.scheme st.data in
       Option.iter (fun (out, print) ->
           let ppf = !(out.ppf) in
           print ppf (R(log.scheme, st.data))
@@ -1252,9 +1238,9 @@ module Json_schema = struct
   let rec refs: type a. a typ -> (Format.formatter -> unit) Keys.t =
     fun ty -> match ty with
       | Sum x ->
-          Keys.add x.scheme_name (sum x) (subrefs x)
+          Keys.add x.scheme_name (sum x) (subrefs x.keys)
       | Record x ->
-          Keys.add x.scheme_name (simple_record x.keys) (subrefs x)
+          Keys.add x.scheme_name (simple_record x.keys) (subrefs x.keys)
       | Int -> Keys.empty
       | Bool -> Keys.empty
       | String -> Keys.empty
@@ -1265,13 +1251,14 @@ module Json_schema = struct
       | Triple (x,y,z) -> union [refs x; refs y; refs z]
       | Quadruple (x,y,z,w) -> union [refs x; refs y; refs z; refs w]
       | Custom t -> refs t.default
-and subrefs: type a. a def -> (Format.formatter -> unit) Keys.t
-    = fun sch ->
-  union (List.map (fun (_,Key_metadata kty) -> refs kty.typ) sch.keys)
+  and subrefs: type a. (string * key_metadata) list -> (Format.formatter -> unit) Keys.t
+    = fun keys ->
+      union @@
+      List.map (fun (_,Key_metadata kty) -> refs kty.typ) keys
 
    let pp sch ppf =
-     let keys = version_metakey :: validity_metakey :: sch.keys in
-     let defs = match Keys.bindings (subrefs sch) with
+     let keys =Metadata.metakey :: sch.keys in
+     let defs = match Keys.bindings (subrefs keys) with
        | [] -> []
        | defs ->
            let prs = List.map (fun (key,pr) -> item ~key pr) defs in
@@ -1292,8 +1279,7 @@ module Backends = struct
       if Keys.is_empty (Record.fields r) then () else
         let fields =
           let meta =
-            Fmt.fields conv Fmt.no_extension
-              ([version_metakey; validity_metakey],r) in
+            Fmt.fields conv Fmt.no_extension ([Metadata.metakey],r) in
           meta @ Fmt.fields conv Fmt.no_extension (def.keys,r)
         in
         Format.fprintf ppf "%t@." (Fmt.record conv fields)

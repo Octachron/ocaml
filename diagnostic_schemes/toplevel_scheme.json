@@ -156,6 +156,20 @@
             },
           "required" = ["lines"]
         },
+      "metadata" =
+        {
+          "type" = "object",
+          "properties" =
+            {
+              "valid" = { "type" = "bool"},
+              "version" =
+                {
+                  "type" = "array",
+                  "items" = [{ "type" = "integer"}, { "type" = "integer"}]
+                }
+            },
+          "required" = ["valid", "version"]
+        },
       "structured_text" =
         {
           "oneOf" =
@@ -237,12 +251,7 @@
   "type" = "object",
   "properties" =
     {
-      "version" =
-        {
-          "type" = "array",
-          "items" = [{ "type" = "integer"}, { "type" = "integer"}]
-        },
-      "valid" = { "type" = "bool"},
+      "metadata" = { "$ref" = "#/$defs/metadata"},
       "trace" =
         {
           "type" = "array",
@@ -267,5 +276,5 @@
       "output" =
         { "type" = "array", "items" = { "$ref" = "#/$defs/structured_text"}}
     },
-  "required" = ["version", "valid", "output"]
+  "required" = ["metadata", "output"]
 }
