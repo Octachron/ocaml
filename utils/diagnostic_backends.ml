@@ -43,7 +43,7 @@ module Fmt = struct
     list:list_convention;
   }
 
-  let bool conv b ppf = conv.atom (if b then "true" else "false") ppf
+  let bool _conv b ppf = Format.pp_print_bool ppf b
 
   let escape_string ppf str =
     Format.fprintf ppf {|"|};
@@ -279,7 +279,7 @@ module Json_schema = struct
 
   let rec typ: type a b. a typ -> Format.formatter -> unit = function
     | Int -> tfield {|integer|}
-    | Bool -> tfield {|bool|}
+    | Bool -> tfield {|boolean|}
     | Unit -> tfield {|int|}
     | String -> tfield {|string|}
     | List e ->
@@ -296,7 +296,7 @@ module Json_schema = struct
   and tuple_typ = fun l ->
     Format.dprintf "%t,@ %t"
       (tfield  {|array|})
-      (item ~key:"items" @@ array @@
+      (item ~key:"prefixItems" @@ array @@
        List.map (fun x -> obj [x]) l
       )
 

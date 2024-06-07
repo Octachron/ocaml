@@ -773,8 +773,6 @@ module Error_log = struct[@warning "-unused-value-declaration"]
       }
   end
 
-  let loc = Log.Error.new_field v1 "loc" Loc.ctyp
-
   let doc = Log.Structured_text.typ
 
   module Msg = New_record(Vl)(struct let name="error_msg" let update=v1 end)()
@@ -790,6 +788,7 @@ module Error_log = struct[@warning "-unused-value-declaration"]
 
   let main = Log.Error.new_field v1 "main" msg_typ
   let sub = Log.Error.new_field v1 "sub" Log.(List {optional=true; elt=msg_typ})
+  let footnote = Log.Error.new_field v1 "footnote" (Option doc)
   let quotable_locs =
     Log.Error.new_field v1 "quotable_locs"
       Log.(List {optional=true; elt=Loc.ctyp})
@@ -802,7 +801,8 @@ module Error_log = struct[@warning "-unused-value-declaration"]
       kind ^= report.kind;
       main ^= report.main;
       sub ^= report.sub;
-      quotable_locs ^= report.quotable_locs
+      quotable_locs ^= report.quotable_locs;
+      footnote ^= report.footnote
     ]
 
 

@@ -48,24 +48,25 @@
           "oneOf" :
             [{
                "type" : "array",
-               "items" :
+               "prefixItems" :
                  [{ "const" : "Report_warning_as_error"},
                    { "type" : "string"}]
              },
               {
                 "type" : "array",
-                "items" :
+                "prefixItems" :
                   [{ "const" : "Report_warning"}, { "type" : "string"}]
               },
               {
                 "type" : "array",
-                "items" :
+                "prefixItems" :
                   [{ "const" : "Report_alert_as_error"}, { "type" : "string"}
                     ]
               },
               {
                 "type" : "array",
-                "items" : [{ "const" : "Report_alert"}, { "type" : "string"}]
+                "prefixItems" :
+                  [{ "const" : "Report_alert"}, { "type" : "string"}]
               }, { "const" : "Report_error"}]
         },
       "error_msg" :
@@ -89,16 +90,20 @@
             {
               "quotable_locs" :
                 { "type" : "array", "items" : { "$ref" : "#/$defs/loc"}},
+              "footnote" :
+                {
+                  "type" : "array",
+                  "items" : { "$ref" : "#/$defs/structured_text"}
+                },
               "sub" :
                 {
                   "type" : "array",
                   "items" : { "$ref" : "#/$defs/error_msg"}
                 },
               "main" : { "$ref" : "#/$defs/error_msg"},
-              "kind" : { "$ref" : "#/$defs/error_kind"},
-              "loc" : { "$ref" : "#/$defs/loc"}
+              "kind" : { "$ref" : "#/$defs/error_kind"}
             },
-          "required" : ["main", "kind", "loc"]
+          "required" : ["main", "kind"]
         },
       "format_tag" :
         {
@@ -110,11 +115,13 @@
               { "const" : "Error"},
               {
                 "type" : "array",
-                "items" : [{ "const" : "String_tag"}, { "type" : "string"}]
+                "prefixItems" :
+                  [{ "const" : "String_tag"}, { "type" : "string"}]
               },
               {
                 "type" : "array",
-                "items" : [{ "const" : "<Unknown>"}, { "type" : "string"}]
+                "prefixItems" :
+                  [{ "const" : "<Unknown>"}, { "type" : "string"}]
               }]
         },
       "loc" :
@@ -125,12 +132,14 @@
               "characters" :
                 {
                   "type" : "array",
-                  "items" : [{ "type" : "integer"}, { "type" : "integer"}]
+                  "prefixItems" :
+                    [{ "type" : "integer"}, { "type" : "integer"}]
                 },
               "lines" :
                 {
                   "type" : "array",
-                  "items" : [{ "type" : "integer"}, { "type" : "integer"}]
+                  "prefixItems" :
+                    [{ "type" : "integer"}, { "type" : "integer"}]
                 },
               "file" : { "type" : "string"}
             },
@@ -147,11 +156,12 @@
                   "items" :
                     { "type" : "array", "items" : { "type" : "string"}}
                 },
-              "valid" : { "type" : "bool"},
+              "valid" : { "type" : "boolean"},
               "version" :
                 {
                   "type" : "array",
-                  "items" : [{ "type" : "integer"}, { "type" : "integer"}]
+                  "prefixItems" :
+                    [{ "type" : "integer"}, { "type" : "integer"}]
                 }
             },
           "required" : ["valid", "version"]
@@ -163,24 +173,24 @@
               { "const" : "Newline"},
               {
                 "type" : "array",
-                "items" : [{ "const" : "Flush"}, { "type" : "bool"}]
+                "prefixItems" : [{ "const" : "Flush"}, { "type" : "boolean"}]
               },
               {
                 "type" : "array",
-                "items" :
+                "prefixItems" :
                   [{ "const" : "Break"},
                     {
                       "type" : "array",
-                      "items" :
+                      "prefixItems" :
                         [{
                            "type" : "array",
-                           "items" :
+                           "prefixItems" :
                              [{ "type" : "string"}, { "type" : "integer"},
                                { "type" : "string"}]
                          },
                           {
                             "type" : "array",
-                            "items" :
+                            "prefixItems" :
                               [{ "type" : "string"}, { "type" : "integer"},
                                 { "type" : "string"}]
                           }]
@@ -188,48 +198,49 @@
               },
               {
                 "type" : "array",
-                "items" :
+                "prefixItems" :
                   [{ "const" : "Simple_break"},
                     {
                       "type" : "array",
-                      "items" :
+                      "prefixItems" :
                         [{ "type" : "integer"}, { "type" : "integer"}]
                     }]
               }, { "const" : "Set_tab"},
               {
                 "type" : "array",
-                "items" :
+                "prefixItems" :
                   [{ "const" : "Tab_break"},
                     {
                       "type" : "array",
-                      "items" :
+                      "prefixItems" :
                         [{ "type" : "integer"}, { "type" : "integer"}]
                     }]
               }, { "const" : "Close_tbox"}, { "const" : "Open_tbox"},
               { "const" : "Close_tag"},
               {
                 "type" : "array",
-                "items" :
+                "prefixItems" :
                   [{ "const" : "Open_tag"}, { "$ref" : "#/$defs/format_tag"}]
               }, { "const" : "Close_box"},
               {
                 "type" : "array",
-                "items" :
+                "prefixItems" :
                   [{ "const" : "Open_box"},
                     {
                       "type" : "array",
-                      "items" :
+                      "prefixItems" :
                         [{ "$ref" : "#/$defs/box_type"},
                           { "type" : "integer"}]
                     }]
               },
               {
                 "type" : "array",
-                "items" : [{ "const" : "With_size"}, { "type" : "integer"}]
+                "prefixItems" :
+                  [{ "const" : "With_size"}, { "type" : "integer"}]
               },
               {
                 "type" : "array",
-                "items" : [{ "const" : "Text"}, { "type" : "string"}]
+                "prefixItems" : [{ "const" : "Text"}, { "type" : "string"}]
               }]
         }
     },
