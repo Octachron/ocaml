@@ -1,249 +1,249 @@
 {
-  "$schema" = "https://json-schema.org/draft/2020-12/schema",
-  "$id" = "https://github.com/ocaml/schema/compiler.schema.json",
-  "$defs" =
+  "$schema" : "https://json-schema.org/draft/2020-12/schema",
+  "$id" : "https://github.com/ocaml/schema/compiler.schema.json",
+  "$defs" :
     {
-      "box_type" =
+      "box_type" :
         {
-          "oneOf" =
-            [{ "const" = "B"}, { "const" = "HoV"}, { "const" = "HV"},
-              { "const" = "V"}, { "const" = "H"}]
+          "oneOf" :
+            [{ "const" : "B"}, { "const" : "HoV"}, { "const" : "HV"},
+              { "const" : "V"}, { "const" : "H"}]
         },
-      "debug" =
+      "debug" :
         {
-          "type" = "object",
-          "properties" =
+          "type" : "object",
+          "properties" :
             {
-              "profile" = { "type" = "string"},
-              "cmm_invariant" = { "type" = "string"},
-              "linear" = { "type" = "array", "items" = { "type" = "string"}},
-              "mach" = { "type" = "array", "items" = { "type" = "string"}},
-              "unbox-specialised-args" =
-                { "type" = "array", "items" = { "type" = "string"}},
-              "unbox-closures" =
-                { "type" = "array", "items" = { "type" = "string"}},
-              "unbox-free-vars-of-closures" =
-                { "type" = "array", "items" = { "type" = "string"}},
-              "remove-free-vars-equal-to-args" =
-                { "type" = "array", "items" = { "type" = "string"}},
-              "cmm" = { "type" = "array", "items" = { "type" = "string"}},
-              "raw_clambda" =
-                { "type" = "array", "items" = { "type" = "string"}},
-              "clambda" = { "type" = "array", "items" = { "type" = "string"}},
-              "raw_flambda" =
-                { "type" = "array", "items" = { "type" = "string"}},
-              "flambda" = { "type" = "array", "items" = { "type" = "string"}},
-              "raw_lambda" = { "type" = "string"},
-              "lambda" = { "type" = "string"},
-              "instr" = { "type" = "string"},
-              "shape" = { "type" = "string"},
-              "typedtree" = { "type" = "string"},
-              "source" = { "type" = "string"},
-              "parsetree" = { "type" = "string"}
+              "profile" : { "type" : "string"},
+              "cmm_invariant" : { "type" : "string"},
+              "linear" : { "type" : "array", "items" : { "type" : "string"}},
+              "mach" : { "type" : "array", "items" : { "type" : "string"}},
+              "unbox-specialised-args" :
+                { "type" : "array", "items" : { "type" : "string"}},
+              "unbox-closures" :
+                { "type" : "array", "items" : { "type" : "string"}},
+              "unbox-free-vars-of-closures" :
+                { "type" : "array", "items" : { "type" : "string"}},
+              "remove-free-vars-equal-to-args" :
+                { "type" : "array", "items" : { "type" : "string"}},
+              "cmm" : { "type" : "array", "items" : { "type" : "string"}},
+              "raw_clambda" :
+                { "type" : "array", "items" : { "type" : "string"}},
+              "clambda" : { "type" : "array", "items" : { "type" : "string"}},
+              "raw_flambda" :
+                { "type" : "array", "items" : { "type" : "string"}},
+              "flambda" : { "type" : "array", "items" : { "type" : "string"}},
+              "raw_lambda" : { "type" : "string"},
+              "lambda" : { "type" : "string"},
+              "instr" : { "type" : "string"},
+              "shape" : { "type" : "string"},
+              "typedtree" : { "type" : "string"},
+              "source" : { "type" : "string"},
+              "parsetree" : { "type" : "string"}
             },
-          "required" = []
+          "required" : []
         },
-      "error_kind" =
+      "error_kind" :
         {
-          "oneOf" =
+          "oneOf" :
             [{
-               "type" = "array",
-               "items" =
-                 [{ "const" = "Report_warning_as_error"},
-                   { "type" = "string"}]
+               "type" : "array",
+               "items" :
+                 [{ "const" : "Report_warning_as_error"},
+                   { "type" : "string"}]
              },
               {
-                "type" = "array",
-                "items" =
-                  [{ "const" = "Report_warning"}, { "type" = "string"}]
+                "type" : "array",
+                "items" :
+                  [{ "const" : "Report_warning"}, { "type" : "string"}]
               },
               {
-                "type" = "array",
-                "items" =
-                  [{ "const" = "Report_alert_as_error"}, { "type" = "string"}
+                "type" : "array",
+                "items" :
+                  [{ "const" : "Report_alert_as_error"}, { "type" : "string"}
                     ]
               },
               {
-                "type" = "array",
-                "items" = [{ "const" = "Report_alert"}, { "type" = "string"}]
-              }, { "const" = "Report_error"}]
+                "type" : "array",
+                "items" : [{ "const" : "Report_alert"}, { "type" : "string"}]
+              }, { "const" : "Report_error"}]
         },
-      "error_msg" =
+      "error_msg" :
         {
-          "type" = "object",
-          "properties" =
+          "type" : "object",
+          "properties" :
             {
-              "loc" = { "$ref" = "#/$defs/loc"},
-              "msg" =
+              "loc" : { "$ref" : "#/$defs/loc"},
+              "msg" :
                 {
-                  "type" = "array",
-                  "items" = { "$ref" = "#/$defs/structured_text"}
+                  "type" : "array",
+                  "items" : { "$ref" : "#/$defs/structured_text"}
                 }
             },
-          "required" = ["loc", "msg"]
+          "required" : ["loc", "msg"]
         },
-      "error_report" =
+      "error_report" :
         {
-          "type" = "object",
-          "properties" =
+          "type" : "object",
+          "properties" :
             {
-              "quotable_locs" =
-                { "type" = "array", "items" = { "$ref" = "#/$defs/loc"}},
-              "sub" =
+              "quotable_locs" :
+                { "type" : "array", "items" : { "$ref" : "#/$defs/loc"}},
+              "sub" :
                 {
-                  "type" = "array",
-                  "items" = { "$ref" = "#/$defs/error_msg"}
+                  "type" : "array",
+                  "items" : { "$ref" : "#/$defs/error_msg"}
                 },
-              "main" = { "$ref" = "#/$defs/error_msg"},
-              "kind" = { "$ref" = "#/$defs/error_kind"},
-              "loc" = { "$ref" = "#/$defs/loc"}
+              "main" : { "$ref" : "#/$defs/error_msg"},
+              "kind" : { "$ref" : "#/$defs/error_kind"},
+              "loc" : { "$ref" : "#/$defs/loc"}
             },
-          "required" = ["main", "kind", "loc"]
+          "required" : ["main", "kind", "loc"]
         },
-      "format_tag" =
+      "format_tag" :
         {
-          "oneOf" =
-            [{ "const" = "Preservation"}, { "const" = "Modification"},
-              { "const" = "Insertion"}, { "const" = "Deletion"},
-              { "const" = "Hint"}, { "const" = "Inline_code"},
-              { "const" = "Loc"}, { "const" = "Warning"},
-              { "const" = "Error"},
+          "oneOf" :
+            [{ "const" : "Preservation"}, { "const" : "Modification"},
+              { "const" : "Insertion"}, { "const" : "Deletion"},
+              { "const" : "Hint"}, { "const" : "Inline_code"},
+              { "const" : "Loc"}, { "const" : "Warning"},
+              { "const" : "Error"},
               {
-                "type" = "array",
-                "items" = [{ "const" = "String_tag"}, { "type" = "string"}]
+                "type" : "array",
+                "items" : [{ "const" : "String_tag"}, { "type" : "string"}]
               },
               {
-                "type" = "array",
-                "items" = [{ "const" = "<Unknown>"}, { "type" = "string"}]
+                "type" : "array",
+                "items" : [{ "const" : "<Unknown>"}, { "type" : "string"}]
               }]
         },
-      "loc" =
+      "loc" :
         {
-          "type" = "object",
-          "properties" =
+          "type" : "object",
+          "properties" :
             {
-              "characters" =
+              "characters" :
                 {
-                  "type" = "array",
-                  "items" = [{ "type" = "integer"}, { "type" = "integer"}]
+                  "type" : "array",
+                  "items" : [{ "type" : "integer"}, { "type" : "integer"}]
                 },
-              "lines" =
+              "lines" :
                 {
-                  "type" = "array",
-                  "items" = [{ "type" = "integer"}, { "type" = "integer"}]
+                  "type" : "array",
+                  "items" : [{ "type" : "integer"}, { "type" : "integer"}]
                 },
-              "file" = { "type" = "string"}
+              "file" : { "type" : "string"}
             },
-          "required" = ["lines"]
+          "required" : ["lines"]
         },
-      "metadata" =
+      "metadata" :
         {
-          "type" = "object",
-          "properties" =
+          "type" : "object",
+          "properties" :
             {
-              "invalid_paths" =
+              "invalid_paths" :
                 {
-                  "type" = "array",
-                  "items" =
-                    { "type" = "array", "items" = { "type" = "string"}}
+                  "type" : "array",
+                  "items" :
+                    { "type" : "array", "items" : { "type" : "string"}}
                 },
-              "valid" = { "type" = "bool"},
-              "version" =
+              "valid" : { "type" : "bool"},
+              "version" :
                 {
-                  "type" = "array",
-                  "items" = [{ "type" = "integer"}, { "type" = "integer"}]
+                  "type" : "array",
+                  "items" : [{ "type" : "integer"}, { "type" : "integer"}]
                 }
             },
-          "required" = ["valid", "version"]
+          "required" : ["valid", "version"]
         },
-      "structured_text" =
+      "structured_text" :
         {
-          "oneOf" =
-            [{ "const" = "<deprecated>"}, { "const" = "If_newline"},
-              { "const" = "Newline"},
+          "oneOf" :
+            [{ "const" : "<deprecated>"}, { "const" : "If_newline"},
+              { "const" : "Newline"},
               {
-                "type" = "array",
-                "items" = [{ "const" = "Flush"}, { "type" = "bool"}]
+                "type" : "array",
+                "items" : [{ "const" : "Flush"}, { "type" : "bool"}]
               },
               {
-                "type" = "array",
-                "items" =
-                  [{ "const" = "Break"},
+                "type" : "array",
+                "items" :
+                  [{ "const" : "Break"},
                     {
-                      "type" = "array",
-                      "items" =
+                      "type" : "array",
+                      "items" :
                         [{
-                           "type" = "array",
-                           "items" =
-                             [{ "type" = "string"}, { "type" = "integer"},
-                               { "type" = "string"}]
+                           "type" : "array",
+                           "items" :
+                             [{ "type" : "string"}, { "type" : "integer"},
+                               { "type" : "string"}]
                          },
                           {
-                            "type" = "array",
-                            "items" =
-                              [{ "type" = "string"}, { "type" = "integer"},
-                                { "type" = "string"}]
+                            "type" : "array",
+                            "items" :
+                              [{ "type" : "string"}, { "type" : "integer"},
+                                { "type" : "string"}]
                           }]
                     }]
               },
               {
-                "type" = "array",
-                "items" =
-                  [{ "const" = "Simple_break"},
+                "type" : "array",
+                "items" :
+                  [{ "const" : "Simple_break"},
                     {
-                      "type" = "array",
-                      "items" =
-                        [{ "type" = "integer"}, { "type" = "integer"}]
+                      "type" : "array",
+                      "items" :
+                        [{ "type" : "integer"}, { "type" : "integer"}]
                     }]
-              }, { "const" = "Set_tab"},
+              }, { "const" : "Set_tab"},
               {
-                "type" = "array",
-                "items" =
-                  [{ "const" = "Tab_break"},
+                "type" : "array",
+                "items" :
+                  [{ "const" : "Tab_break"},
                     {
-                      "type" = "array",
-                      "items" =
-                        [{ "type" = "integer"}, { "type" = "integer"}]
+                      "type" : "array",
+                      "items" :
+                        [{ "type" : "integer"}, { "type" : "integer"}]
                     }]
-              }, { "const" = "Close_tbox"}, { "const" = "Open_tbox"},
-              { "const" = "Close_tag"},
+              }, { "const" : "Close_tbox"}, { "const" : "Open_tbox"},
+              { "const" : "Close_tag"},
               {
-                "type" = "array",
-                "items" =
-                  [{ "const" = "Open_tag"}, { "$ref" = "#/$defs/format_tag"}]
-              }, { "const" = "Close_box"},
+                "type" : "array",
+                "items" :
+                  [{ "const" : "Open_tag"}, { "$ref" : "#/$defs/format_tag"}]
+              }, { "const" : "Close_box"},
               {
-                "type" = "array",
-                "items" =
-                  [{ "const" = "Open_box"},
+                "type" : "array",
+                "items" :
+                  [{ "const" : "Open_box"},
                     {
-                      "type" = "array",
-                      "items" =
-                        [{ "$ref" = "#/$defs/box_type"},
-                          { "type" = "integer"}]
+                      "type" : "array",
+                      "items" :
+                        [{ "$ref" : "#/$defs/box_type"},
+                          { "type" : "integer"}]
                     }]
               },
               {
-                "type" = "array",
-                "items" = [{ "const" = "With_size"}, { "type" = "integer"}]
+                "type" : "array",
+                "items" : [{ "const" : "With_size"}, { "type" : "integer"}]
               },
               {
-                "type" = "array",
-                "items" = [{ "const" = "Text"}, { "type" = "string"}]
+                "type" : "array",
+                "items" : [{ "const" : "Text"}, { "type" : "string"}]
               }]
         }
     },
-  "schema" = { "type" = "object"},
-  "type" = "object",
-  "properties" =
+  "schema" : { "type" : "object"},
+  "type" : "object",
+  "properties" :
     {
-      "metadata" = { "$ref" = "#/$defs/metadata"},
-      "alerts" =
-        { "type" = "array", "items" = { "$ref" = "#/$defs/error_report"}},
-      "warnings" =
-        { "type" = "array", "items" = { "$ref" = "#/$defs/error_report"}},
-      "error" = { "$ref" = "#/$defs/error_report"},
-      "debug" = { "$ref" = "#/$defs/debug"}
+      "metadata" : { "$ref" : "#/$defs/metadata"},
+      "alerts" :
+        { "type" : "array", "items" : { "$ref" : "#/$defs/error_report"}},
+      "warnings" :
+        { "type" : "array", "items" : { "$ref" : "#/$defs/error_report"}},
+      "error" : { "$ref" : "#/$defs/error_report"},
+      "debug" : { "$ref" : "#/$defs/debug"}
     },
-  "required" = ["metadata"]
+  "required" : ["metadata"]
 }
