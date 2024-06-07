@@ -465,12 +465,16 @@ module Metadata = struct
     end)()
   let version = new_field v1 "version" version_ty
   let valid = new_field v1 "valid" Bool
+  let path = List { optional = false; elt = String}
+  let invalid_paths = new_field v1 "invalid_paths" (List {optional=true; elt=path})
   let () = seal v1
   let universal_key = make_key "metadata" (Record scheme)
   let metakey = "metadata", key_metadata v1 universal_key
 end
 
 module Validation = struct
+
+  type path = string list
 
   let rec possibly_invalid: type a. a typ -> bool = function
     | Unit -> false
@@ -492,67 +496,75 @@ module Validation = struct
     | Record _ -> true
 
   let rec record: type id.
-    ?toplevel:bool -> version:version -> id def -> id record -> bool =
+    ?toplevel:bool -> version:version -> id def -> id record -> path list =
     fun ?(toplevel=false) ~version sch st ->
       (* don't add validation metakeys to empty sublog*)
-      let valid = fields ~version sch.keys (Record.fields st) in
+      let invalid = fields ~version sch.keys (Record.fields st) in
       if toplevel then begin
-        let metadata = Record.(make [Metadata.version ^= version; Metadata.valid ^= valid ]) in
+        let metadata =
+          let open Record in
+          make [
+            Metadata.version ^= version;
+            Metadata.valid ^= List.is_empty invalid;
+            Metadata.invalid_paths ^= invalid;
+          ]
+        in
         Store.record st ~key:Metadata.universal_key metadata
       end;
-      valid
+      invalid
 
   and fields: type id.
     version:version -> (Keys.key * key_metadata) list -> id field Keys.t
-    -> bool =
+    -> path list =
     fun ~version metadata data ->
-      List.fold_left (fun valid (k,kmd) ->
-          valid
-          && field ~version ~optional:(is_optional kmd)
-            (Keys.find_opt k data)
-        ) true metadata
+      List.concat_map (fun  (k,kmd) ->
+        List.map (fun path -> k :: path)
+        @@ field  ~version ~optional:(is_optional kmd)
+        @@ Keys.find_opt k data
+      ) metadata
   and field: type a.
-    version:version -> optional:bool -> a field option -> bool =
+    version:version -> optional:bool -> a field option -> path list =
     fun ~version ~optional k ->
       match optional, k with
-      | true, None -> true
-      | _, None -> false
+      | true, None -> []
+      | _, None -> [[]]
       | _, Some (Field (k,v)) -> value ~version v k.typ
-  and value: type a. version:version -> a -> a typ -> bool =
+  and value: type a. version:version -> a -> a typ -> path list =
     fun ~version v typ ->
       match typ with
       | Record m -> record ~version m v
-      | Int -> true
-      | Bool -> true
-      | String -> true
-      | Custom _ -> true
-      | Unit -> true
+      | Int -> []
+      | Bool -> []
+      | String -> []
+      | Custom _ -> []
+      | Unit -> []
       | List {elt; _} ->
-          not (possibly_invalid elt)
-          || List.for_all (fun v -> value ~version v elt) v
+          if possibly_invalid elt then
+            List.concat_map (fun v -> value ~version v elt) v
+          else []
       | Option m ->
-          Option.value ~default:true
+          Option.value ~default:[]
             (Option.map (fun v -> value ~version v m) v)
       | Pair (x,y) ->
           let vx, vy = v in
-          value ~version vx x && value ~version vy y
+          value ~version vx x @ value ~version vy y
       | Triple (x,y,z) ->
           let vx, vy, vz = v in
           value ~version vx x
-          && value ~version vy y
-          && value ~version vz z
+          @ value ~version vy y
+          @ value ~version vz z
       | Quadruple (x,y,z,w) ->
           let vx, vy, vz, vw = v in
           value ~version vx x
-          && value ~version vy y
-          && value ~version vz z
-          && value ~version vw w
+          @ value ~version vy y
+          @ value ~version vz z
+          @ value ~version vw w
       | Sum def ->
           begin match v with
-          | Enum _ -> true
+          | Enum _ -> []
           | Constr(k, v) ->
-              active_key version def k
-              && value ~version v k.typ
+              if active_key version def k then value ~version v k.typ
+              else [[k.name]]
           end
 
 end
@@ -1032,7 +1044,8 @@ let flush: type a. a log -> unit = fun log ->
   | Direct d -> Fmt.flush d
   | Store st ->
       let _valid =
-        Validation.record ~toplevel:true ~version:log.version log.scheme st.data in
+        Validation.record ~toplevel:true ~version:log.version log.scheme st.data
+      in
       Option.iter (fun (out, print) ->
           let ppf = !(out.ppf) in
           print ppf (R(log.scheme, st.data))
@@ -1251,7 +1264,8 @@ module Json_schema = struct
       | Triple (x,y,z) -> union [refs x; refs y; refs z]
       | Quadruple (x,y,z,w) -> union [refs x; refs y; refs z; refs w]
       | Custom t -> refs t.default
-  and subrefs: type a. (string * key_metadata) list -> (Format.formatter -> unit) Keys.t
+  and subrefs: type a.
+    (string * key_metadata) list -> (Format.formatter -> unit) Keys.t
     = fun keys ->
       union @@
       List.map (fun (_,Key_metadata kty) -> refs kty.typ) keys

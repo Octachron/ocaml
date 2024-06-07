@@ -141,6 +141,12 @@
           "type" = "object",
           "properties" =
             {
+              "invalid_paths" =
+                {
+                  "type" = "array",
+                  "items" =
+                    { "type" = "array", "items" = { "type" = "string"}}
+                },
               "valid" = { "type" = "bool"},
               "version" =
                 {

@@ -82,6 +82,7 @@ v1.0
     Creation
     Key version, i*i
     Key valid, b
+    Key invalid_paths, l? l s
     Seal
   structured_text
     Creation
