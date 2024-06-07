@@ -32,7 +32,7 @@ utils/clflags.cmo : \
     utils/profile.cmi \
     utils/numbers.cmi \
     utils/misc.cmi \
-    utils/log.cmi \
+    utils/diagnostic_backends.cmi \
     utils/config.cmi \
     utils/arg_helper.cmi \
     utils/clflags.cmi
@@ -40,14 +40,14 @@ utils/clflags.cmx : \
     utils/profile.cmx \
     utils/numbers.cmx \
     utils/misc.cmx \
-    utils/log.cmx \
+    utils/diagnostic_backends.cmx \
     utils/config.cmx \
     utils/arg_helper.cmx \
     utils/clflags.cmi
 utils/clflags.cmi : \
     utils/profile.cmi \
     utils/misc.cmi \
-    utils/log.cmi
+    utils/diagnostic_backends.cmi
 utils/compression.cmo : \
     utils/compression.cmi
 utils/compression.cmx : \
@@ -82,6 +82,19 @@ utils/consistbl.cmx : \
     utils/consistbl.cmi
 utils/consistbl.cmi : \
     utils/misc.cmi
+utils/diagnostic_backends.cmo : \
+    utils/misc.cmi \
+    utils/log.cmi \
+    utils/format_doc.cmi \
+    utils/diagnostic_backends.cmi
+utils/diagnostic_backends.cmx : \
+    utils/misc.cmx \
+    utils/log.cmx \
+    utils/format_doc.cmx \
+    utils/diagnostic_backends.cmi
+utils/diagnostic_backends.cmi : \
+    utils/misc.cmi \
+    utils/log.cmi
 utils/diffing.cmo : \
     utils/misc.cmi \
     utils/format_doc.cmi \
@@ -437,6 +450,7 @@ parsing/location.cmo : \
     utils/misc.cmi \
     utils/log.cmi \
     utils/format_doc.cmi \
+    utils/diagnostic_backends.cmi \
     utils/clflags.cmi \
     utils/build_path_prefix_map.cmi \
     parsing/location.cmi
@@ -446,6 +460,7 @@ parsing/location.cmx : \
     utils/misc.cmx \
     utils/log.cmx \
     utils/format_doc.cmx \
+    utils/diagnostic_backends.cmx \
     utils/clflags.cmx \
     utils/build_path_prefix_map.cmx \
     parsing/location.cmi
@@ -6802,6 +6817,7 @@ toplevel/topcommon.cmo : \
     utils/format_doc.cmi \
     typing/env.cmi \
     bytecomp/dll.cmi \
+    utils/diagnostic_backends.cmi \
     utils/config.cmi \
     driver/compmisc.cmi \
     driver/compenv.cmi \
@@ -6834,6 +6850,7 @@ toplevel/topcommon.cmx : \
     utils/format_doc.cmx \
     typing/env.cmx \
     bytecomp/dll.cmx \
+    utils/diagnostic_backends.cmx \
     utils/config.cmx \
     driver/compmisc.cmx \
     driver/compenv.cmx \
@@ -7426,10 +7443,12 @@ tools/cvt_emit.cmi :
 tools/diaginfo.cmo : \
     utils/log.cmi \
     parsing/location.cmi \
+    utils/diagnostic_backends.cmi \
     tools/diaginfo.cmi
 tools/diaginfo.cmx : \
     utils/log.cmx \
     parsing/location.cmx \
+    utils/diagnostic_backends.cmx \
     tools/diaginfo.cmi
 tools/diaginfo.cmi :
 tools/dumpobj.cmo : \

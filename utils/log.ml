@@ -158,9 +158,9 @@ and ('a,'b) key = {
   id: 'a Type.Id.t;
 }
 and 'a field = Field: ('a,'b) key * 'a -> 'b field
-and 'a sum =
-  | Constr: ('a,'b) key * 'a -> 'b sum
-  | Enum: (unit,'b) key -> 'b sum
+and 'id sum =
+  | Constr: ('a,'id) key * 'a -> 'id sum
+  | Enum of (unit,'id) key
 and key_metadata =
     Key_metadata:
       { typ: 'a typ;
@@ -189,14 +189,27 @@ type 'a log =
       version: version;
       scheme: 'a def;
       settings: Misc.Color.setting option;
-      mode: 'a mode
+      mode: 'a mode;
+      printer:printer;
   }
 and 'a mode =
   | Direct of ppf_with_close
-  | Store of { data:'a record; out:(ppf_with_close * printer) option }
-
+  | Store of {data:'a record; out:ppf_with_close option}
 and typed_record = R: 'a def * 'a record -> typed_record
-and printer = Format.formatter -> typed_record -> unit
+and typed_val = V: 'a typ * 'a -> typed_val
+and printer = {
+  record: Format.formatter -> typed_record -> unit;
+  value: Format.formatter -> typed_val -> unit
+}
+
+let destruct x f  = match x with
+  | Enum kt -> f kt.name (V (Unit,()))
+  | Constr (kt,x) -> f kt.name (V(kt.typ,x))
+let scheme_name x = x.scheme_name
+let field_infos d = d.keys
+let field_names d = List.map fst d.keys
+let log_scheme log = log.scheme
+let log_version log = log.version
 
 type 'a t = 'a log
 
@@ -404,8 +417,6 @@ module Record = struct
   let fields x = !x
 end
 
-
-
 let is_optional (Key_metadata r) = match r.typ with
   | List r -> r.optional
   | Option _ -> true
@@ -447,7 +458,7 @@ module Store = struct
       store := Keys.add key.name (key^=l) (fields store)
 
   let trim keys prod =
-     let field (key,_)  =
+     let field key  =
         match Keys.find_opt key (fields prod) with
         | None -> None
         | Some (Field (kt,x)) as c ->
@@ -455,6 +466,9 @@ module Store = struct
       in
       List.filter_map field (List.rev keys)
 end
+let fields keys r =
+  let keys = Store.trim keys r in
+  List.map (fun (Field (k,v)) -> k.name, V(k.typ,v)) keys
 
 module Compiler_log_version = New_root()
 
@@ -473,6 +487,7 @@ module Metadata = struct
   let universal_key = make_key "metadata" (Record scheme)
   let metakey = "metadata", key_metadata v1 universal_key
 end
+let metakey = Metadata.metakey
 
 module Validation = struct
 
@@ -713,238 +728,20 @@ module Structured_text = struct
 
  end
 
-
-module Fmt = struct
-
-  type 'a printer = Format.formatter -> 'a -> unit
-  type pr = Format.formatter -> unit
-  type extension_printer =
-  { extension: 'b. 'b extension -> 'b printer option}
-
-  type list_convention = {
-    list_open: pr;
-    list_close: pr;
-    sep: pr;
+let make ~structured ~printer settings version scheme ppf =
+  let mode =
+    let out = {initialized=ref false; ppf; close=ignore} in
+    if structured then Store {data=Record.make []; out= Some out}
+    else Direct out
+  in
+  {
+    redirections = Keys.empty;
+    settings;
+    version;
+    printer;
+    mode;
+    scheme;
   }
-
-  type assoc = {
-    assoc_open:pr;
-    assoc_close: pr;
-    sep: unit printer;
-    open_with_label: pr;
-    label_sep: pr;
-    close_with_label: pr;
-  }
-
-  type conv = {
-    string:string printer;
-    atom: string -> pr;
-    assoc:assoc;
-    list:list_convention;
-  }
-
-  let bool conv b ppf = conv.atom (if b then "true" else "false") ppf
-
-  let escape_string ppf str =
-    Format.fprintf ppf {|"|};
-    for i = 0 to String.length str - 1 do
-      match str.[i] with
-      | '\\' -> Format.fprintf ppf {|\\|}
-      | '\"' -> Format.fprintf ppf {|\"|}
-      | '\n' -> Format.fprintf ppf {|\n|}
-      | '\t' -> Format.fprintf ppf {|\t|}
-      | '\r' -> Format.fprintf ppf {|\r|}
-      | '\b' -> Format.fprintf ppf {|\b|}
-      | '\x00' .. '\x1F' | '\x7F' as c ->
-          Format.fprintf ppf "\\u%04X" (Char.code c)
-      | c -> Format.fprintf ppf "%c" c
-    done;
-    Format.fprintf ppf {|"|}
-
-  let item conv ~key elt ppf =
-    conv.assoc.open_with_label ppf;
-    conv.atom key ppf;
-    conv.assoc.label_sep ppf;
-    elt ppf;
-    conv.assoc.close_with_label ppf
-
-  let list conv prs ppf =
-    let pp_sep ppf () = conv.list.sep ppf in
-    conv.list.list_open ppf;
-    Format.pp_print_list ~pp_sep (fun ppf pr -> pr ppf) ppf prs;
-    conv.list.list_close ppf
-
-  let record conv fields ppf =
-    if List.is_empty fields then () else begin
-      conv.assoc.assoc_open ppf;
-      Format.pp_print_list ~pp_sep:conv.assoc.sep
-        (fun ppf pr -> pr ppf) ppf fields;
-      conv.assoc.assoc_close ppf
-    end
-
-  let rec elt : type a. conv -> extension_printer -> a typ -> a -> pr =
-    fun conv {extension} typ x ppf ->
-    match typ with
-    | Unit -> Format.pp_print_int ppf 0
-    | Int -> Format.pp_print_int ppf x
-    | Bool -> bool conv x ppf
-    | String -> conv.string ppf x
-    | Pair (a,b) ->
-        let x,y = x in
-        list conv [
-        elt conv {extension} a x;
-        elt conv {extension} b y;
-      ] ppf
-    | Triple (a,b,c) ->
-        let x, y, z = x in
-        list conv [
-        elt conv {extension} a x;
-        elt conv {extension} b y;
-        elt conv {extension} c z;
-      ] ppf
-    | Quadruple (a,b,c,d) ->
-        let x, y, z ,w = x in
-        list conv [
-        elt conv {extension} a x;
-        elt conv {extension} b y;
-        elt conv {extension} c z;
-        elt conv {extension} d w
-      ] ppf
-    | Custom {pull; default; id } -> begin
-        match extension id with
-        | Some pr -> pr ppf x
-        | None -> elt conv {extension} default (pull x) ppf
-      end
-    |  List { elt=e; _ } ->
-        list conv (List.map (elt conv {extension} e) x) ppf
-    | Sum _ ->
-        begin match x with
-        | Constr(kt,x) ->
-            list conv
-              [ conv.atom kt.name; elt conv {extension} kt.typ x ]
-              ppf
-        | Enum kt -> conv.atom kt.name ppf
-        end
-    | Record m -> elt_record conv {extension} (m.keys,x) ppf
-    | Option e ->
-        begin match x with
-        | None ->  conv.string ppf "None"
-        | Some x -> elt conv {extension} e x ppf
-        end
-
-  and elt_item: type a.
-    conv -> extension_printer -> key:string -> a typ -> a -> pr =
-    fun conv ext ~key ty x ppf -> item conv ~key (elt conv ext ty x) ppf
-  and fields: type p.
-    conv -> extension_printer -> (_ * p record)  -> pr list
-    = fun conv ext (keys,prod) ->
-      let fields = Store.trim keys prod in
-      let pp_field (Field (kt,x))= elt_item conv ext ~key:kt.name kt.typ x
-      in
-      List.map pp_field fields
-
-  and elt_record: type p. conv -> extension_printer -> (_ * p record) -> pr =
-    fun conv ext x -> record conv (fields conv ext x)
-
-
-  let direct = {
-    atom = (fun _s -> ignore);
-    string = Format.pp_print_string;
-    list = {
-      list_open = ignore;
-      list_close = ignore ;
-      sep = Format.dprintf "@ ";
-    };
-    assoc = {
-      assoc_open = Format.dprintf "@[<v>";
-      assoc_close = Format.dprintf "@]";
-      open_with_label = ignore;
-      label_sep = ignore;
-      sep = (fun ppf () -> Format.fprintf ppf "@,");
-      close_with_label = ignore;
-    }
-  }
-
-  let sexp =
-    let list_open = Format.dprintf "@[("
-    and list_close = Format.dprintf ")@]"
-    and sep = Format.dprintf "@ " in
-    {
-      atom = (fun s ppf -> Format.pp_print_string ppf s);
-      string = escape_string;
-      list = {list_open; list_close; sep };
-      assoc = {
-        assoc_open = list_open;
-        assoc_close = list_close;
-        open_with_label = Format.dprintf "@[<b 2>(";
-        sep = (fun ppf () -> sep ppf);
-        label_sep = sep;
-        close_with_label = Format.dprintf ")@]";
-      }
-    }
-
-  let json =
-    {
-      string = escape_string;
-      atom = (fun s ppf -> escape_string ppf s);
-      list = {
-        list_open=Format.dprintf "@[<b 2>[";
-        list_close = Format.dprintf "@,]@]";
-        sep = Format.dprintf ",@ ";
-      };
-      assoc = {
-        assoc_open = Format.dprintf "@[<hv 2>{@ ";
-        assoc_close = Format.dprintf "@;<0 -2>}@]";
-        open_with_label = Format.dprintf "@[<b 2>";
-        label_sep = Format.dprintf "@ =@ ";
-        sep = (fun ppf () -> Format.fprintf ppf ",@ ");
-        close_with_label = Format.dprintf "@]";
-      }
-    }
-
-
-  let no_extension = { extension = fun _ -> None }
-  let doc_printer (type a): a extension -> a printer option =
-    function Structured_text.Doc -> Some Format_doc.Doc.format | _ -> None
-  let doc_extension = { extension = doc_printer  }
-  let chain_extensions x y =
-    let chain ext =
-      match x.extension ext with
-      | None -> y.extension ext
-      |  Some _ as p -> p
-    in
-    { extension = chain }
-
-  let extensions = ref doc_extension
-  let add_extension x =
-    extensions := chain_extensions x !extensions
-
-
-  let init color ppf =
-    let color = Misc.Style.enable_color color in
-    Misc.Style.set_tag_handling ~color !ppf;
-    Format.fprintf !ppf "@[<v>"
-
-  let flush c =
-    Format.fprintf !(c.ppf) "%!"
-
-  let separate c = Format.pp_print_newline !(c.ppf) ()
-
-  let close c =
-    if not !(c.initialized) then ()
-    else (Format.fprintf !(c.ppf) "@,@]%!"; c.initialized := false);
-    c.close ()
-
-  let make color version ppf scheme =
-     {
-      redirections = Keys.empty;
-      settings=color;
-      mode = Direct {initialized=ref false; ppf; close=ignore};
-      version;
-      scheme;
-    }
-
-end
 
 let redirect log key ?(close=ignore) ppf  =
   log.redirections <-
@@ -975,22 +772,23 @@ let generic_detach key_scheme ~store ~lift ~extract log key =
     | Direct d ->
         let out = Option.value ~default:d out in
         Direct out
-    | Store st ->
+    | Store {data=st; out=st_out} ->
         let data =
-          match Option.bind (Store.get key st.data) extract with
+          match Option.bind (Store.get key st) extract with
           | Some data -> data
           | None ->
               let data = Record.make [] in
-              store st.data ~key (lift data); data
+              store st ~key (lift data); data
         in
-        let out = match st.out, out with
-          | Some (_,pr), Some out-> Some(out,pr)
-          | x, _ -> x
+        let out = match out with
+          | Some _ -> out
+          | _ -> st_out
         in Store { data; out }
   in
   let child =
     { scheme=key_scheme key;
       mode;
+      printer=log.printer;
       version = log.version;
       settings = log.settings;
       redirections = Keys.empty;
@@ -1013,6 +811,23 @@ let detach_option log key =
     ~lift:some
     ~extract:Fun.id log key
 
+module Fmt = struct
+   let init color ppf =
+    let color = Misc.Style.enable_color color in
+    Misc.Style.set_tag_handling ~color !ppf;
+    Format.fprintf !ppf "@[<v>"
+
+  let flush c =
+    Format.fprintf !(c.ppf) "%!"
+
+  let separate c = Format.pp_print_newline !(c.ppf) ()
+
+  let close c =
+    if not !(c.initialized) then ()
+    else (Format.fprintf !(c.ppf) "@,@]%!"; c.initialized := false);
+    c.close ()
+end
+
 let set key x log =
   if not (active_key log.version log.scheme key) then () else
   match log.mode with
@@ -1022,9 +837,8 @@ let set key x log =
     let ppf = !(out.ppf) in
     if not !(d.initialized) then
       (Fmt.init log.settings out.ppf ; d.initialized := true);
-    Format.fprintf ppf "@[<v>%t%a@]%!"
-      Fmt.(elt_item direct !extensions ~key:key.name key.typ x)
-     Fmt.direct.assoc.sep ();
+    Format.fprintf ppf "@[<v>%a@,@]%!"
+     log.printer.value (V(key.typ,x))
   | Store st -> Store.record st.data ~key x
 
 let cons key x log =
@@ -1050,9 +864,9 @@ let flush: type a. a log -> unit = fun log ->
       let _valid =
         Validation.record ~toplevel:true ~version:log.version log.scheme st.data
       in
-      Option.iter (fun (out, print) ->
+      Option.iter (fun out ->
           let ppf = !(out.ppf) in
-          print ppf (R(log.scheme, st.data))
+          log.printer.record ppf (R(log.scheme, st.data))
         ) st.out;
         st.data := Keys.empty
   end;
@@ -1065,7 +879,7 @@ let separate log = match log.mode with
 let close: type a. a log -> unit = fun log ->
   begin match log.mode with
   | Direct d -> Fmt.close d
-  | Store { out = Some (out,_)} -> out.close ()
+  | Store { out = Some out } -> out.close ()
   | Store _ -> ()
   end;
   Keys.iter (fun _ -> Fmt.close) log.redirections
@@ -1087,6 +901,7 @@ let tmp scheme = {
   redirections = Keys.empty;
   version = {major=0; minor=0};
   scheme;
+  printer = { record = (fun _ _ -> ()); value = (fun _ _ -> ()) };
   mode = Store { out=None; data=Record.make [] }
 }
 
@@ -1171,172 +986,3 @@ end
 let log_if dlog key flag printer x =
   if flag then
     Format.kasprintf (fun s -> dlog.%[key] <- Some (s)) "%a" printer x
-
-
-module Json_schema = struct
-  open Fmt
-  let string s ppf = Format.fprintf ppf "%S" s
-  let bool = Fmt.bool json
-  let item = Fmt.item json
-  let header =
-      [
-        (item ~key:"$schema" @@
-         string "https://json-schema.org/draft/2020-12/schema");
-        (item ~key:"$id" @@
-         string "https://github.com/ocaml/schema/compiler.schema.json");
-      ]
-
-  let tfield  x = item ~key:"type" (string x)
-  let obj prs = record json prs
-  let array prs = list json prs
-
-  let sref x =
-    item ~key:"$ref" @@ Format.dprintf {|"#/$defs/%s"|} x.scheme_name
-
-  let rec typ: type a b. a typ -> Format.formatter -> unit = function
-    | Int -> tfield {|integer|}
-    | Bool -> tfield {|bool|}
-    | Unit -> tfield {|int|}
-    | String -> tfield {|string|}
-    | List e ->
-        Format.dprintf "%t,@ %t"
-          (tfield  {|array|})
-          (item ~key:"items" @@ obj [typ e.elt] )
-    | Option x -> typ x
-    | Pair (x,y) -> tuple_typ [typ x; typ y]
-    | Triple (x,y,z) -> tuple_typ [typ x; typ y; typ z]
-    | Quadruple (x,y,z,w) -> tuple_typ [typ x;typ y; typ z; typ w]
-    | Sum x -> sref x
-    | Record x -> sref x
-    | Custom x -> typ x.default
-  and tuple_typ = fun l ->
-    Format.dprintf "%t,@ %t"
-      (tfield  {|array|})
-      (item ~key:"items" @@ array @@
-       List.map (fun x -> obj [x]) l
-      )
-
-  let const name = item ~key:"const" @@ string name
-  let sum x =
-    let constructor (name, Key_metadata kty) =
-      match kty.typ with
-      | Unit -> obj [const name]
-      | _ -> obj [tuple_typ [const name; typ kty.typ]]
-    in
-    obj [ item ~key:"oneOf" (array (List.map constructor x.keys)) ]
-
-  let field v (key, Key_metadata km) =
-    match v with
-    | None -> Some (item ~key (obj [typ km.typ]))
-    | Some v ->
-        if (v < km.creation) then None else
-          match km.deletion with
-          | Some del when del <= v -> None
-          | _ ->
-              let typ = typ km.typ in
-              let fields =
-                match km.deprecation with
-                | Some depr when depr >= v ->
-                    let deprecated = item ~key:"deprecated" (bool true) in
-                    [typ; deprecated]
-                | _ -> [typ]
-              in
-              Some (item ~key (obj fields))
-
-  let fields v x = List.filter_map (field v) x
-
-  let required_fields x =
-    List.filter_map
-      (fun (k, kinfo) -> if is_optional kinfo then None else Some(string k))
-      x
-
-  let obj_typ = item ~key:"type" (string "object")
-
-  let schema_field =
-    item ~key:"schema" @@ obj [obj_typ]
-
-  let record_fields v x =
-    [
-      obj_typ;
-      item ~key:"properties" @@ obj (fields v x);
-      item ~key:"required" @@ array (required_fields x)
-    ]
-
-  let simple_record x = obj (record_fields None x)
-
-  let union a =
-    List.fold_left (fun m acc -> Keys.union (fun _ x _ -> Some x) m acc)
-      Keys.empty
-      a
-  let rec refs: type a. a typ -> (Format.formatter -> unit) Keys.t =
-    fun ty -> match ty with
-      | Sum x ->
-          Keys.add x.scheme_name (sum x) (subrefs x.keys)
-      | Record x ->
-          Keys.add x.scheme_name (simple_record x.keys) (subrefs x.keys)
-      | Int -> Keys.empty
-      | Bool -> Keys.empty
-      | String -> Keys.empty
-      | Unit -> Keys.empty
-      | List x -> refs x.elt
-      | Option x -> refs x
-      | Pair (x,y) -> union [refs x; refs y]
-      | Triple (x,y,z) -> union [refs x; refs y; refs z]
-      | Quadruple (x,y,z,w) -> union [refs x; refs y; refs z; refs w]
-      | Custom t -> refs t.default
-  and subrefs: type a.
-    (string * key_metadata) list -> (Format.formatter -> unit) Keys.t
-    = fun keys ->
-      union @@
-      List.map (fun (_,Key_metadata kty) -> refs kty.typ) keys
-
-   let pp v sch ppf =
-     let keys =Metadata.metakey :: sch.keys in
-     let defs = match Keys.bindings (subrefs keys) with
-       | [] -> []
-       | defs ->
-           let prs = List.map (fun (key,pr) -> item ~key pr) defs in
-           [item ~key:"$defs" @@ obj prs]
-     in
-     obj (header @ defs @ schema_field :: record_fields (Some v) keys) ppf
-
-  let pp_log ppf log =
-    let sch = log.scheme in
-    pp log.version sch ppf
-
-  end
-
-module Backends = struct
-
-  let with_conv conv settings version ppf scheme =
-    let print ppf (R(def, r)) =
-      if Keys.is_empty (Record.fields r) then () else
-        let fields =
-          let meta =
-            Fmt.fields conv Fmt.no_extension ([Metadata.metakey],r) in
-          meta @ Fmt.fields conv Fmt.no_extension (def.keys,r)
-        in
-        Format.fprintf ppf "%t@." (Fmt.record conv fields)
-    in
-    { version;
-      settings;
-      redirections = Keys.empty;
-      mode = Store {
-          data= Record.make [];
-          out = Some ({initialized=ref false;ppf;close=ignore}, print)
-        };
-      scheme;
-    }
-
-  let sexp color version ppf sch = with_conv Fmt.sexp color version ppf sch
-  let json color version ppf sch = with_conv Fmt.json color version ppf sch
-
-  type t = {
-    name:string;
-    make: 'a. Misc.Color.setting option -> version -> Format.formatter ref
-      -> 'a def -> 'a log;
-  }
-  let fmt = { name="stderr"; make = Fmt.make }
-  let sexp = { name="sexp" ; make = sexp }
-  let json = { name = "json"; make = json }
-end

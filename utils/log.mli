@@ -37,7 +37,7 @@ end
 
 type version = Version.t = { major:int; minor:int }
 
-type !'a sum
+type !'id sum
 type !'a field
 type !'a record
 
@@ -60,6 +60,40 @@ type 'a typ =
   | Record: 'id def -> 'id record typ
   | Custom: { id :'b extension; pull: ('b -> 'a); default: 'a typ} ->
       'b typ
+
+type typed_val = V: 'a typ * 'a -> typed_val
+type typed_record = R: 'a def * 'a record -> typed_record
+type key_metadata =
+    Key_metadata:
+      { typ: 'a typ;
+        creation:version;
+        deprecation: version option;
+        deletion: version option;
+      } ->
+      key_metadata
+
+type printer = {
+  record: Format.formatter -> typed_record -> unit;
+  value: Format.formatter -> typed_val -> unit;
+}
+
+val destruct: 'a sum -> (string -> typed_val -> 'b) -> 'b
+
+val field_infos: 'a def -> (string * key_metadata) list
+val field_names: 'a def -> string list
+
+val scheme_name: 'a def -> string
+val fields: string list -> 'a record -> (string * typed_val) List.t
+val is_optional: key_metadata -> bool
+
+val log_scheme: 'a log -> 'a def
+val log_version: 'a log -> Version.t
+
+val make:
+  structured:bool -> printer:printer -> Misc.Color.setting option ->
+  Version.t -> 'a def -> Format.formatter ref -> 'a log
+
+val metakey: string * key_metadata
 
 module type Version_line = sig
   type id
@@ -114,39 +148,9 @@ val separate: 'id log -> unit
 val close: 'id log -> unit
 
 
-(*
-val create: device -> version -> 'a def -> 'a log
-val detach: ('b prod, 'a) key -> 'a log ->  'b log
-
-module Store: sig
-  val make: ('a prod -> unit -> unit) -> device
-end
-*)
-module Fmt: sig
-  type 'a printer = Format.formatter -> 'a -> unit
-  type extension_printer =
-    { extension: 'b. 'b extension -> 'b printer option}
-  val add_extension: extension_printer -> unit
-end
-
 val tmp: 'a def -> 'a log
 
-module Backends : sig
-  type t = {
-    name:string;
-    make:
-      'a. Misc.Color.setting option -> version -> Format.formatter ref ->
-       'a def -> 'a log;
-  }
-  val fmt: t
-  val json: t
-  val sexp: t
-end
 
-module Json_schema:sig
-  val pp_log: Format.formatter -> 'a log -> unit
-  val pp:  Version.t -> 'a def -> Format.formatter -> unit
-end
 
 val set: ('a,'b) key  -> 'a -> 'b log -> unit
 val cons: ('a list, 'b) key -> 'a -> 'b log -> unit

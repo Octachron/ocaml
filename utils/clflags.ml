@@ -417,12 +417,12 @@ let error_style_reader = {
 let log_format = ref None
 let log_format_reader = {
   parse = (function
-      | "stdout" -> Some Log.Backends.fmt
-      | "json" -> Some Log.Backends.json
-      | "sexp" -> Some Log.Backends.sexp
+      | "stdout" -> Some Diagnostic_backends.fmt
+      | "json" -> Some Diagnostic_backends.json
+      | "sexp" -> Some Diagnostic_backends.sexp
       | _ -> None
     );
-  print = (fun x -> x.Log.Backends.name);
+  print = (fun x -> x.Diagnostic_backends.name);
   usage={|expected "stdout", "json", or "sexp"|};
   env_var = "OCAML_LOG_FORMAT"
 }

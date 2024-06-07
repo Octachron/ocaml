@@ -22,6 +22,7 @@ let log_schemas = [
   "compiler";
   "toplevel"; "error"; "kind"; "msg"; ]
 
+module JSchema = Diagnostic_backends.Json_schema
 
 let args =
   [ "-json-schema", Arg.Symbol (log_schemas, fun x -> json_schema := Some x),
@@ -48,15 +49,15 @@ let schema v ppf =
   function
   | None -> ()
   | Some "compiler" ->
-    Format.fprintf ppf "%t@." (Json_schema.pp v Compiler.scheme)
+    Format.fprintf ppf "%t@." (JSchema.pp v Compiler.scheme)
   | Some "toplevel" ->
-    Format.fprintf ppf "%t@." (Json_schema.pp v Toplevel.scheme)
+    Format.fprintf ppf "%t@." (JSchema.pp v Toplevel.scheme)
   | Some "error" ->
-    Format.fprintf ppf "%t@." (Json_schema.pp v Error.scheme)
+    Format.fprintf ppf "%t@." (JSchema.pp v Error.scheme)
   | Some "kind" ->
-    Format.fprintf ppf "%t@." (Json_schema.pp v Location.Error_log.Kind.scheme)
+    Format.fprintf ppf "%t@." (JSchema.pp v Location.Error_log.Kind.scheme)
   | Some "msg" ->
-    Format.fprintf ppf "%t@." (Json_schema.pp v Location.Error_log.Msg.scheme)
+    Format.fprintf ppf "%t@." (JSchema.pp v Location.Error_log.Msg.scheme)
   | _ -> ()
 
 let history ppf =
