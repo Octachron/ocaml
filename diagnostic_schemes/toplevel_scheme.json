@@ -155,15 +155,11 @@
                   "prefixItems" :
                     [{ "type" : "integer"}, { "type" : "integer"}]
                 },
-              "lines" :
-                {
-                  "type" : "array",
-                  "prefixItems" :
-                    [{ "type" : "integer"}, { "type" : "integer"}]
-                },
+              "stop_line" : { "type" : "integer"},
+              "start_line" : { "type" : "integer"},
               "file" : { "type" : "string"}
             },
-          "required" : ["lines"]
+          "required" : []
         },
       "metadata" :
         {

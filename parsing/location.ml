@@ -202,7 +202,8 @@ let show_filename file =
 
 type summary = {
   file:string option;
-  lines: int option * int option;
+  start_line: int option;
+  end_line: int option;
   characters: (int * int) option
 }
 
@@ -245,7 +246,8 @@ let summarize_loc loc =
   let validate_line l = if line_valid l then Some l else None in
   {
     file = if file_valid file then Some file else None;
-    lines = validate_line startline, validate_line endline;
+    start_line = validate_line startline;
+    end_line =  validate_line endline;
     characters =
       if chars_valid ~startchar ~endchar then Some (startchar,endchar)
       else None
@@ -279,9 +281,8 @@ let loc ppf loc =
      existing setup of editors that parse locations in error messages (e.g.
      Emacs). *)
   comma ();
-  let start_line, end_line = summary.lines in
-  let start_line = Option.value ~default:1 start_line in
-  let end_line = Option.value ~default:start_line end_line in
+  let start_line = Option.value ~default:1 summary.start_line in
+  let end_line = Option.value ~default:start_line summary.end_line in
   begin if start_line = end_line then
     Fmt.fprintf ppf "%s %i" (capitalize "line") start_line
   else
@@ -736,8 +737,8 @@ module Error_log = struct[@warning "-unused-value-declaration"]
     in
     {
       file;
-      lines = line_valid loc.loc_start.pos_lnum,
-              line_valid loc.loc_end.pos_lnum;
+      start_line = line_valid loc.loc_start.pos_lnum;
+      end_line = line_valid loc.loc_end.pos_lnum;
       characters;
     }
 
@@ -758,15 +759,20 @@ module Error_log = struct[@warning "-unused-value-declaration"]
 
   module Loc = struct
     include New_record(Vl)(struct let name = "loc" let update = v1 end)()
-    let file = new_field v1 "file" (Option String)
-    let lines = new_field v1 "lines" (Pair (Option Int, Option Int))
-    let characters = new_field v1 "characters" (Option (Pair(Int,Int)))
+    let file = new_field_opt v1 "file" String
+    let start_line = new_field_opt v1 "start_line" Int
+    let end_line = new_field_opt v1 "stop_line" Int
+    let characters = new_field_opt v1 "characters" (Pair(Int,Int))
     let () = seal v1
     let ctyp =
       let pull l =
         let l = loc_summary l in
         let open Record in
-        make [file ^=l.file; lines ^= l.lines; characters ^= l.characters ]
+        make @@
+         (characters ^=? l.characters)
+        @ (file ^=? l.file)
+        @ (start_line ^=? l.start_line)
+        @ (end_line ^=? l.end_line)
       in
       Custom {
         id = Location; pull; default = Record scheme
@@ -787,32 +793,29 @@ module Error_log = struct[@warning "-unused-value-declaration"]
       (Custom { id = Error_kind; pull; default = Sum Kind.scheme })
 
   let main = Log.Error.new_field v1 "main" msg_typ
-  let sub = Log.Error.new_field v1 "sub" Log.(List {optional=true; elt=msg_typ})
-  let footnote = Log.Error.new_field v1 "footnote" (Option doc)
+  let sub = Log.Error.new_field_opt v1 "sub" (Log.List msg_typ)
+  let footnote = Log.Error.new_field_opt v1 "footnote" doc
   let quotable_locs =
-    Log.Error.new_field v1 "quotable_locs"
-      Log.(List {optional=true; elt=Loc.ctyp})
+    Log.Error.new_field_opt v1 "quotable_locs" (Log.List Loc.ctyp)
 
   let () = Log.Error.seal v1
 
   let pull (report:report) =
     let open Log.Record in
-    make [
+    make @@ (footnote ^=? report.footnote) @
+ [
       kind ^= report.kind;
       main ^= report.main;
       sub ^= report.sub;
       quotable_locs ^= report.quotable_locs;
-      footnote ^= report.footnote
     ]
 
 
   let report_typ = Custom { id = Error; pull; default = Record Error.scheme }
 
-  let key = Log.Compiler.new_field v1 "error" (Option report_typ)
-  let warnings =
-    Log.Compiler.new_field v1 "warnings" (List {optional=true; elt=report_typ})
-  let alerts =
-    Log.Compiler.new_field v1 "alerts" (List {optional=true; elt=report_typ})
+  let key = Log.Compiler.new_field_opt v1 "error" report_typ
+  let warnings = Log.Compiler.new_field_opt v1 "warnings" (List report_typ)
+  let alerts = Log.Compiler.new_field_opt v1 "alerts" (List report_typ)
   let () = Log.Compiler.seal v1
 
 end
@@ -986,7 +989,7 @@ let print_report ppf report =
   let printer = !report_printer () in
   pp_report printer ppf report
 
-let log_report log report = log.Log.%[Error_log.key] <- Some report
+let log_report log report = log.Log.%[Error_log.key] <- report
 
 (******************************************************************************)
 (* Reporting errors *)
@@ -1181,7 +1184,7 @@ let report_exception log exn =
     match error_of_exn exn with
     | None -> reraise exn
     | Some `Already_displayed -> ()
-    | Some (`Ok err) -> log.Log.%[Error_log.key] <- Some err
+    | Some (`Ok err) -> log.Log.%[Error_log.key] <- err
     | exception exn when n > 0 -> loop (n-1) exn
   in
   loop 5 exn

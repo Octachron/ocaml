@@ -11,8 +11,8 @@ v1.0
     Creation
     Key debug, ?debug
     Key error, ?error_report
-    Key warnings, l? error_report
-    Key alerts, l? error_report
+    Key warnings, ?l error_report
+    Key alerts, ?l error_report
     Seal
   debug
     Creation
@@ -23,17 +23,17 @@ v1.0
     Key instr, ?s
     Key lambda, ?s
     Key raw_lambda, ?s
-    Key flambda, l? s
-    Key raw_flambda, l? s
-    Key clambda, l? s
-    Key raw_clambda, l? s
-    Key cmm, l? s
-    Key remove-free-vars-equal-to-args, l? s
-    Key unbox-free-vars-of-closures, l? s
-    Key unbox-closures, l? s
-    Key unbox-specialised-args, l? s
-    Key mach, l? s
-    Key linear, l? s
+    Key flambda, ?l s
+    Key raw_flambda, ?l s
+    Key clambda, ?l s
+    Key raw_clambda, ?l s
+    Key cmm, ?l s
+    Key remove-free-vars-equal-to-args, ?l s
+    Key unbox-free-vars-of-closures, ?l s
+    Key unbox-closures, ?l s
+    Key unbox-specialised-args, ?l s
+    Key mach, ?l s
+    Key linear, ?l s
     Key cmm_invariant, ?s
     Key profile, ?s
     Seal
@@ -52,11 +52,11 @@ v1.0
     Seal
   error_report
     Creation
-    Key loc, loc
     Key kind, error_kind
     Key main, error_msg
-    Key sub, l? error_msg
-    Key quotable_locs, l? loc
+    Key sub, ?l error_msg
+    Key footnote, ?l structured_text
+    Key quotable_locs, ?l loc
     Seal
   format_tag
     Creation
@@ -75,14 +75,15 @@ v1.0
   loc
     Creation
     Key file, ?s
-    Key lines, ?i*?i
-    Key characters, ?(i*i)
+    Key start_line, ?i
+    Key stop_line, ?i
+    Key characters, ?i*i
     Seal
   metadata
     Creation
     Key version, i*i
     Key valid, b
-    Key invalid_paths, l? l s
+    Key invalid_paths, ?l l s
     Seal
   structured_text
     Creation
@@ -108,6 +109,6 @@ v1.0
     Key output, l structured_text
     Key backtrace, ?l structured_text
     Key compiler_log, ?compiler
-    Key errors, l? l structured_text
-    Key trace, l? l structured_text
+    Key errors, ?l l structured_text
+    Key trace, ?l l structured_text
     Seal

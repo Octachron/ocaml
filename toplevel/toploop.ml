@@ -34,7 +34,7 @@ let use_lexbuf log ~wrap_in_module lb ~modpath ~filename =
   Location.init lb filename;
   (* Skip initial #! line if any *)
   Lexer.skip_hash_bang lb;
-  let main_log = Log.detach_option log Log.Toplevel.compiler_log in
+  let main_log = Log.detach log Log.Toplevel.compiler_log in
   Misc.protect_refs
     [ R (Location.input_name, filename);
       R (Location.input_lexbuf, Some lb); ]

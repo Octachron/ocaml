@@ -176,7 +176,7 @@ let execute_phrase print_outcome log phr =
                 Location.separate_new_message log;
                 (* avoid duplicating the newline *)
                 let b = String.trim b in
-                Log.o Log.Toplevel.backtrace log "%s" b;
+                Log.d Log.Toplevel.backtrace log "%s" b;
                 backtrace := None;
         end;
         begin match out_phr with

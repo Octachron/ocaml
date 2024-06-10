@@ -405,7 +405,7 @@ let try_run_directive log dir_name pdir_arg =
   end
 
 let compiler_log log =
-  let clog = Log.detach_option log Log.Toplevel.compiler_log in
+  let clog = Log.detach log Log.Toplevel.compiler_log in
   Location.current_log := clog;
   if !Location.formatter_for_warnings != Format.err_formatter then
     begin
@@ -424,7 +424,7 @@ let log_on_formatter ppf =
   let _ = compiler_log log in
   log
 
-let debug_log log = Log.detach_option (compiler_log log) Log.Compiler.debug
+let debug_log log = Log.detach (compiler_log log) Log.Compiler.debug
 
 
 (* Overriding exception printers with toplevel-specific ones *)

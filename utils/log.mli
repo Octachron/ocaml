@@ -50,8 +50,7 @@ type 'a typ =
   | Bool: bool typ
   | Int: int typ
   | String: string typ
-  | List: {optional:bool; elt:'a typ} -> 'a list typ
-  | Option: 'a typ -> 'a option typ
+  | List: 'a typ -> 'a list typ
   | Pair: 'a typ * 'b typ -> ('a * 'b) typ
   | Triple: 'a typ * 'b typ * 'c typ -> ('a * 'b * 'c) typ
   | Quadruple: 'a typ * 'b typ * 'c typ * 'd typ ->
@@ -66,6 +65,7 @@ type typed_record = R: 'a def * 'a record -> typed_record
 type key_metadata =
     Key_metadata:
       { typ: 'a typ;
+        optional: bool;
         creation:version;
         deprecation: version option;
         deletion: version option;
@@ -117,6 +117,7 @@ end
 module type Record = sig
   include Def
   val new_field: vl Version.update  -> string -> 'a typ -> 'a key
+  val new_field_opt: vl Version.update  -> string -> 'a typ -> 'a key
 end
 
 module type Sum = sig
@@ -162,7 +163,6 @@ val replay: 'a log -> 'a log -> unit
 
 val detach: 'id log -> ('id2 record, 'id) key -> 'id2 log
 val detach_item: 'id log -> ('id2 record list, 'id) key -> 'id2 log
-val detach_option: 'id log -> ('id2 record option, 'id) key -> 'id2 log
 
 type doc = Format_doc.Doc.t
 val f : (string,'a) key -> 'a log -> ('b, Format.formatter, unit) format -> 'b
@@ -174,13 +174,6 @@ val d : (doc,'a) key -> 'a log -> ('b, Format_doc.formatter, unit) format -> 'b
   (** [fmt key log ppf] records the formatted message at key [key] in [log].
   *)
 
-val o :
-  (doc option,'a) key -> 'a log -> ('b, Format_doc.formatter, unit) format -> 'b
-  (** [fmt key log ppf] records the formatted message at key [key] in [log].
-  *)
-
-
-
 val itemf :
   (string list,'a) key -> 'a log -> ('b, Format.formatter, unit) format -> 'b
 
@@ -190,6 +183,7 @@ val itemd :
 
 module Record: sig
   val (^=): ('a,'b) key -> 'a -> 'b field
+  val (^=?): ('a,'b) key -> 'a option -> 'b field list
   val make: 'a field list -> 'a record
 end
 
@@ -215,13 +209,13 @@ end
 
 module Debug: sig
   include Compiler_record
-  val source: string option key
-  val parsetree: string option key
-  val typedtree: string option key
-  val shape: string option key
-  val instr: string option key
-  val raw_lambda: string option key
-  val lambda: string option key
+  val source: string key
+  val parsetree: string key
+  val typedtree: string key
+  val shape: string key
+  val instr: string key
+  val raw_lambda: string key
+  val lambda: string key
   val flambda: string list key
   val raw_flambda: string list key
   val clambda: string list key
@@ -233,25 +227,25 @@ module Debug: sig
   val unbox_specialised_args:string list  key
   val mach: string list key
   val linear: string list key
-  val cmm_invariant: string option key
-  val profile: string option key
+  val cmm_invariant: string key
+  val profile: string key
 end
 
 module Compiler: sig
   include Compiler_record
-  val debug: Debug.id record option key
+  val debug: Debug.id record key
 end
 module Error: Compiler_record
 
 module Toplevel: sig
   include Compiler_record
   val output: doc key
-  val backtrace: doc option key
-  val compiler_log: Compiler.id record option key
+  val backtrace: doc key
+  val compiler_log: Compiler.id record key
   val errors: doc list key
   val trace: doc list key
 end
 
 val log_if:
-  'id log -> (string option, 'id) key -> bool ->
+  'id log -> (string, 'id) key -> bool ->
   (Format.formatter -> 'a -> unit) -> 'a -> unit

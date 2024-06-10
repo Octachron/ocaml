@@ -115,7 +115,7 @@ module Fmt = struct
         | Some pr -> pr ppf x
         | None -> elt conv {extension} default (pull x) ppf
       end
-    |  List { elt=e; _ } ->
+    |  List e ->
         list conv (List.map (elt conv {extension} e) x) ppf
     | Sum _ ->
         destruct x (fun name (V(typ,x)) ->
@@ -127,11 +127,6 @@ module Fmt = struct
                   ppf
           )
     | Record m -> elt_record conv {extension} (field_names m,x) ppf
-    | Option e ->
-        begin match x with
-        | None ->  conv.string ppf "None"
-        | Some x -> elt conv {extension} e x ppf
-        end
 
   and elt_item: type a.
     conv -> extension_printer -> key:string -> a typ -> a -> pr =
@@ -285,8 +280,7 @@ module Json_schema = struct
     | List e ->
         Format.dprintf "%t,@ %t"
           (tfield  {|array|})
-          (item ~key:"items" @@ obj [typ e.elt] )
-    | Option x -> typ x
+          (item ~key:"items" @@ obj [typ e] )
     | Pair (x,y) -> tuple_typ [typ x; typ y]
     | Triple (x,y,z) -> tuple_typ [typ x; typ y; typ z]
     | Quadruple (x,y,z,w) -> tuple_typ [typ x;typ y; typ z; typ w]
@@ -365,8 +359,7 @@ module Json_schema = struct
       | Bool -> String_map.empty
       | String -> String_map.empty
       | Unit -> String_map.empty
-      | List x -> refs x.elt
-      | Option x -> refs x
+      | List elt -> refs elt
       | Pair (x,y) -> union [refs x; refs y]
       | Triple (x,y,z) -> union [refs x; refs y; refs z]
       | Quadruple (x,y,z,w) -> union [refs x; refs y; refs z; refs w]
