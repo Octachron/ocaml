@@ -664,6 +664,7 @@ module Style = struct
     | Format.String_tag "hint" | Hint -> (!cur_styles).hint
     | Inline_code -> (!cur_styles).inline_code
     | Deletion -> (!cur_styles).deletion
+    | Insertion -> (!cur_styles).insertion
     | Preservation -> (!cur_styles).preservation
     | Modification -> !(cur_styles).modification
     | Style s -> no_markup s
