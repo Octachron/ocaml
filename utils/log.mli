@@ -123,6 +123,7 @@ end
 module type Record = sig
   type id
   include Def with type id := id and type definition := id record
+  val make_required: vl Version.update -> 'a key -> unit
   val new_field: vl Version.update  -> string -> 'a typ -> 'a key
   val new_field_opt: vl Version.update  -> string -> 'a typ -> 'a key
 end

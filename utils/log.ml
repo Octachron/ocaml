@@ -30,6 +30,7 @@ module Version = struct
   type base_event =
     | Creation
     | New_key of {name:string; typ:string}
+    | Make_required of string
     | Deprecation of string
     | Deletion of string
     | Seal
@@ -93,9 +94,10 @@ module Version = struct
        if typ = "" then fprintf ppf "Key %s" name
       else
        fprintf ppf "Key %s, %s" name typ
-    | Deprecation name -> fprintf ppf "Deprecation %S" name
+    | Make_required name -> fprintf ppf "Newly required %s" name
+    | Deprecation name -> fprintf ppf "Deprecation %s" name
     | Seal -> fprintf ppf "Seal"
-    | Deletion name -> fprintf ppf "Deletion %S" name
+    | Deletion name -> fprintf ppf "Deletion %s" name
     | Error e -> pp_error ppf e
 
   let pp_history ppf h =
@@ -296,6 +298,7 @@ end
 module type Record = sig
   type id
   include Def with type id := id and type definition := id record
+  val make_required: vl Version.update -> 'a key -> unit
   val new_field: vl Version.update  -> string -> 'a typ -> 'a key
   val new_field_opt: vl Version.update  -> string -> 'a typ -> 'a key
 end
@@ -344,6 +347,12 @@ let active_key version scheme key =
   | None -> true
   | Some del -> version < del
 
+let make_required u key scheme =
+  let Key_metadata r = scheme.!(key) in
+  Version.register_event u scheme.scheme_name (Make_required key.name);
+ scheme.!(key) <-
+    Key_metadata { r with optional = false }
+
 let deprecate_key u key scheme =
   let Key_metadata r = scheme.!(key) in
   Version.register_event u scheme.scheme_name (Deprecation key.name);
@@ -381,6 +390,7 @@ module New_record(Vl:Version_line)(Info:Info with type vl:=Vl.id)() = struct
   let new_field_opt v name ty = new_key ~optional:true v scheme name ty
   let deprecate u k = deprecate_key u k scheme
   let delete u k = delete_key u k scheme
+  let make_required u k = make_required u k scheme
   let seal u = seal u scheme
 end
 
