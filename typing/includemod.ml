@@ -109,7 +109,7 @@ module Error = struct
     missings: signature_item list;
     incompatibles: (Ident.t * sigitem_symptom) list;
     oks: (int * module_coercion) list;
-    leftovers: (signature_item * signature_item * int) list;
+    untypables: (signature_item * signature_item * int) list;
   }
   and sigitem_symptom =
     | Core of core_sigitem_symptom
@@ -459,7 +459,7 @@ module Sign_diff = struct
     shape_map: Shape.Map.t;
     deep_modifications:bool;
     errors: (Ident.t * Error.sigitem_symptom) list;
-    leftovers: ((Types.signature_item as 'it) * 'it * int) list
+    untypables: ((Types.signature_item as 'it) * 'it * int) list
   }
 
   let empty = {
@@ -467,7 +467,7 @@ module Sign_diff = struct
     shape_map = Shape.Map.empty;
     deep_modifications = false;
     errors = [];
-    leftovers = []
+    untypables = []
   }
 
   let merge x y =
@@ -478,7 +478,7 @@ module Sign_diff = struct
           the last shape map contains all previous elements. *)
       deep_modifications = x.deep_modifications || y.deep_modifications;
       errors = x.errors @ y.errors;
-      leftovers = x.leftovers @ y.leftovers
+      untypables = x.untypables @ y.untypables
     }
 end
 
@@ -751,13 +751,13 @@ and signatures ~core ~direction ~loc env subst sig1 sig2 mod_shape =
                   Ok (simplify_structure_coercion cc id_pos_list, shape)
                 else
                   Ok (Tcoerce_structure (cc, id_pos_list), shape)
-            | missings, incompatibles, runtime_coercions, leftovers ->
+            | missings, incompatibles, runtime_coercions, untypables ->
                 Error {
                   Error.env=new_env;
                   missings;
                   incompatibles;
                   oks=runtime_coercions;
-                  leftovers;
+                  untypables;
                 }
         end
     | item2 :: rem ->
@@ -943,7 +943,7 @@ and signature_components ~core ~direction ~loc old_env env subst
         if continue then
           signature_components ~core ~direction ~loc old_env env subst
             orig_shape shape_map rem
-        else Sign_diff.{ empty with leftovers=rem }
+        else Sign_diff.{ empty with untypables=rem }
        in
        Sign_diff.merge first rest
 
