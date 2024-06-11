@@ -696,7 +696,7 @@ type report = {
 module Error_log = struct[@warning "-unused-value-declaration"]
   type lc = t
   open Log
-  module Vl = Compiler_log_version
+  module Vl = Reports.V
   let v1 = Vl.v1
 
   module Kind = New_sum(Vl)(struct let name="error_kind" let update = v1 end)()
@@ -747,7 +747,7 @@ module Error_log = struct[@warning "-unused-value-declaration"]
     | Error_kind: report_kind extension
     | Error: report extension
     | Location: lc extension
-    | Msg: doc loc extension
+    | Msg: Format_doc.t loc extension
 
   let pull = function
     | Report_error -> report_error
@@ -779,7 +779,7 @@ module Error_log = struct[@warning "-unused-value-declaration"]
       }
   end
 
-  let doc = Log.Structured_text.typ
+  let doc = Reports.Structured_text.typ
 
   module Msg = New_record(Vl)(struct let name="error_msg" let update=v1 end)()
   let msg = Msg.new_field v1 "msg" doc
@@ -789,16 +789,16 @@ module Error_log = struct[@warning "-unused-value-declaration"]
     let pull m = Log.Record.(make [ msg ^= m.txt; msg_loc ^= m.loc ]) in
     Custom { id = Msg; pull; default = Record Msg.scheme }
 
-  let kind = Log.Error.new_field v1 "kind"
+  let kind = Reports.Error.new_field v1 "kind"
       (Custom { id = Error_kind; pull; default = Sum Kind.scheme })
 
-  let main = Log.Error.new_field v1 "main" msg_typ
-  let sub = Log.Error.new_field_opt v1 "sub" (Log.List msg_typ)
-  let footnote = Log.Error.new_field_opt v1 "footnote" doc
+  let main = Reports.Error.new_field v1 "main" msg_typ
+  let sub = Reports.Error.new_field_opt v1 "sub" (Log.List msg_typ)
+  let footnote = Reports.Error.new_field_opt v1 "footnote" doc
   let quotable_locs =
-    Log.Error.new_field_opt v1 "quotable_locs" (Log.List Loc.ctyp)
+    Reports.Error.new_field_opt v1 "quotable_locs" (Log.List Loc.ctyp)
 
-  let () = Log.Error.seal v1
+  let () = Reports.Error.seal v1
 
   let pull (report:report) =
     let open Log.Record in
@@ -811,12 +811,11 @@ module Error_log = struct[@warning "-unused-value-declaration"]
     ]
 
 
-  let report_typ = Custom { id = Error; pull; default = Record Error.scheme }
-
-  let key = Log.Compiler.new_field_opt v1 "error" report_typ
-  let warnings = Log.Compiler.new_field_opt v1 "warnings" (List report_typ)
-  let alerts = Log.Compiler.new_field_opt v1 "alerts" (List report_typ)
-  let () = Log.Compiler.seal v1
+  let report_typ = Custom { id = Error; pull; default = Reports.Error.raw_type }
+  let key = Reports.Compiler.new_field_opt v1 "error" report_typ
+  let warnings = Reports.Compiler.new_field_opt v1 "warnings" (List report_typ)
+  let alerts = Reports.Compiler.new_field_opt v1 "alerts" (List report_typ)
+  let () = Reports.Compiler.seal v1
 
 end
 
@@ -1059,11 +1058,11 @@ let () =
 let formatter_for_warnings = ref Format.err_formatter
 
 let create_log_on_formatter_ref ppf =
-  let version = Log.(Version.current_version Compiler_log_version.history)  in
+  let version = Log.(Version.current_version Reports.V.history)  in
   let backend =
     Option.value ~default:Diagnostic_backends.fmt !Clflags.log_format
   in
-  let log = backend.make !Clflags.color version ppf Log.Compiler.scheme in
+  let log = backend.make !Clflags.color version ppf Reports.Compiler.scheme in
   if !formatter_for_warnings != Format.err_formatter then
     Log.redirect log Error_log.warnings formatter_for_warnings;
   log
@@ -1071,7 +1070,7 @@ let create_log_on_formatter_ref ppf =
 let current_log = ref (create_log_on_formatter_ref formatter_for_warnings)
 
 
-let temporary_log () = Log.tmp Log.Compiler.scheme
+let temporary_log () = Log.tmp Reports.Compiler.scheme
 
 let log_on_formatter ~prev ppf =
   let log = create_log_on_formatter_ref (ref ppf) in

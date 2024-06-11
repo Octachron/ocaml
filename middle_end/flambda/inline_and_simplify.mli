@@ -27,7 +27,7 @@ val run
   -> backend:(module Backend_intf.S)
   -> prefixname:string
   -> round:int
-  -> log:Log.Debug.log
+  -> log:Reports.Debug.t
   -> Flambda.program
   -> Flambda.program
 

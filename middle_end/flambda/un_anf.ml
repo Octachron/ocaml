@@ -814,7 +814,7 @@ let apply ~what ~log clam =
   let var_info = make_var_info clam in
   let clam = un_anf var_info V.Map.empty clam in
   if !Clflags.dump_clambda then begin
-    Log.itemf Log.Debug.clambda log
+    Log.itemf Reports.Debug.clambda log
       "@.un-anf (%a):@ %a@."
         Symbol.print what
         Printclambda.clambda clam

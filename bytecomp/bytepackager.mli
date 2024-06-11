@@ -17,7 +17,7 @@
    original compilation units as sub-modules. *)
 
 val package_files:
-  log:Log.Debug.log -> Env.t -> string list -> string -> unit
+  log:Reports.Debug.t -> Env.t -> string list -> string -> unit
 
 type error =
     Forward_reference of string * Cmo_format.compunit

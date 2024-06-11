@@ -27,7 +27,7 @@ let interface ~log ~source_file ~output_prefix =
 (** Bytecode compilation backend for .ml files. *)
 let log_if i key flag printer x =
   Log.log_if i.Compile_common.debug_log key !flag printer x; x
-module D = Log.Debug
+module D = Reports.Debug
 
 let to_bytecode i Typedtree.{structure; coercion; _} =
   (structure, coercion)

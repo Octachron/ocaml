@@ -204,9 +204,9 @@ let preprocess_phrase debug phr =
         Ptop_def str
     | phr -> phr
   in
-  Log.log_if debug Log.Debug.parsetree !Clflags.dump_parsetree
+  Log.log_if debug Reports.Debug.parsetree !Clflags.dump_parsetree
     Printast.top_phrase phr;
-  Log.log_if debug Log.Debug.source !Clflags.dump_source
+  Log.log_if debug Reports.Debug.source !Clflags.dump_source
     Pprintast.top_phrase phr;
   phr
 
@@ -310,7 +310,7 @@ let is_command_like_name s =
 (* The table of toplevel directives.
    Filled by functions from module topdirs. *)
 
-type 'a directive = Log.Toplevel.log -> 'a -> unit
+type 'a directive = Reports.Toplevel.t -> 'a -> unit
 
 type directive_fun =
   | Directive_none of unit directive
@@ -346,7 +346,7 @@ module Style = Misc.Style
 let inline_code = Style.inline_code
 
 let try_run_directive log dir_name pdir_arg =
-  let log_error fmt = Log.itemd Log.Toplevel.errors log fmt in
+  let log_error fmt = Log.itemd Reports.Toplevel.errors log fmt in
   begin match get_directive dir_name with
   | None ->
       let directives = all_directive_names () in
@@ -405,7 +405,7 @@ let try_run_directive log dir_name pdir_arg =
   end
 
 let compiler_log log =
-  let clog = Log.detach log Log.Toplevel.compiler_log in
+  let clog = Log.detach log Reports.Toplevel.compiler_log in
   Location.current_log := clog;
   if !Location.formatter_for_warnings != Format.err_formatter then
     begin
@@ -415,16 +415,17 @@ let compiler_log log =
   clog
 
 let log_on_formatter ppf =
-  let version = Log.(Version.current_version Compiler_log_version.history) in
+  let version = Log.Version.current_version Reports.V.history in
   let backend =
     Option.value ~default:Diagnostic_backends.fmt !Clflags.log_format
   in
-  let log = backend.make !Clflags.color version (ref ppf) Log.Toplevel.scheme
+  let log =
+    backend.make !Clflags.color version (ref ppf) Reports.Toplevel.scheme
   in
   let _ = compiler_log log in
   log
 
-let debug_log log = Log.detach (compiler_log log) Log.Compiler.debug
+let debug_log log = Log.detach (compiler_log log) Reports.Compiler.debug
 
 
 (* Overriding exception printers with toplevel-specific ones *)

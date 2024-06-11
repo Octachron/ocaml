@@ -19,7 +19,7 @@
 type info = {
   target : Unit_info.t;
   env : Env.t;
-  debug_log : Log.Debug.log;
+  debug_log : Reports.Debug.t;
   tool_name : string;
   native : bool;
 }
@@ -31,7 +31,7 @@ val with_info :
   source_file:string ->
   output_prefix:string ->
   dump_ext:string ->
-  log:Log.Compiler.log ->
+  log:Reports.Compiler.t ->
   (info -> 'a) -> 'a
 (** [with_info ~native ~tool_name ~source_file ~output_prefix ~dump_ext k]
    invokes its continuation [k] with an [info] structure built from

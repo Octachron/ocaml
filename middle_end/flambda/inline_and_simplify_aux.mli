@@ -33,7 +33,7 @@ module Env : sig
      : never_inline:bool
     -> backend:(module Backend_intf.S)
     -> round:int
-    -> log:Log.Debug.log
+    -> log:Reports.Debug.t
     -> t
 
   (** Obtain the first-class module that gives information about the
@@ -49,7 +49,7 @@ module Env : sig
   val round : t -> int
 
   (** Where to print intermediate asts and similar debug information *)
-  val log : t -> Log.Debug.log
+  val log : t -> Reports.Debug.t
 
   (** Add the approximation of a variable---that is to say, some knowledge
       about the value(s) the variable may take on at runtime---to the

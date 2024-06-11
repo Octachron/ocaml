@@ -81,21 +81,21 @@ let rec instrument_result env name log clos_typ =
           else begin
             may_trace := false;
             try
-              Log.itemd Log.Toplevel.trace log "@[<2>%a <--@ %a%a@]"
+              Log.itemd Reports.Toplevel.trace log "@[<2>%a <--@ %a%a@]"
                 Printtyp.longident starred_name
                 print_label l
                 (print_value !toplevel_env arg) t1;
               may_trace := true;
               let res = (Obj.magic clos_val : Obj.t -> Obj.t) arg in
               may_trace := false;
-              Log.itemd Log.Toplevel.trace log "@[<2>%a -->@ %a@]"
+              Log.itemd Reports.Toplevel.trace log "@[<2>%a -->@ %a@]"
                 Printtyp.longident starred_name
                 (print_value !toplevel_env res) t2;
               may_trace := true;
               trace_res res
             with exn ->
               may_trace := false;
-              Log.itemd Log.Toplevel.trace log "@[<2>%a raises@ %a@]"
+              Log.itemd Reports.Toplevel.trace log "@[<2>%a raises@ %a@]"
                 Printtyp.longident starred_name
                 (print_value !toplevel_env (Obj.repr exn)) Predef.type_exn;
               may_trace := true;
@@ -120,7 +120,7 @@ let instrument_closure env name log clos_typ =
         end else begin
           may_trace := false;
           try
-            Log.itemd Log.Toplevel.trace log
+            Log.itemd Reports.Toplevel.trace log
               "@[<2>%a <--@ %a%a@]"
               Printtyp.longident name
               print_label l
@@ -128,7 +128,7 @@ let instrument_closure env name log clos_typ =
             may_trace := true;
             let res = invoke_traced_function actual_code closure arg in
             may_trace := false;
-            Log.itemd Log.Toplevel.trace log
+            Log.itemd Reports.Toplevel.trace log
               "@[<2>%a -->@ %a@]"
               Printtyp.longident name
               (print_value !toplevel_env res) t2;
@@ -136,7 +136,7 @@ let instrument_closure env name log clos_typ =
             trace_res res
           with exn ->
             may_trace := false;
-            Log.itemd Log.Toplevel.trace log "@[<2>%a raises@ %a@]"
+            Log.itemd Reports.Toplevel.trace log "@[<2>%a raises@ %a@]"
               Printtyp.longident name
               (print_value !toplevel_env (Obj.repr exn)) Predef.type_exn;
             may_trace := true;

@@ -17,9 +17,9 @@
 
 open Misc
 
-val link: log:Log.Debug.log -> string list -> string -> unit
+val link: log:Reports.Debug.t -> string list -> string -> unit
 
-val link_shared: log:Log.Debug.log -> string list -> string -> unit
+val link_shared: log:Reports.Debug.t -> string list -> string -> unit
 
 val call_linker_shared: string list -> string -> unit
 

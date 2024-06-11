@@ -30,7 +30,7 @@ let (|>>) (x, y) f = (x, f y)
 
 let log_if i key flag printer x =
   Log.log_if i.debug_log key !flag printer x; x
-module D = Log.Debug
+module D = Reports.Debug
 
 (** Native compilation backend for .ml files. *)
 

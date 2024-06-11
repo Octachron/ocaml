@@ -18,7 +18,7 @@ open Misc
 type info = {
   target: Unit_info.t;
   env : Env.t;
-  debug_log : Log.Debug.log;
+  debug_log : Reports.Debug.t;
   tool_name : string;
   native : bool;
 }
@@ -43,7 +43,7 @@ let with_info ~native ~tool_name ~source_file ~output_prefix ~dump_ext ~log k =
 
 let log_if i key flag printer x =
   Log.log_if i.debug_log key !flag printer x; x
-module D = Log.Debug
+module D = Reports.Debug
 
 (** Compile a .mli file *)
 

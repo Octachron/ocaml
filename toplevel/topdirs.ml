@@ -20,7 +20,7 @@ open Types
 open Toploop
 
 
-type 'a directive = Log.Toplevel.log -> 'a -> unit
+type 'a directive = Reports.Toplevel.t -> 'a -> unit
 
 let _error_fmt () =
   if !Sys.interactive then
@@ -325,19 +325,21 @@ let remove_installed_printer path =
         Printtyp.path path
     in Error report
 
+let log_error log report = Log.cons Reports.Toplevel.errors report log
+
 let dir_install_printer log lid =
   match find_printer lid with
-  | Error report -> Log.(log.%[Toplevel.errors] <- [report])
+  | Error report -> log_error log report
   | Ok (path, kind) ->
     install_printer_by_kind path kind
 
 let dir_remove_printer log lid =
   match find_printer lid with
-  | Error report -> Log.(log.%[Toplevel.errors] <- [report])
+  | Error report -> log_error log report
   | Ok (path, _kind) ->
     match remove_installed_printer path with
     | Ok () -> ()
-    | Error report -> Log.(log.%[Toplevel.errors] <- [report])
+    | Error report -> log_error log report
 
 let _ = add_directive "install_printer"
     (Directive_ident dir_install_printer)
@@ -356,7 +358,8 @@ let _ = add_directive "remove_printer"
 let parse_warnings log iserr s =
   try Option.iter Location.(prerr_alert none) @@ Warnings.parse_options iserr s
   with Arg.Bad err ->
-    Log.(itemd Toplevel.errors) log "%s." err; action_on_suberror true
+    Log.itemd Reports.Toplevel.errors log "%s." err;
+    action_on_suberror true
 
 (* Typing information *)
 
@@ -389,17 +392,17 @@ let show_prim to_sig log lid =
       | Longident.Lident s -> s
       | Longident.Ldot (_,s) -> s
       | Longident.Lapply _ ->
-          Log.itemd Log.Toplevel.errors log "Invalid path %a"
+          Log.itemd Reports.Toplevel.errors log "Invalid path %a"
             Printtyp.longident lid;
           raise Exit
     in
     let id = Ident.create_persistent s in
     let sg = to_sig env loc id lid in
     Printtyp.wrap_printing_env ~error:false env
-      (fun () -> Log.d Log.Toplevel.output log "@[%a@]"
+      (fun () -> Log.d Reports.Toplevel.output log "@[%a@]"
           Printtyp.signature sg)
   with
-  | Not_found -> Log.itemd Log.Toplevel.errors log  "@[Unknown element.@]"
+  | Not_found -> Log.itemd Reports.Toplevel.errors log  "@[Unknown element.@]"
   | Exit -> ()
 
 let all_show_funs = ref []
@@ -776,7 +779,7 @@ let print_directives ppf () =
   List.iter (print_section ppf) (directive_sections ())
 
 let log_directives log () =
-  Log.d Log.Toplevel.output log "@[<v>%a@]" print_directives ()
+  Log.d Reports.Toplevel.output log "@[<v>%a@]" print_directives ()
 
 let _ = add_directive "help"
     (Directive_none log_directives)

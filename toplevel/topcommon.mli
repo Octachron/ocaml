@@ -44,16 +44,16 @@ val toplevel_env : Env.t ref
 val initialize_toplevel_env : unit -> unit
         (* Initialize the typing environment for the toplevel *)
 val preprocess_phrase :
-      Log.Debug.log -> Parsetree.toplevel_phrase ->  Parsetree.toplevel_phrase
+      Reports.Debug.t -> Parsetree.toplevel_phrase ->  Parsetree.toplevel_phrase
         (* Preprocess the given toplevel phrase using regular and ppx
            preprocessors. Return the updated phrase. *)
 val record_backtrace : unit -> unit
 
 (*Log creation *)
 
-val log_on_formatter: Format.formatter -> Log.Toplevel.log
-val compiler_log: Log.Toplevel.log -> Log.Compiler.log
-val debug_log: Log.Toplevel.log -> Log.Debug.log
+val log_on_formatter: Format.formatter -> Reports.Toplevel.t
+val compiler_log: Reports.Toplevel.t -> Reports.Compiler.t
+val debug_log: Reports.Toplevel.t -> Reports.Debug.t
 
 (* Printing of values *)
 
@@ -131,7 +131,7 @@ end
 
 (* Interface with toplevel directives *)
 
-type 'a directive = Log.Toplevel.log -> 'a -> unit
+type 'a directive = Reports.Toplevel.t -> 'a -> unit
 
 type directive_fun =
   | Directive_none of unit directive
@@ -156,7 +156,7 @@ val get_directive_info : string -> directive_info option
 val all_directive_names : unit -> string list
 
 val try_run_directive :
-  Log.Toplevel.log -> string -> Parsetree.directive_argument option -> bool
+  Reports.Toplevel.t -> string -> Parsetree.directive_argument option -> bool
 
 val[@deprecated] directive_table : (string, directive_fun) Hashtbl.t
   (* @deprecated please use [add_directive] instead of inserting
@@ -172,7 +172,7 @@ val parse_toplevel_phrase : (Lexing.lexbuf -> Parsetree.toplevel_phrase) ref
 val parse_use_file : (Lexing.lexbuf -> Parsetree.toplevel_phrase list) ref
 val print_location : formatter -> Location.t -> unit
 val print_error : formatter -> Location.error -> unit
-val log_warning : Location.t -> Log.Compiler.log -> Warnings.t -> unit
+val log_warning : Location.t -> Reports.Compiler.t -> Warnings.t -> unit
 val input_name : string ref
 
 (* Hooks for external line editor *)

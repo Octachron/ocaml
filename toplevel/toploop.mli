@@ -36,17 +36,18 @@ val set_paths :
   ?auto_include:Load_path.auto_include_callback -> ?dir:string -> unit -> unit
 
 (* The interactive toplevel loop *)
+type log = Reports.Toplevel.t
 
-val loop : Log.Toplevel.log -> unit
+val loop : log -> unit
 
 (* Read and execute a script from the given file *)
 
-val run_script : Log.Toplevel.log -> input -> string array -> bool
+val run_script : log -> input -> string array -> bool
         (* true if successful, false if error *)
 
 (* Interface with toplevel directives *)
 
-type 'a directive = Log.Toplevel.log -> 'a -> unit
+type 'a directive = log -> 'a -> unit
 
 type directive_fun =
   | Directive_none of unit directive
@@ -60,7 +61,6 @@ type directive_info = {
   doc: string;
 }
 
-type log = Log.Toplevel.log
 
 val add_directive : string -> directive_fun -> directive_info -> unit
         (* Add toplevel directive and its documentation.
@@ -93,7 +93,7 @@ val execute_phrase : bool -> log -> Parsetree.toplevel_phrase -> bool
            First bool says whether the values and types of the results
            should be printed. Uncaught exceptions are always printed. *)
 val preprocess_phrase :
-      Log.Debug.log -> Parsetree.toplevel_phrase ->  Parsetree.toplevel_phrase
+  Reports.Debug.t -> Parsetree.toplevel_phrase ->  Parsetree.toplevel_phrase
         (* Preprocess the given toplevel phrase using regular and ppx
            preprocessors. Return the updated phrase. *)
 val use_input : log -> input -> bool
@@ -112,11 +112,11 @@ val eval_class_path: Env.t -> Path.t -> Obj.t
         (* Return the toplevel object referred to by the given path *)
 val record_backtrace : unit -> unit
 
-val load_file: Log.Toplevel.log-> string -> bool
+val load_file: log -> string -> bool
 
 (* Printing of values *)
-
-val print_value: Env.t -> Obj.t -> Format_doc.formatter -> Types.type_expr -> unit
+val print_value:
+  Env.t -> Obj.t -> Format_doc.formatter -> Types.type_expr -> unit
 val print_untyped_exception: Obj.t Format_doc.printer
 
 type ('a, 'b) gen_printer =
@@ -143,7 +143,7 @@ val parse_toplevel_phrase : (Lexing.lexbuf -> Parsetree.toplevel_phrase) ref
 val parse_use_file : (Lexing.lexbuf -> Parsetree.toplevel_phrase list) ref
 val print_location : formatter -> Location.t -> unit
 val print_error : formatter -> Location.error -> unit
-val log_warning : Location.t -> Log.Compiler.log -> Warnings.t -> unit
+val log_warning : Location.t -> Reports.Compiler.t -> Warnings.t -> unit
 val input_name : string ref
 
 
@@ -208,6 +208,6 @@ val preload_objects : string list ref
 (** List of compilation units to be loaded before entering the interactive
     loop. *)
 
-val prepare : Log.Toplevel.log -> ?input:input -> unit -> bool
+val prepare : Reports.Toplevel.t -> ?input:input -> unit -> bool
 (** Setup the load paths and initial toplevel environment and load compilation
     units in {!preload_objects}. *)

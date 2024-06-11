@@ -129,7 +129,6 @@ module Version = struct
 end
 type version = Version.t = { major:int; minor:int }
 
-type doc = Format_doc.t
 type _ extension = ..
 
 type empty = Empty_tag
@@ -280,25 +279,32 @@ let version_ty =
 module type Def = sig
   type id
   type vl
+  type definition
   type scheme = id def
-  type log = id t
+  type raw_type = definition
+  type t = id log
   type nonrec 'a key = ('a,id) key
+
   val scheme: scheme
+  val raw_type: raw_type typ
+
   val deprecate: vl Version.update -> 'a key -> unit
   val delete: vl Version.update -> 'a key -> unit
   val seal: vl Version.update -> unit
 end
 
 module type Record = sig
-  include Def
+  type id
+  include Def with type id := id and type definition := id record
   val new_field: vl Version.update  -> string -> 'a typ -> 'a key
   val new_field_opt: vl Version.update  -> string -> 'a typ -> 'a key
 end
 
 module type Sum = sig
-  include Def
-  val new_constr: vl Version.update -> string -> 'a typ -> 'a -> id sum
-  val new_constr0: vl Version.update -> string -> id sum
+  type id
+  include Def with type id := id and type definition := id sum
+  val new_constr: vl Version.update -> string -> 'a typ -> 'a -> raw_type
+  val new_constr0: vl Version.update -> string -> raw_type
 end
 
 module type Version_line = sig
@@ -312,7 +318,7 @@ module New_local_def() = struct
   type id
   type nonrec 'a key = ('a,id) key
   type scheme = id def
-  type log = id t
+  type t = id log
 end
 
 
@@ -362,39 +368,43 @@ end
 
 module New_record(Vl:Version_line)(Info:Info with type vl:=Vl.id)() = struct
   include New_local_def ()
-  let scheme =
-    {
-      scheme_name = Info.name;
-      keys = [];
-      polarity=Positive;
-    }
-    let () = Version.register_event Info.update Info.name Creation
-    let new_field v name ty = new_key ~optional:false v scheme name ty
-    let new_field_opt v name ty = new_key ~optional:true v scheme name ty
-    let deprecate u k = deprecate_key u k scheme
-    let delete u k = delete_key u k scheme
-    let seal u = seal u scheme
+  type raw_type = id record
+  let scheme = {
+    scheme_name = Info.name;
+    keys = [];
+    polarity=Positive;
+  }
+  let raw_type = Record scheme
+
+  let () = Version.register_event Info.update Info.name Creation
+  let new_field v name ty = new_key ~optional:false v scheme name ty
+  let new_field_opt v name ty = new_key ~optional:true v scheme name ty
+  let deprecate u k = deprecate_key u k scheme
+  let delete u k = delete_key u k scheme
+  let seal u = seal u scheme
 end
 
 module New_sum(Vl:Version_line)(Info:Info with type vl:=Vl.id)() = struct
   include New_local_def ()
-  let scheme =
-    {
-      scheme_name = Info.name;
-      keys = [];
-      polarity = Negative;
-    }
-    let () = Version.register_event Info.update Info.name Creation
-    let new_constr u name ty =
-      let k = new_key ~optional:false u scheme name ty in
-      fun x -> Constr(k,x)
-    let new_constr0 u name =
-      let k = new_key ~optional:false u scheme name Unit in
-      Enum k
+  type raw_type = id sum
+  let scheme = {
+    scheme_name = Info.name;
+    keys = [];
+    polarity = Negative;
+  }
+  let raw_type = Sum scheme
 
-    let deprecate u k = deprecate_key u k scheme
-    let delete u k = delete_key u k scheme
-    let seal u = seal u scheme
+  let () = Version.register_event Info.update Info.name Creation
+  let new_constr u name ty =
+    let k = new_key ~optional:false u scheme name ty in
+    fun x -> Constr(k,x)
+  let new_constr0 u name =
+    let k = new_key ~optional:false u scheme name Unit in
+    Enum k
+
+  let deprecate u k = deprecate_key u k scheme
+  let delete u k = delete_key u k scheme
+  let seal u = seal u scheme
 end
 
 
@@ -471,11 +481,10 @@ let fields keys r =
   let keys = Store.trim keys r in
   List.map (fun (Field (k,v)) -> k.name, V(k.typ,v)) keys
 
-module Compiler_log_version = New_root()
-
+module Metadata_versions = New_root()
 module Metadata = struct
-  let v1 = Compiler_log_version.v1
-  include New_record(Compiler_log_version)(struct
+  let v1 = Metadata_versions.v1
+  include New_record(Metadata_versions)(struct
       let name = "metadata"
       let update = v1
     end)()
@@ -488,6 +497,8 @@ module Metadata = struct
   let metakey = "metadata", key_metadata ~optional:false v1 universal_key
 end
 let metakey = Metadata.metakey
+
+
 
 module Validation = struct
 
@@ -582,147 +593,6 @@ module Validation = struct
 
 end
 
-module Structured_text = struct
-  module Doc = Format_doc.Doc
-  let v1 = Compiler_log_version.v1
-  module Box_type = struct
-    include New_sum(Compiler_log_version)
-        (struct
-          let name = "box_type"
-          let update = v1
-        end
-        )()
-    let h = new_constr0 v1 "H"
-    let v = new_constr0 v1 "V"
-    let hv = new_constr0 v1 "HV"
-    let hov = new_constr0 v1 "HoV"
-    let b = new_constr0 v1 "B"
-    let () = seal v1
-    type _ extension += Box_type: Doc.box_type extension
-    let typ =
-      let pull = function
-        | Doc.H -> h
-        | Doc.V -> v
-        | Doc.HoV -> hov
-        | Doc.HV -> hv
-        | Doc.B -> b
-      in
-      Custom { id = Box_type; pull; default = Sum scheme}
-  end
-
-  module Format_tag = struct
-    include New_sum(Compiler_log_version)
-        (struct
-          let name = "format_tag"
-          let update = v1
-        end
-        )()
-
-
-    let unknown = new_constr v1 "<Unknown>" String
-    let string_tag = new_constr v1 "String_tag" String
-
-    type _ extension += Format_tag: Format.stag extension
-    let map: (Obj.Extension_constructor.t, Format.stag -> id sum) Hashtbl.t =
-      Hashtbl.create 5
-    let register_tag ext conv = Hashtbl.replace map ext conv
-    let typ =
-      let pull = function
-        | Format.String_tag s -> string_tag s
-        | x ->
-            let ext = Obj.Extension_constructor.of_val x in
-            match Hashtbl.find map ext with
-            | exception Not_found ->
-                unknown (Obj.Extension_constructor.name ext)
-            | f -> f x
-      in
-      Custom { id = Format_tag; pull; default = Sum scheme}
-
-    let register_tag0 v ext =
-      let name = Obj.Extension_constructor.name ext in
-      let name = match String.rindex name '.' with
-        | exception Not_found -> name
-        | dot -> String.sub name (dot+1) (String.length name - dot -1)
-      in
-      let constr = new_constr0 v name in
-      register_tag ext (fun _ -> constr)
-
-   let () =
-      Array.iter (register_tag0 v1)
-        Misc.Style.[|
-          [%extension_constructor Error];
-          [%extension_constructor Warning];
-          [%extension_constructor Loc];
-          [%extension_constructor Inline_code];
-          [%extension_constructor Hint];
-          [%extension_constructor Deletion];
-          [%extension_constructor Insertion];
-          [%extension_constructor Modification];
-          [%extension_constructor Preservation];
-        |];
-      seal v1
-
-  end
-
-
-  include New_sum(Compiler_log_version)
-    (struct
-      let name = "structured_text"
-      let update = v1
-    end)
-    ()
-
-  let text = new_constr v1 "Text" String
-  let with_size = new_constr v1 "With_size" Int
-  let open_box = new_constr v1 "Open_box" (Pair(Box_type.typ,Int))
-  let close_box = new_constr0 v1 "Close_box"
-  let open_tag = new_constr v1 "Open_tag" Format_tag.typ
-  let close_tag = new_constr0 v1 "Close_tag"
-  let open_tbox = new_constr0 v1 "Open_tbox"
-  let close_tbox = new_constr0 v1 "Close_tbox"
-  let tab_break = new_constr v1 "Tab_break" (Pair(Int,Int))
-  let set_tab = new_constr0 v1 "Set_tab"
-  let simple_break = new_constr v1 "Simple_break" (Pair(Int,Int))
-  let break =
-    let alt = Triple(String,Int,String) in
-    new_constr v1 "Break" (Pair(alt,alt))
-  let flush = new_constr v1 "Flush" Bool
-  let newline = new_constr0 v1 "Newline"
-  let if_newline = new_constr0 v1 "If_newline"
-
-  let deprecated = new_constr0 v1 "<deprecated>"
-  let () = seal v1
-
-  type _ extension += Doc: Doc.t extension
-  let typ =
-    let elt_pull = function
-      | Doc.Text x -> text x
-      | Doc.With_size x -> with_size x
-      | Doc.Open_box r -> open_box (r.kind, r.indent)
-      | Doc.Close_box -> close_box
-      | Doc.Open_tag t -> open_tag t
-      | Doc.Close_tag -> close_tag
-      | Doc.Open_tbox -> open_tbox
-      | Doc.Close_tbox -> close_tbox
-      | Doc.Tab_break t -> tab_break (t.width,t.offset)
-      | Doc.Set_tab -> set_tab
-      | Doc.Simple_break r -> simple_break (r.spaces, r.indent)
-      | Doc.Break r -> break (r.fits, r.breaks)
-      | Doc.Flush r -> flush r.newline
-      | Doc.Newline -> newline
-      | Doc.If_newline -> if_newline
-      | Doc.Deprecated _ -> deprecated
-    in
-    let default = List (Sum scheme) in
-    let pull d =
-      List.rev @@
-      Format_doc.Doc.fold (fun l x -> elt_pull x :: l ) [] d in
-    Custom {id = Doc; default; pull }
-
-  let register_tag = Format_tag.register_tag
-  let register_tag0 = Format_tag.register_tag0
-
- end
 
 let make ~structured ~printer settings version scheme ppf =
   let mode =
@@ -887,82 +757,6 @@ let tmp scheme = {
 }
 
 
-let slist = List String
-
-module type Compiler_record = Record with type vl := Compiler_log_version.id
-module type Compiler_sum = Sum with type vl := Compiler_log_version.id
-
-module Debug = struct
-  let v1 = Compiler_log_version.v1
-  include New_record(Compiler_log_version)
-      (struct
-        let name = "debug"
-        let update = v1
-      end)
-      ()
-  let parsetree = new_field_opt v1 "parsetree" String
-  let source = new_field_opt v1 "source" String
-  let typedtree = new_field_opt v1 "typedtree" String
-  let shape = new_field_opt v1 "shape" String
-  let instr = new_field_opt v1 "instr" String
-  let lambda = new_field_opt v1 "lambda" String
-  let raw_lambda = new_field_opt v1 "raw_lambda" String
-  let flambda = new_field_opt v1 "flambda" slist
-  let raw_flambda = new_field_opt v1 "raw_flambda" slist
-  let clambda = new_field_opt v1 "clambda" slist
-  let raw_clambda = new_field_opt v1 "raw_clambda" slist
-  let cmm = new_field_opt v1 "cmm" slist
-  let remove_free_vars_equal_to_args =
-    new_field_opt v1 "remove-free-vars-equal-to-args" slist
-  let unbox_free_vars_of_closures =
-    new_field_opt v1 "unbox-free-vars-of-closures" slist
-  let unbox_closures = new_field_opt v1 "unbox-closures" slist
-  let unbox_specialised_args = new_field_opt v1 "unbox-specialised-args" slist
-  let mach = new_field_opt v1 "mach" slist
-  let linear = new_field_opt v1 "linear" slist
-  let cmm_invariant = new_field_opt v1 "cmm_invariant" String
-  let profile = new_field_opt v1 "profile" String
-  let () = seal v1
-end
-
-module Error =
-    New_record(Compiler_log_version)
-      (struct
-        let name = "error_report"
-        let update = Compiler_log_version.v1
-      end)
-      ()
-
-module Compiler = struct
-  let v1 = Compiler_log_version.v1
-  include New_record(Compiler_log_version)
-      (struct
-        let name = "compiler"
-        let update = v1
-      end)
-      ()
-  let debug = new_field_opt v1  "debug" (Record Debug.scheme)
-end
-
-let doc = Structured_text.typ
-let ldoc = List Structured_text.typ
-module Toplevel = struct
-  let v1 = Compiler_log_version.v1
-  include New_record(Compiler_log_version)
-      (struct
-        let name = "toplevel"
-        let update = v1
-      end)
-      ()
-  let v1 = Compiler_log_version.v1
-  let output = new_field v1 "output" doc
-  let backtrace = new_field_opt v1 "backtrace" doc
-  let compiler_log =
-    new_field_opt v1 "compiler_log" (Record Compiler.scheme)
-  let errors = new_field_opt v1 "errors" ldoc
-  let trace = new_field_opt v1 "trace" ldoc
-  let () = seal v1
-end
 
 let log_if dlog key flag printer x =
   if flag then

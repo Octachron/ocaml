@@ -19,6 +19,7 @@ let history = ref false
 let output = ref None
 let version = ref None
 let log_schemas = [
+  "meta";
   "compiler";
   "toplevel"; "error"; "kind"; "msg"; ]
 
@@ -36,18 +37,21 @@ let formatter = function
   | None -> Format.std_formatter
   | Some s -> Format.formatter_of_out_channel (Out_channel.open_bin s)
 open Log
+open Reports
 let version () =
   match !version with
-  | None -> Version.current_version Compiler_log_version.history
+  | None -> Version.current_version V.history
   | Some v ->
       match Scanf.sscanf_opt v "%d.%d"
               (fun major minor -> Version.{major;minor})
       with
       | Some v -> v
-      | None -> Version.current_version Compiler_log_version.history
+      | None -> Version.current_version V.history
 let schema v ppf =
   function
   | None -> ()
+  | Some "meta" ->
+    Format.fprintf ppf "%t@." (JSchema.pp v Log.Metadata.scheme)
   | Some "compiler" ->
     Format.fprintf ppf "%t@." (JSchema.pp v Compiler.scheme)
   | Some "toplevel" ->
@@ -62,8 +66,9 @@ let schema v ppf =
 
 let history ppf =
   if !history then
-    Format.fprintf ppf "%a%!"
-      Version.pp_history Compiler_log_version.history
+    Format.fprintf ppf "@[<v 2>Metadata:@,%a@;<0 -2>Main:@,%a@]%!"
+      Version.pp_history Metadata_versions.history
+      Version.pp_history V.history
 
 let () =
   Arg.parse args ignore "print log information";

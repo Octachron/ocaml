@@ -30,7 +30,7 @@ let dir_trace log lid =
       (* Check if this is a primitive *)
       match desc.val_kind with
       | Val_prim _ ->
-          Log.itemd Log.Toplevel.errors log
+          Log.itemd Reports.Toplevel.errors log
             "%a is an external function and cannot be traced."
           Printtyp.longident lid
       | _ ->
@@ -45,7 +45,7 @@ let dir_trace log lid =
           then begin
           match is_traced clos with
           | Some opath ->
-              Log.itemd Log.Toplevel.trace log
+              Log.itemd Reports.Toplevel.trace log
                 "%a is already traced (under the name %a)."
               Printtyp.path path
               Printtyp.path opath
@@ -62,14 +62,14 @@ let dir_trace log lid =
               (* Redirect the code field of the closure to point
                  to the instrumentation function *)
               set_code_pointer clos tracing_function_ptr;
-               Log.itemd Log.Toplevel.trace log "%a is now traced."
+               Log.itemd Reports.Toplevel.trace log "%a is now traced."
                  Printtyp.longident lid
           end else
-             Log.itemd Log.Toplevel.trace log "%a is not a function."
+             Log.itemd Reports.Toplevel.trace log "%a is not a function."
                Printtyp.longident lid
     end
   | exception Not_found ->
-       Log.itemd Log.Toplevel.trace log "Unbound value %a."
+       Log.itemd Reports.Toplevel.trace log "Unbound value %a."
          Printtyp.longident lid
 
 let dir_untrace log lid =
@@ -77,26 +77,26 @@ let dir_untrace log lid =
   | (path, _desc) ->
       let rec remove = function
       | [] ->
-          Log.itemd Log.Toplevel.trace log "%a was not traced."
+          Log.itemd Reports.Toplevel.trace log "%a was not traced."
             Printtyp.longident lid;
           []
       | f :: rem ->
           if Path.same f.path path then begin
             set_code_pointer f.closure f.actual_code;
-            Log.itemd Log.Toplevel.trace log "%a is no longer traced."
+            Log.itemd Reports.Toplevel.trace log "%a is no longer traced."
               Printtyp.longident lid;
             rem
           end else f :: remove rem in
       traced_functions := remove !traced_functions
   | exception Not_found ->
-      Log.itemd Log.Toplevel.trace log "Unbound value %a."
+      Log.itemd Reports.Toplevel.trace log "Unbound value %a."
         Printtyp.longident lid
 
 let dir_untrace_all log () =
   List.iter
     (fun f ->
       set_code_pointer f.closure f.actual_code;
-      Log.itemd Log.Toplevel.trace log
+      Log.itemd Reports.Toplevel.trace log
         "%a is no longer traced." Printtyp.path f.path
     )
     !traced_functions;

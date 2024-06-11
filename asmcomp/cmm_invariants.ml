@@ -177,6 +177,6 @@ let run log (fundecl : Cmm.fundecl) =
   let env = Env.init () in
   check env fundecl.fun_body;
   let err = Env.in_error_state () in
-  Log.log_if log Log.Debug.cmm_invariant err
+  Log.log_if log Reports.Debug.cmm_invariant err
     (fun ppf () -> Env.report ppf) ();
   err

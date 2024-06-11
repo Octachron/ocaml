@@ -23,7 +23,7 @@ module E = Inline_and_simplify_aux.Env
 
 module Transform = struct
   let pass_name = "unbox-closures"
-  let pass_key = Log.Debug.unbox_closures
+  let pass_key = Reports.Debug.unbox_closures
 
   let precondition ~env ~(set_of_closures : Flambda.set_of_closures) =
     !Clflags.unbox_closures

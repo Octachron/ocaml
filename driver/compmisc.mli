@@ -22,7 +22,7 @@ val set_from_env : 'a option ref -> 'a Clflags.env_reader -> unit
 val read_clflags_from_env : unit -> unit
 
 val with_debug_log:
-  file_prefix:string -> Log.Compiler.log -> (Log.Debug.log -> 'a) -> 'a
+  file_prefix:string -> Reports.Compiler.t -> (Reports.Debug.t -> 'a) -> 'a
 
 
 val auto_include : Load_path.auto_include_callback

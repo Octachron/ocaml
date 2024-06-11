@@ -103,25 +103,33 @@ end
 
 type ('a,'b) key
 module type Def = sig
-  type id
   type vl
+  type id
+  type definition
+
   type scheme = id def
-  type log = id t
+  type raw_type = definition
+  type t = id log
   type nonrec 'a key = ('a,id) key
+
   val scheme: scheme
+  val raw_type: definition typ
+
   val deprecate: vl Version.update -> 'a key -> unit
   val delete: vl Version.update -> 'a key -> unit
   val seal: vl Version.update -> unit
 end
 
 module type Record = sig
-  include Def
+  type id
+  include Def with type id := id and type definition := id record
   val new_field: vl Version.update  -> string -> 'a typ -> 'a key
   val new_field_opt: vl Version.update  -> string -> 'a typ -> 'a key
 end
 
 module type Sum = sig
-  include Def
+  type id
+  include Def with type id := id and type definition := id sum
   val new_constr: vl Version.update -> string -> 'a typ -> 'a -> id sum
   val new_constr0: vl Version.update -> string -> id sum
 end
@@ -151,8 +159,6 @@ val close: 'id log -> unit
 
 val tmp: 'a def -> 'a log
 
-
-
 val set: ('a,'b) key  -> 'a -> 'b log -> unit
 val cons: ('a list, 'b) key -> 'a -> 'b log -> unit
 
@@ -164,13 +170,14 @@ val replay: 'a log -> 'a log -> unit
 val detach: 'id log -> ('id2 record, 'id) key -> 'id2 log
 val detach_item: 'id log -> ('id2 record list, 'id) key -> 'id2 log
 
-type doc = Format_doc.Doc.t
 val f : (string,'a) key -> 'a log -> ('b, Format.formatter, unit) format -> 'b
   (** [fmt key log ppf] records the output of [ppf] as
       a string at key [key] in [log].
   *)
 
-val d : (doc,'a) key -> 'a log -> ('b, Format_doc.formatter, unit) format -> 'b
+val d :
+  (Format_doc.t,'a) key -> 'a log -> ('b, Format_doc.formatter, unit) format
+  -> 'b
   (** [fmt key log ppf] records the formatted message at key [key] in [log].
   *)
 
@@ -178,7 +185,8 @@ val itemf :
   (string list,'a) key -> 'a log -> ('b, Format.formatter, unit) format -> 'b
 
 val itemd :
-  (doc list,'a) key -> 'a log -> ('b, Format_doc.formatter, unit) format -> 'b
+  (Format_doc.t list,'a) key -> 'a log
+  -> ('b, Format_doc.formatter, unit) format -> 'b
 
 
 module Record: sig
@@ -187,65 +195,11 @@ module Record: sig
   val make: 'a field list -> 'a record
 end
 
-(** Compiler logs *)
-
-module Compiler_log_version: Version_line
-module type Compiler_record = Record with type vl := Compiler_log_version.id
-module type Compiler_sum = Sum with type vl := Compiler_log_version.id
-
-module Structured_text: sig
-  module Format_tag: sig
-    include Compiler_sum
-  end
-  type _ extension += Doc: Format_doc.Doc.t extension
-  val register_tag:
-    Obj.Extension_constructor.t -> (Format.stag -> Format_tag.id sum) -> unit
-  val register_tag0:
-    Compiler_log_version.id Version.update -> Obj.Extension_constructor.t
-    -> unit
-
-  val typ: Format_doc.Doc.t typ
-end
-
-module Debug: sig
-  include Compiler_record
-  val source: string key
-  val parsetree: string key
-  val typedtree: string key
-  val shape: string key
-  val instr: string key
-  val raw_lambda: string key
-  val lambda: string key
-  val flambda: string list key
-  val raw_flambda: string list key
-  val clambda: string list key
-  val raw_clambda: string list key
-  val cmm: string list key
-  val remove_free_vars_equal_to_args: string list key
-  val unbox_free_vars_of_closures: string list key
-  val unbox_closures:string list key
-  val unbox_specialised_args:string list  key
-  val mach: string list key
-  val linear: string list key
-  val cmm_invariant: string key
-  val profile: string key
-end
-
-module Compiler: sig
-  include Compiler_record
-  val debug: Debug.id record key
-end
-module Error: Compiler_record
-
-module Toplevel: sig
-  include Compiler_record
-  val output: doc key
-  val backtrace: doc key
-  val compiler_log: Compiler.id record key
-  val errors: doc list key
-  val trace: doc list key
-end
 
 val log_if:
   'id log -> (string, 'id) key -> bool ->
   (Format.formatter -> 'a -> unit) -> 'a -> unit
+
+(** Metada module *)
+module Metadata_versions: Version_line
+module Metadata: Record with type vl := Metadata_versions.id

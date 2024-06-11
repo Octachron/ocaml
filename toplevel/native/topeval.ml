@@ -88,10 +88,11 @@ include Topcommon.MakeEvalPrinter(EvalBase)
 let may_trace = ref false (* Global lock on tracing *)
 
 let load_lambda dlog ~module_ident ~required_globals phrase_name lam size =
-  Log.log_if dlog Log.Debug.raw_lambda !Clflags.dump_rawlambda
+  Log.log_if dlog Reports.Debug.raw_lambda !Clflags.dump_rawlambda
     Printlambda.lambda lam;
   let slam = Simplif.simplify_lambda lam in
-  Log.log_if dlog Log.Debug.lambda !Clflags.dump_lambda Printlambda.lambda slam;
+  Log.log_if dlog Reports.Debug.lambda !Clflags.dump_lambda
+    Printlambda.lambda slam;
   let program =
     { Lambda.
       code = slam;
@@ -166,13 +167,13 @@ let execute_phrase print_outcome log phr =
         Typemod.type_toplevel_phrase oldenv sstr
       in
       let log_if flag key = Log.log_if (debug_log log) key flag in
-      log_if !Clflags.dump_typedtree Log.Debug.typedtree
+      log_if !Clflags.dump_typedtree Reports.Debug.typedtree
         Printtyped.implementation str;
       let sg' = Typemod.Signature_names.simplify newenv names sg in
       ignore (Includemod.signatures oldenv ~mark:Mark_positive sg sg');
       Typecore.force_delayed_checks ();
       let shape = Shape_reduce.local_reduce Env.empty shape in
-      log_if !Clflags.dump_shape Log.Debug.shape Shape.print shape;
+      log_if !Clflags.dump_shape Reports.Debug.shape Shape.print shape;
       (* `let _ = <expression>` or even just `<expression>` require special
          handling in toplevels, or nothing is displayed. In bytecode, the
          lambda for <expression> is directly executed and the result _is_ the
@@ -249,7 +250,7 @@ let execute_phrase print_outcome log phr =
         in
         begin match out_phr with
         | Ophr_signature [] -> ()
-        | _ -> Log.d Log.Toplevel.output log "%a" !print_out_phrase out_phr;
+        | _ -> Log.d Reports.Toplevel.output log "%a" !print_out_phrase out_phr;
         end;
         begin match out_phr with
         | Ophr_eval (_, _) | Ophr_signature _ -> true
@@ -278,7 +279,7 @@ let load_file _ (* fixme *) log name0 =
   in
   match name with
   | None ->
-      Log.itemd Log.Toplevel.errors log "File not found: %s" name0;
+      Log.itemd Reports.Toplevel.errors log "File not found: %s" name0;
       false
   | Some name ->
     let fn,tmp =
@@ -297,11 +298,11 @@ let load_file _ (* fixme *) log name0 =
       try Dynlink.loadfile fn; true
       with
       | Dynlink.Error err ->
-        Log.itemd Log.Toplevel.errors log "Error while loading %s: %s."
+        Log.itemd Reports.Toplevel.errors log "Error while loading %s: %s."
           name (Dynlink.error_message err);
         false
       | exn ->
-          Log.d Log.Toplevel.output log "%a" print_exception_outcome exn;
+          Log.d Reports.Toplevel.output log "%a" print_exception_outcome exn;
           false
     in
     if tmp then (try Sys.remove fn with Sys_error _ -> ());

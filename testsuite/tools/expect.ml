@@ -158,11 +158,13 @@ let capture_everything buf ~f =
 
 
 let exec_phrase log phrase =
-  let log_if flag kind pr x = Log.log_if (Topcommon.debug_log log) kind flag pr x in
+  let log_if flag kind pr x =
+    Log.log_if (Topcommon.debug_log log) kind flag pr x
+  in
   Location.reset ();
-  log_if !Clflags.dump_parsetree Log.Debug.parsetree
+  log_if !Clflags.dump_parsetree Reports.Debug.parsetree
     Printast.top_phrase phrase;
-  log_if !Clflags.dump_source Log.Debug.source Pprintast.top_phrase phrase;
+  log_if !Clflags.dump_source Reports.Debug.source Pprintast.top_phrase phrase;
   Toploop.execute_phrase true log phrase
 
 let parse_contents ~fname contents =
@@ -226,7 +228,7 @@ let eval_expect_file _fname ~file_contents =
       | None -> phrases
       | Some lnum -> shift_lines (1 - lnum) phrases
     in
-    let () = Log.(itemd Toplevel.trace log "") in
+    let () = Log.itemd Reports.Toplevel.trace log "" in
     let _ : bool =
       List.fold_left phrases ~init:true ~f:(fun acc phrase ->
         acc &&

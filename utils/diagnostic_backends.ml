@@ -201,7 +201,9 @@ module Fmt = struct
 
   let no_extension = { extension = fun _ -> None }
   let doc_printer (type a): a extension -> a printer option =
-    function Structured_text.Doc -> Some Format_doc.Doc.format | _ -> None
+    function
+    | Reports.Structured_text.Doc -> Some Format_doc.Doc.format
+    | _ -> None
   let doc_extension = { extension = doc_printer  }
   let chain_extensions x y =
     let chain ext =

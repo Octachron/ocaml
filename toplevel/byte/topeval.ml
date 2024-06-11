@@ -72,11 +72,12 @@ let may_trace = ref false (* Global lock on tracing *)
 
 let load_lambda dlog lam =
   let log_if flag key pr x = Log.log_if dlog key flag pr x in
-  log_if !Clflags.dump_rawlambda Log.Debug.raw_lambda Printlambda.lambda lam;
+  log_if !Clflags.dump_rawlambda Reports.Debug.raw_lambda
+    Printlambda.lambda lam;
   let slam = Simplif.simplify_lambda lam in
-  log_if !Clflags.dump_lambda Log.Debug.lambda Printlambda.lambda slam;
+  log_if !Clflags.dump_lambda Reports.Debug.lambda Printlambda.lambda slam;
   let instrs, can_free = Bytegen.compile_phrase slam in
-  log_if !Clflags.dump_instr Log.Debug.instr Printinstr.instrlist instrs;
+  log_if !Clflags.dump_instr Reports.Debug.instr Printinstr.instrlist instrs;
   let (code, reloc, events) =
     Emitcode.to_memory instrs
   in
@@ -126,13 +127,13 @@ let execute_phrase print_outcome log phr =
         Typemod.type_toplevel_phrase oldenv sstr
       in
       let log_if key flag pr x =Log.log_if (debug_log log) key flag pr x in
-      log_if Log.Debug.typedtree !Clflags.dump_typedtree
+      log_if Reports.Debug.typedtree !Clflags.dump_typedtree
         Printtyped.implementation str;
       let sg' = Typemod.Signature_names.simplify newenv sn sg in
       ignore (Includemod.signatures ~mark:Mark_positive oldenv sg sg');
       Typecore.force_delayed_checks ();
       let shape = Shape_reduce.local_reduce Env.empty shape in
-      log_if Log.Debug.shape !Clflags.dump_shape Shape.print shape;
+      log_if Reports.Debug.shape !Clflags.dump_shape Shape.print shape;
       let lam = Translmod.transl_toplevel_definition str in
       Warnings.check_fatal ();
       begin try
@@ -166,7 +167,7 @@ let execute_phrase print_outcome log phr =
         | Ophr_signature [] -> ()
         | _ ->
             Location.separate_new_message log;
-            Log.d Log.Toplevel.output log "%a" !print_out_phrase out_phr
+            Log.d Reports.Toplevel.output log "%a" !print_out_phrase out_phr
         end;
         if Printexc.backtrace_status ()
         then begin
@@ -176,7 +177,7 @@ let execute_phrase print_outcome log phr =
                 Location.separate_new_message log;
                 (* avoid duplicating the newline *)
                 let b = String.trim b in
-                Log.d Log.Toplevel.backtrace log "%s" b;
+                Log.d Reports.Toplevel.backtrace log "%s" b;
                 backtrace := None;
         end;
         begin match out_phr with
@@ -211,7 +212,7 @@ let check_consistency log filename cu =
       inconsistent_source = user;
       original_source = auth;
     } ->
-    Log.itemd Log.Toplevel.errors log "@[<hv 0>The files %s@ and %s@ \
+    Log.itemd Reports.Toplevel.errors log "@[<hv 0>The files %s@ and %s@ \
                  disagree over interface %s@]"
             user auth name;
     raise Load_failed
@@ -244,7 +245,7 @@ let load_compunit ic filename log compunit =
     record_backtrace ();
     may_trace := false;
     Symtable.restore_state initial_symtable;
-    Log.d Log.Toplevel.output log "%a" print_exception_outcome exn;
+    Log.d Reports.Toplevel.output log "%a" print_exception_outcome exn;
     raise Load_failed
   end
 
@@ -254,7 +255,7 @@ let rec load_file recursive log name =
   in
   match filename with
   | None ->
-      Log.itemd Log.Toplevel.errors log "Cannot find file %s." name;
+      Log.itemd Reports.Toplevel.errors log "Cannot find file %s." name;
       false
   | Some filename ->
       let ic = open_in_bin filename in
@@ -298,7 +299,7 @@ and really_load_file recursive log name filename ic =
             let name = Dll.extract_dll_name dllib in
             try Dll.open_dlls Dll.For_execution [name]
             with Failure reason ->
-              Log.itemd Log.Toplevel.errors log
+              Log.itemd Reports.Toplevel.errors log
                 "@[<v>Cannot load required shared library %s.@,Reason: %s.@]"
                 name reason;
               raise Load_failed)
@@ -306,7 +307,7 @@ and really_load_file recursive log name filename ic =
         List.iter (load_compunit ic filename log) lib.lib_units;
         true
       end else begin
-         Log.itemd Log.Toplevel.errors log
+         Log.itemd Reports.Toplevel.errors log
            "File %s is not a bytecode object file." name;
         false
       end

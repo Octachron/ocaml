@@ -151,7 +151,7 @@ let main argv ppf =
     | () ->
         let print_profile = not @@ List.is_empty !Clflags.profile_columns in
         Compmisc.with_debug_log ~file_prefix:"profile" !log
-          (fun log -> Log.log_if log Log.Debug.profile print_profile
+          (fun log -> Log.log_if log Reports.Debug.profile print_profile
               Profile.print !Clflags.profile_columns
           );
         0

@@ -171,7 +171,7 @@ val show_filename: string -> string
 val print_filename: formatter -> string -> unit
 val print_loc: formatter -> t -> unit
 val print_locs: formatter -> t list -> unit
-val separate_new_message: Log.Toplevel.log -> unit
+val separate_new_message: Reports.Toplevel.t -> unit
 
 
 module Doc: sig
@@ -241,7 +241,7 @@ val pp_report: report_printer -> formatter -> report -> unit
 val print_report: formatter -> report -> unit
 (** Display an error or warning report. *)
 
-val log_report: Log.Compiler.log -> report -> unit
+val log_report: Reports.Compiler.t -> report -> unit
 
 val report_printer: (unit -> report_printer) ref
 (** Hook for redefining the printer of reports.
@@ -275,17 +275,17 @@ module Error_log: sig
     | Error_kind: report_kind Log.extension
     | Error: report Log.extension
     | Location: t Log.extension
-    | Msg: Log.doc loc Log.extension
-  val warnings: report list Log.Compiler.key
-  module Kind: Log.Compiler_sum
-  module Msg: Log.Compiler_record
+    | Msg: Format_doc.t loc Log.extension
+  val warnings: report list Reports.Compiler.key
+  module Kind: Reports.Sum
+  module Msg: Reports.Record
 
 end
 
 val formatter_for_warnings : formatter ref
-val current_log: Log.Compiler.log ref
+val current_log: Reports.Compiler.t ref
 
-val log_warning: t -> Log.Compiler.log -> Warnings.t -> unit
+val log_warning: t -> Reports.Compiler.t -> Warnings.t -> unit
 (** Prints a warning. This is simply the composition of [report_warning] and
    [print_report]. *)
 
@@ -309,7 +309,7 @@ val default_alert_reporter: t -> Warnings.alert -> report option
 
 (** {2 Printing alerts} *)
 
-val log_alert: t -> Log.Compiler.log -> Warnings.alert -> unit
+val log_alert: t -> Reports.Compiler.t -> Warnings.alert -> unit
 (** Prints an alert. This is simply the composition of [report_alert] and
    [print_report]. *)
 
@@ -372,11 +372,11 @@ exception Already_displayed_error
 val raise_errorf: ?loc:t -> ?sub:msg list -> ?footnote:delayed_msg ->
   ('a, Format_doc.formatter, unit, 'b) format4 -> 'a
 
-val log_exception: Log.Compiler.log -> exn -> unit
+val log_exception: Reports.Compiler.t -> exn -> unit
 (** Reraise the exception if it is unknown or log it. *)
 
 val log_on_formatter:
-  prev:Log.Compiler.log option -> Format.formatter -> Log.Compiler.log
+  prev:Reports.Compiler.t option -> Format.formatter -> Reports.Compiler.t
 
 (** Store log events while waiting for log configuration*)
-val temporary_log: unit -> Log.Compiler.log
+val temporary_log: unit -> Reports.Compiler.t
