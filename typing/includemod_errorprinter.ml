@@ -729,12 +729,26 @@ let core env id x =
         !Oprint.out_sig_item t2
         (Includeclass.report_error_doc Type_scheme) symptom
 
-let missing_field ppf item =
-  let id, loc, kind =  Includemod.item_ident_name item in
-  Fmt.fprintf ppf "The %s %a is required but not provided%a"
+let suggest_adding_field ppf item =
+  let id, loc, kind = Includemod.item_ident_name item in
+  Fmt.fprintf ppf "Try adding a %s %a%a"
     (Includemod.kind_of_field_desc kind)
-    (Style.as_inline_code Printtyp.ident) id
+    Style.inline_code (Ident.name id)
     (show_loc "Expected declaration") loc
+
+
+let suggest_renaming_field ppf (item, suggested_name) =
+  let current_id, loc, kind = Includemod.item_ident_name item in
+  Fmt.fprintf ppf "Try renaming %s %a to %a%a"
+    (Includemod.kind_of_field_desc kind)
+    Style.inline_code (Ident.name current_id)
+    Style.inline_code suggested_name
+    (show_loc "Expected declaration") loc
+
+let suggest_changing_value_type ppf (id, suggested_type) =
+  Fmt.fprintf ppf "Try changing value %a to be a %a"
+    Style.inline_code (Ident.name id)
+    (Style.as_inline_code Printtyp.type_expr) suggested_type
 
 let module_types {Err.got=mty1; expected=mty2} =
   Fmt.dprintf
@@ -883,14 +897,170 @@ and functor_symptom ~expansion_token ~env ~before ~ctx = function
       module_type ~expansion_token ~eqmode:false ~env ~before ~ctx res
   | Params d -> functor_params ~expansion_token ~env ~before ~ctx d
 
-and signature ~expansion_token ~env:_ ~before ~ctx sgs =
+and signature ~expansion_token ~env ~before ~ctx sgs =
+  let open struct
+    type suggestions = {
+      add: Types.signature_item list;
+      rename: (Types.signature_item * string) list;
+    }
+  end in
+
+  let fuzzy_match_names missings additions =
+    let name item = Ident.name (Types.signature_item_id item) in
+    let is_compatible expected_item gotten_item =
+      let open Types in
+      match expected_item, gotten_item with
+      | Sig_value (_, expected_value, _), Sig_value (_, gotten_value, _) ->
+          Ctype.is_moregeneral env true expected_value.val_type gotten_value.val_type
+      | Sig_module (_, _, expected_module,_ , _), Sig_module (_, _, gotten_module, _, _) ->
+          Includemod.is_modtype_equiv env expected_module.md_type gotten_module.md_type
+      (* TODO: Other item kinds. *)
+      | _ -> false
+    in
+
+    let cutoff = 8 in
+    let m = List.length missings in
+    let n = List.length additions in
+
+    (* An implementation of the Gale-Shapley algorithm, where missing items
+       propose and added items accept or refuse. *)
+    let stable_marriages () =
+      let missing_items = Array.of_list missings in
+      let added_items = Array.of_list additions in
+
+      let preferences =
+        let added_names =
+          additions
+          |> List.mapi (fun j item ->
+            (name item, j))
+          |> Misc.Trie.of_list
+        in
+        Array.init m (fun i ->
+            let missing_name = name missing_items.(i) in
+            Misc.Trie.compute_preferences ~cutoff added_names missing_name)
+      in
+      (* [is_married.(i)] indicates whether there exists a [j] such that
+         [missing.(i)] and [added.(j)] are married. *)
+      let is_married = Array.make m false in
+      (* [added.(j)] is married with [missing.(i)] iff [added.(j) = Some (i, d)]
+         where [d] is the edition distance between the names. *)
+      let marriages = Array.make n None in
+
+      (* Marries [missing.(i)] with [added.(j)], unless [added.(j)] already has
+         a better marriage. *)
+      let try_marry i j d =
+        if is_compatible missing_items.(i) added_items.(j) then
+          match marriages.(j) with
+          | None ->
+              marriages.(j) <- Some (i, d);
+              is_married.(i) <- true
+          | Some (i', d') ->
+              if d < d' then (
+                marriages.(j) <- Some (i, d);
+                is_married.(i) <- true;
+                is_married.(i') <- false)
+      in
+
+      let ok = ref false in
+      while not !ok do
+        ok := true;
+        for i = 0 to m - 1 do
+          if not is_married.(i) then
+            match preferences.(i) () with
+            | Seq.Nil -> ()
+            | Seq.Cons ((j, d), tl) ->
+                ok := false;
+                preferences.(i) <- tl;
+                try_marry i j d
+        done
+      done;
+
+      let actually_missing = List.filteri (fun i _ -> not is_married.(i)) missings in
+      let name_changes = ref [] in
+      for j = 0 to n - 1 do
+        match marriages.(j) with
+        | None -> ()
+        | Some (i, _) ->
+            name_changes := (added_items.(j), name missing_items.(i)) :: !name_changes
+      done;
+
+      {
+        add = actually_missing;
+        rename = !name_changes;
+      }
+    in
+
+    let greedy () =
+      let rec list_extract predicate l =
+        match l with
+        | [] -> None
+        | hd :: tl when predicate hd -> Some (hd, tl)
+        | hd :: tl -> (
+            match list_extract predicate tl with
+            | None -> None
+            | Some (x, tl') -> Some (x, hd :: tl'))
+      in
+
+      let compute_distance expected_item added_item =
+        if is_compatible expected_item added_item then
+          Misc.Maybe_infinite.of_option (Misc.edit_distance (name expected_item) (name added_item) cutoff)
+        else
+          Misc.Maybe_infinite.Infinity ()
+      in
+
+      let remaining_added_items = ref sgs.additions in
+      let name_changes = ref [] in
+      let actually_missing =
+        List.filter
+          (fun missing_item ->
+            match
+              list_extract
+                (fun added_item ->
+                  compute_distance missing_item added_item
+                    < Misc.Maybe_infinite.Finite cutoff)
+                !remaining_added_items
+            with
+            | None -> true
+            | Some (added_item, additions) ->
+                name_changes := (added_item, name missing_item) :: !name_changes;
+                remaining_added_items := additions;
+                false)
+          sgs.missings;
+      in
+
+      {
+        add = actually_missing;
+        rename = !name_changes;
+      }
+    in
+
+    if m * n <= 1_000_000 then
+      stable_marriages ()
+    else
+      greedy ()
+  in
+
+  let value_type_changes =
+    sgs.incompatibles
+    |> List.filter_map (function
+      | id, Includemod.Error.Core (Includemod.Error.Value_descriptions {expected; _}) -> Some (id, expected.val_type)
+      | _ -> None
+      )
+  in
+
   Printtyp.wrap_printing_env ~error:true sgs.env (fun () ->
       match sgs.missings, sgs.incompatibles with
       | _ :: _ as missings, _ ->
           if expansion_token then
-            let init_missings, last_missing = Misc.split_last missings in
-            List.map (Location.msg "%a" missing_field) init_missings
-            @ with_context ctx missing_field last_missing
+            let suggestions = fuzzy_match_names missings sgs.additions in
+            let suggestions =
+              List.map (Location.msg "%a" suggest_renaming_field) suggestions.rename
+              @ List.map (Location.msg "%a" suggest_changing_value_type) value_type_changes
+              @ List.map (Location.msg "%a" suggest_adding_field) suggestions.add
+            in
+            let init_suggestions, last_suggestions = Misc.split_last suggestions in
+            init_suggestions
+            @ with_context ctx Fmt.pp_doc last_suggestions.txt
             :: before
           else
             before

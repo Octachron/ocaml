@@ -504,6 +504,34 @@ val did_you_mean :
   [pp]=[None].
 *)
 
+(** {1 Data structures} *)
+
+module Maybe_infinite : sig
+  type 'a t = Finite of 'a | Infinity of unit
+
+  val of_option: 'a option -> 'a t
+  val to_option: 'a t -> 'a option
+end
+
+module Trie : sig
+  type 'a t
+
+  val add: 'a t -> string -> 'a -> 'a t
+  val of_list: (string * 'a) list -> 'a t
+
+  val compute_preferences:
+    ?deletion_cost:int ->
+    ?insertion_cost:int ->
+    ?substitution_cost:int ->
+    ?cutoff:int ->
+    'a t ->
+    string ->
+    ('a * int) Seq.t
+  (** Returns a sequence that yields the data associated with the strings of the
+      trie, together with the distance to the specified string, in order from
+      closest to farthest. *)
+end
+
 (** {1 Color support detection }*)
 module Color: sig
 
