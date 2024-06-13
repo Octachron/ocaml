@@ -730,20 +730,18 @@ let core env id x =
         (Includeclass.report_error_doc Type_scheme) symptom
 
 let suggest_adding_field ppf item =
-  let id, loc, kind = Includemod.item_ident_name item in
-  Fmt.fprintf ppf "Try adding a %s %a%a"
+  let id, _, kind = Includemod.item_ident_name item in
+  Fmt.fprintf ppf "Try adding a %s %a"
     (Includemod.kind_of_field_desc kind)
     Style.inline_code (Ident.name id)
-    (show_loc "Expected declaration") loc
 
 
 let suggest_renaming_field ppf (item, suggested_name) =
-  let current_id, loc, kind = Includemod.item_ident_name item in
-  Fmt.fprintf ppf "Try renaming %s %a to %a%a"
+  let current_id, _, kind = Includemod.item_ident_name item in
+  Fmt.fprintf ppf "Try renaming %s %a to %a"
     (Includemod.kind_of_field_desc kind)
     Style.inline_code (Ident.name current_id)
     Style.inline_code suggested_name
-    (show_loc "Expected declaration") loc
 
 let suggest_changing_value_type ppf (id, suggested_type) =
   Fmt.fprintf ppf "Try changing value %a to be a %a"
@@ -899,57 +897,54 @@ and functor_symptom ~expansion_token ~env ~before ~ctx = function
 
 and signature ~expansion_token ~env ~before ~ctx sgs =
   let open struct
-    type suggestions = {
-      add: Types.signature_item list;
-      rename: (Types.signature_item * string) list;
+    type 'a field = {
+      item : Types.signature_item;
+      type_ : 'a;
+    }
+
+    let make_field item type_ = { item; type_ }
+
+    let field_name field = Ident.name (Types.signature_item_id field.item)
+
+    type 'a suggestions = {
+      add: 'a field list;
+      rename: ('a field * string) list;
     }
   end in
 
-  let fuzzy_match_names missings additions =
-    let name item = Ident.name (Types.signature_item_id item) in
-    let is_compatible expected_item gotten_item =
-      let open Types in
-      match expected_item, gotten_item with
-      | Sig_value (_, expected_value, _), Sig_value (_, gotten_value, _) ->
-          Ctype.is_moregeneral env true expected_value.val_type gotten_value.val_type
-      | Sig_module (_, _, expected_module,_ , _), Sig_module (_, _, gotten_module, _, _) ->
-          Includemod.is_modtype_equiv env expected_module.md_type gotten_module.md_type
-      (* TODO: Other item kinds. *)
-      | _ -> false
-    in
-
+  let fuzzy_match_names compatibility_test missings additions =
     let cutoff = 8 in
     let m = List.length missings in
     let n = List.length additions in
 
-    (* An implementation of the Gale-Shapley algorithm, where missing items
-       propose and added items accept or refuse. *)
+    (* An implementation of the Gale-Shapley algorithm, where missing fields
+       propose and added fields accept or refuse. *)
     let stable_marriages () =
-      let missing_items = Array.of_list missings in
-      let added_items = Array.of_list additions in
+      let missing_fields = Array.of_list missings in
+      let added_fields = Array.of_list additions in
 
       let preferences =
         let added_names =
           additions
-          |> List.mapi (fun j item ->
-            (name item, j))
+          |> List.mapi (fun j field -> (field_name field, j))
           |> Misc.Trie.of_list
         in
         Array.init m (fun i ->
-            let missing_name = name missing_items.(i) in
+            let missing_name = field_name missing_fields.(i) in
             Misc.Trie.compute_preferences ~cutoff added_names missing_name)
       in
       (* [is_married.(i)] indicates whether there exists a [j] such that
-         [missing.(i)] and [added.(j)] are married. *)
+         [missing_fields.(i)] and [added_fields.(j)] are married. *)
       let is_married = Array.make m false in
-      (* [added.(j)] is married with [missing.(i)] iff [added.(j) = Some (i, d)]
-         where [d] is the edition distance between the names. *)
+      (* [added_fields.(j)] is married with [missing_fields.(i)] iff
+         [added_fields.(j) = Some (i, d)] where [d] is the edition distance
+         between the names. *)
       let marriages = Array.make n None in
 
-      (* Marries [missing.(i)] with [added.(j)], unless [added.(j)] already has
-         a better marriage. *)
+      (* Marries [missing_fields.(i)] with [added_fields.(j)], unless
+         [added_fields.(j)] already has a better marriage. *)
       let try_marry i j d =
-        if is_compatible missing_items.(i) added_items.(j) then
+        if compatibility_test missing_fields.(i) added_fields.(j) then
           match marriages.(j) with
           | None ->
               marriages.(j) <- Some (i, d);
@@ -981,7 +976,7 @@ and signature ~expansion_token ~env ~before ~ctx sgs =
         match marriages.(j) with
         | None -> ()
         | Some (i, _) ->
-            name_changes := (added_items.(j), name missing_items.(i)) :: !name_changes
+            name_changes := (added_fields.(j), field_name missing_fields.(i)) :: !name_changes
       done;
 
       {
@@ -1001,31 +996,31 @@ and signature ~expansion_token ~env ~before ~ctx sgs =
             | Some (x, tl') -> Some (x, hd :: tl'))
       in
 
-      let compute_distance expected_item added_item =
-        if is_compatible expected_item added_item then
-          Misc.Maybe_infinite.of_option (Misc.edit_distance (name expected_item) (name added_item) cutoff)
+      let compute_distance expected_field added_field =
+        if compatibility_test expected_field added_field then
+          Misc.Maybe_infinite.of_option (Misc.edit_distance (field_name expected_field) (field_name added_field) cutoff)
         else
           Misc.Maybe_infinite.Infinity ()
       in
 
-      let remaining_added_items = ref sgs.additions in
+      let remaining_added_fields = ref additions in
       let name_changes = ref [] in
       let actually_missing =
         List.filter
-          (fun missing_item ->
+          (fun missing_field ->
             match
               list_extract
-                (fun added_item ->
-                  compute_distance missing_item added_item
+                (fun added_field ->
+                  compute_distance missing_field added_field
                     < Misc.Maybe_infinite.Finite cutoff)
-                !remaining_added_items
+                !remaining_added_fields
             with
             | None -> true
-            | Some (added_item, additions) ->
-                name_changes := (added_item, name missing_item) :: !name_changes;
-                remaining_added_items := additions;
+            | Some (added_field, additions) ->
+                name_changes := (added_field, field_name missing_field) :: !name_changes;
+                remaining_added_fields := additions;
                 false)
-          sgs.missings;
+          missings;
       in
 
       {
@@ -1040,33 +1035,118 @@ and signature ~expansion_token ~env ~before ~ctx sgs =
       greedy ()
   in
 
-  let value_type_changes =
-    sgs.incompatibles
-    |> List.filter_map (function
-      | id, Includemod.Error.Core (Includemod.Error.Value_descriptions {expected; _}) -> Some (id, expected.val_type)
-      | _ -> None
-      )
+  let suggestion_for_any_order destructor compatibility_test =
+    let missing_fields = List.filter_map destructor sgs.missings in
+    let added_fields = List.filter_map destructor sgs.additions in
+
+    let suggestions = fuzzy_match_names compatibility_test missing_fields added_fields in
+
+    List.map
+      (Location.msg "%a" suggest_adding_field)
+      (List.map (fun field -> field.item) suggestions.add)
+    @ List.map
+      (Location.msg "%a" suggest_renaming_field)
+      (List.map (fun (field, suggested_name) -> field.item, suggested_name) suggestions.rename)
+  in
+
+  let suggestions_for_first_order destructor compatibility_test =
+    suggestion_for_any_order destructor compatibility_test
+  in
+
+  let suggestions_for_second_order destructor =
+    suggestion_for_any_order
+      (fun item -> Option.map (fun item -> make_field item ()) (destructor item))
+      (fun _ _ -> true)
   in
 
   Printtyp.wrap_printing_env ~error:true sgs.env (fun () ->
       match sgs.missings, sgs.incompatibles with
-      | _ :: _ as missings, _ ->
-          if expansion_token then
-            let suggestions = fuzzy_match_names missings sgs.additions in
-            let suggestions =
-              List.map (Location.msg "%a" suggest_renaming_field) suggestions.rename
-              @ List.map (Location.msg "%a" suggest_changing_value_type) value_type_changes
-              @ List.map (Location.msg "%a" suggest_adding_field) suggestions.add
-            in
-            let init_suggestions, last_suggestions = Misc.split_last suggestions in
-            init_suggestions
-            @ with_context ctx Fmt.pp_doc last_suggestions.txt
+      | _ :: _, _ ->
+        let type_suggestions =
+          suggestions_for_second_order
+            (fun item ->
+              match item with
+              | Types.Sig_type _ -> Some item
+              | _ -> None)
+        in
+
+        let module_type_suggestions =
+          suggestions_for_second_order
+            (fun item ->
+              match item with
+              | Types.Sig_modtype _ -> Some item
+              | _ -> None)
+        in
+
+        let class_type_suggestions =
+          suggestions_for_second_order
+            (fun item ->
+              match item with
+              | Types.Sig_class_type _ -> Some item
+              | _ -> None)
+        in
+
+        let value_suggestions =
+          suggestions_for_first_order
+            (fun item ->
+              match item with
+              | Types.Sig_value (_, desc, _) ->
+                  Some (make_field item desc.val_type)
+              | _ -> None)
+            (fun expected_value gotten_value ->
+              Ctype.is_moregeneral env true expected_value.type_ gotten_value.type_)
+        in
+
+        let value_type_changes =
+          sgs.incompatibles
+          |> List.filter_map (function
+            | id, Includemod.Error.Core (Includemod.Error.Value_descriptions {expected; _}) -> Some (id, expected.val_type)
+            | _ -> None)
+        in
+
+        let module_suggestions =
+          suggestions_for_first_order
+            (fun item ->
+              match item with
+              | Types.Sig_module (_, _, decl, _, _) ->
+                  Some (make_field item decl.md_type)
+              | _ -> None)
+            (fun expected_value gotten_value ->
+              Includemod.is_modtype_equiv env expected_value.type_ gotten_value.type_)
+        in
+
+        let class_suggestions =
+          suggestions_for_first_order
+            (fun item ->
+              match item with
+              | Types.Sig_class (_, decl, _, _) ->
+                  Some (make_field item decl)
+              | _ -> None)
+            (fun expected_value gotten_value ->
+              List.is_empty (Includeclass.class_declarations env expected_value.type_ gotten_value.type_))
+        in
+
+        if expansion_token then
+          let suggestions =
+            []
+            @ class_suggestions
+            @ module_suggestions
+            @ value_suggestions
+            @ List.map (Location.msg "%a" suggest_changing_value_type) value_type_changes
+            @ class_type_suggestions
+            @ module_type_suggestions
+            @ type_suggestions
+          in
+          let init_suggestions, last_suggestions = Misc.split_last suggestions in
+          init_suggestions
+          @ with_context ctx Fmt.pp_doc last_suggestions.txt
             :: before
-          else
-            before
+        else
+          before
       | [], a :: _ -> sigitem ~expansion_token ~env:sgs.env ~before ~ctx a
       | [], [] -> assert false
     )
+
 and sigitem ~expansion_token ~env ~before ~ctx (name,s) = match s with
   | Core c ->
       dwith_context ctx (core env name c) :: before
@@ -1075,6 +1155,7 @@ and sigitem ~expansion_token ~env ~before ~ctx (name,s) = match s with
         ~ctx:(Context.Module name :: ctx) diff
   | Module_type_declaration diff ->
       module_type_decl ~expansion_token ~env ~before ~ctx name diff
+
 and module_type_decl ~expansion_token ~env ~before ~ctx id diff =
   let next =
     dwith_context_and_elision ctx (module_type_declarations id) diff in
