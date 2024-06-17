@@ -212,7 +212,7 @@ type report = {
 }
 
 
-type 'a printer := Format.formatter -> 'a -> unit
+type 'a printer = Format.formatter -> 'a -> unit
 type report_printer = {
   pp_report_kind : report_kind printer;
   pp_main_loc: (report_kind * t) printer;
