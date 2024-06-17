@@ -895,20 +895,19 @@ and functor_symptom ~expansion_token ~env ~before ~ctx = function
       module_type ~expansion_token ~eqmode:false ~env ~before ~ctx res
   | Params d -> functor_params ~expansion_token ~env ~before ~ctx d
 
-and signature ~expansion_token ~env ~before ~ctx sgs =
+and signature ~expansion_token ~env:_ ~before ~ctx sgs =
   let open struct
-    type 'a field = {
+    type ('v, 't) field = {
       item : Types.signature_item;
-      type_ : 'a;
+      value : 'v;
+      type_ : 't;
     }
-
-    let make_field item type_ = { item; type_ }
 
     let field_name field = Ident.name (Types.signature_item_id field.item)
 
-    type 'a suggestions = {
-      add: 'a field list;
-      rename: ('a field * string) list;
+    type ('v, 't) suggestions = {
+      add: ('v, 't) field list;
+      rename: (('v, 't) field * string) list;
     }
   end in
 
@@ -1050,13 +1049,15 @@ and signature ~expansion_token ~env ~before ~ctx sgs =
   in
 
   let suggestions_for_first_order destructor compatibility_test =
-    suggestion_for_any_order destructor compatibility_test
+    suggestion_for_any_order
+      (fun item -> Option.map (fun (item, value, type_) -> { item; value; type_ }) (destructor item))
+      compatibility_test
   in
 
-  let suggestions_for_second_order destructor =
+  let suggestions_for_second_order destructor compatibility_test =
     suggestion_for_any_order
-      (fun item -> Option.map (fun item -> make_field item ()) (destructor item))
-      (fun _ _ -> true)
+      (fun item -> Option.map (fun (item, value) -> { item; value; type_ = () }) (destructor item))
+      compatibility_test
   in
 
   Printtyp.wrap_printing_env ~error:true sgs.env (fun () ->
@@ -1066,24 +1067,53 @@ and signature ~expansion_token ~env ~before ~ctx sgs =
           suggestions_for_second_order
             (fun item ->
               match item with
-              | Types.Sig_type _ -> Some item
+              | Types.Sig_type  (_, decl, _, _) -> Some (item, decl)
               | _ -> None)
+            (fun expected gotten ->
+              let id, loc, _ = Includemod.item_ident_name gotten.item in
+              match
+                Includemod.Core_inclusion.type_declarations
+                  ~direction:Includemod.Directionality.any ~loc
+                  sgs.env sgs.subst id
+                  gotten.value expected.value
+              with
+              | Ok _ -> true
+              | Error _ -> false)
         in
 
         let module_type_suggestions =
           suggestions_for_second_order
             (fun item ->
               match item with
-              | Types.Sig_modtype _ -> Some item
+              | Types.Sig_modtype (_, decl, _) -> Some (item, decl)
               | _ -> None)
+            (fun expected gotten ->
+              let expected =
+                Subst.modtype Keep sgs.subst @@ Option.get expected.value.Types.mtd_type
+              in
+              Includemod.is_modtype_equiv
+                sgs.env
+                (Option.get gotten.value.Types.mtd_type)
+                expected
+            )
         in
 
         let class_type_suggestions =
           suggestions_for_second_order
             (fun item ->
               match item with
-              | Types.Sig_class_type _ -> Some item
+              | Types.Sig_class_type (_, decl, _, _) -> Some (item, decl)
               | _ -> None)
+            (fun expected gotten ->
+              let id, loc, _ = Includemod.item_ident_name gotten.item in
+              match
+                Includemod.Core_inclusion.class_type_declarations
+                  ~direction:Includemod.Directionality.any
+                  ~loc sgs.env sgs.subst id
+                  gotten.value expected.value
+              with
+              | Ok _ -> true
+              | Error _ -> false)
         in
 
         let value_suggestions =
@@ -1091,10 +1121,18 @@ and signature ~expansion_token ~env ~before ~ctx sgs =
             (fun item ->
               match item with
               | Types.Sig_value (_, desc, _) ->
-                  Some (make_field item desc.val_type)
+                  Some (item, desc, desc.val_type)
               | _ -> None)
-            (fun expected_value gotten_value ->
-              Ctype.is_moregeneral env true expected_value.type_ gotten_value.type_)
+            (fun expected gotten ->
+              let id, loc, _ = Includemod.item_ident_name gotten.item in
+              match
+                Includemod.Core_inclusion.value_descriptions
+                  ~direction:Includemod.Directionality.any ~loc
+                  sgs.env sgs.subst id
+                  gotten.value expected.value
+              with
+              | Ok _ -> true
+              | Error _ -> false)
         in
 
         let value_type_changes =
@@ -1109,10 +1147,14 @@ and signature ~expansion_token ~env ~before ~ctx sgs =
             (fun item ->
               match item with
               | Types.Sig_module (_, _, decl, _, _) ->
-                  Some (make_field item decl.md_type)
+                  Some (item, decl, decl.md_type)
               | _ -> None)
-            (fun expected_value gotten_value ->
-              Includemod.is_modtype_equiv env expected_value.type_ gotten_value.type_)
+            (fun expected gotten ->
+              let expected = Subst.modtype Keep sgs.subst expected.type_ in
+              Includemod.is_modtype_equiv
+                sgs.env
+                gotten.type_
+                expected)
         in
 
         let class_suggestions =
@@ -1120,10 +1162,18 @@ and signature ~expansion_token ~env ~before ~ctx sgs =
             (fun item ->
               match item with
               | Types.Sig_class (_, decl, _, _) ->
-                  Some (make_field item decl)
+                  Some (item, decl, decl.cty_type)
               | _ -> None)
-            (fun expected_value gotten_value ->
-              List.is_empty (Includeclass.class_declarations env expected_value.type_ gotten_value.type_))
+            (fun expected gotten ->
+              let id, loc, _ = Includemod.item_ident_name gotten.item in
+              match
+                Includemod.Core_inclusion.class_declarations
+                  ~loc ~direction:Includemod.Directionality.any
+                  sgs.env sgs.subst
+                  id expected.value gotten.value
+              with
+              | Ok _ -> true
+              | Error _ -> false)
         in
 
         if expansion_token then

@@ -111,6 +111,7 @@ module Error = struct
     oks: (int * module_coercion) list;
     additions: signature_item list;
     untypables: (signature_item * signature_item * int) list;
+    subst: Subst.t;
   }
   and sigitem_symptom =
     | Core of core_sigitem_symptom
@@ -145,7 +146,6 @@ end
 
 module Directionality = struct
 
-
   type mark =
   | Mark_both
   | Mark_positive
@@ -159,7 +159,6 @@ module Directionality = struct
           declatations inside functor arguments at even level of nesting.*)
     | Positive
     | Negative
-
 
 (**
    When checking inclusion, the [Directionality.t] type tracks the
@@ -198,6 +197,8 @@ module Directionality = struct
   let unknown ~mark =
     let mark_as_used = if mark then Mark_both else Mark_neither in
     { in_eq=false; pos=Positive; mark_as_used }
+
+  let any = unknown ~mark:false
 
   let negate_pos = function
     | Positive | Strictly_positive -> Negative
@@ -761,6 +762,7 @@ and signatures ~core ~direction ~loc env subst sig1 sig2 mod_shape =
                   oks=runtime_coercions;
                   additions;
                   untypables;
+                  subst;
                 }
         end
     | item2 :: rem ->
@@ -1406,6 +1408,7 @@ let is_modtype_equiv env mty1 mty2 =
   match check_modtype_equiv ~core:core_inclusion ~direction ~loc env mty1 mty2 with
   | Ok _ -> true
   | Error _ -> false
+
 
 let check_modtype_equiv ~loc env id mty1 mty2 =
   let direction = Directionality.unknown ~mark:true in

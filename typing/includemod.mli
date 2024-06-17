@@ -87,8 +87,9 @@ module Error: sig
     incompatibles: (Ident.t * sigitem_symptom) list;
     oks: (int * Typedtree.module_coercion) list;
     additions: signature_item list;
-    untypables: ((Types.signature_item as 'it) * 'it * int) list
+    untypables: ((Types.signature_item as 'it) * 'it * int) list;
     (** signature items that could not be compared due to type divergence *)
+    subst: Subst.t;
   }
   and sigitem_symptom =
     | Core of core_sigitem_symptom
@@ -141,6 +142,32 @@ val is_runtime_component: Types.signature_item -> bool
 
 
 (* Typechecking *)
+module Directionality: sig
+  type t
+  val any: t
+end
+module Core_inclusion: sig
+val value_descriptions :
+  loc:Warnings.loc -> Env.t -> direction:Directionality.t -> Subst.t
+  -> Ident.t -> Types.value_description -> Types.value_description ->
+  (module_coercion, Error.sigitem_symptom) result
+
+val type_declarations :
+  loc:Warnings.loc -> Env.t -> direction:Directionality.t ->
+  Subst.t -> Ident.t -> Types.type_declaration -> Types.type_declaration ->
+  (module_coercion, Error.sigitem_symptom) result
+
+val class_type_declarations :
+  loc:Warnings.loc ->  Env.t -> direction:Directionality.t -> Subst.t ->
+  Ident.t -> Types.class_type_declaration -> Types.class_type_declaration ->
+  (module_coercion, Error.sigitem_symptom) result
+
+val class_declarations :
+  loc:Warnings.loc -> Env.t  -> direction:Directionality.t -> Subst.t ->
+  Ident.t -> Types.class_declaration -> Types.class_declaration ->
+  (module_coercion, Error.sigitem_symptom) result
+
+end
 
 val modtypes:
   loc:Location.t -> Env.t -> mark:bool ->
@@ -167,21 +194,25 @@ val check_modtype_inclusion :
 val check_modtype_equiv:
   loc:Location.t -> Env.t -> Ident.t -> module_type -> module_type -> unit
 
+
+
 val is_modtype_equiv:
   Env.t -> module_type -> module_type -> bool
 
-val signatures: Env.t -> mark:bool -> signature -> signature -> module_coercion
+val signatures: Env.t -> mark:bool ->
+  signature -> signature -> module_coercion
 
 (** Check an implementation against an interface *)
 val check_implementation: Env.t -> signature -> signature -> unit
 
+val type_declarations:
+   loc:Location.t -> Env.t -> mark:bool ->
+   Ident.t -> type_declaration -> type_declaration -> unit
+
+
 val compunit:
       Env.t -> mark:bool -> string -> signature ->
       string -> signature -> Shape.t -> module_coercion * Shape.t
-
-val type_declarations:
-  loc:Location.t -> Env.t -> mark:bool ->
-  Ident.t -> type_declaration -> type_declaration -> unit
 
 val print_coercion: Format.formatter -> module_coercion -> unit
 
