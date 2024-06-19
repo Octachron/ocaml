@@ -29,17 +29,21 @@ utils/ccomp.cmx : \
     utils/ccomp.cmi
 utils/ccomp.cmi :
 utils/clflags.cmo : \
+    utils/reports.cmi \
     utils/profile.cmi \
     utils/numbers.cmi \
     utils/misc.cmi \
+    utils/log.cmi \
     utils/diagnostic_backends.cmi \
     utils/config.cmi \
     utils/arg_helper.cmi \
     utils/clflags.cmi
 utils/clflags.cmx : \
+    utils/reports.cmx \
     utils/profile.cmx \
     utils/numbers.cmx \
     utils/misc.cmx \
+    utils/log.cmx \
     utils/diagnostic_backends.cmx \
     utils/config.cmx \
     utils/arg_helper.cmx \
@@ -218,11 +222,13 @@ utils/reports.cmo : \
     utils/misc.cmi \
     utils/log.cmi \
     utils/format_doc.cmi \
+    utils/config.cmi \
     utils/reports.cmi
 utils/reports.cmx : \
     utils/misc.cmx \
     utils/log.cmx \
     utils/format_doc.cmx \
+    utils/config.cmx \
     utils/reports.cmi
 utils/reports.cmi : \
     utils/log.cmi \
@@ -6569,6 +6575,7 @@ driver/main.cmx : \
 driver/main.cmi :
 driver/main_args.cmo : \
     utils/warnings.cmi \
+    utils/reports.cmi \
     utils/profile.cmi \
     utils/misc.cmi \
     parsing/location.cmi \
@@ -6578,6 +6585,7 @@ driver/main_args.cmo : \
     driver/main_args.cmi
 driver/main_args.cmx : \
     utils/warnings.cmx \
+    utils/reports.cmx \
     utils/profile.cmx \
     utils/misc.cmx \
     parsing/location.cmx \

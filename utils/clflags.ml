@@ -593,3 +593,22 @@ let create_usage_msg program =
 
 let print_arguments program =
   Arg.usage !arg_spec (create_usage_msg program)
+
+let create_log_on_formatter_ref ~default_backend history scheme ppf =
+  let version = Log.Version.current_version history  in
+  let backend =
+    Option.value ~default:default_backend !log_format
+  in
+  backend.Diagnostic_backends.make !color version ppf scheme
+
+(* showing configuration and configuration variables *)
+let show_config_and_exit () =
+  let log =
+    create_log_on_formatter_ref
+      ~default_backend:Diagnostic_backends.fmt_with_fields
+      Reports.Config_versions.history
+      Reports.Config.scheme
+      (ref Format.std_formatter)
+  in
+  Reports.Config.print_config log;
+  exit 0

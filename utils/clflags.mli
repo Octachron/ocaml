@@ -277,3 +277,7 @@ val print_arguments : string -> unit
 
 (* [reset_arguments ()] clear all declared arguments *)
 val reset_arguments : unit -> unit
+
+val show_config_and_exit : unit -> unit
+  (** Display the values of all compiler configuration variables from module
+      [Config], then exit the program with code 0. *)

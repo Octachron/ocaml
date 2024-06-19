@@ -234,3 +234,170 @@ module Toplevel = struct
   let trace = new_field_opt v1 "trace" ldoc
   let () = seal v1
 end
+
+
+
+module Config_versions = Log.New_root()
+module Config = struct
+  let v1 = Config_versions.v1
+  include Log.New_record(Config_versions)(struct
+    let name = "config"
+    let update = v1
+    end)()
+  open Log
+  let version = new_field v1 "version" String
+  let standard_library_default =  new_field v1 "standard_library_default" String
+  let standard_library = new_field v1 "standard_library" String
+  let ccomp_type = new_field v1 "ccomp_type" String
+  let c_compiler = new_field v1 "c_compiler" String
+  let ocamlc_cflags = new_field v1 "ocamlc_cflags" String
+  let ocamlc_cppflags = new_field v1 "ocamlc_cppflags" String
+  let ocamlopt_cflags = new_field v1 "ocamlopt_cflags" String
+  let ocamlopt_cppflags = new_field v1 "ocamlopt_cppflags" String
+  let bytecomp_c_compiler = new_field v1 "bytecomp_c_compiler" String
+  let native_c_compiler = new_field v1 "native_c_compiler" String
+  let bytecomp_c_libraries = new_field v1 "bytecomp_c_libraries" String
+  let native_c_libraries = new_field v1 "native_c_libraries" String
+  let native_ldflags = new_field v1 "native_ldflags" String
+  let native_pack_linker = new_field v1 "native_pack_linker" String
+  let native_compiler = new_field v1 "native_compiler" Bool
+  let architecture = new_field v1 "architecture" String
+  let model = new_field v1 "model" String
+  let int_size = new_field v1 "int_size" Int
+  let word_size = new_field v1 "word_size" Int
+  let system = new_field v1 "system" String
+  let asm = new_field v1 "asm" String
+  let asm_cfi_supported = new_field v1 "asm_cfi_supported" Bool
+  let with_frame_pointers = new_field v1 "with_frame_pointers" Bool
+  let ext_exe = new_field v1 "ext_exe" String
+  let ext_obj = new_field v1 "ext_obj" String
+  let ext_asm = new_field v1 "ext_asm" String
+  let ext_lib = new_field v1 "ext_lib" String
+  let ext_dll = new_field v1 "ext_dll" String
+  let os_type = new_field v1 "os_type" String
+  let default_executable_name = new_field v1 "default_executable_name" String
+  let systhread_supported = new_field v1 "systhread_supported" Bool
+  let host = new_field v1 "host" String
+  let target = new_field v1 "target" String
+  let flambda = new_field v1 "flambda" Bool
+  let safe_string = new_field v1 "safe_string" Bool
+  let default_safe_string = new_field v1 "default_safe_string" Bool
+  let flat_float_array = new_field v1 "flat_float_array" Bool
+  let function_sections = new_field v1 "function_sections" Bool
+  let afl_instrument = new_field v1 "afl_instrument" Bool
+  let tsan = new_field v1 "tsan" Bool
+  let windows_unicode = new_field v1 "windows_unicode" Bool
+  let supports_shared_libraries = new_field v1 "supports_shared_libraries" Bool
+  let native_dynlink = new_field v1 "native_dynlink" Bool
+  let naked_pointers = new_field v1 "naked_pointers" Bool
+
+  let exec_magic_number = new_field v1 "exec_magic_number" String
+  let cmi_magic_number = new_field v1 "cmi_magic_number" String
+  let cmo_magic_number = new_field v1 "cmo_magic_number" String
+  let cma_magic_number = new_field v1 "cma_magic_number" String
+  let cmx_magic_number = new_field v1 "cmx_magic_number" String
+  let cmxa_magic_number = new_field v1 "cmxa_magic_number" String
+  let ast_impl_magic_number = new_field v1 "ast_impl_magic_number" String
+  let ast_intf_magic_number = new_field v1 "ast_intf_magic_number" String
+  let cmxs_magic_number = new_field v1 "cmxs_magic_number" String
+  let cmt_magic_number = new_field v1 "cmt_magic_number" String
+  let linear_magic_number = new_field v1 "linear_magic_number" String
+
+
+let log_variables log =
+  let open Log in
+  log.%[version] <- Config.version;
+  log.%[standard_library_default] <- Config.standard_library_default;
+  log.%[standard_library] <- Config.standard_library;
+  log.%[ccomp_type] <- Config.ccomp_type;
+  log.%[c_compiler] <- Config.c_compiler;
+  log.%[ocamlc_cflags] <- Config.ocamlc_cflags;
+  log.%[ocamlc_cppflags] <- Config.ocamlc_cppflags;
+  log.%[ocamlopt_cflags] <- Config.ocamlc_cflags;
+  log.%[ocamlopt_cppflags] <- Config.ocamlc_cppflags;
+  log.%[bytecomp_c_compiler] <-
+   Config.(c_compiler ^ " " ^ ocamlc_cflags ^ " " ^ ocamlc_cppflags);
+  log.%[native_c_compiler] <-
+    Config.(c_compiler ^ " " ^ ocamlc_cflags ^ " " ^ ocamlc_cppflags);
+  log.%[bytecomp_c_libraries] <- Config.bytecomp_c_libraries;
+  log.%[native_c_libraries] <- Config.native_c_libraries;
+  log.%[native_ldflags] <- Config.native_ldflags;
+  log.%[native_pack_linker] <- Config.native_pack_linker;
+  log.%[native_compiler] <- Config.native_compiler;
+  log.%[architecture] <- Config.architecture;
+  log.%[model] <- Config.model;
+  log.%[int_size] <- Sys.int_size;
+  log.%[word_size] <- Sys.word_size;
+  log.%[system] <- Config.system;
+  log.%[asm] <- Config.asm;
+  log.%[asm_cfi_supported] <- Config.asm_cfi_supported;
+  log.%[with_frame_pointers] <- Config.with_frame_pointers;
+  log.%[ext_exe] <- Config.ext_exe;
+  log.%[ext_obj] <- Config.ext_obj;
+  log.%[ext_asm] <- Config.ext_asm;
+  log.%[ext_lib] <- Config.ext_lib;
+  log.%[ext_dll] <- Config.ext_dll;
+  log.%[os_type] <- Sys.os_type;
+  log.%[default_executable_name] <- Config.default_executable_name;
+  log.%[systhread_supported] <- Config.systhread_supported;
+  log.%[host] <- Config.host;
+  log.%[target] <- Config.target;
+  log.%[flambda] <- Config.flambda;
+  log.%[safe_string] <- Config.safe_string;
+  log.%[default_safe_string] <- Config.default_safe_string;
+  log.%[flat_float_array] <- Config.flat_float_array;
+  log.%[function_sections] <- Config.function_sections;
+  log.%[afl_instrument] <- Config.afl_instrument;
+  log.%[tsan] <- Config.tsan;
+  log.%[windows_unicode] <- Config.windows_unicode;
+  log.%[supports_shared_libraries] <- Config.supports_shared_libraries;
+  log.%[native_dynlink] <- Config.native_dynlink;
+  log.%[naked_pointers] <- Config.naked_pointers;
+
+  log.%[exec_magic_number] <- Config.exec_magic_number;
+  log.%[cmi_magic_number] <- Config.cmi_magic_number;
+  log.%[cmo_magic_number] <- Config.cmo_magic_number;
+  log.%[cma_magic_number] <- Config.cma_magic_number;
+  log.%[cmx_magic_number] <- Config.cmx_magic_number;
+  log.%[cmxa_magic_number] <- Config.cmxa_magic_number;
+  log.%[ast_impl_magic_number] <- Config.ast_impl_magic_number;
+  log.%[ast_intf_magic_number] <- Config.ast_intf_magic_number;
+  log.%[cmxs_magic_number] <- Config.cmxs_magic_number;
+  log.%[cmt_magic_number] <- Config.cmt_magic_number;
+  log.%[linear_magic_number] <- Config.linear_magic_number
+
+let print_config log =
+  log_variables log;
+  Log.flush log
+
+let config_var x =
+  let log = Log.tmp scheme in
+  let () = log_variables log in
+  match Log.dynamic_get x log with
+  | None -> None
+  | Some (Log.V (ty,v)) ->
+      let s = match ty with
+        | Log.String -> (v:string)
+        | Log.Int -> Int.to_string v
+        | Log.Bool -> string_of_bool v
+        | Log.Unit -> "()"
+        | _ -> assert false
+      in
+      Some s
+
+let show_config_variable_and_exit x =
+  match config_var x with
+  | Some v ->
+      (* we intentionally don't print a newline to avoid Windows \r
+         issues: bash only strips the trailing \n when using a command
+         substitution $(ocamlc -config-var foo), so a trailing \r would
+         remain if printing a newline under Windows and scripts would
+         have to use $(ocamlc -config-var foo | tr -d '\r')
+         for portability. Ugh. *)
+      print_string v;
+      exit 0
+  | None ->
+      exit 2
+
+
+end

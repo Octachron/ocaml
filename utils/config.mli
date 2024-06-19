@@ -26,6 +26,8 @@ val version: string
 val bindir: string
 (** The directory containing the binary programs *)
 
+
+val standard_library_default: string
 val standard_library: string
 (** The directory containing the standard libraries *)
 
@@ -257,11 +259,11 @@ val ar_supports_response_files: bool
 val tsan : bool
 (** Whether ThreadSanitizer instrumentation is enabled *)
 
-(** Access to configuration values *)
-val print_config : out_channel -> unit
+val safe_string : bool
+(** Wheter strings are immutable *)
 
-val config_var : string -> string option
-(** the configuration value of a variable, if it exists *)
+val default_safe_string : bool
+(** Wheter strings are immutable by default *)
 
 (**/**)
 

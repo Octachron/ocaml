@@ -75,3 +75,20 @@ module Toplevel: sig
   val errors: doc list key
   val trace: doc list key
 end
+
+(** Access to configuration values *)
+module Config_versions: Log.Version_line
+module Config: sig
+  include Log.Record with type vl := Config_versions.id
+
+  val print_config : t -> unit
+  val config_var : string -> string option
+  (** the configuration value of a variable, if it exists *)
+
+  (** {1 Displaying configuration variables} *)
+
+  val show_config_variable_and_exit : string -> unit
+  (** Display the value of the given configuration variable,
+      then exit the program with code 0. *)
+
+end
