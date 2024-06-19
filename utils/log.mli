@@ -161,11 +161,14 @@ val close: 'id log -> unit
 val tmp: 'a def -> 'a log
 
 val set: ('a,'b) key  -> 'a -> 'b log -> unit
+val (.%[]<-): 'b log -> ('a,'b) key -> 'a -> unit
 val cons: ('a list, 'b) key -> 'a -> 'b log -> unit
+
+val get: ('a,'b) key  -> 'b log -> 'a option
+val dynamic_get: string  -> 'b log -> typed_val option
 
 val redirect: 'id log -> ('a,'id) key ->
   ?close:(unit -> unit) -> Format.formatter ref -> unit
-val (.%[]<-): 'b log -> ('a,'b) key -> 'a -> unit
 val replay: 'a log -> 'a log -> unit
 
 val detach: 'id log -> ('id2 record, 'id) key -> 'id2 log

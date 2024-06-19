@@ -461,7 +461,6 @@ module Store = struct
       fun store ~key x ->
         store := Keys.add key.name (key^=x) !store
 
-
   let get (type a b) (key: (a,b) key) (st:b record): a option =
     match Keys.find_opt key.name (fields st) with
     | None -> None
@@ -469,6 +468,10 @@ module Store = struct
         match Type.Id.provably_equal k.id key.id with
         | None -> None
         | Some Type.Equal -> Some x
+
+  let dynamic_get name st =
+    Keys.find_opt name (fields st)
+    |> Option.map (fun (Field(k,x)) -> V (k.typ,x))
 
   let cons: type ty s. s record -> key:(ty list,s) key -> ty -> unit =
     fun store ~key x ->
@@ -711,6 +714,14 @@ let cons key x log =
   | Store st -> Store.cons st.data ~key x
 
 let (.%[]<-) log key x = set key x log
+
+let get key log = match log.mode with
+  | Direct _ -> None
+  | Store st -> Store.get key st.data
+
+let dynamic_get key log = match log.mode with
+  | Direct _ -> None
+  | Store st -> Store.dynamic_get key st.data
 
 let f key log fmt = Format.kasprintf (fun s -> log.%[key] <- s) fmt
 let itemf key log fmt = Format.kasprintf (fun s -> cons key s log) fmt
