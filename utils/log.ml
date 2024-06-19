@@ -200,7 +200,7 @@ and typed_record = R: 'a def * 'a record -> typed_record
 and typed_val = V: 'a typ * 'a -> typed_val
 and printer = {
   record: Format.formatter -> typed_record -> unit;
-  value: Format.formatter -> typed_val -> unit
+  item: Format.formatter -> string * typed_val -> unit
 }
 
 let destruct x f  = match x with
@@ -705,7 +705,7 @@ let set key x log =
     if not !(d.initialized) then
       (Fmt.init log.settings out.ppf ; d.initialized := true);
     Format.fprintf ppf "@[<v>%a@,@]%!"
-     log.printer.value (V(key.typ,x))
+     log.printer.item (key.name, V(key.typ,x))
   | Store st -> Store.record st.data ~key x
 
 let cons key x log =
@@ -773,7 +773,7 @@ let tmp scheme = {
   redirections = Keys.empty;
   version = {major=0; minor=0};
   scheme;
-  printer = { record = (fun _ _ -> ()); value = (fun _ _ -> ()) };
+  printer = { record = (fun _ _ -> ()); item = (fun _ _ -> ()) };
   mode = Store { out=None; data=Record.make [] }
 }
 

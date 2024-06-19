@@ -74,7 +74,7 @@ type key_metadata =
 
 type printer = {
   record: Format.formatter -> typed_record -> unit;
-  value: Format.formatter -> typed_val -> unit;
+  item: Format.formatter -> string * typed_val -> unit;
 }
 
 val destruct: 'a sum -> (string -> typed_val -> 'b) -> 'b

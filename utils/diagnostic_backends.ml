@@ -219,7 +219,6 @@ module Fmt = struct
 
 end
 
-
   let with_conv ~structured ~extension conv settings version ppf scheme =
     let record ppf (R(def, r)) =
       let field_names = field_names def in
@@ -232,8 +231,10 @@ end
         in
         Format.fprintf ppf "%t@." (Fmt.record conv fields)
     in
-    let value ppf (V(typ,r)) = Fmt.elt conv extension typ r ppf in
-    make ~structured ~printer:{record;value} settings version scheme ppf
+    let item ppf (name, V(typ,r)) =
+      Fmt.elt_item conv extension ~key:name typ r ppf
+    in
+    make ~structured ~printer:{record;item} settings version scheme ppf
 
   let structured conv =
     with_conv ~structured:true ~extension:Fmt.no_extension conv
