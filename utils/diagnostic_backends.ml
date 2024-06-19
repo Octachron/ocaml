@@ -161,6 +161,12 @@ module Fmt = struct
     }
   }
 
+  let direct_with_fields =
+    let assoc =
+      { direct.assoc with label_sep = Format.dprintf ": " }
+    in
+    { direct with atom = Format.dprintf "%s"; assoc  }
+
   let sexp =
     let list_open = Format.dprintf "@[("
     and list_close = Format.dprintf ")@]"
@@ -243,6 +249,9 @@ end
   let direct color version ppf sch =
     with_conv ~structured:false ~extension:(!Fmt.extensions)
       Fmt.direct color version ppf sch
+  let direct_with_fields color version ppf sch =
+    with_conv ~structured:false ~extension:(!Fmt.extensions)
+      Fmt.direct_with_fields color version ppf sch
 
 
   type t = {
@@ -250,7 +259,8 @@ end
     make: 'a. Misc.Color.setting option -> version -> Format.formatter ref
       -> 'a def -> 'a log;
   }
-  let fmt = { name="stderr"; make = direct }
+  let fmt = { name="direct"; make = direct }
+  let fmt_with_fields = { name="direct_with_fields"; make = direct_with_fields }
   let sexp = { name="sexp" ; make = sexp }
   let json = { name = "json"; make = json }
 

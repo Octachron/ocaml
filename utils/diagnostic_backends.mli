@@ -28,6 +28,7 @@ type t = {
     'a def -> 'a log;
 }
 val fmt: t
+val fmt_with_fields:t
 val json: t
 val sexp: t
 
