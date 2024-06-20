@@ -83,13 +83,15 @@ module Error: sig
 
   and signature_symptom = {
     env: Env.t;
+    subst: Subst.t;
+    sig1: signature;
+    sig2: signature;
     missings: Types.signature_item list;
     incompatibles: (Ident.t * sigitem_symptom) list;
     oks: (int * Typedtree.module_coercion) list;
     additions: signature_item list;
     untypables: ((Types.signature_item as 'it) * 'it * int) list;
     (** signature items that could not be compared due to type divergence *)
-    subst: Subst.t;
   }
   and sigitem_symptom =
     | Core of core_sigitem_symptom
@@ -139,6 +141,20 @@ module FieldMap: Map.S with type key = field_desc
 
 val item_ident_name: Types.signature_item -> Ident.t * Location.t * field_desc
 val is_runtime_component: Types.signature_item -> bool
+
+module Sign_diff : sig
+  type t = {
+    runtime_coercions: (int * Typedtree.module_coercion) list;
+    shape_map: Shape.Map.t;
+    deep_modifications: bool;
+    errors: (Ident.t * Error.sigitem_symptom) list;
+    untypables: ((Types.signature_item as 'it) * 'it * int) list;
+  }
+
+  val empty : t
+
+  val merge : t -> t -> t
+end
 
 
 (* Typechecking *)
@@ -194,12 +210,11 @@ val check_modtype_inclusion :
 val check_modtype_equiv:
   loc:Location.t -> Env.t -> Ident.t -> module_type -> module_type -> unit
 
-
-
 val is_modtype_equiv:
   Env.t -> module_type -> module_type -> bool
 
-val signatures: Env.t -> mark:bool ->
+val signatures:
+  Env.t -> ?subst:Subst.t -> mark:bool ->
   signature -> signature -> module_coercion
 
 (** Check an implementation against an interface *)

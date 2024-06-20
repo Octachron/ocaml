@@ -447,6 +447,23 @@ let signature_item_id = function
   | Sig_class_type (id, _, _, _)
     -> id
 
+let rename_item new_ident item =
+  match item with
+  | Sig_value (_, desc, vis) ->
+      Sig_value (new_ident, desc, vis)
+  | Sig_type (_, decl, rec_status, vis) ->
+      Sig_type (new_ident, decl, rec_status, vis)
+  | Sig_typext (_, constr, ext_status, vis) ->
+      Sig_typext (new_ident, constr, ext_status, vis)
+  | Sig_module (_, presence, decl, rec_status, vis) ->
+      Sig_module (new_ident, presence, decl, rec_status, vis)
+  | Sig_modtype (_, decl, vis) ->
+      Sig_modtype (new_ident, decl, vis)
+  | Sig_class (_, decl, rec_status, vis) ->
+      Sig_class (new_ident, decl, rec_status, vis)
+  | Sig_class_type (_, decl, rec_status, vis) ->
+     Sig_class_type (new_ident, decl, rec_status, vis)
+
 (**** Definitions for backtracking ****)
 
 type change =
