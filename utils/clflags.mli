@@ -239,6 +239,9 @@ val error_style_reader : Misc.Error_style.setting env_reader
 
 val log_format: Diagnostic_backends.t option ref
 val log_format_reader: Diagnostic_backends.t env_reader
+val log_version: Log.Version.t option ref
+val log_version_reader: Log.Version.t env_reader
+
 
 val unboxed_types : bool ref
 
@@ -277,6 +280,15 @@ val print_arguments : string -> unit
 
 (* [reset_arguments ()] clear all declared arguments *)
 val reset_arguments : unit -> unit
+
+
+(** create a logger *)
+val create_log_on_formatter_ref:
+  default_backend:Diagnostic_backends.t
+  -> 'v Log.Version.history
+  -> 'a Log.def
+  -> Format.formatter ref
+  -> 'a Log.t
 
 val show_config_and_exit : unit -> unit
   (** Display the values of all compiler configuration variables from module

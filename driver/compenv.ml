@@ -374,9 +374,18 @@ let read_one_param ppf position name v =
       begin match log_format_reader.parse v with
       | None ->
           Printf.ksprintf (print_error ppf)
-            "bad value %s for \"log-format\", (%s)" v error_style_reader.usage
+            "bad value %s for \"log-format\", (%s)" v log_format_reader.usage
       | Some backend -> log_format := Some backend
       end
+
+  | "log-version" ->
+      begin match log_version_reader.parse v with
+      | None ->
+          Printf.ksprintf (print_error ppf)
+            "bad value %s for \"log-version\", (%s)" v log_version_reader.usage
+      | Some backend -> log_version := Some backend
+      end
+
 
   | "intf-suffix" -> Config.interface_suffix := v
 

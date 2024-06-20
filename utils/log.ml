@@ -20,7 +20,9 @@ module Keys = Map.Make(K)
 module Version = struct
 
   type t = { major:int; minor:int }
-  type range = { introduction: t; deprecation: t option }
+  let make ~major ~minor = { major; minor }
+
+  type range = { introduction: t; deprecation: t option; deletion: t option }
 
   type error =
     | Duplicate_key of string
@@ -425,7 +427,11 @@ end
 
 let version_range key scheme =
   let Key_metadata r =  scheme.!(key) in
-  { Version.introduction = r.creation; deprecation = r.deprecation }
+  {
+    Version.introduction = r.creation;
+    deprecation = r.deprecation;
+    deletion = r.deletion
+  }
 
 
 module Record = struct

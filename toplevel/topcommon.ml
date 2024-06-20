@@ -415,12 +415,12 @@ let compiler_log log =
   clog
 
 let log_on_formatter ppf =
-  let version = Log.Version.current_version Reports.V.history in
-  let backend =
-    Option.value ~default:Diagnostic_backends.fmt !Clflags.log_format
-  in
   let log =
-    backend.make !Clflags.color version (ref ppf) Reports.Toplevel.scheme
+    Clflags.create_log_on_formatter_ref
+      ~default_backend:Diagnostic_backends.fmt
+      Reports.V.history
+      Reports.Toplevel.scheme
+      (ref ppf)
   in
   let _ = compiler_log log in
   log

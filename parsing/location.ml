@@ -809,8 +809,6 @@ module Error_log = struct[@warning "-unused-value-declaration"]
       sub ^= report.sub;
       quotable_locs ^= report.quotable_locs;
     ]
-
-
   let report_typ = Custom { id = Error; pull; default = Reports.Error.raw_type }
   let key = Reports.Compiler.new_field_opt v1 "error" report_typ
   let warnings = Reports.Compiler.new_field_opt v1 "warnings" (List report_typ)
@@ -1058,11 +1056,11 @@ let () =
 let formatter_for_warnings = ref Format.err_formatter
 
 let create_log_on_formatter_ref ppf =
-  let version = Log.(Version.current_version Reports.V.history)  in
-  let backend =
-    Option.value ~default:Diagnostic_backends.fmt !Clflags.log_format
+  let default_backend = Diagnostic_backends.fmt in
+  let log =
+    Clflags.create_log_on_formatter_ref ~default_backend
+      Reports.V.history Reports.Compiler.scheme ppf
   in
-  let log = backend.make !Clflags.color version ppf Reports.Compiler.scheme in
   if !formatter_for_warnings != Format.err_formatter then
     Log.redirect log Error_log.warnings formatter_for_warnings;
   log

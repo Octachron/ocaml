@@ -25,9 +25,10 @@ type 'a t = 'a log
 (** {1:log_scheme_versionning  Current version of the log } *)
 module Version: sig
   type t = { major:int; minor:int }
-  type range = { introduction: t; deprecation: t option }
+  type range = { introduction: t; deprecation: t option; deletion:t option }
   type 'a history
   type 'a update
+  val make: major:int -> minor:int -> t
   val v: 'a update -> t
   val new_version: 'a history -> t -> 'a update
   val current_version: 'a history -> t

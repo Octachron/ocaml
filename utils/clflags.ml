@@ -426,6 +426,20 @@ let log_format_reader = {
   usage={|expected "stdout", "json", or "sexp"|};
   env_var = "OCAML_LOG_FORMAT"
 }
+let log_version = ref None
+let log_version_reader =
+  let parse s =
+    Scanf.sscanf_opt s "%d.%d"
+      (fun major minor -> Log.Version.make ~minor ~major)
+  in
+  {
+    parse;
+    print = (Format.asprintf "%a" Log.Version.pp_version);
+    usage={|expected "%d.%d"|};
+    env_var = "OCAML_LOG_VERSION"
+  }
+
+
 
 let unboxed_types = ref false
 
@@ -595,7 +609,11 @@ let print_arguments program =
   Arg.usage !arg_spec (create_usage_msg program)
 
 let create_log_on_formatter_ref ~default_backend history scheme ppf =
-  let version = Log.Version.current_version history  in
+  let current_version = Log.Version.current_version history in
+  let version = match !log_version with
+    | None -> current_version
+    | Some v -> min v current_version
+  in
   let backend =
     Option.value ~default:default_backend !log_format
   in
