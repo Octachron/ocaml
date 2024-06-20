@@ -20,6 +20,7 @@ let output = ref None
 let version = ref None
 let log_schemas = [
   "meta";
+  "config";
   "compiler";
   "toplevel"; "error"; "kind"; "msg"; ]
 
@@ -52,6 +53,8 @@ let schema v ppf =
   | None -> ()
   | Some "meta" ->
     Format.fprintf ppf "%t@." (JSchema.pp v Log.Metadata.scheme)
+  | Some "config" ->
+    Format.fprintf ppf "%t@." (JSchema.pp v Config.scheme)
   | Some "compiler" ->
     Format.fprintf ppf "%t@." (JSchema.pp v Compiler.scheme)
   | Some "toplevel" ->
@@ -66,8 +69,12 @@ let schema v ppf =
 
 let history ppf =
   if !history then
-    Format.fprintf ppf "@[<v 2>Metadata:@,%a@;<0 -2>Main:@,%a@]%!"
+    Format.fprintf ppf
+      "@[<v 2>Metadata:@,%a@;<0 -2>\
+      Config:@,%a@;<0 -2>\
+       Main:@,%a@]%!"
       Version.pp_history Metadata_versions.history
+      Version.pp_history Config_versions.history
       Version.pp_history V.history
 
 let () =

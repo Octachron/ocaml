@@ -6,6 +6,66 @@ Metadata:
       Key valid, b
       Key invalid_paths, ?l l s
       Seal
+Config:
+  v1.0
+    config
+      Creation
+      Key version, s
+      Key standard_library_default, s
+      Key standard_library, s
+      Key ccomp_type, s
+      Key c_compiler, s
+      Key ocamlc_cflags, s
+      Key ocamlc_cppflags, s
+      Key ocamlopt_cflags, s
+      Key ocamlopt_cppflags, s
+      Key bytecomp_c_compiler, s
+      Key native_c_compiler, s
+      Key bytecomp_c_libraries, s
+      Key native_c_libraries, s
+      Key native_ldflags, s
+      Key native_pack_linker, s
+      Key native_compiler, b
+      Key architecture, s
+      Key model, s
+      Key int_size, i
+      Key word_size, i
+      Key system, s
+      Key asm, s
+      Key asm_cfi_supported, b
+      Key with_frame_pointers, b
+      Key ext_exe, s
+      Key ext_obj, s
+      Key ext_asm, s
+      Key ext_lib, s
+      Key ext_dll, s
+      Key os_type, s
+      Key default_executable_name, s
+      Key systhread_supported, b
+      Key host, s
+      Key target, s
+      Key flambda, b
+      Key safe_string, b
+      Key default_safe_string, b
+      Key flat_float_array, b
+      Key function_sections, b
+      Key afl_instrument, b
+      Key tsan, b
+      Key windows_unicode, b
+      Key supports_shared_libraries, b
+      Key native_dynlink, b
+      Key naked_pointers, b
+      Key exec_magic_number, s
+      Key cmi_magic_number, s
+      Key cmo_magic_number, s
+      Key cma_magic_number, s
+      Key cmx_magic_number, s
+      Key cmxa_magic_number, s
+      Key ast_impl_magic_number, s
+      Key ast_intf_magic_number, s
+      Key cmxs_magic_number, s
+      Key cmt_magic_number, s
+      Key linear_magic_number, s
 Main:
   v1.0
     box_type

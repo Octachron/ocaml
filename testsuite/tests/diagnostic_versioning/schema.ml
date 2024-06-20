@@ -14,4 +14,12 @@
  script;
  check-program-output;
 }
+{
+ reference = "${ocamlsrcdir}/diagnostic_schemes/config_scheme.json";
+ readonly_files = "${ocamlsrcdir}/diagnostic_schemes/config_scheme.json";
+ output = "config_scheme.output";
+ script = "${ocamlrun} ${ocamlsrcdir}/tools/ocamldiaginfo -json-schema config -o ${output}";
+ script;
+ check-program-output;
+}
 *)

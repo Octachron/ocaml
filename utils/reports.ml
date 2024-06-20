@@ -315,6 +315,12 @@ let log_variables log =
   log.%[ocamlc_cppflags] <- Config.ocamlc_cppflags;
   log.%[ocamlopt_cflags] <- Config.ocamlc_cflags;
   log.%[ocamlopt_cppflags] <- Config.ocamlc_cppflags;
+(* bytecomp_c_compiler and native_c_compiler have been supported for a
+   long time and are retained for backwards compatibility.
+   For programs that don't need compatibility with older OCaml releases
+   the recommended approach is to use the constituent variables
+   c_compiler, ocamlc_cflags, ocamlc_cppflags etc., directly.
+*)
   log.%[bytecomp_c_compiler] <-
    Config.(c_compiler ^ " " ^ ocamlc_cflags ^ " " ^ ocamlc_cppflags);
   log.%[native_c_compiler] <-
