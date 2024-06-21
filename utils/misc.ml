@@ -1121,7 +1121,10 @@ module Trie = struct
     aux (String.to_seq string) (String.length string) trie
 
   let of_list entries =
-    List.fold_left (fun trie (string, data) -> add trie string data) empty entries
+    List.fold_left
+      (fun trie (string, data) -> add trie string data)
+      empty
+      entries
 
   let compute_preferences (type a) ?(deletion_cost = 1) ?(insertion_cost = 1)
       ?(substitution_cost = 1) ?(cutoff : int option) (trie : a t)
@@ -1152,7 +1155,8 @@ module Trie = struct
       let estimate_remaining_distance remaining_length trie =
         let open Maybe_infinite in
         match (trie.shortest_suffix, trie.longest_suffix) with
-        | Some (shortest_length, _), _ when remaining_length <= shortest_length ->
+        | Some (shortest_length, _), _
+        when remaining_length <= shortest_length ->
             Finite ((shortest_length - remaining_length) * insertion_cost)
         | _, Some (longest_length, _) when remaining_length >= longest_length ->
             Finite ((remaining_length - longest_length) * deletion_cost)
@@ -1163,7 +1167,12 @@ module Trie = struct
         match estimate_remaining_distance remaining_length trie with
         | Finite remaining_distance_estimation ->
             Some
-              { trie; remaining_length; distance; remaining_distance_estimation }
+              {
+                trie;
+                remaining_length;
+                distance;
+                remaining_distance_estimation
+              }
         | Infinity () -> None
 
       (** Computes a list of all possible states after performing a single
@@ -1217,7 +1226,9 @@ module Trie = struct
     let module PriorityQueue = Pqueue.MakeMin (State) in
 
     let queue = PriorityQueue.create () in
-    Option.iter (fun state -> PriorityQueue.add queue state) (State.make trie n 0);
+    Option.iter
+      (fun state -> PriorityQueue.add queue state)
+      (State.make trie n 0);
     let seen_states = Hashtbl.create trie.subtrie_count in
 
     let rec compute = fun () ->
