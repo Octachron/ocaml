@@ -1057,9 +1057,16 @@ module Maybe_infinite = struct
 end
 
 module Trie = struct
+  let new_uid =
+    let counter = ref 0 in
+    fun () ->
+      incr counter;
+      !counter
+
   module CharMap = Map.Make (Char)
 
   type 'a t = {
+    uid : int;
     leaf_data : 'a option;
     strict_suffixes : 'a t CharMap.t;
     subtrie_count : int;
@@ -1071,6 +1078,7 @@ module Trie = struct
 
   let empty =
     {
+      uid = new_uid ();
       leaf_data = None;
       strict_suffixes = CharMap.empty;
       subtrie_count = 1;
@@ -1094,6 +1102,7 @@ module Trie = struct
       | Seq.Nil ->
           {
             trie with
+            uid = new_uid ();
             leaf_data = Some data;
             shortest_suffix;
             longest_suffix;
@@ -1111,6 +1120,7 @@ module Trie = struct
                 trie.strict_suffixes
           in
           {
+            uid = new_uid ();
             leaf_data = trie.leaf_data;
             strict_suffixes;
             subtrie_count = !subtrie_count;
@@ -1238,7 +1248,7 @@ module Trie = struct
           if Maybe_infinite.Finite (State.priority state) > cutoff then
             Seq.Nil
           else
-            let state_id = state.State.trie, state.State.remaining_length in
+            let state_id = state.State.trie.uid, state.State.remaining_length in
             if Hashtbl.mem seen_states state_id then
               compute ()
             else (
