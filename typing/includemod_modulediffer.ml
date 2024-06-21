@@ -37,7 +37,9 @@ let apply_suggestion subst suggestion =
   | _ -> subst
 
 let fuzzy_match_names compatibility_test missings additions =
-  let cutoff = 8 in
+  (* The edit distance between an existing name and a suggested rename must be
+     at most half the length of the name. *)
+  let cutoff name = String.length name / 2 in
   let m = List.length missings in
   let n = List.length additions in
 
@@ -55,7 +57,10 @@ let fuzzy_match_names compatibility_test missings additions =
       in
       Array.init m (fun i ->
           let missing_name = field_name missing_fields.(i) in
-          Misc.Trie.compute_preferences ~cutoff added_names missing_name)
+          Misc.Trie.compute_preferences
+            ~cutoff:(cutoff missing_name)
+            added_names
+            missing_name)
     in
     (* [is_married.(i)] indicates whether there exists a [j] such that
         [missing_fields.(i)] and [added_fields.(j)] are married. *)
@@ -129,10 +134,11 @@ let fuzzy_match_names compatibility_test missings additions =
     let compute_distance expected_field added_field =
       if compatibility_test expected_field added_field then
         let distance =
+          let expected_name = field_name expected_field in
           Misc.edit_distance
-            (field_name expected_field)
+            expected_name
             (field_name added_field)
-            cutoff
+            (cutoff expected_name)
         in
         Misc.Maybe_infinite.of_option distance
       else
@@ -145,17 +151,18 @@ let fuzzy_match_names compatibility_test missings additions =
       missings
       |> List.filter
         (fun missing_field ->
+          let missing_name = field_name missing_field in
           match
             list_extract
               (fun added_field ->
                 compute_distance missing_field added_field
-                  < Misc.Maybe_infinite.Finite cutoff)
+                  < Misc.Maybe_infinite.Finite (cutoff missing_name))
               !remaining_added_fields
           with
           | None -> true
           | Some (added_field, additions) ->
               let name_change =
-                Suggest_rename (added_field.item, field_name missing_field)
+                Suggest_rename (added_field.item, missing_name)
               in
               name_changes := name_change :: !name_changes;
               remaining_added_fields := additions;
