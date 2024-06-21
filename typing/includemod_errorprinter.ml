@@ -927,6 +927,7 @@ and signature ~expansion_token ~env:_ ~before ~ctx:_ sgs =
   in
 
   Printtyp.wrap_printing_env ~error:true sgs.env (fun () ->
+      let iterations = 2 in
       let rec compute_succesive_suggestions sgs i =
         if i = 0 then
           []
@@ -1045,9 +1046,7 @@ and signature ~expansion_token ~env:_ ~before ~ctx:_ sgs =
 
           let new_suggestions =
             class_suggestions
-            (* @ class_type_changes *)
             @ module_suggestions
-            (* @ module_type_changes *)
             @ value_suggestions
             @ value_type_changes
             @ class_type_suggestions
@@ -1055,36 +1054,18 @@ and signature ~expansion_token ~env:_ ~before ~ctx:_ sgs =
             @ type_suggestions
           in
 
-          let (env', subst') =
-            List.fold_left
-              (fun (env, subst) suggestion ->
-                match suggestion with
-                | Suggest_add item ->
-                    (Env.add_item item env, subst)
-                | Suggest_rename (Sig_type (id, _, _, _), suggested_name) ->
-                    let old_path = Path.Pident id in
-                    let new_ident = Ident.create_local suggested_name in
-                    (env, Subst.add_type new_ident old_path subst)
-                | Suggest_rename (item, suggested_name) ->
-                    let renamed_item =
-                      Types.rename_item (Ident.create_local suggested_name) item
-                    in
-                    (Env.add_item renamed_item env, subst)
-                | Suggest_change_value_type (_id, _ty) ->
-                    (env, subst)
-              )
-              (sgs.env, sgs.subst)
-              new_suggestions
+          let subst' =
+            List.fold_left apply_suggestion sgs.subst new_suggestions
           in
 
-          match compute_signature_diff env' subst' sgs.sig1 sgs.sig2 with
+          match compute_signature_diff sgs.env subst' sgs.sig1 sgs.sig2 with
           | None -> new_suggestions
           | Some sgs ->
               compute_succesive_suggestions sgs (i - 1) @ new_suggestions
       in
 
       if expansion_token then
-        let suggestions = compute_succesive_suggestions sgs 1 in
+        let suggestions = compute_succesive_suggestions sgs iterations in
         List.map suggestion_text suggestions @ before
       else
         before

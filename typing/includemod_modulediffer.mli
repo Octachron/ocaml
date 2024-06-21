@@ -26,6 +26,8 @@ type suggestion =
   | Suggest_rename of Types.signature_item * string
   | Suggest_change_value_type of Ident.t * Types.type_expr
 
+val apply_suggestion : Subst.t -> suggestion -> Subst.t
+
 val fuzzy_match_names :
   (('v, 't) field ->
   ('v, 't) field -> bool) ->

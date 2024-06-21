@@ -2372,7 +2372,6 @@ let enter_signature ?mod_shape ~scope sg env =
 let enter_signature_and_shape ~scope ~parent_shape mod_shape sg env =
   enter_signature_and_shape ~scope ~parent_shape (Some mod_shape) sg env
 
-let add_item item env = snd (add_item (Shape.Map.empty, None) item env)
 let add_value = add_value ?shape:None
 let add_class = add_class ?shape:None
 let add_cltype = add_cltype ?shape:None

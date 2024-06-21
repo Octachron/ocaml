@@ -307,7 +307,6 @@ val make_copy_of_types: t -> (t -> t)
 
 (* Insertion by identifier *)
 
-val add_item: Types.signature_item -> t -> t
 val add_value:
     ?check:(string -> Warnings.t) -> Ident.t -> value_description -> t -> t
 val add_type:

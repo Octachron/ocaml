@@ -26,6 +26,16 @@ type suggestion =
   | Suggest_rename of Types.signature_item * string
   | Suggest_change_value_type of Ident.t * Types.type_expr
 
+let apply_suggestion subst suggestion =
+  match suggestion with
+  | Suggest_rename (item, suggested_name) ->
+      (* FIXME: This does not work. *)
+      let id = Types.signature_item_id item in
+      let old_path = Path.Pident id in
+      let new_ident = Ident.create_local suggested_name in
+      Subst.add_type new_ident old_path subst
+  | _ -> subst
+
 let fuzzy_match_names compatibility_test missings additions =
   let cutoff = 8 in
   let m = List.length missings in
