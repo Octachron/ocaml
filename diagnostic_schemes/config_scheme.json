@@ -8,13 +8,19 @@
           "type" : "object",
           "properties" :
             {
+              "deprecated_paths" :
+                {
+                  "type" : "array",
+                  "items" :
+                    { "type" : "array", "items" : { "type" : "string"}}
+                },
               "invalid_paths" :
                 {
                   "type" : "array",
                   "items" :
                     { "type" : "array", "items" : { "type" : "string"}}
                 },
-              "valid" : { "type" : "boolean"},
+              "valid" : { "$ref" : "#/$defs/validity"},
               "version" :
                 {
                   "type" : "array",
@@ -23,6 +29,12 @@
                 }
             },
           "required" : ["valid", "version"]
+        },
+      "validity" :
+        {
+          "oneOf" :
+            [{ "const" : "Invalid"}, { "const" : "Deprecated"},
+              { "const" : "Full"}]
         }
     },
   "schema" : { "type" : "object"},

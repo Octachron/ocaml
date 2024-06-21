@@ -342,12 +342,23 @@ let (.!()) scheme key =
   | Some x -> x
   | None -> assert false
 
+type key_status =
+  | Valid
+  | Deprecated
+  | Deleted
+  | Future
+
+let key_status version (Key_metadata kmd) =
+  if version < kmd.creation then Future
+  else match kmd.deprecation, kmd.deletion with
+    | _, Some del when del <= version -> Deleted
+    | Some dc, _ when dc <= version -> Deprecated
+    | _ -> Valid
+
 let active_key version scheme key =
-  let Key_metadata m = scheme.!(key) in
-  not (version < m.creation) &&
-  match m.deletion with
-  | None -> true
-  | Some del -> version < del
+  match key_status version (scheme.!(key)) with
+  | Valid | Deprecated -> true
+  | Future | Deleted -> false
 
 let make_required u key scheme =
   let Key_metadata r = scheme.!(key) in
@@ -508,9 +519,21 @@ module Metadata = struct
       let update = v1
     end)()
   let version = new_field v1 "version" version_ty
-  let valid = new_field v1 "valid" Bool
+  module Validity = struct
+    include New_sum(Metadata_versions)(struct
+        let name = "validity"
+        let update = v1
+        end
+      )()
+      let full = new_constr0 v1 "Full"
+      let deprecated = new_constr0 v1 "Deprecated"
+      let invalid = new_constr0 v1 "Invalid"
+      let () = seal v1
+  end
+  let valid = new_field v1 "valid" Validity.raw_type
   let path = List String
   let invalid_paths = new_field_opt v1 "invalid_paths" (List path)
+  let deprecated_paths = new_field_opt v1 "deprecated_paths" (List path)
   let () = seal v1
   let universal_key = make_key "metadata" (Record scheme)
   let metakey = "metadata", key_metadata ~optional:false v1 universal_key
@@ -522,6 +545,17 @@ let metakey = Metadata.metakey
 module Validation = struct
 
   type path = string list
+  type report_paths = { deprecated: path list; invalid: path list }
+  let (@^) h l = {
+    deprecated = h.deprecated @ l.deprecated;
+    invalid = h.invalid @ l.invalid
+  }
+  let none =  { invalid = []; deprecated=[]}
+  let invalid x = { invalid = [x]; deprecated = [] }
+  let deprecated x = { deprecated = [x]; invalid = [] }
+  let concat_map f l = List.fold_left (fun acc x -> f x @^ acc) none l
+
+
 
   let rec possibly_invalid: type a. a typ -> bool = function
     | Unit -> false
@@ -541,75 +575,92 @@ module Validation = struct
     | Sum _ -> true
     | Record _ -> true
 
-  let rec record: type id.
-    ?toplevel:bool -> version:version -> id def -> id record -> path list =
-    fun ?(toplevel=false) ~version sch st ->
-      (* don't add validation metakeys to empty sublog*)
-      let invalid = fields ~version sch.keys (Record.fields st) in
-      if toplevel then begin
-        let metadata =
-          let open Record in
-          make [
-            Metadata.version ^= version;
-            Metadata.valid ^= List.is_empty invalid;
-            Metadata.invalid_paths ^= invalid;
-          ]
-        in
-        Store.record st ~key:Metadata.universal_key metadata
-      end;
-      invalid
 
+
+
+  let rec record: type id.
+    ?toplevel:bool -> version:version -> id def -> id record -> report_paths =
+    fun ?(toplevel=false) ~version sch st ->
+    let r = fields ~version sch.keys (Record.fields st) in
+    (* don't add validation metakeys to empty sublog*)
+    if toplevel then begin
+      let valid = match List.is_empty r.deprecated, List.is_empty r.invalid with
+        | true, true -> Metadata.Validity.full
+        | false, true ->Metadata. Validity.deprecated
+        | _, false -> Metadata.Validity.invalid
+      in
+      let metadata =
+        let open Record in
+        make [
+          Metadata.version ^= version;
+          Metadata.valid ^= valid;
+          Metadata.invalid_paths ^= r.invalid;
+          Metadata.deprecated_paths ^= r.deprecated;
+        ]
+      in
+      Store.record st ~key:Metadata.universal_key metadata
+    end;
+    r
   and fields: type id.
     version:version -> (Keys.key * key_metadata) list -> id field Keys.t
-    -> path list =
-    fun ~version metadata data ->
-      List.concat_map (fun  (k,kmd) ->
-        List.map (fun path -> k :: path)
-        @@ field  ~version ~optional:(is_optional kmd)
-        @@ Keys.find_opt k data
+    -> report_paths = fun ~version metadata data ->
+    concat_map (fun (k,kmd) ->
+        match key_status version kmd with
+        | Future | Deleted -> invalid [k]
+        | Deprecated ->
+            deprecated [k]  @^
+            field  ~version ~optional:(is_optional kmd) (Keys.find_opt k data)
+        | Valid ->
+            field  ~version ~optional:(is_optional kmd) (Keys.find_opt k data)
       ) metadata
   and field: type a.
-    version:version -> optional:bool -> a field option -> path list =
+    version:version -> optional:bool -> a field option -> report_paths =
     fun ~version ~optional k ->
-      match optional, k with
-      | true, None -> []
-      | _, None -> [[]]
-      | _, Some (Field (k,v)) -> value ~version v k.typ
-  and value: type a. version:version -> a -> a typ -> path list =
+    match optional, k with
+    | true, None -> none
+    | false, None -> invalid []
+    | _, Some (Field (k,v)) -> value ~version v k.typ
+  and value: type a. version:version -> a -> a typ -> report_paths =
     fun ~version v typ ->
-      match typ with
-      | Record m -> record ~version m v
-      | Int -> []
-      | Bool -> []
-      | String -> []
-      | Custom _ -> []
-      | Unit -> []
-      | List elt ->
-          if possibly_invalid elt then
-            List.concat_map (fun v -> value ~version v elt) v
-          else []
-      | Pair (x,y) ->
-          let vx, vy = v in
-          value ~version vx x @ value ~version vy y
-      | Triple (x,y,z) ->
-          let vx, vy, vz = v in
-          value ~version vx x
-          @ value ~version vy y
-          @ value ~version vz z
-      | Quadruple (x,y,z,w) ->
-          let vx, vy, vz, vw = v in
-          value ~version vx x
-          @ value ~version vy y
-          @ value ~version vz z
-          @ value ~version vw w
-      | Sum def ->
-          begin match v with
-          | Enum _ -> []
-          | Constr(k, v) ->
-              if active_key version def k then value ~version v k.typ
-              else [[k.name]]
-          end
-
+    match typ with
+    | Record m -> record ~version m v
+    | Int -> none
+    | Bool -> none
+    | String -> none
+    | Custom _ -> none
+    | Unit -> none
+    | List elt ->
+        if possibly_invalid elt then
+          concat_map (fun v -> value ~version v elt) v
+        else none
+    | Pair (x,y) ->
+        let vx, vy = v in
+        value ~version vx x @^ value ~version vy y
+    | Triple (x,y,z) ->
+        let vx, vy, vz = v in
+        value ~version vx x
+        @^ value ~version vy y
+        @^ value ~version vz z
+    | Quadruple (x,y,z,w) ->
+        let vx, vy, vz, vw = v in
+        value ~version vx x
+        @^ value ~version vy y
+        @^ value ~version vz z
+        @^ value ~version vw w
+    | Sum def ->
+        match v with
+        | Enum k ->
+            begin match key_status version def.!(k) with
+            | Valid -> none
+            | Future | Deleted -> invalid [k.name]
+            | Deprecated -> deprecated [k.name]
+            end
+        | Constr(k, v) ->
+            begin match key_status version def.!(k) with
+            | Valid -> value ~version v k.typ
+            | Future | Deleted -> invalid [k.name]
+            | Deprecated -> deprecated [k.name] @^ value ~version v k.typ
+            end
 end
 
 

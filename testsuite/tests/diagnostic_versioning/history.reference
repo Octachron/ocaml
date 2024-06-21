@@ -3,8 +3,15 @@ Metadata:
     metadata
       Creation
       Key version, i*i
-      Key valid, b
+      Key valid, validity
       Key invalid_paths, ?l l s
+      Key deprecated_paths, ?l l s
+      Seal
+    validity
+      Creation
+      Key Full
+      Key Deprecated
+      Key Invalid
       Seal
 Config:
   v1.0
