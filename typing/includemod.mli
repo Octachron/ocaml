@@ -87,7 +87,7 @@ module Error: sig
     sig1: signature;
     sig2: signature;
     missings: Types.signature_item list;
-    incompatibles: (Ident.t * sigitem_symptom) list;
+    incompatibles: (Types.signature_item * sigitem_symptom) list;
     oks: (int * Typedtree.module_coercion) list;
     additions: signature_item list;
     untypables: ((Types.signature_item as 'it) * 'it * int) list;
@@ -141,20 +141,6 @@ module FieldMap: Map.S with type key = field_desc
 
 val item_ident_name: Types.signature_item -> Ident.t * Location.t * field_desc
 val is_runtime_component: Types.signature_item -> bool
-
-module Sign_diff : sig
-  type t = {
-    runtime_coercions: (int * Typedtree.module_coercion) list;
-    shape_map: Shape.Map.t;
-    deep_modifications: bool;
-    errors: (Ident.t * Error.sigitem_symptom) list;
-    untypables: ((Types.signature_item as 'it) * 'it * int) list;
-  }
-
-  val empty : t
-
-  val merge : t -> t -> t
-end
 
 
 (* Typechecking *)

@@ -21,10 +21,17 @@ type ('v, 't) field = {
 
 val field_name : ('v, 't) field -> string
 
+type rename_suggestion = {
+  item_to_rename : Types.signature_item;
+  suggested_ident : Ident.t;
+}
+
 type suggestion =
   | Suggest_add of Types.signature_item
-  | Suggest_rename of Types.signature_item * string
-  | Suggest_change_value_type of Ident.t * Types.type_expr
+  | Suggest_rename of rename_suggestion
+  | Suggest_change_value_type of Types.signature_item * Types.type_expr
+
+val suggestion_item : suggestion -> Types.signature_item
 
 val apply_suggestion : Subst.t -> suggestion -> Subst.t
 

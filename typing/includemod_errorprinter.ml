@@ -743,8 +743,10 @@ let suggest_renaming_field ppf (item, suggested_name) =
     Style.inline_code (Ident.name current_id)
     Style.inline_code suggested_name
 
-let suggest_changing_value_type ppf (id, suggested_type) =
-  Fmt.fprintf ppf "Try changing value %a to be a %a"
+let suggest_changing_value_type ppf (item, suggested_type) =
+  let id, _, kind = Includemod.item_ident_name item in
+  Fmt.fprintf ppf "Try changing %s %a to be a %a"
+    (Includemod.kind_of_field_desc kind)
     Style.inline_code (Ident.name id)
     (Style.as_inline_code Printtyp.type_expr) suggested_type
 
@@ -891,20 +893,63 @@ and functor_symptom ~expansion_token ~env ~before ~ctx = function
 and signature ~expansion_token ~env:_ ~before ~ctx:_ sgs =
   let open Includemod_modulediffer in
 
+  let module ItemId = struct
+    type item_kind =
+      | Value
+      | Module
+      | Class
+      | Type
+      | Module_type
+      | Class_type
+      | Type_ext
+
+    type t = item_kind * string
+
+    let of_item item =
+      let open Types in
+      match item with
+      | Sig_value (id, _, _) -> Value, Ident.name id
+      | Sig_type (id, _, _, _) -> Type, Ident.name id
+      | Sig_typext (id, _, _, _) -> Type_ext, Ident.name id
+      | Sig_module (id, _, _, _, _) -> Module, Ident.name id
+      | Sig_modtype (id, _, _) -> Module_type, Ident.name id
+      | Sig_class (id, _, _, _) -> Class, Ident.name id
+      | Sig_class_type (id, _, _, _) -> Class_type, Ident.name id
+
+    let compare = compare
+  end in
+  let module AffectedItemSet = Set.Make (ItemId) in
+
   let suggestion_for_any_order destructor compatibility_test =
     let missing_fields = List.filter_map destructor sgs.missings in
     let added_fields = List.filter_map destructor sgs.additions in
 
-    fuzzy_match_names compatibility_test missing_fields added_fields
+    let suggestions =
+      fuzzy_match_names compatibility_test missing_fields added_fields
+    in
+
+    suggestions
   in
 
-  let suggestions_for_first_order destructor compatibility_test =
-    suggestion_for_any_order
-      (fun item ->
-        Option.map
-          (fun (item, value, type_) -> { item; value; type_ })
-          (destructor item))
-      compatibility_test
+  let suggestions_for_first_order
+    destructor
+    compatibility_test
+    type_change_destructor
+  =
+    let general_suggestions =
+      suggestion_for_any_order
+        (fun item ->
+          Option.map
+            (fun (item, value, type_) -> { item; value; type_ })
+            (destructor item))
+        compatibility_test
+    in
+
+    let type_changes =
+      List.filter_map type_change_destructor sgs.incompatibles
+    in
+
+    general_suggestions @ type_changes
   in
 
   let suggestions_for_second_order destructor compatibility_test =
@@ -920,15 +965,16 @@ and signature ~expansion_token ~env:_ ~before ~ctx:_ sgs =
     match suggestion with
     | Suggest_add item ->
         (Location.msg "%a" suggest_adding_field) item
-    | Suggest_rename (item, suggested_name) ->
+    | Suggest_rename {item_to_rename = item; suggested_ident} ->
+        let suggested_name = Ident.name suggested_ident in
         (Location.msg "%a" suggest_renaming_field) (item, suggested_name)
-    | Suggest_change_value_type (id, suggested_type) ->
-        (Location.msg "%a" suggest_changing_value_type) (id, suggested_type)
+    | Suggest_change_value_type (item, suggested_type) ->
+        (Location.msg "%a" suggest_changing_value_type) (item, suggested_type)
   in
 
   Printtyp.wrap_printing_env ~error:true sgs.env (fun () ->
       let iterations = 2 in
-      let rec compute_succesive_suggestions sgs i =
+      let rec compute_succesive_suggestions sgs already_affected_items i =
         if i = 0 then
           []
         else
@@ -1001,14 +1047,10 @@ and signature ~expansion_token ~env:_ ~before ~ctx:_ sgs =
                 with
                 | Ok _ -> true
                 | Error _ -> false)
-          in
-
-          let value_type_changes =
-            sgs.incompatibles
-            |> List.filter_map Includemod.Error.(function
-              | id, Core (Value_descriptions {expected; _}) ->
-                Some (Suggest_change_value_type (id, expected.val_type))
-              | _ -> None)
+              Includemod.Error.(function
+                | item, Core (Value_descriptions {expected; _}) ->
+                  Some (Suggest_change_value_type (item, expected.val_type))
+                | _ -> None)
           in
 
           let module_suggestions =
@@ -1024,6 +1066,8 @@ and signature ~expansion_token ~env:_ ~before ~ctx:_ sgs =
                   sgs.env
                   gotten.type_
                   expected)
+              (* TODO: Implement that. *)
+              (fun _ -> None)
           in
 
           let class_suggestions =
@@ -1042,16 +1086,28 @@ and signature ~expansion_token ~env:_ ~before ~ctx:_ sgs =
                 with
                 | Ok _ -> true
                 | Error _ -> false)
+              (* TODO: Implement that. *)
+              (fun _ -> None)
           in
 
           let new_suggestions =
             class_suggestions
             @ module_suggestions
             @ value_suggestions
-            @ value_type_changes
             @ class_type_suggestions
             @ module_type_suggestions
             @ type_suggestions
+            |> List.filter (fun suggestion ->
+              let item_id = ItemId.of_item (suggestion_item suggestion) in
+              not (AffectedItemSet.mem item_id already_affected_items))
+          in
+
+          let all_affected_items =
+            new_suggestions
+            |> List.map (fun suggestion ->
+              ItemId.of_item (suggestion_item suggestion))
+            |> AffectedItemSet.of_list
+            |> AffectedItemSet.union already_affected_items
           in
 
           let subst' =
@@ -1061,11 +1117,17 @@ and signature ~expansion_token ~env:_ ~before ~ctx:_ sgs =
           match compute_signature_diff sgs.env subst' sgs.sig1 sgs.sig2 with
           | None -> new_suggestions
           | Some sgs ->
-              compute_succesive_suggestions sgs (i - 1) @ new_suggestions
+              compute_succesive_suggestions
+                sgs
+                all_affected_items
+                (i - 1)
+              @ new_suggestions
       in
 
       if expansion_token then
-        let suggestions = compute_succesive_suggestions sgs iterations in
+        let suggestions =
+          compute_succesive_suggestions sgs AffectedItemSet.empty iterations
+        in
         List.map suggestion_text suggestions @ before
       else
         before

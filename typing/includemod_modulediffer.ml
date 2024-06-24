@@ -19,21 +19,34 @@ type ('v, 't) field = {
   type_ : 't;
 }
 
-let field_name field = Ident.name (Types.signature_item_id field.item)
+let field_id field = Types.signature_item_id field.item
+let field_name field = Ident.name (field_id field)
+
+type rename_suggestion = {
+  item_to_rename : Types.signature_item;
+  suggested_ident : Ident.t;
+}
 
 type suggestion =
   | Suggest_add of Types.signature_item
-  | Suggest_rename of Types.signature_item * string
-  | Suggest_change_value_type of Ident.t * Types.type_expr
+  | Suggest_rename of rename_suggestion
+  | Suggest_change_value_type of Types.signature_item * Types.type_expr
+
+let suggestion_item suggestion =
+  match suggestion with
+  | Suggest_add item ->
+      item
+  | Suggest_rename {item_to_rename; _} ->
+      item_to_rename
+  | Suggest_change_value_type (item, _) ->
+      item
 
 let apply_suggestion subst suggestion =
   match suggestion with
-  | Suggest_rename (item, suggested_name) ->
+  | Suggest_rename {item_to_rename = Sig_type (id, _, _, _); suggested_ident} ->
       (* FIXME: This does not work. *)
-      let id = Types.signature_item_id item in
-      let old_path = Path.Pident id in
-      let new_ident = Ident.create_local suggested_name in
-      Subst.add_type new_ident old_path subst
+      let corresponding_path = Path.Pident suggested_ident in
+      Subst.add_type id corresponding_path subst
   | _ -> subst
 
 let fuzzy_match_names compatibility_test missings additions =
@@ -110,9 +123,10 @@ let fuzzy_match_names compatibility_test missings additions =
       | None -> ()
       | Some (i, _) ->
           let name_change =
-            Suggest_rename
-              (added_fields.(j).item,
-              field_name missing_fields.(i))
+            Suggest_rename {
+              item_to_rename = added_fields.(j).item;
+              suggested_ident = field_id missing_fields.(i);
+            }
           in
           name_changes := name_change :: !name_changes
     done;
@@ -151,7 +165,8 @@ let fuzzy_match_names compatibility_test missings additions =
       missings
       |> List.filter
         (fun missing_field ->
-          let missing_name = field_name missing_field in
+          let missing_id = field_id missing_field in
+          let missing_name = Ident.name missing_id in
           match
             list_extract
               (fun added_field ->
@@ -162,7 +177,10 @@ let fuzzy_match_names compatibility_test missings additions =
           | None -> true
           | Some (added_field, additions) ->
               let name_change =
-                Suggest_rename (added_field.item, missing_name)
+                Suggest_rename {
+                  item_to_rename = added_field.item;
+                  suggested_ident = missing_id;
+                }
               in
               name_changes := name_change :: !name_changes;
               remaining_added_fields := additions;
