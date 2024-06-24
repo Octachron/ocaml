@@ -434,7 +434,7 @@ let log_version_reader =
   in
   {
     parse;
-    print = (Format.asprintf "%a" Log.Version.pp_version);
+    print = (Format.asprintf "%a" Log.Version.pp);
     usage={|expected "%d.%d"|};
     env_var = "OCAML_LOG_VERSION"
   }

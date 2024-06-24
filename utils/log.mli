@@ -25,15 +25,32 @@ type 'a t = 'a log
 (** {1:log_scheme_versionning  Current version of the log } *)
 module Version: sig
   type t = { major:int; minor:int }
-  type range = { introduction: t; deprecation: t option; deletion:t option }
-  type 'a history
-  type 'a update
+  type range = { creation: t; deprecation: t option; deletion:t option }
   val make: major:int -> minor:int -> t
-  val v: 'a update -> t
-  val new_version: 'a history -> t -> 'a update
+  val pp: Format.formatter -> t -> unit
+
+  type 'a history
+  type error =
+    | Duplicate_key of string
+    | Time_travel of t * t
+    | Inconsistent_change of range * string
+    | Sealed_version of t
+  type base_event =
+    | Creation
+    | New_key of {name:string; typ:string}
+    | Make_required of string
+    | Deprecation of string
+    | Deletion of string
+    | Seal
+    | Error of error
+  type event = { scheme: string; version:t; event:base_event }
+  val events: 'a history -> event Seq.t
   val current_version: 'a history -> t
-  val pp_version: Format.formatter -> t -> unit
-  val pp_history: Format.formatter -> 'a history -> unit
+
+  type 'a update
+  val new_version: 'a history -> t -> 'a update
+  val v: 'a update -> t
+
 end
 
 type version = Version.t = { major:int; minor:int }
@@ -67,9 +84,7 @@ type key_metadata =
     Key_metadata:
       { typ: 'a typ;
         optional: bool;
-        creation:version;
-        deprecation: version option;
-        deletion: version option;
+        status:Version.range
       } ->
       key_metadata
 

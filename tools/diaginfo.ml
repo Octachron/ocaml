@@ -67,15 +67,93 @@ let schema v ppf =
     Format.fprintf ppf "%t@." (JSchema.pp v Location.Error_log.Msg.scheme)
   | _ -> ()
 
+
+module Pp = struct
+  open Format
+  open Log.Version
+  module Vmap = Map.Make(struct
+      type t = Log.Version.t
+      let compare: t -> t -> int = Stdlib.compare
+    end)
+
+  module String_map = Map.Make(String)
+
+  let group_by_version_then_scheme events =
+    let add (m,errors) e =
+      let map_at_v =
+        Option.value ~default:String_map.empty (Vmap.find_opt e.version m) in
+      let prev =
+        Option.value ~default:[] (String_map.find_opt e.scheme map_at_v)
+      in
+      let map_at_v = String_map.add e.scheme (e.event::prev) map_at_v in
+      let errors = match e.event with Error e -> e :: errors | _ -> errors in
+      Vmap.add e.version map_at_v m, errors
+    in
+    Seq.fold_left add (Vmap.empty,[]) events
+
+
+  let status ppf range =
+    match range.deprecation, range.deletion with
+    | None, None -> fprintf ppf "active"
+    | Some _, None -> fprintf ppf "deprecated"
+    | _, Some _ -> fprintf ppf "deleted"
+
+  let error ppf = function
+    | Time_travel (v,x) ->
+        fprintf ppf "Error: future key (%a<%a)" Version.pp v Version.pp x
+    | Duplicate_key s -> fprintf ppf "Error: duplicate %s" s
+    | Inconsistent_change (range,key_name) ->
+        fprintf ppf "Error inconsistent change of the %a key %s"
+          status range
+          key_name
+    | Sealed_version v -> fprintf ppf "Error: seal breach %a" Version.pp v
+
+  let base_event ppf =
+    function
+    | Creation -> fprintf ppf "Creation"
+    | New_key {name;typ} ->
+        if typ = "" then fprintf ppf "Key %s" name
+        else fprintf ppf "Key %s, %s" name typ
+    | Make_required name -> fprintf ppf "Newly required %s" name
+    | Deprecation name -> fprintf ppf "Deprecation %s" name
+    | Seal -> fprintf ppf "Seal"
+    | Deletion name -> fprintf ppf "Deletion %s" name
+    | Error e -> error ppf e
+
+  let scheme_at_v ppf (scheme_name,events) =
+    Format.fprintf ppf "@[<v 2>%s@,%a@]"
+      scheme_name
+      (pp_print_list base_event) (List.rev events)
+
+  let events_by_version_then_scheme ppf (version, map_at_v) =
+    Format.fprintf ppf "@[<v 2>%a@," Version.pp version;
+    pp_print_seq scheme_at_v ppf (String_map.to_seq map_at_v);
+    Format.fprintf ppf "@]"
+
+  let errors ppf = function
+    | [] -> ()
+    | errors ->
+        fprintf ppf "@[<v 2>Invalid diagnostic history@,%a@]"
+          (pp_print_list error) errors
+
+  let history ppf h =
+    let events = events h in
+    let m, err = group_by_version_then_scheme events in
+    fprintf ppf "@[<v>%a%a@]"
+      errors err
+      (pp_print_seq events_by_version_then_scheme) (Vmap.to_seq m);
+    if not (List.is_empty err) then exit 2
+end
+
 let history ppf =
   if !history then
     Format.fprintf ppf
       "@[<v 2>Metadata:@,%a@;<0 -2>\
       Config:@,%a@;<0 -2>\
        Main:@,%a@]%!"
-      Version.pp_history Metadata_versions.history
-      Version.pp_history Config_versions.history
-      Version.pp_history V.history
+      Pp.history Metadata_versions.history
+      Pp.history Config_versions.history
+      Pp.history V.history
 
 let () =
   Arg.parse args ignore "print log information";

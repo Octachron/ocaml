@@ -22,11 +22,14 @@ module Version = struct
   type t = { major:int; minor:int }
   let make ~major ~minor = { major; minor }
 
-  type range = { introduction: t; deprecation: t option; deletion: t option }
+  type range = { creation: t; deprecation: t option; deletion: t option }
+  let range ?deprecation ?deletion creation =
+    { creation; deletion; deprecation }
 
   type error =
     | Duplicate_key of string
     | Time_travel of t * t
+    | Inconsistent_change of range * string
     | Sealed_version of t
 
   type base_event =
@@ -42,7 +45,7 @@ module Version = struct
     { scheme: string; version:t; event:base_event }
   type _ history = {
     mutable current: t;
-    mutable events: event list
+    events: event Dynarray.t
   }
 
   type 'a update = {
@@ -54,7 +57,7 @@ module Version = struct
 
   let register_event update scheme event =
     let h = update.history in
-    h.events <- { scheme; version=update.v; event} :: h.events
+    Dynarray.add_last h.events { scheme; version=update.v; event}
 
   let error update sch err = register_event update sch (Error err)
 
@@ -69,66 +72,16 @@ module Version = struct
     if version <= sv  then begin
       let error=Error (Time_travel (version, sv)) in
       let event = { scheme=""; version=sv; event=error} in
-      history.events <- event :: history.events
+      Dynarray.add_last history.events event
     end;
     let minor_update = version.major = sv.major in
     history.current <- version;
     { v=version; minor_update; history }
 
   let current_version history = history.current
+  let events history = Dynarray.to_seq history.events
 
-  open Format
-  let pp_version ppf x = fprintf ppf "v%d.%d" x.major x.minor
-
-  let pp_error ppf = function
-    | Time_travel (v,x) ->
-        Format.fprintf ppf "Error: future key (%a<%a)" pp_version v pp_version x
-    | Duplicate_key s ->
-        Format.fprintf ppf "Error: duplicate %s" s
-    | Sealed_version v ->
-        Format.fprintf ppf "Error: seal breach %a" pp_version v
-
-
-  let pp_base_event ppf =
-    function
-    | Creation -> fprintf ppf "Creation"
-    | New_key {name;typ} ->
-       if typ = "" then fprintf ppf "Key %s" name
-      else
-       fprintf ppf "Key %s, %s" name typ
-    | Make_required name -> fprintf ppf "Newly required %s" name
-    | Deprecation name -> fprintf ppf "Deprecation %s" name
-    | Seal -> fprintf ppf "Seal"
-    | Deletion name -> fprintf ppf "Deletion %s" name
-    | Error e -> pp_error ppf e
-
-  let pp_history ppf h =
-    let events = h.events in
-    let module Vmap = Map.Make(struct
-        type nonrec t = t
-        let compare: t -> t -> int = Stdlib.compare
-      end)
-    in
-    let add m e =
-      let map_at_v =
-        Option.value ~default:Keys.empty (Vmap.find_opt e.version m) in
-      let prev = Option.value ~default:[] (Keys.find_opt e.scheme map_at_v) in
-      let map_at_v = Keys.add e.scheme (e.event::prev) map_at_v in
-      Vmap.add e.version map_at_v m
-    in
-    let m = List.fold_left add Vmap.empty events in
-    let pp_scheme_at_v ppf (scheme_name,events) =
-      Format.fprintf ppf "@[<v 2>%s@,%a@]"
-        scheme_name
-        (pp_print_list pp_base_event) events
-    in
-    let pp_version ppf (version, map_at_v) =
-      Format.fprintf ppf "@[<v 2>%a@," pp_version version;
-      pp_print_seq pp_scheme_at_v ppf (Keys.to_seq map_at_v);
-      Format.fprintf ppf "@]"
-    in
-    Format.fprintf ppf "@[<v>%a@]"
-      Format.(pp_print_seq pp_version) (Vmap.to_seq m)
+  let pp ppf x = Format.fprintf ppf "v%d.%d" x.major x.minor
 
 end
 type version = Version.t = { major:int; minor:int }
@@ -167,9 +120,7 @@ and key_metadata =
     Key_metadata:
       { typ: 'a typ;
         optional: bool;
-        creation:version;
-        deprecation: version option;
-        deletion: version option;
+        status:Version.range;
       } ->
       key_metadata
 and 'a def = {
@@ -243,15 +194,11 @@ and with_parens: type a. Format.formatter -> a typ -> unit = fun ppf elt ->
   in
   if parens_needed then Format.fprintf ppf "(%a)" pp_typ elt else pp_typ ppf elt
 
-
-
 let make_key name typ = { name; typ; id = Type.Id.make () }
 let key_metadata ~optional update key =
    Key_metadata {
-    creation=update.Version.v;
+    status = Version.range (Version.v update);
     optional;
-    deprecation=None;
-    deletion=None;
     typ = key.typ
   }
 
@@ -331,7 +278,7 @@ module New_root() = struct
   type id
   let history = {
     Version.current = Version.zeroth;
-    events = [];
+    events = Dynarray.create ();
   }
 
   let v1 = Version.new_version history Version.first
@@ -342,15 +289,16 @@ let (.!()) scheme key =
   | Some x -> x
   | None -> assert false
 
-type key_status =
+type key_current_status =
   | Valid
   | Deprecated
   | Deleted
   | Future
 
 let key_status version (Key_metadata kmd) =
-  if version < kmd.creation then Future
-  else match kmd.deprecation, kmd.deletion with
+  let r = kmd.status in
+  if version < r.creation then Future
+  else match r.deprecation, r.deletion with
     | _, Some del when del <= version -> Deleted
     | Some dc, _ when dc <= version -> Deprecated
     | _ -> Valid
@@ -360,23 +308,37 @@ let active_key version scheme key =
   | Valid | Deprecated -> true
   | Future | Deleted -> false
 
+ let inconsistent_if_not_deprecated u scheme_name key range =
+   match range.Version.deprecation, range.Version.deletion with
+   | Some _ , None -> ()
+   | None, _ | _, Some _ ->
+       Version.error u scheme_name (Inconsistent_change (range,key))
+
+ let inconsistent_if_inactive u scheme_name key range =
+   match range.Version.deprecation with
+   | None -> ()
+   | Some _ ->  Version.error u scheme_name (Inconsistent_change (range,key))
+
 let make_required u key scheme =
-  let Key_metadata r = scheme.!(key) in
+  let Key_metadata kmd = scheme.!(key) in
+  inconsistent_if_inactive u scheme.scheme_name key.name kmd.status;
   Version.register_event u scheme.scheme_name (Make_required key.name);
- scheme.!(key) <-
-    Key_metadata { r with optional = false }
+  scheme.!(key) <-
+    Key_metadata { kmd with optional = false }
 
 let deprecate_key u key scheme =
-  let Key_metadata r = scheme.!(key) in
+  let Key_metadata kmd = scheme.!(key) in
+  inconsistent_if_inactive u scheme.scheme_name key.name kmd.status;
   Version.register_event u scheme.scheme_name (Deprecation key.name);
-  scheme.!(key) <-
-    Key_metadata { r with deprecation = Some (Version.v u) }
+  let status = { kmd.status with deprecation = Some (Version.v u) } in
+  scheme.!(key) <- Key_metadata { kmd with status }
 
 let delete_key u key scheme =
-  let Key_metadata r = scheme.!(key) in
+  let Key_metadata kmd = scheme.!(key) in
+  inconsistent_if_not_deprecated u scheme.scheme_name key.name kmd.status;
   Version.register_event u scheme.scheme_name (Deletion key.name);
-  scheme.!(key) <-
-    Key_metadata { r with deletion = Some (Version.v u) }
+  let status = { kmd.status with deletion = Some (Version.v u) } in
+  scheme.!(key) <- Key_metadata { kmd with status }
 
 let seal update scheme =
   Version.register_event update scheme.scheme_name Seal
@@ -438,12 +400,7 @@ end
 
 let version_range key scheme =
   let Key_metadata r =  scheme.!(key) in
-  {
-    Version.introduction = r.creation;
-    deprecation = r.deprecation;
-    deletion = r.deletion
-  }
-
+  r.status
 
 module Record = struct
   let (^=) k x = Field(k,x)
