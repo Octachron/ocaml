@@ -892,7 +892,6 @@ and functor_symptom ~expansion_token ~env ~before ~ctx = function
 
 and signature ~expansion_token ~env:_ ~before ~ctx:_ sgs =
   let open Includemod_modulediffer in
-  let open Suggestion in
 
   let module ItemId = struct
     type item_kind =
@@ -963,6 +962,7 @@ and signature ~expansion_token ~env:_ ~before ~ctx:_ sgs =
   in
 
   let suggestion_text suggestion =
+    let open Suggestion in
     match suggestion.alteration with
     | Add_item ->
         (Location.msg "%a" suggest_adding_field) suggestion.subject
@@ -1052,7 +1052,7 @@ and signature ~expansion_token ~env:_ ~before ~ctx:_ sgs =
                 | Error _ -> false)
               Includemod.Error.(function
                 | item, Core (Value_descriptions {expected; _}) ->
-                  Some (change_type_of_value item expected.val_type)
+                  Some (Suggestion.change_type_of_value item expected.val_type)
                 | _ -> None)
           in
 
@@ -1101,14 +1101,14 @@ and signature ~expansion_token ~env:_ ~before ~ctx:_ sgs =
             @ module_type_suggestions
             @ type_suggestions
             |> List.filter (fun suggestion ->
-              let item_id = ItemId.of_item suggestion.subject in
+              let item_id = ItemId.of_item suggestion.Suggestion.subject in
               not (AffectedItemSet.mem item_id already_affected_items))
           in
 
           let all_affected_items =
             new_suggestions
             |> List.map (fun suggestion ->
-              ItemId.of_item suggestion.subject)
+              ItemId.of_item suggestion.Suggestion.subject)
             |> AffectedItemSet.of_list
             |> AffectedItemSet.union already_affected_items
           in
