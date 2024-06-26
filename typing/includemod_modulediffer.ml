@@ -13,6 +13,17 @@
 (*                                                                        *)
 (**************************************************************************)
 
+let rec list_remove x list =
+  match list with
+  | [] -> []
+  | hd :: tl when hd = x -> tl
+  | hd :: tl -> hd :: list_remove x tl
+
+let list_uncons list =
+  match list with
+  | [] -> failwith "Expected list not to be empty"
+  | hd :: tl -> hd, tl
+
 type ('v, 't) field = {
   item : Types.signature_item;
   value : 'v;
@@ -56,72 +67,210 @@ let fuzzy_match_names compatibility_test missings additions =
   let m = List.length missings in
   let n = List.length additions in
 
-  (* An implementation of the Gale-Shapley algorithm, where missing fields
-      propose and added fields accept or refuse. *)
+  (* An implementation of Zoltan Kiraly's "New Algorithm" presented in
+     "Linear Time Local Approximation Algorithm for Maximum Stable Marriage":
+     https://www.mdpi.com/1999-4893/6/3/471. It computes a 3/2-approximation of
+     a maximum stable marriage in linear time (linear in the sum of the lengths
+     of the preference lists).
+
+     The man/woman semantic is used in order to be consistent with the paper.
+     Missing items are men, added items are women. *)
   let stable_marriages () =
+    let open struct
+      type distance = int
+
+      type lad_preferences = {
+        mutable lad_previous_layers : (int list * distance) list;
+          (** Invariant: this list is not empty. *)
+        mutable lad_current_layer : int list;
+          (** Invariant: this list is not empty. *)
+        mutable lad_current_layer_distance : distance;
+        mutable lad_next_layers : (int list * distance) Seq.t
+      }
+
+      type bachelor_preferences = {
+        mutable bachelor_current_layer : int list;
+          (** Invariant: the list is not empty. *)
+        mutable bachelor_current_layer_distance : distance;
+        mutable bachelor_next_layers : (int list * distance) list;
+      }
+
+      type man_situation =
+        | Lad of lad_preferences
+        | Bachelor of bachelor_preferences
+
+      type man_state =
+        | Active of man_situation
+        | Engaged_man of man_situation
+        | Inactive
+          (** Old bachelor. *)
+
+      type woman_state =
+        | Maiden
+        | Engaged_woman of int * distance
+    end in
+
     let missing_fields = Array.of_list missings in
     let added_fields = Array.of_list additions in
 
-    let preferences =
+    let man_states =
       let added_names =
         additions
         |> List.mapi (fun j field -> (field_name field, j))
         |> Misc.Trie.of_list
       in
       Array.init m (fun i ->
-          let missing_name = field_name missing_fields.(i) in
-          Misc.Trie.compute_preferences
+        let missing_name = field_name missing_fields.(i) in
+        let sequence =
+          Misc.Trie.compute_preference_layers
             ~cutoff:(cutoff missing_name)
             added_names
-            missing_name)
+            missing_name
+        in
+        match sequence () with
+        | Seq.Nil ->
+            Inactive
+        | Seq.Cons ((layer, distance), tail) ->
+            Active (Lad {
+              lad_previous_layers = [ (layer, distance) ];
+              lad_current_layer = layer;
+              lad_current_layer_distance = distance;
+              lad_next_layers = tail;
+            })
+      )
     in
-    (* [is_married.(i)] indicates whether there exists a [j] such that
-        [missing_fields.(i)] and [added_fields.(j)] are married. *)
-    let is_married = Array.make m false in
-    (* [added_fields.(j)] is married with [missing_fields.(i)] iff
-        [added_fields.(j) = Some (i, d)] where [d] is the edition distance
-        between the names. *)
-    let marriages = Array.make n None in
+    let woman_states = Array.make n Maiden in
 
-    (* Marries [missing_fields.(i)] with [added_fields.(j)], unless
-        [added_fields.(j)] already has a better marriage. *)
-    let try_marry i j d =
-      if compatibility_test missing_fields.(i) added_fields.(j) then
-        match marriages.(j) with
-        | None ->
-            marriages.(j) <- Some (i, d);
-            is_married.(i) <- true
-        | Some (i', d') ->
-            if d < d' then (
-              marriages.(j) <- Some (i, d);
-              is_married.(i) <- true;
-              is_married.(i') <- false)
+    let is_uncertain i =
+      match man_states.(i) with
+      | Engaged_man Lad {lad_current_layer = current_layer; _}
+      | Engaged_man Bachelor {bachelor_current_layer = current_layer; _} ->
+        let women = current_layer in
+        List.exists (fun j -> woman_states.(j) = Maiden) women
+      | _ -> false
+    in
+
+    let is_flighty j =
+      match woman_states.(j) with
+      | Engaged_woman (i, _) -> is_uncertain i
+      | _ -> false
+    in
+
+    let man_situation i =
+      match man_states.(i) with
+      | Active situation | Engaged_man situation -> Some situation
+      | Inactive -> None
+    in
+
+    let get_preferred_woman man_situation =
+      match man_situation with
+      | Lad preferences ->
+          preferences.lad_current_layer
+          |> List.find_opt (fun j -> woman_states.(j) = Maiden)
+          |> Option.value ~default:(List.hd preferences.lad_current_layer),
+          preferences.lad_current_layer_distance
+      | Bachelor preferences ->
+          preferences.bachelor_current_layer
+          |> List.find_opt (fun j -> woman_states.(j) = Maiden)
+          |> Option.value ~default:(List.hd preferences.bachelor_current_layer),
+          preferences.bachelor_current_layer_distance
+    in
+
+    let propose i j d =
+      if is_flighty j then
+        true
+      else
+        match woman_states.(j) with
+        | Maiden -> true
+        | Engaged_woman (i', d') ->
+            d < d' ||
+            d = d' &&
+              match man_situation i, man_situation i' with
+              | Some Bachelor _, Some Lad _ -> true
+              | _ -> false
+    in
+
+    let remove_woman i j =
+      match man_situation i with
+      | Some Lad preferences -> (
+          match list_remove j preferences.lad_current_layer with
+          | [] -> (
+              match preferences.lad_next_layers () with
+              | Seq.Nil ->
+                  let (layer, distance), tail =
+                    list_uncons preferences.lad_previous_layers
+                  in
+                  man_states.(i) <- Active (Bachelor {
+                    bachelor_current_layer = layer;
+                    bachelor_current_layer_distance = distance;
+                    bachelor_next_layers = tail;
+                  })
+              | Seq.Cons ((layer, distance), next) ->
+                  preferences.lad_previous_layers <-
+                    (layer, distance) :: preferences.lad_previous_layers;
+                  preferences.lad_current_layer <- layer;
+                  preferences.lad_current_layer_distance <- distance;
+                  preferences.lad_next_layers <- next)
+          | remaining_women ->
+              preferences.lad_current_layer <- remaining_women)
+      | Some Bachelor preferences -> (
+            match
+              list_remove j preferences.bachelor_current_layer,
+              preferences.bachelor_next_layers
+            with
+            | [], [] ->
+                man_states.(i) <- Inactive;
+            | [], (layer, distance) :: next_layers ->
+                preferences.bachelor_current_layer <- layer;
+                preferences.bachelor_current_layer_distance <- distance;
+                preferences.bachelor_next_layers <- next_layers
+            | remaining_women, _ ->
+                preferences.bachelor_current_layer <- remaining_women)
+      | None ->
+          failwith "[remove_woman] should not be called with an old bachelor."
     in
 
     let ok = ref false in
     while not !ok do
       ok := true;
       for i = 0 to m - 1 do
-        if not is_married.(i) then
-          match preferences.(i) () with
-          | Seq.Nil -> ()
-          | Seq.Cons ((j, d), tl) ->
-              ok := false;
-              preferences.(i) <- tl;
-              try_marry i j d
+        match man_states.(i) with
+        | Active situation ->
+          ok := false;
+          let (j, d) = get_preferred_woman situation in
+          if
+            compatibility_test missing_fields.(i) added_fields.(j)
+              && propose i j d
+          then (
+            (* [j] breaks off with her current fiance (if any). *)
+            (match woman_states.(j) with
+            | Engaged_woman (i', _) ->
+                (* [i'] is an engaged man, so he has a situation. *)
+                man_states.(i') <- Active (Option.get (man_situation i'));
+                if not (is_uncertain i') then
+                  remove_woman i' j
+            | _ -> ());
+            (* [i] and [j] become engaged. *)
+            man_states.(i) <- Engaged_man situation;
+            woman_states.(j) <- Engaged_woman (i, d))
+          else
+            remove_woman i j
+        | _ -> ()
       done
     done;
 
     let actually_missing =
       missings
-      |> List.filteri (fun i _ -> not is_married.(i))
+      |> List.filteri (fun i _ ->
+        match man_states.(i) with
+        | Engaged_man _ -> false
+        | _ -> true)
       |> List.map (fun missing -> Suggest_add missing.item)
     in
     let name_changes = ref [] in
     for j = 0 to n - 1 do
-      match marriages.(j) with
-      | None -> ()
-      | Some (i, _) ->
+      match woman_states.(j) with
+      | Engaged_woman (i, _) ->
           let name_change =
             Suggest_rename {
               item_to_rename = added_fields.(j).item;
@@ -129,6 +278,7 @@ let fuzzy_match_names compatibility_test missings additions =
             }
           in
           name_changes := name_change :: !name_changes
+      | _ -> ()
     done;
 
     actually_missing @ !name_changes

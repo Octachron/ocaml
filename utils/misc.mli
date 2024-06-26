@@ -529,7 +529,23 @@ module Trie : sig
     ('a * int) Seq.t
   (** Returns a sequence that yields the data associated with the strings of the
       trie, together with the distance to the specified string, in order from
-      closest to farthest. *)
+      closest to farthest.
+
+      Each node of the sequence should be called at most once. *)
+
+  val compute_preference_layers:
+    ?deletion_cost:int ->
+    ?insertion_cost:int ->
+    ?substitution_cost:int ->
+    ?cutoff:int ->
+    'a t ->
+    string ->
+    ('a list * int) Seq.t
+  (** Returns a sequence that yields the data associated with the strings of the
+      trie, groupped by distance to the specified string, together with said
+      distance, in order from closest to farthest.
+
+      Each node of the sequence should be called at most once. *)
 end
 
 (** {1 Color support detection }*)

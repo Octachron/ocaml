@@ -1268,6 +1268,39 @@ module Trie = struct
             )
     in
     compute
+
+    let compute_preference_layers (type a) ?(deletion_cost = 1)
+        ?(insertion_cost = 1) ?(substitution_cost = 1) ?(cutoff : int option)
+        (trie : a t) (string : string) : (a list * int) Seq.t =
+
+      (* [current_distance = None] iff [acc = []]. *)
+      let rec compute seq current_distance acc = fun () ->
+        match current_distance, seq () with
+        | None, Seq.Nil ->
+            Seq.Nil
+        | Some current_distance, Seq.Nil ->
+            let kont = fun () -> Seq.Nil in
+            Seq.Cons ((acc, current_distance), kont)
+        | None, Seq.Cons ((data, distance), next) ->
+            compute next (Some distance) [ data ] ()
+        | Some current_distance, Seq.Cons ((data, distance), next) ->
+            if distance = current_distance then
+              compute next (Some current_distance) (data :: acc) ()
+            else
+              let kont = compute next (Some distance) [ data ] in
+              Seq.Cons ((acc, current_distance), kont)
+      in
+
+      let preferences =
+        compute_preferences
+          ~deletion_cost
+          ~insertion_cost
+          ~substitution_cost
+          ?cutoff
+          trie
+          string
+      in
+      compute preferences None []
 end
 
 module Error_style = struct
