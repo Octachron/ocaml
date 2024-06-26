@@ -892,6 +892,7 @@ and functor_symptom ~expansion_token ~env ~before ~ctx = function
 
 and signature ~expansion_token ~env:_ ~before ~ctx:_ sgs =
   let open Includemod_modulediffer in
+  let open Suggestion in
 
   let module ItemId = struct
     type item_kind =
@@ -962,14 +963,16 @@ and signature ~expansion_token ~env:_ ~before ~ctx:_ sgs =
   in
 
   let suggestion_text suggestion =
-    match suggestion with
-    | Suggest_add item ->
-        (Location.msg "%a" suggest_adding_field) item
-    | Suggest_rename {item_to_rename = item; suggested_ident} ->
+    match suggestion.alteration with
+    | Add_item ->
+        (Location.msg "%a" suggest_adding_field) suggestion.subject
+    | Rename_item suggested_ident ->
         let suggested_name = Ident.name suggested_ident in
-        (Location.msg "%a" suggest_renaming_field) (item, suggested_name)
-    | Suggest_change_value_type (item, suggested_type) ->
-        (Location.msg "%a" suggest_changing_value_type) (item, suggested_type)
+        (Location.msg "%a" suggest_renaming_field)
+          (suggestion.subject, suggested_name)
+    | Change_type_of_value suggested_type ->
+        (Location.msg "%a" suggest_changing_value_type)
+          (suggestion.subject, suggested_type)
   in
 
   Printtyp.wrap_printing_env ~error:true sgs.env (fun () ->
@@ -1049,7 +1052,7 @@ and signature ~expansion_token ~env:_ ~before ~ctx:_ sgs =
                 | Error _ -> false)
               Includemod.Error.(function
                 | item, Core (Value_descriptions {expected; _}) ->
-                  Some (Suggest_change_value_type (item, expected.val_type))
+                  Some (change_type_of_value item expected.val_type)
                 | _ -> None)
           in
 
@@ -1098,20 +1101,20 @@ and signature ~expansion_token ~env:_ ~before ~ctx:_ sgs =
             @ module_type_suggestions
             @ type_suggestions
             |> List.filter (fun suggestion ->
-              let item_id = ItemId.of_item (suggestion_item suggestion) in
+              let item_id = ItemId.of_item suggestion.subject in
               not (AffectedItemSet.mem item_id already_affected_items))
           in
 
           let all_affected_items =
             new_suggestions
             |> List.map (fun suggestion ->
-              ItemId.of_item (suggestion_item suggestion))
+              ItemId.of_item suggestion.subject)
             |> AffectedItemSet.of_list
             |> AffectedItemSet.union already_affected_items
           in
 
           let subst' =
-            List.fold_left apply_suggestion sgs.subst new_suggestions
+            List.fold_left Suggestion.apply sgs.subst new_suggestions
           in
 
           match compute_signature_diff sgs.env subst' sgs.sig1 sgs.sig2 with

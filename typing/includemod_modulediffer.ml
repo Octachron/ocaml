@@ -33,32 +33,42 @@ type ('v, 't) field = {
 let field_id field = Types.signature_item_id field.item
 let field_name field = Ident.name (field_id field)
 
-type rename_suggestion = {
-  item_to_rename : Types.signature_item;
-  suggested_ident : Ident.t;
-}
+module Suggestion = struct
+  type alteration =
+    | Add_item
+    | Rename_item of Ident.t
+    | Change_type_of_value of Types.type_expr
 
-type suggestion =
-  | Suggest_add of Types.signature_item
-  | Suggest_rename of rename_suggestion
-  | Suggest_change_value_type of Types.signature_item * Types.type_expr
+  type t = {
+    subject : Types.signature_item;
+    alteration : alteration;
+  }
 
-let suggestion_item suggestion =
-  match suggestion with
-  | Suggest_add item ->
-      item
-  | Suggest_rename {item_to_rename; _} ->
-      item_to_rename
-  | Suggest_change_value_type (item, _) ->
-      item
+  let add item = {
+    subject = item;
+    alteration = Add_item;
+  }
 
-let apply_suggestion subst suggestion =
-  match suggestion with
-  | Suggest_rename {item_to_rename = Sig_type (id, _, _, _); suggested_ident} ->
-      (* FIXME: This does not work. *)
-      let corresponding_path = Path.Pident suggested_ident in
-      Subst.add_type id corresponding_path subst
-  | _ -> subst
+  let rename item ident = {
+    subject = item;
+    alteration = Rename_item ident;
+  }
+
+  let change_type_of_value item ty = {
+    subject = item;
+    alteration = Change_type_of_value ty;
+  }
+
+  let apply subst suggestion =
+    match suggestion with
+    | {
+      subject = Sig_type (id, _, _, _);
+      alteration = Rename_item suggested_ident;
+    } ->
+        let corresponding_path = Path.Pident suggested_ident in
+        Subst.add_type id corresponding_path subst
+    | _ -> subst
+end
 
 let fuzzy_match_names compatibility_test missings additions =
   (* The edit distance between an existing name and a suggested rename must be
@@ -265,17 +275,16 @@ let fuzzy_match_names compatibility_test missings additions =
         match man_states.(i) with
         | Engaged_man _ -> false
         | _ -> true)
-      |> List.map (fun missing -> Suggest_add missing.item)
+      |> List.map (fun missing -> Suggestion.add missing.item)
     in
     let name_changes = ref [] in
     for j = 0 to n - 1 do
       match woman_states.(j) with
       | Engaged_woman (i, _) ->
           let name_change =
-            Suggest_rename {
-              item_to_rename = added_fields.(j).item;
-              suggested_ident = field_id missing_fields.(i);
-            }
+            Suggestion.rename
+              added_fields.(j).item
+              (field_id missing_fields.(i))
           in
           name_changes := name_change :: !name_changes
       | _ -> ()
@@ -327,15 +336,12 @@ let fuzzy_match_names compatibility_test missings additions =
           | None -> true
           | Some (added_field, additions) ->
               let name_change =
-                Suggest_rename {
-                  item_to_rename = added_field.item;
-                  suggested_ident = missing_id;
-                }
+                Suggestion.rename added_field.item missing_id
               in
               name_changes := name_change :: !name_changes;
               remaining_added_fields := additions;
               false)
-      |> List.map (fun missing -> Suggest_add missing.item)
+      |> List.map (fun missing -> Suggestion.add missing.item)
     in
 
     actually_missing @ !name_changes

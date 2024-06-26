@@ -21,25 +21,29 @@ type ('v, 't) field = {
 
 val field_name : ('v, 't) field -> string
 
-type rename_suggestion = {
-  item_to_rename : Types.signature_item;
-  suggested_ident : Ident.t;
-}
+module Suggestion : sig
+  type alteration =
+    | Add_item
+    | Rename_item of Ident.t
+    | Change_type_of_value of Types.type_expr
 
-type suggestion =
-  | Suggest_add of Types.signature_item
-  | Suggest_rename of rename_suggestion
-  | Suggest_change_value_type of Types.signature_item * Types.type_expr
+  type t = {
+    subject : Types.signature_item;
+    alteration : alteration;
+  }
 
-val suggestion_item : suggestion -> Types.signature_item
+  val add : Types.signature_item -> t
+  val rename : Types.signature_item -> Ident.t -> t
+  val change_type_of_value : Types.signature_item -> Types.type_expr -> t
 
-val apply_suggestion : Subst.t -> suggestion -> Subst.t
+  val apply : Subst.t -> t -> Subst.t
+end
 
 val fuzzy_match_names :
   (('v, 't) field ->
   ('v, 't) field -> bool) ->
   ('v, 't) field list -> ('v, 't) field list ->
-  suggestion list
+  Suggestion.t list
 
 val compute_signature_diff :
   Env.t -> Subst.t ->
