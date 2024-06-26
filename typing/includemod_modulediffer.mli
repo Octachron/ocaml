@@ -13,19 +13,25 @@
 (*                                                                        *)
 (**************************************************************************)
 
-type ('v, 't) field = {
-  item : Types.signature_item;
-  value : 'v;
-  type_ : 't;
-}
+module Field : sig
+  type ('v, 't) t = {
+    item : Types.signature_item;
+    value : 'v;
+    type_ : 't;
+  }
 
-val field_name : ('v, 't) field -> string
+  val first_order : Types.signature_item -> 'v -> 't -> ('v, 't) t
+  val second_order : Types.signature_item -> 'v -> ('v, unit) t
+
+  val name : ('v, 't) t -> string
+end
 
 module Suggestion : sig
   type alteration =
     | Add_item
     | Rename_item of Ident.t
     | Change_type_of_value of Types.type_expr
+    | Change_type of Types.type_declaration
 
   type t = {
     subject : Types.signature_item;
@@ -35,14 +41,15 @@ module Suggestion : sig
   val add : Types.signature_item -> t
   val rename : Types.signature_item -> Ident.t -> t
   val change_type_of_value : Types.signature_item -> Types.type_expr -> t
+  val change_type : Types.signature_item -> Types.type_declaration -> t
 
   val apply : Subst.t -> t -> Subst.t
 end
 
 val fuzzy_match_names :
-  (('v, 't) field ->
-  ('v, 't) field -> bool) ->
-  ('v, 't) field list -> ('v, 't) field list ->
+  (('v, 't) Field.t ->
+  ('v, 't) Field.t -> bool) ->
+  ('v, 't) Field.t list -> ('v, 't) Field.t list ->
   Suggestion.t list
 
 val compute_signature_diff :

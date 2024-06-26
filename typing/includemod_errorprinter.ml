@@ -743,12 +743,19 @@ let suggest_renaming_field ppf (item, suggested_name) =
     Style.inline_code (Ident.name current_id)
     Style.inline_code suggested_name
 
-let suggest_changing_value_type ppf (item, suggested_type) =
+let suggest_changing_type_of_value ppf (item, suggested_type) =
   let id, _, kind = Includemod.item_ident_name item in
   Fmt.fprintf ppf "Try changing %s %a to be a %a"
     (Includemod.kind_of_field_desc kind)
     Style.inline_code (Ident.name id)
     (Style.as_inline_code Printtyp.type_expr) suggested_type
+
+let suggest_changing_type ppf (item, suggested_type) =
+  let id, _, kind = Includemod.item_ident_name item in
+  Fmt.fprintf ppf "Try changing %s %a to %a"
+    (Includemod.kind_of_field_desc kind)
+    Style.inline_code (Ident.name id)
+    (Style.as_inline_code (Printtyp.type_declaration id)) suggested_type
 
 let module_types {Err.got=mty1; expected=mty2} =
   Fmt.dprintf
@@ -920,45 +927,23 @@ and signature ~expansion_token ~env:_ ~before ~ctx:_ sgs =
   end in
   let module AffectedItemSet = Set.Make (ItemId) in
 
-  let suggestion_for_any_order destructor compatibility_test =
+  let compute_suggestions
+      destructor
+      compatibility_test
+      incompatibility_destructor
+  =
     let missing_fields = List.filter_map destructor sgs.missings in
     let added_fields = List.filter_map destructor sgs.additions in
 
-    let suggestions =
+    let general_suggestions =
       fuzzy_match_names compatibility_test missing_fields added_fields
     in
 
-    suggestions
-  in
-
-  let suggestions_for_first_order
-    destructor
-    compatibility_test
-    type_change_destructor
-  =
-    let general_suggestions =
-      suggestion_for_any_order
-        (fun item ->
-          Option.map
-            (fun (item, value, type_) -> { item; value; type_ })
-            (destructor item))
-        compatibility_test
+    let content_changes =
+      List.filter_map incompatibility_destructor sgs.incompatibles
     in
 
-    let type_changes =
-      List.filter_map type_change_destructor sgs.incompatibles
-    in
-
-    general_suggestions @ type_changes
-  in
-
-  let suggestions_for_second_order destructor compatibility_test =
-    suggestion_for_any_order
-      (fun item ->
-        Option.map
-          (fun (item, value) -> { item; value; type_ = () })
-          (destructor item))
-      compatibility_test
+    general_suggestions @ content_changes
   in
 
   let suggestion_text suggestion =
@@ -971,7 +956,10 @@ and signature ~expansion_token ~env:_ ~before ~ctx:_ sgs =
         (Location.msg "%a" suggest_renaming_field)
           (suggestion.subject, suggested_name)
     | Change_type_of_value suggested_type ->
-        (Location.msg "%a" suggest_changing_value_type)
+        (Location.msg "%a" suggest_changing_type_of_value)
+          (suggestion.subject, suggested_type)
+    | Change_type suggested_type ->
+        (Location.msg "%a" suggest_changing_type)
           (suggestion.subject, suggested_type)
   in
 
@@ -982,10 +970,11 @@ and signature ~expansion_token ~env:_ ~before ~ctx:_ sgs =
           []
         else
           let type_suggestions =
-            suggestions_for_second_order
+            compute_suggestions
               (fun item ->
                 match item with
-                | Types.Sig_type  (_, decl, _, _) -> Some (item, decl)
+                | Types.Sig_type  (_, decl, _, _) ->
+                    Some (Field.second_order item decl)
                 | _ -> None)
               (fun expected gotten ->
                 let id, loc, _ = Includemod.item_ident_name gotten.item in
@@ -997,13 +986,18 @@ and signature ~expansion_token ~env:_ ~before ~ctx:_ sgs =
                 with
                 | Ok _ -> true
                 | Error _ -> false)
+              Includemod.Error.(function
+                | item, Core (Type_declarations {expected; _}) ->
+                  Some (Suggestion.change_type item expected)
+                | _ -> None)
           in
 
           let module_type_suggestions =
-            suggestions_for_second_order
+            compute_suggestions
               (fun item ->
                 match item with
-                | Types.Sig_modtype (_, decl, _) -> Some (item, decl)
+                | Types.Sig_modtype (_, decl, _) ->
+                    Some (Field.second_order item decl)
                 | _ -> None)
               (fun expected gotten ->
                 let expected =
@@ -1013,13 +1007,15 @@ and signature ~expansion_token ~env:_ ~before ~ctx:_ sgs =
                 Includemod.is_modtype_equiv sgs.env
                   (Option.get gotten.value.Types.mtd_type)
                   expected)
+               (fun _ ->  None)
           in
 
           let class_type_suggestions =
-            suggestions_for_second_order
+            compute_suggestions
               (fun item ->
                 match item with
-                | Types.Sig_class_type (_, decl, _, _) -> Some (item, decl)
+                | Types.Sig_class_type (_, decl, _, _) ->
+                    Some (Field.second_order item decl)
                 | _ -> None)
               (fun expected gotten ->
                 let id, loc, _ = Includemod.item_ident_name gotten.item in
@@ -1027,21 +1023,22 @@ and signature ~expansion_token ~env:_ ~before ~ctx:_ sgs =
                   Includemod.Core_inclusion.class_type_declarations
                     ~direction:Includemod.Directionality.any
                     ~loc sgs.env sgs.subst
-                    id gotten.value expected.value
+                    id gotten.Field.value expected.Field.value
                 with
                 | Ok _ -> true
                 | Error _ -> false)
+              (fun _ -> None)
           in
 
           let value_suggestions =
-            suggestions_for_first_order
+            compute_suggestions
               (fun item ->
                 match item with
                 | Types.Sig_value (_, desc, _) ->
-                    Some (item, desc, desc.val_type)
+                    Some (Field.first_order item desc desc.val_type)
                 | _ -> None)
               (fun expected gotten ->
-                let id, loc, _ = Includemod.item_ident_name gotten.item in
+                let id, loc, _ = Includemod.item_ident_name gotten.Field.item in
                 match
                   Includemod.Core_inclusion.value_descriptions
                     ~direction:Includemod.Directionality.any ~loc
@@ -1057,11 +1054,11 @@ and signature ~expansion_token ~env:_ ~before ~ctx:_ sgs =
           in
 
           let module_suggestions =
-            suggestions_for_first_order
+            compute_suggestions
               (fun item ->
                 match item with
                 | Types.Sig_module (_, _, decl, _, _) ->
-                    Some (item, decl, decl.md_type)
+                    Some (Field.first_order item decl decl.md_type)
                 | _ -> None)
               (fun expected gotten ->
                 let expected = Subst.modtype Keep sgs.subst expected.type_ in
@@ -1074,11 +1071,11 @@ and signature ~expansion_token ~env:_ ~before ~ctx:_ sgs =
           in
 
           let class_suggestions =
-            suggestions_for_first_order
+            compute_suggestions
               (fun item ->
                 match item with
                 | Types.Sig_class (_, decl, _, _) ->
-                    Some (item, decl, decl.cty_type)
+                    Some (Field.first_order item decl decl.cty_type)
                 | _ -> None)
               (fun expected gotten ->
                 let id, loc, _ = Includemod.item_ident_name gotten.item in
@@ -1089,7 +1086,6 @@ and signature ~expansion_token ~env:_ ~before ~ctx:_ sgs =
                 with
                 | Ok _ -> true
                 | Error _ -> false)
-              (* TODO: Implement that. *)
               (fun _ -> None)
           in
 

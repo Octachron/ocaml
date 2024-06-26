@@ -24,20 +24,35 @@ let list_uncons list =
   | [] -> failwith "Expected list not to be empty"
   | hd :: tl -> hd, tl
 
-type ('v, 't) field = {
-  item : Types.signature_item;
-  value : 'v;
-  type_ : 't;
-}
+module Field = struct
+  type ('v, 't) t = {
+    item : Types.signature_item;
+    value : 'v;
+    type_ : 't;
+  }
 
-let field_id field = Types.signature_item_id field.item
-let field_name field = Ident.name (field_id field)
+  let first_order item value type_ = {
+    item;
+    value;
+    type_;
+  }
+
+  let second_order item value = {
+    item;
+    value;
+    type_ = ();
+  }
+
+  let ident field = Types.signature_item_id field.item
+  let name field = Ident.name (ident field)
+end
 
 module Suggestion = struct
   type alteration =
     | Add_item
     | Rename_item of Ident.t
     | Change_type_of_value of Types.type_expr
+    | Change_type of Types.type_declaration
 
   type t = {
     subject : Types.signature_item;
@@ -57,6 +72,11 @@ module Suggestion = struct
   let change_type_of_value item ty = {
     subject = item;
     alteration = Change_type_of_value ty;
+  }
+
+  let change_type item ty = {
+    subject = item;
+    alteration = Change_type ty;
   }
 
   let apply subst suggestion =
@@ -126,11 +146,11 @@ let fuzzy_match_names compatibility_test missings additions =
     let man_states =
       let added_names =
         additions
-        |> List.mapi (fun j field -> (field_name field, j))
+        |> List.mapi (fun j field -> (Field.name field, j))
         |> Misc.Trie.of_list
       in
       Array.init m (fun i ->
-        let missing_name = field_name missing_fields.(i) in
+        let missing_name = Field.name missing_fields.(i) in
         let sequence =
           Misc.Trie.compute_preference_layers
             ~cutoff:(cutoff missing_name)
@@ -275,7 +295,7 @@ let fuzzy_match_names compatibility_test missings additions =
         match man_states.(i) with
         | Engaged_man _ -> false
         | _ -> true)
-      |> List.map (fun missing -> Suggestion.add missing.item)
+      |> List.map (fun missing -> Suggestion.add missing.Field.item)
     in
     let name_changes = ref [] in
     for j = 0 to n - 1 do
@@ -283,8 +303,8 @@ let fuzzy_match_names compatibility_test missings additions =
       | Engaged_woman (i, _) ->
           let name_change =
             Suggestion.rename
-              added_fields.(j).item
-              (field_id missing_fields.(i))
+              added_fields.(j).Field.item
+              (Field.ident missing_fields.(i))
           in
           name_changes := name_change :: !name_changes
       | _ -> ()
@@ -307,10 +327,10 @@ let fuzzy_match_names compatibility_test missings additions =
     let compute_distance expected_field added_field =
       if compatibility_test expected_field added_field then
         let distance =
-          let expected_name = field_name expected_field in
+          let expected_name = Field.name expected_field in
           Misc.edit_distance
             expected_name
-            (field_name added_field)
+            (Field.name added_field)
             (cutoff expected_name)
         in
         Misc.Maybe_infinite.of_option distance
@@ -324,7 +344,7 @@ let fuzzy_match_names compatibility_test missings additions =
       missings
       |> List.filter
         (fun missing_field ->
-          let missing_id = field_id missing_field in
+          let missing_id = Field.ident missing_field in
           let missing_name = Ident.name missing_id in
           match
             list_extract
@@ -336,12 +356,12 @@ let fuzzy_match_names compatibility_test missings additions =
           | None -> true
           | Some (added_field, additions) ->
               let name_change =
-                Suggestion.rename added_field.item missing_id
+                Suggestion.rename added_field.Field.item missing_id
               in
               name_changes := name_change :: !name_changes;
               remaining_added_fields := additions;
               false)
-      |> List.map (fun missing -> Suggestion.add missing.item)
+      |> List.map (fun missing -> Suggestion.add missing.Field.item)
     in
 
     actually_missing @ !name_changes
