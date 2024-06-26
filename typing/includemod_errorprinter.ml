@@ -1115,9 +1115,9 @@ and signature ~expansion_token ~env:_ ~before ~ctx:_ sgs =
 
           match compute_signature_diff sgs.env subst' sgs.sig1 sgs.sig2 with
           | None -> new_suggestions
-          | Some sgs ->
+          | Some sgs' ->
               compute_succesive_suggestions
-                sgs
+                sgs'
                 all_affected_items
                 (i - 1)
               @ new_suggestions
