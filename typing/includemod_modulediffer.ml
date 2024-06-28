@@ -85,8 +85,8 @@ module Suggestion = struct
       subject = Sig_type (id, _, _, _);
       alteration = Rename_item suggested_ident;
     } ->
-        let corresponding_path = Path.Pident suggested_ident in
-        Subst.add_type id corresponding_path subst
+        let path = Path.Pident id in
+        Subst.add_type suggested_ident path subst
     | _ -> subst
 end
 
@@ -115,7 +115,7 @@ let fuzzy_match_names compatibility_test missings additions =
         mutable lad_current_layer : int list;
           (** Invariant: this list is not empty. *)
         mutable lad_current_layer_distance : distance;
-        mutable lad_next_layers : (int list * distance) Seq.t
+        mutable lad_next_layers : (int list * distance) Seq.t;
       }
 
       type bachelor_preferences = {
@@ -378,3 +378,217 @@ let compute_signature_diff env subst sig1 sig2 =
     None
   with
   | Includemod.Error (_, Includemod.Error.In_Signature reason) -> Some reason
+
+module ItemId = struct
+  type item_kind =
+    | Value
+    | Module
+    | Class
+    | Type
+    | Module_type
+    | Class_type
+    | Type_ext
+
+  type t = item_kind * string
+
+  let of_item item =
+    let open Types in
+    match item with
+    | Sig_value (id, _, _) -> Value, Ident.name id
+    | Sig_type (id, _, _, _) -> Type, Ident.name id
+    | Sig_typext (id, _, _, _) -> Type_ext, Ident.name id
+    | Sig_module (id, _, _, _, _) -> Module, Ident.name id
+    | Sig_modtype (id, _, _) -> Module_type, Ident.name id
+    | Sig_class (id, _, _, _) -> Class, Ident.name id
+    | Sig_class_type (id, _, _, _) -> Class_type, Ident.name id
+
+  let compare = compare
+end
+module AffectedItemSet = Set.Make (ItemId)
+
+let direction = Includemod.Directionality.any
+let is_modtype_eq get (sgs : Includemod.Error.signature_symptom) gotten expected =
+  let expected = Subst.modtype Keep sgs.subst (get expected) in
+  Includemod.is_modtype_equiv
+    sgs.env
+    (get gotten)
+    expected
+
+let compute_suggestions
+    (sgs : Includemod.Error.signature_symptom)
+    destructor
+    compatibility_test
+    incompatibility_destructor
+=
+  let missing_fields = List.filter_map destructor sgs.missings in
+  let added_fields = List.filter_map destructor sgs.additions in
+
+  let general_suggestions =
+    fuzzy_match_names compatibility_test missing_fields added_fields
+  in
+
+  let content_changes =
+    List.filter_map incompatibility_destructor sgs.incompatibles
+  in
+
+  general_suggestions @ content_changes
+
+let compute_second_order_suggestions sgs =
+  let open Includemod.Error in
+
+  let type_suggestions =
+    compute_suggestions
+      sgs
+      (fun item ->
+        match item with
+        | Types.Sig_type  (_, decl, _, _) ->
+            Some (Field.second_order item decl)
+        | _ -> None)
+      (fun expected gotten ->
+        let id, loc, _ = Includemod.item_ident_name gotten.item in
+        match
+          Includemod.Core_inclusion.type_declarations
+            ~direction ~loc
+            sgs.env sgs.subst id
+            gotten.value expected.value
+        with
+        | Ok _ -> true
+        | Error _ -> false)
+      (function
+        | item, Core (Type_declarations {expected; _}) ->
+          Some (Suggestion.change_type item expected)
+        | _ -> None)
+  in
+
+  let module_type_suggestions =
+    let get x = Option.get x.Field.value.Types.mtd_type in
+    compute_suggestions
+      sgs
+      (fun item ->
+        match item with
+        | Types.Sig_modtype (_, decl, _) ->
+            Some (Field.second_order item decl)
+        | _ -> None)
+      (is_modtype_eq get sgs)
+      (fun _ -> None)
+  in
+
+  let class_type_suggestions =
+    compute_suggestions
+      sgs
+      (fun item ->
+        match item with
+        | Types.Sig_class_type (_, decl, _, _) ->
+            Some (Field.second_order item decl)
+        | _ -> None)
+      (fun expected gotten ->
+        let id, loc, _ = Includemod.item_ident_name gotten.Field.item in
+        match
+          Includemod.Core_inclusion.class_type_declarations
+            ~loc ~direction sgs.env sgs.subst
+            id gotten.Field.value expected.Field.value
+        with
+        | Ok _ -> true
+        | Error _ -> false)
+      (fun _ -> None)
+  in
+
+  List.rev (class_type_suggestions @ module_type_suggestions @ type_suggestions)
+
+let compute_first_order_suggestions sgs =
+  let open Includemod.Error in
+
+  let value_suggestions =
+    compute_suggestions
+      sgs
+      (fun item ->
+        match item with
+        | Types.Sig_value (_, desc, _) ->
+            Some (Field.first_order item desc desc.val_type)
+        | _ -> None)
+      (fun expected gotten ->
+        let id, loc, _ = Includemod.item_ident_name gotten.Field.item in
+        match
+          Includemod.Core_inclusion.value_descriptions
+            ~direction ~loc
+            sgs.env sgs.subst id
+            gotten.value expected.value
+        with
+        | Ok _ -> true
+        | Error _ -> false)
+      (function
+        | item, Core (Value_descriptions {expected; _}) ->
+          Some (Suggestion.change_type_of_value item expected.val_type)
+        | _ -> None)
+  in
+
+  let module_suggestions =
+    compute_suggestions
+      sgs
+      (fun item ->
+        match item with
+        | Types.Sig_module (_, _, decl, _, _) ->
+            Some (Field.first_order item decl decl.md_type)
+        | _ -> None)
+      (is_modtype_eq (fun x -> x.Field.type_) sgs)
+      (fun _ -> None)
+  in
+
+  let class_suggestions =
+    compute_suggestions
+      sgs
+      (fun item ->
+        match item with
+        | Types.Sig_class (_, decl, _, _) ->
+            Some (Field.first_order item decl decl.cty_type)
+        | _ -> None)
+      (fun expected gotten ->
+        match
+          let id, loc, _ = Includemod.item_ident_name gotten.Field.item in
+          Includemod.Core_inclusion.class_declarations
+            sgs.env sgs.subst ~loc ~direction
+            id expected.value gotten.value
+        with
+        | Ok _ -> true
+        | Error _ -> false)
+      (fun _ -> None)
+  in
+
+  List.rev (class_suggestions @ module_suggestions @ value_suggestions)
+
+let compute_suggestions sgs passes =
+  let open Includemod.Error in
+
+  let rec iterate f sgs i =
+    if i = 0 then
+      [], sgs
+    else
+      let suggestions = f sgs in
+
+      let subst = List.fold_left Suggestion.apply sgs.subst suggestions in
+
+      match compute_signature_diff sgs.env subst sgs.sig1 sgs.sig2 with
+      | None ->
+          suggestions, sgs
+      | Some sgs' ->
+          let new_suggestions, _ = iterate f sgs' (i - 1) in
+          new_suggestions @ suggestions, sgs'
+  in
+
+  let second_order_suggestions, sgs' =
+    iterate compute_second_order_suggestions sgs passes
+  in
+  let first_order_suggestions, _ =
+    iterate compute_first_order_suggestions sgs' passes
+  in
+
+  second_order_suggestions @ first_order_suggestions
+  |> List.fold_left
+    (fun (acc, affected_items) suggestion ->
+      let id = ItemId.of_item suggestion.Suggestion.subject in
+      if AffectedItemSet.mem id affected_items then
+        acc, affected_items
+      else
+        (suggestion :: acc, AffectedItemSet.add id affected_items))
+    ([], AffectedItemSet.empty)
+  |> fst
