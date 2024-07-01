@@ -510,9 +510,11 @@ module Validation = struct
   let none =  { invalid = []; deprecated=[]}
   let invalid x = { invalid = [x]; deprecated = [] }
   let deprecated x = { deprecated = [x]; invalid = [] }
+  let qualify name l = {
+    deprecated = List.map (List.cons name) l.deprecated;
+    invalid = List.map (List.cons name) l.invalid;
+  }
   let concat_map f l = List.fold_left (fun acc x -> f x @^ acc) none l
-
-
 
   let rec possibly_invalid: type a. a typ -> bool = function
     | Unit -> false
@@ -531,9 +533,6 @@ module Validation = struct
     | Custom r -> possibly_invalid r.default
     | Sum _ -> true
     | Record _ -> true
-
-
-
 
   let rec record: type id.
     ?toplevel:bool -> version:version -> id def -> id record -> report_paths =
@@ -566,17 +565,18 @@ module Validation = struct
         | Future | Deleted -> invalid [k]
         | Deprecated ->
             deprecated [k]  @^
-            field  ~version ~optional:(is_optional kmd) (Keys.find_opt k data)
+            field  ~version ~optional:(is_optional kmd) k (Keys.find_opt k data)
         | Valid ->
-            field  ~version ~optional:(is_optional kmd) (Keys.find_opt k data)
+            field  ~version ~optional:(is_optional kmd) k (Keys.find_opt k data)
       ) metadata
   and field: type a.
-    version:version -> optional:bool -> a field option -> report_paths =
-    fun ~version ~optional k ->
+    version:version -> optional:bool -> string -> a field option
+    -> report_paths = fun ~version ~optional name k ->
     match optional, k with
     | true, None -> none
-    | false, None -> invalid []
-    | _, Some (Field (k,v)) -> value ~version v k.typ
+    | false, None -> invalid [name]
+    | _, Some (Field (k,v)) ->
+        qualify name (value ~version v k.typ)
   and value: type a. version:version -> a -> a typ -> report_paths =
     fun ~version v typ ->
     match typ with
