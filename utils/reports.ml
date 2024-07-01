@@ -227,7 +227,7 @@ module Toplevel = struct
         let update = v1
       end)
       ()
-  let output = new_field v1 "output" doc
+  let output = new_field_opt v1 "output" doc
   let backtrace = new_field_opt v1 "backtrace" doc
   let compiler_log = new_field_opt v1 "compiler_log" Compiler.raw_type
   let errors = new_field_opt v1 "errors" ldoc

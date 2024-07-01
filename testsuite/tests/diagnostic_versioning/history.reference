@@ -176,7 +176,7 @@ Main:
       Seal
     toplevel
       Creation
-      Key output, l structured_text
+      Key output, ?l structured_text
       Key backtrace, ?l structured_text
       Key compiler_log, ?compiler
       Key errors, ?l l structured_text

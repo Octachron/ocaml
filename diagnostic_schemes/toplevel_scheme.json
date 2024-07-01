@@ -301,5 +301,5 @@
       "output" :
         { "type" : "array", "items" : { "$ref" : "#/$defs/structured_text"}}
     },
-  "required" : ["metadata", "output"]
+  "required" : ["metadata"]
 }
