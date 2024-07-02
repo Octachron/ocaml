@@ -257,7 +257,6 @@ module type Def = sig
   val scheme: scheme
   val raw_type: raw_type typ
 
-  val expand: vl Version.update  -> 'a key -> ('b -> 'a) -> 'b typ -> 'b key
   val deprecate: vl Version.update -> 'a key -> unit
   val delete: vl Version.update -> 'a key -> unit
   val seal: vl Version.update -> unit
@@ -274,8 +273,10 @@ end
 module type Sum = sig
   type id
   include Def with type id := id and type definition := id sum
-  val new_constr: vl Version.update -> string -> 'a typ -> 'a -> raw_type
-  val new_constr0: vl Version.update -> string -> raw_type
+  val new_constr: vl Version.update -> string -> 'a typ -> 'a key
+  val new_constr0: vl Version.update -> string -> unit key
+  val expand: vl Version.update -> 'a key -> ('b->'a) -> 'b typ -> 'b key
+  val app: 'a key -> 'a -> raw_type
 end
 
 module type Version_line = sig
@@ -394,7 +395,6 @@ module New_record(Vl:Version_line)(Info:Info with type vl:=Vl.id)() = struct
   let () = Version.register_event Info.update Info.name Creation
   let new_field v name ty = new_key ~optional:false v scheme name ty
   let new_field_opt v name ty = new_key ~optional:true v scheme name ty
-  let expand u old core new_ty = expand_key u old core new_ty scheme
   let deprecate u k = deprecate_key u k scheme
   let delete u k = delete_key u k scheme
   let make_required u k = make_required u k scheme
@@ -412,12 +412,13 @@ module New_sum(Vl:Version_line)(Info:Info with type vl:=Vl.id)() = struct
   let raw_type = Sum scheme
 
   let () = Version.register_event Info.update Info.name Creation
-  let new_constr u name ty =
-    let k = new_key ~optional:false u scheme name ty in
-    fun x -> Constr(k,x)
-  let new_constr0 u name =
-    let k = new_key ~optional:false u scheme name Unit in
-    Enum k
+  let new_constr u name ty = new_key ~optional:false u scheme name ty
+  let new_constr0 u name = new_key ~optional:false u scheme name Unit
+
+  let app: type t. t key -> t -> raw_type = fun k x ->
+    match k.typ with
+    | Unit -> Enum k
+    | _ -> Constr(k,x)
 
   let expand u old core new_ty = expand_key u old core new_ty scheme
   let deprecate u k = deprecate_key u k scheme
@@ -518,13 +519,13 @@ module Metadata = struct
       let invalid = new_constr0 v1 "Invalid"
       let () = seal v1
   end
-  let valid = new_field v1 "valid" Validity.raw_type
+  let valid: Validity.raw_type key = new_field v1 "valid" Validity.raw_type
   let path = List String
   let invalid_paths = new_field_opt v1 "invalid_paths" (List path)
   let deprecated_paths = new_field_opt v1 "deprecated_paths" (List path)
   let () = seal v1
-  let universal_key = make_key "metadata" (Record scheme)
-  let metakey = "metadata", key_metadata ~optional:false v1 universal_key
+  let universal_key () = make_key "metadata" (Record scheme)
+  let metakey = "metadata", key_metadata ~optional:false v1 (universal_key ())
 end
 let metakey = Metadata.metakey
 
@@ -577,6 +578,7 @@ module Validation = struct
         | false, true ->Metadata. Validity.deprecated
         | _, false -> Metadata.Validity.invalid
       in
+      let valid = Metadata.Validity.app valid () in
       let metadata =
         let open Record in
         make [
@@ -757,19 +759,10 @@ let expanded_set key x log =
         log.printer.item (key.name, V(key.typ,x))
   | Store st -> Store.record st.data ~key x
 
-let rec proj: type t i. t typ -> t -> i log -> unit = fun typ x log ->
-  match typ with
-  | Custom { pull; default; _ } -> proj default (pull x) log
-  | Expansion {old; core; _} ->
-      let old = { name=old.name; typ=old.typ; id = old.id } in
-      expanded_set old (core x) log
-  | _ -> assert false
-
 let set key x log =
   match key_status log.version log.scheme.!(key) with
   | Deleted -> ()
-  | Deprecated | Valid | Future -> expanded_set key x log
-  | Expanded -> proj key.typ x log
+  | Valid | Expanded | Deprecated | Future -> expanded_set key x log
 
 let cons key x log =
   match log.mode with

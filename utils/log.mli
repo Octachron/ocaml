@@ -143,7 +143,6 @@ module type Def = sig
   val scheme: scheme
   val raw_type: definition typ
 
-  val expand: vl Version.update  -> 'a key -> ('b -> 'a) -> 'b typ -> 'b key
   val deprecate: vl Version.update -> 'a key -> unit
   val delete: vl Version.update -> 'a key -> unit
   val seal: vl Version.update -> unit
@@ -160,8 +159,10 @@ end
 module type Sum = sig
   type id
   include Def with type id := id and type definition := id sum
-  val new_constr: vl Version.update -> string -> 'a typ -> 'a -> id sum
-  val new_constr0: vl Version.update -> string -> id sum
+  val new_constr: vl Version.update -> string -> 'a typ -> 'a key
+  val new_constr0: vl Version.update -> string -> unit key
+  val expand: vl Version.update -> 'a key -> ('b->'a) -> 'b typ -> 'b key
+  val app: 'a key -> 'a -> raw_type
 end
 
 module type Info = sig

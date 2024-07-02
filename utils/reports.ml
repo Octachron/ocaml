@@ -39,11 +39,11 @@ module Structured_text = struct
     type _ extension += Box_type: Doc.box_type extension
     let typ =
       let pull = function
-        | Doc.H -> h
-        | Doc.V -> v
-        | Doc.HoV -> hov
-        | Doc.HV -> hv
-        | Doc.B -> b
+        | Doc.H -> app h ()
+        | Doc.V -> app v ()
+        | Doc.HoV -> app hov ()
+        | Doc.HV -> app hv ()
+        | Doc.B -> app b ()
       in
       Custom { id = Box_type; pull; default = raw_type}
   end
@@ -66,12 +66,12 @@ module Structured_text = struct
     let register_tag ext conv = Hashtbl.replace map ext conv
     let typ =
       let pull = function
-        | Format.String_tag s -> string_tag s
+        | Format.String_tag s -> app string_tag s
         | x ->
             let ext = Obj.Extension_constructor.of_val x in
             match Hashtbl.find map ext with
             | exception Not_found ->
-                unknown (Obj.Extension_constructor.name ext)
+                app unknown (Obj.Extension_constructor.name ext)
             | f -> f x
       in
       Custom { id = Format_tag; pull; default = raw_type}
@@ -83,7 +83,7 @@ module Structured_text = struct
         | dot -> String.sub name (dot+1) (String.length name - dot -1)
       in
       let constr = new_constr0 v name in
-      register_tag ext (fun _ -> constr)
+      register_tag ext (fun _ -> app constr ())
 
    let () =
       Array.iter (register_tag0 v1)
@@ -134,22 +134,22 @@ module Structured_text = struct
   type _ extension += Doc: Doc.t extension
   let typ =
     let elt_pull = function
-      | Doc.Text x -> text x
-      | Doc.With_size x -> with_size x
-      | Doc.Open_box r -> open_box (r.kind, r.indent)
-      | Doc.Close_box -> close_box
-      | Doc.Open_tag t -> open_tag t
-      | Doc.Close_tag -> close_tag
-      | Doc.Open_tbox -> open_tbox
-      | Doc.Close_tbox -> close_tbox
-      | Doc.Tab_break t -> tab_break (t.width,t.offset)
-      | Doc.Set_tab -> set_tab
-      | Doc.Simple_break r -> simple_break (r.spaces, r.indent)
-      | Doc.Break r -> break (r.fits, r.breaks)
-      | Doc.Flush r -> flush r.newline
-      | Doc.Newline -> newline
-      | Doc.If_newline -> if_newline
-      | Doc.Deprecated _ -> deprecated
+      | Doc.Text x -> app text x
+      | Doc.With_size x -> app with_size x
+      | Doc.Open_box r -> app open_box (r.kind, r.indent)
+      | Doc.Close_box -> app close_box ()
+      | Doc.Open_tag t -> app open_tag t
+      | Doc.Close_tag -> app close_tag ()
+      | Doc.Open_tbox -> app open_tbox ()
+      | Doc.Close_tbox -> app close_tbox ()
+      | Doc.Tab_break t -> app tab_break (t.width,t.offset)
+      | Doc.Set_tab -> app set_tab ()
+      | Doc.Simple_break r -> app simple_break (r.spaces, r.indent)
+      | Doc.Break r -> app break (r.fits, r.breaks)
+      | Doc.Flush r -> app flush r.newline
+      | Doc.Newline -> app newline ()
+      | Doc.If_newline -> app if_newline ()
+      | Doc.Deprecated _ -> app deprecated ()
     in
     let default = List raw_type in
     let pull d =

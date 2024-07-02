@@ -750,11 +750,11 @@ module Error_log = struct[@warning "-unused-value-declaration"]
     | Msg: Format_doc.t loc extension
 
   let pull = function
-    | Report_error -> report_error
-    | Report_warning w -> report_warning w
-    | Report_warning_as_error w -> report_warning_as_error w
-    | Report_alert w -> report_alert w
-    | Report_alert_as_error w -> report_alert_as_error w
+    | Report_error -> Kind.app report_error ()
+    | Report_warning w -> Kind.app report_warning w
+    | Report_warning_as_error w -> Kind.app report_warning_as_error w
+    | Report_alert w -> Kind.app report_alert w
+    | Report_alert_as_error w -> Kind.app report_alert_as_error w
 
 
   module Loc = struct
