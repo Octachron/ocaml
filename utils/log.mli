@@ -25,7 +25,12 @@ type 'a t = 'a log
 (** {1:log_scheme_versionning  Current version of the log } *)
 module Version: sig
   type t = { major:int; minor:int }
-  type range = { creation: t; deprecation: t option; deletion:t option }
+  type range = {
+    creation: t;
+    expansion: t option;
+    deprecation: t option;
+    deletion:t option
+  }
   val make: major:int -> minor:int -> t
   val pp: Format.formatter -> t -> unit
 
@@ -39,6 +44,7 @@ module Version: sig
     | Creation
     | New_key of {name:string; typ:string}
     | Make_required of string
+    | Expansion of {name:string; expansion:string}
     | Deprecation of string
     | Deletion of string
     | Seal
@@ -75,8 +81,15 @@ type 'a typ =
       ('a * 'b * 'c * 'd) typ
   | Sum: 'a def -> 'a sum typ
   | Record: 'id def -> 'id record typ
+
+  | Expansion: {
+      old: ('core,_) key;
+      core: 'expanded -> 'core;
+      expansion:'expanded typ
+    } -> 'expanded typ
   | Custom: { id :'b extension; pull: ('b -> 'a); default: 'a typ} ->
       'b typ
+and ('a,'b) key
 
 type typed_val = V: 'a typ * 'a -> typed_val
 type typed_record = R: 'a def * 'a record -> typed_record
@@ -117,7 +130,6 @@ module type Version_line = sig
   val v1: id Version.update
 end
 
-type ('a,'b) key
 module type Def = sig
   type vl
   type id
@@ -131,6 +143,7 @@ module type Def = sig
   val scheme: scheme
   val raw_type: definition typ
 
+  val expand: vl Version.update  -> 'a key -> ('b -> 'a) -> 'b typ -> 'b key
   val deprecate: vl Version.update -> 'a key -> unit
   val delete: vl Version.update -> 'a key -> unit
   val seal: vl Version.update -> unit

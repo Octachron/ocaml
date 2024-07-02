@@ -114,6 +114,7 @@ module Pp = struct
     | New_key {name;typ} ->
         if typ = "" then fprintf ppf "Key %s" name
         else fprintf ppf "Key %s, %s" name typ
+    | Expansion {name;expansion} -> fprintf ppf "Key %s>%s" name expansion
     | Make_required name -> fprintf ppf "Newly required %s" name
     | Deprecation name -> fprintf ppf "Deprecation %s" name
     | Seal -> fprintf ppf "Seal"

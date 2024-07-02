@@ -803,7 +803,7 @@ module Error_log = struct[@warning "-unused-value-declaration"]
   let pull (report:report) =
     let open Log.Record in
     make @@ (footnote ^=? report.footnote) @
- [
+    [
       kind ^= report.kind;
       main ^= report.main;
       sub ^= report.sub;
