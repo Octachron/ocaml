@@ -557,30 +557,32 @@ let compute_first_order_suggestions sgs =
 
   List.rev (class_suggestions @ module_suggestions @ value_suggestions)
 
-let compute_suggestions sgs passes =
+let suggest sgs passes =
   let open Includemod.Error in
 
-  let rec iterate f sgs i =
+  let rec iterate f sgs i recompute_sgs =
     if i = 0 then
       [], sgs
     else
       let suggestions = f sgs in
 
-      let subst = List.fold_left Suggestion.apply sgs.subst suggestions in
-
-      match compute_signature_diff sgs.env subst sgs.sig1 sgs.sig2 with
-      | None ->
-          suggestions, sgs
-      | Some sgs' ->
-          let new_suggestions, _ = iterate f sgs' (i - 1) in
-          new_suggestions @ suggestions, sgs'
+      if not recompute_sgs || List.is_empty suggestions then
+        [], sgs
+      else
+        let subst = List.fold_left Suggestion.apply sgs.subst suggestions in
+        match compute_signature_diff sgs.env subst sgs.sig1 sgs.sig2 with
+        | None ->
+            suggestions, sgs
+        | Some sgs' ->
+            let new_suggestions, _ = iterate f sgs' (i - 1) recompute_sgs in
+            new_suggestions @ suggestions, sgs'
   in
 
   let second_order_suggestions, sgs' =
-    iterate compute_second_order_suggestions sgs passes
+    iterate compute_second_order_suggestions sgs passes true
   in
   let first_order_suggestions, _ =
-    iterate compute_first_order_suggestions sgs' passes
+    iterate compute_first_order_suggestions sgs' passes false
   in
 
   second_order_suggestions @ first_order_suggestions

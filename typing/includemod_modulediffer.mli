@@ -26,5 +26,5 @@ module Suggestion : sig
   }
 end
 
-val compute_suggestions :
+val suggest :
   Includemod.Error.signature_symptom -> int -> Suggestion.t list

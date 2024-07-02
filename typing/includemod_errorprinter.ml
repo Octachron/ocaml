@@ -916,7 +916,7 @@ and signature ~expansion_token ~env:_ ~before ~ctx:_ sgs =
   in
   Printtyp.wrap_printing_env ~error:true sgs.env (fun () ->
       if expansion_token then
-        let suggestions = Includemod_modulediffer.compute_suggestions sgs 2 in
+        let suggestions = Includemod_modulediffer.suggest sgs 2 in
         List.map suggestion_text suggestions @ before
       else
         before
