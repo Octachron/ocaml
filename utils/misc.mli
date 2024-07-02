@@ -538,6 +538,7 @@ module Trie : sig
     ?insertion_cost:int ->
     ?substitution_cost:int ->
     ?cutoff:int ->
+    ?max_elements:int ->
     'a t ->
     string ->
     ('a list * int) Seq.t

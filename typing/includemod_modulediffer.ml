@@ -154,6 +154,7 @@ let fuzzy_match_names compatibility_test missings additions =
         let sequence =
           Misc.Trie.compute_preference_layers
             ~cutoff:(cutoff missing_name)
+            ~max_elements:75
             added_names
             missing_name
         in

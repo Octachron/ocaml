@@ -1271,7 +1271,8 @@ module Trie = struct
 
     let compute_preference_layers (type a) ?(deletion_cost = 1)
         ?(insertion_cost = 1) ?(substitution_cost = 1) ?(cutoff : int option)
-        (trie : a t) (string : string) : (a list * int) Seq.t =
+        ?(max_elements : int option) (trie : a t) (string : string)
+        : (a list * int) Seq.t =
 
       (* [current_distance = None] iff [acc = []]. *)
       let rec compute seq current_distance acc = fun () ->
@@ -1300,7 +1301,12 @@ module Trie = struct
           trie
           string
       in
-      compute preferences None []
+      let seq =
+        match max_elements with
+        | Some n -> Seq.take n preferences
+        | None -> preferences
+      in
+      compute seq None []
 end
 
 module Error_style = struct
