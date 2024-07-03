@@ -749,12 +749,12 @@ module Error_log = struct[@warning "-unused-value-declaration"]
     | Location: lc extension
     | Msg: Format_doc.t loc extension
 
-  let pull = function
-    | Report_error -> Kind.app report_error ()
-    | Report_warning w -> Kind.app report_warning w
-    | Report_warning_as_error w -> Kind.app report_warning_as_error w
-    | Report_alert w -> Kind.app report_alert w
-    | Report_alert_as_error w -> Kind.app report_alert_as_error w
+  let pull v = function
+    | Report_error -> Kind.app v report_error ()
+    | Report_warning w -> Kind.app v report_warning w
+    | Report_warning_as_error w -> Kind.app v report_warning_as_error w
+    | Report_alert w -> Kind.app v report_alert w
+    | Report_alert_as_error w -> Kind.app v report_alert_as_error w
 
 
   module Loc = struct
@@ -765,7 +765,7 @@ module Error_log = struct[@warning "-unused-value-declaration"]
     let characters = new_field_opt v1 "characters" (Pair(Int,Int))
     let () = seal v1
     let ctyp =
-      let pull l =
+      let pull _v l =
         let l = loc_summary l in
         let open Record in
         make @@
@@ -786,7 +786,7 @@ module Error_log = struct[@warning "-unused-value-declaration"]
   let msg_loc = Msg.new_field v1 "loc" Loc.ctyp
   let () = Msg.seal v1
   let msg_typ =
-    let pull m = Log.Record.(make [ msg ^= m.txt; msg_loc ^= m.loc ]) in
+    let pull _v m = Log.Record.(make [ msg ^= m.txt; msg_loc ^= m.loc ]) in
     Custom { id = Msg; pull; default = Record Msg.scheme }
 
   let kind = Reports.Error.new_field v1 "kind"
@@ -800,7 +800,7 @@ module Error_log = struct[@warning "-unused-value-declaration"]
 
   let () = Reports.Error.seal v1
 
-  let pull (report:report) =
+  let pull _v (report:report) =
     let open Log.Record in
     make @@ (footnote ^=? report.footnote) @
     [

@@ -28,7 +28,8 @@ module Structured_text: sig
   type _ Log.extension += Doc: Format_doc.Doc.t Log.extension
 
   val register_tag:
-    Obj.Extension_constructor.t -> (Format.stag -> Format_tag.id Log.sum)
+    Obj.Extension_constructor.t
+    -> (Log.Version.t -> Format.stag -> Format_tag.id Log.sum)
     -> unit
   val register_tag0:
     V.id Log.Version.update -> Obj.Extension_constructor.t

@@ -38,12 +38,12 @@ module Structured_text = struct
     let () = seal v1
     type _ extension += Box_type: Doc.box_type extension
     let typ =
-      let pull = function
-        | Doc.H -> app h ()
-        | Doc.V -> app v ()
-        | Doc.HoV -> app hov ()
-        | Doc.HV -> app hv ()
-        | Doc.B -> app b ()
+      let pull version = function
+        | Doc.H -> app version h ()
+        | Doc.V -> app version v ()
+        | Doc.HoV -> app version hov ()
+        | Doc.HV -> app version hv ()
+        | Doc.B -> app version b ()
       in
       Custom { id = Box_type; pull; default = raw_type}
   end
@@ -61,18 +61,19 @@ module Structured_text = struct
     let string_tag = new_constr v1 "String_tag" String
 
     type _ extension += Format_tag: Format.stag extension
-    let map: (Obj.Extension_constructor.t, Format.stag -> raw_type) Hashtbl.t =
+    type format_tag_serializer = Version.t -> Format.stag -> raw_type
+    let map: (Obj.Extension_constructor.t, format_tag_serializer) Hashtbl.t =
       Hashtbl.create 5
     let register_tag ext conv = Hashtbl.replace map ext conv
     let typ =
-      let pull = function
-        | Format.String_tag s -> app string_tag s
+      let pull v = function
+        | Format.String_tag s -> app v string_tag s
         | x ->
             let ext = Obj.Extension_constructor.of_val x in
             match Hashtbl.find map ext with
             | exception Not_found ->
-                app unknown (Obj.Extension_constructor.name ext)
-            | f -> f x
+                app v unknown (Obj.Extension_constructor.name ext)
+            | f -> f v x
       in
       Custom { id = Format_tag; pull; default = raw_type}
 
@@ -83,7 +84,7 @@ module Structured_text = struct
         | dot -> String.sub name (dot+1) (String.length name - dot -1)
       in
       let constr = new_constr0 v name in
-      register_tag ext (fun _ -> app constr ())
+      register_tag ext (fun v _ -> app v constr ())
 
    let () =
       Array.iter (register_tag0 v1)
@@ -133,28 +134,28 @@ module Structured_text = struct
 
   type _ extension += Doc: Doc.t extension
   let typ =
-    let elt_pull = function
-      | Doc.Text x -> app text x
-      | Doc.With_size x -> app with_size x
-      | Doc.Open_box r -> app open_box (r.kind, r.indent)
-      | Doc.Close_box -> app close_box ()
-      | Doc.Open_tag t -> app open_tag t
-      | Doc.Close_tag -> app close_tag ()
-      | Doc.Open_tbox -> app open_tbox ()
-      | Doc.Close_tbox -> app close_tbox ()
-      | Doc.Tab_break t -> app tab_break (t.width,t.offset)
-      | Doc.Set_tab -> app set_tab ()
-      | Doc.Simple_break r -> app simple_break (r.spaces, r.indent)
-      | Doc.Break r -> app break (r.fits, r.breaks)
-      | Doc.Flush r -> app flush r.newline
-      | Doc.Newline -> app newline ()
-      | Doc.If_newline -> app if_newline ()
-      | Doc.Deprecated _ -> app deprecated ()
+    let elt_pull v = function
+      | Doc.Text x -> app v text x
+      | Doc.With_size x -> app v with_size x
+      | Doc.Open_box r -> app v open_box (r.kind, r.indent)
+      | Doc.Close_box -> app v close_box ()
+      | Doc.Open_tag t -> app v open_tag t
+      | Doc.Close_tag -> app v close_tag ()
+      | Doc.Open_tbox -> app v open_tbox ()
+      | Doc.Close_tbox -> app v close_tbox ()
+      | Doc.Tab_break t -> app v tab_break (t.width,t.offset)
+      | Doc.Set_tab -> app v set_tab ()
+      | Doc.Simple_break r -> app v simple_break (r.spaces, r.indent)
+      | Doc.Break r -> app v break (r.fits, r.breaks)
+      | Doc.Flush r -> app v flush r.newline
+      | Doc.Newline -> app v newline ()
+      | Doc.If_newline -> app v if_newline ()
+      | Doc.Deprecated _ -> app v deprecated ()
     in
     let default = List raw_type in
-    let pull d =
+    let pull v d =
       List.rev @@
-      Format_doc.Doc.fold (fun l x -> elt_pull x :: l ) [] d in
+      Format_doc.Doc.fold (fun l x -> elt_pull v x :: l ) [] d in
     Custom {id = Doc; default; pull }
 
   let register_tag = Format_tag.register_tag

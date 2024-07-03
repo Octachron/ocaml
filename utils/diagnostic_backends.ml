@@ -82,66 +82,62 @@ module Fmt = struct
       conv.assoc.assoc_close ppf
     end
 
-  let rec elt : type a. conv -> extension_printer -> a typ -> a -> pr =
-    fun conv {extension} typ x ppf ->
+  type ctx = { conv:conv; ext_printer:extension_printer; version:Version.t}
+
+  let rec elt : type a. ctx -> a typ -> a -> pr = fun ctx typ x ppf ->
     match typ with
     | Unit -> Format.pp_print_int ppf 0
     | Int -> Format.pp_print_int ppf x
-    | Bool -> bool conv x ppf
-    | String -> conv.string ppf x
+    | Bool -> bool ctx.conv x ppf
+    | String -> ctx.conv.string ppf x
     | Pair (a,b) ->
         let x,y = x in
-        list conv [
-        elt conv {extension} a x;
-        elt conv {extension} b y;
+        list ctx.conv [
+        elt ctx a x;
+        elt ctx b y;
       ] ppf
     | Triple (a,b,c) ->
         let x, y, z = x in
-        list conv [
-        elt conv {extension} a x;
-        elt conv {extension} b y;
-        elt conv {extension} c z;
+        list ctx.conv [
+        elt ctx a x;
+        elt ctx b y;
+        elt ctx c z;
       ] ppf
     | Quadruple (a,b,c,d) ->
         let x, y, z ,w = x in
-        list conv [
-        elt conv {extension} a x;
-        elt conv {extension} b y;
-        elt conv {extension} c z;
-        elt conv {extension} d w
+        list ctx.conv [
+        elt ctx a x;
+        elt ctx b y;
+        elt ctx c z;
+        elt ctx d w
       ] ppf
     | Custom {pull; default; id } -> begin
-        match extension id with
+        match ctx.ext_printer.extension id with
         | Some pr -> pr ppf x
-        | None -> elt conv {extension} default (pull x) ppf
+        | None -> elt ctx default (pull ctx.version x) ppf
       end
-    | Expansion r -> elt conv {extension} r.expansion x ppf
-    |  List e ->
-        list conv (List.map (elt conv {extension} e) x) ppf
+    | Expansion r -> elt ctx r.expansion x ppf
+    |  List e -> list ctx.conv (List.map (elt ctx e) x) ppf
     | Sum _ ->
         destruct x (fun name (V(typ,x)) ->
             match typ with
-            | Unit -> conv.atom name ppf
+            | Unit -> ctx.conv.atom name ppf
             | _ ->
-                list conv
-                  [ conv.atom name; elt conv {extension} typ x ]
+                list ctx.conv
+                  [ ctx.conv.atom name; elt ctx typ x ]
                   ppf
           )
-    | Record m -> elt_record conv {extension} (field_names m,x) ppf
+    | Record m -> elt_record ctx (field_names m,x) ppf
 
-  and elt_item: type a.
-    conv -> extension_printer -> key:string -> a typ -> a -> pr =
-    fun conv ext ~key ty x ppf -> item conv ~key (elt conv ext ty x) ppf
-  and fields: type p.
-    conv -> extension_printer -> (string list * p record)  -> pr list
-    = fun conv ext (keys,prod) ->
+  and elt_item: type a. ctx -> key:string -> a typ -> a -> pr =
+    fun ctx ~key ty x ppf -> item ctx.conv ~key (elt ctx ty x) ppf
+  and fields: type p. ctx -> (string list * p record)  -> pr list
+    = fun ctx (keys,prod) ->
       let fields = Log.fields keys prod in
-      let pp_field (name, V(typ,x)) = elt_item conv ext ~key:name typ x in
+      let pp_field (name, V(typ,x)) = elt_item ctx ~key:name typ x in
       List.map pp_field fields
-
-  and elt_record: type p.
-    conv -> extension_printer -> (string list * p record) -> pr =
-    fun conv ext x -> record conv (fields conv ext x)
+  and elt_record: type p. ctx -> (string list * p record) -> pr =
+    fun ctx x -> record ctx.conv (fields ctx x)
 
 
   let direct = {
@@ -227,19 +223,20 @@ module Fmt = struct
 end
 
   let with_conv ~structured ~extension conv settings version ppf scheme =
+    let ctx = { Fmt.version; conv; ext_printer=extension} in
     let record ppf (R(def, r)) =
       let field_names = field_names def in
       let fs = Log.fields field_names r in
       if List.is_empty fs then () else
         let fields =
           let meta =
-            Fmt.fields conv extension (["metadata"],r) in
-          meta @ Fmt.fields conv extension (field_names,r)
+            Fmt.fields ctx (["metadata"],r) in
+          meta @ Fmt.fields ctx (field_names,r)
         in
-        Format.fprintf ppf "%t@." (Fmt.record conv fields)
+        Format.fprintf ppf "%t@." (Fmt.record ctx.conv fields)
     in
     let item ppf (name, V(typ,r)) =
-      Fmt.elt_item conv extension ~key:name typ r ppf
+      Fmt.elt_item ctx ~key:name typ r ppf
     in
     make ~structured ~printer:{record;item} settings version scheme ppf
 

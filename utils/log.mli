@@ -69,6 +69,7 @@ type empty = Empty_tag
 
 type _ extension = ..
 
+type ('a,'b) key
 type 'a typ =
   | Unit: unit typ
   | Bool: bool typ
@@ -87,9 +88,11 @@ type 'a typ =
       core: 'expanded -> 'core;
       expansion:'expanded typ
     } -> 'expanded typ
-  | Custom: { id :'b extension; pull: ('b -> 'a); default: 'a typ} ->
-      'b typ
-and ('a,'b) key
+  | Custom: {
+      id :'b extension;
+      pull: (Version.t -> 'b -> 'a);
+      default: 'a typ
+    } -> 'b typ
 
 type typed_val = V: 'a typ * 'a -> typed_val
 type typed_record = R: 'a def * 'a record -> typed_record
@@ -159,10 +162,12 @@ end
 module type Sum = sig
   type id
   include Def with type id := id and type definition := id sum
-  val new_constr: vl Version.update -> string -> 'a typ -> 'a key
-  val new_constr0: vl Version.update -> string -> unit key
-  val expand: vl Version.update -> 'a key -> ('b->'a) -> 'b typ -> 'b key
-  val app: 'a key -> 'a -> raw_type
+  type 'a constructor
+  val new_constr: vl Version.update -> string -> 'a typ -> 'a constructor
+  val new_constr0: vl Version.update -> string -> unit constructor
+  val app: Version.t -> 'a constructor -> 'a -> raw_type
+  val expand:
+    vl Version.update -> 'a constructor -> ('b->'a) -> 'b typ -> 'b constructor
 end
 
 module type Info = sig

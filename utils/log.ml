@@ -117,8 +117,11 @@ type 'a typ =
       core: 'expanded -> 'core;
       expansion:'expanded typ
     } -> 'expanded typ
-  | Custom: { id :'b extension; pull: ('b -> 'a); default: 'a typ} ->
-      'b typ
+  | Custom: {
+      id :'b extension;
+      pull: (Version.t -> 'b -> 'a);
+      default: 'a typ
+    } -> 'b typ
 
 and ('a,'b) key = {
   name: string;
@@ -241,7 +244,7 @@ let new_key ~optional update scheme name typ =
 type _ extension += Version: version extension
 
 let version_ty =
-  let pull v = v.Version.major, v.Version.minor in
+  let pull _ v = v.Version.major, v.Version.minor in
   Custom { id = Version; pull; default = Pair (Int,Int) }
 
 
@@ -270,13 +273,38 @@ module type Record = sig
   val new_field_opt: vl Version.update  -> string -> 'a typ -> 'a key
 end
 
+type ('current,'id) constructor_expansion = Cexp: {
+  core: 'current -> 'old;
+  old: ('old,'id) key;
+  version: Version.t;
+} -> ('current,'id) constructor_expansion
+
+
+type ('elt,'id) constructor =
+  { key: ('elt,'id) key; expansion: ('elt,'id) constructor_expansion option }
+
+let make_constructor (type id t) (k: (t,id) key) (x:t) =
+  match k.typ with
+  | Unit -> Enum k
+  | _ -> Constr(k,x)
+
+let app (type t id) v (c:(t,id) constructor) (x:t): id sum =
+  match c.expansion with
+  | None -> make_constructor c.key x
+  | Some (Cexp r) ->
+      if v >= r.version then make_constructor c.key x
+      else make_constructor r.old (r.core x)
+
+
 module type Sum = sig
   type id
   include Def with type id := id and type definition := id sum
-  val new_constr: vl Version.update -> string -> 'a typ -> 'a key
-  val new_constr0: vl Version.update -> string -> unit key
-  val expand: vl Version.update -> 'a key -> ('b->'a) -> 'b typ -> 'b key
-  val app: 'a key -> 'a -> raw_type
+  type 'a constructor
+  val new_constr: vl Version.update -> string -> 'a typ -> 'a constructor
+  val new_constr0: vl Version.update -> string -> unit constructor
+  val app: Version.t -> 'a constructor -> 'a -> raw_type
+  val expand:
+    vl Version.update -> 'a constructor -> ('b->'a) -> 'b typ -> 'b constructor
 end
 
 module type Version_line = sig
@@ -410,23 +438,24 @@ module New_sum(Vl:Version_line)(Info:Info with type vl:=Vl.id)() = struct
     polarity = Negative;
   }
   let raw_type = Sum scheme
-
+  type nonrec 'a constructor = ('a,id) constructor
   let () = Version.register_event Info.update Info.name Creation
-  let new_constr u name ty = new_key ~optional:false u scheme name ty
-  let new_constr0 u name = new_key ~optional:false u scheme name Unit
+  let new_constr u name (ty:'a typ): 'a constructor  =
+    { key = new_key ~optional:false u scheme name ty; expansion = None }
+  let new_constr0 u name = new_constr u name Unit
+  let app = app
 
-  let app: type t. t key -> t -> raw_type = fun k x ->
-    match k.typ with
-    | Unit -> Enum k
-    | _ -> Constr(k,x)
-
-  let expand u old core new_ty = expand_key u old core new_ty scheme
+  let expand u {key=old;expansion} core new_ty =
+    match expansion with
+    | Some _ -> assert false
+    | None -> ();
+    let key = expand_key u old core new_ty scheme in
+    let expansion = Some(Cexp {core;old;version=Version.v u}) in
+    { key; expansion }
   let deprecate u k = deprecate_key u k scheme
   let delete u k = delete_key u k scheme
   let seal u = seal u scheme
 end
-
-
 
 (** {1:log_scheme_versionning  Current version of the log } *)
 
@@ -578,7 +607,7 @@ module Validation = struct
         | false, true ->Metadata. Validity.deprecated
         | _, false -> Metadata.Validity.invalid
       in
-      let valid = Metadata.Validity.app valid () in
+      let valid = app (Version.v Metadata.v1) valid () in
       let metadata =
         let open Record in
         make [
@@ -588,7 +617,7 @@ module Validation = struct
           Metadata.deprecated_paths ^= r.deprecated;
         ]
       in
-      Store.record st ~key:Metadata.universal_key metadata
+      Store.record st ~key:(Metadata.universal_key ()) metadata
     end;
     r
   and fields: type id.
