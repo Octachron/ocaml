@@ -83,11 +83,6 @@ type 'a typ =
   | Sum: 'a def -> 'a sum typ
   | Record: 'id def -> 'id record typ
 
-  | Expansion: {
-      old: ('core,_) key;
-      core: 'expanded -> 'core;
-      expansion:'expanded typ
-    } -> 'expanded typ
   | Custom: {
       id :'b extension;
       pull: (Version.t -> 'b -> 'a);

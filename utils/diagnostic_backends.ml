@@ -116,7 +116,6 @@ module Fmt = struct
         | Some pr -> pr ppf x
         | None -> elt ctx default (pull ctx.version x) ppf
       end
-    | Expansion r -> elt ctx r.expansion x ppf
     |  List e -> list ctx.conv (List.map (elt ctx e) x) ppf
     | Sum _ ->
         destruct x (fun name (V(typ,x)) ->
@@ -295,7 +294,6 @@ module Json_schema = struct
     | Pair (x,y) -> tuple_typ [typ x; typ y]
     | Triple (x,y,z) -> tuple_typ [typ x; typ y; typ z]
     | Quadruple (x,y,z,w) -> tuple_typ [typ x;typ y; typ z; typ w]
-    | Expansion r -> typ r.expansion
     | Sum x -> sref x
     | Record x -> sref x
     | Custom x -> typ x.default
@@ -376,7 +374,6 @@ module Json_schema = struct
       | Triple (x,y,z) -> union [refs x; refs y; refs z]
       | Quadruple (x,y,z,w) -> union [refs x; refs y; refs z; refs w]
       | Custom t -> refs t.default
-      | Expansion r -> refs r.expansion
   and subrefs: type a.
     (string * key_metadata) list -> (Format.formatter -> unit) String_map.t
     = fun keys ->

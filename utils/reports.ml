@@ -56,7 +56,6 @@ module Structured_text = struct
         end
         )()
 
-
     let unknown = new_constr v1 "<Unknown>" String
     let string_tag = new_constr v1 "String_tag" String
 

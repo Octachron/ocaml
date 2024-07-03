@@ -111,12 +111,6 @@ type 'a typ =
 
   | Sum: 'a def -> 'a sum typ
   | Record: 'id def -> 'id record typ
-
-  | Expansion: {
-      old: ('core,_) key;
-      core: 'expanded -> 'core;
-      expansion:'expanded typ
-    } -> 'expanded typ
   | Custom: {
       id :'b extension;
       pull: (Version.t -> 'b -> 'a);
@@ -202,8 +196,6 @@ let rec pp_typ: type a. Format.formatter -> a typ -> unit = fun ppf -> function
     with_parens x with_parens y with_parens z with_parens w
 | Sum def -> Format.fprintf ppf "%s" def.scheme_name
 | Record def -> Format.fprintf ppf "%s" def.scheme_name
-| Expansion {old;expansion;_} ->
-    Format.fprintf ppf "%a>%a" pp_typ old.typ pp_typ expansion
 | Custom r -> pp_typ ppf r.default
 and with_parens: type a. Format.formatter -> a typ -> unit = fun ppf elt ->
   let parens_needed =  match elt with
@@ -374,16 +366,15 @@ let make_required u key scheme =
   scheme.!(key) <-
     Key_metadata { kmd with optional = false }
 
-let expand_key u old core new_typ scheme =
+let expand_key u old new_typ scheme =
   let Key_metadata kmd = scheme.!(old) in
   inconsistent_if_inactive u scheme.scheme_name old.name kmd.status;
-  let typ = Expansion { old; core; expansion=new_typ} in
   Version.register_event u scheme.scheme_name
     (Expansion {name=old.name;
                 expansion = Format.asprintf "%a" pp_typ new_typ});
   let status = { kmd.status with expansion = Some (Version.v u) } in
-  let key = make_key old.name typ in
-  scheme.!(key) <- Key_metadata { kmd with status; typ };
+  let key = make_key old.name new_typ in
+  scheme.!(key) <- Key_metadata { kmd with status; typ=new_typ };
   key
 
 let deprecate_key u key scheme =
@@ -449,7 +440,7 @@ module New_sum(Vl:Version_line)(Info:Info with type vl:=Vl.id)() = struct
     match expansion with
     | Some _ -> assert false
     | None -> ();
-    let key = expand_key u old core new_ty scheme in
+    let key = expand_key u old new_ty scheme in
     let expansion = Some(Cexp {core;old;version=Version.v u}) in
     { key; expansion }
   let deprecate u k = deprecate_key u k scheme
@@ -594,7 +585,6 @@ module Validation = struct
     | Custom r -> possibly_invalid r.default
     | Sum _ -> true
     | Record _ -> true
-    | Expansion _ -> true
 
   let rec record: type id.
     ?toplevel:bool -> version:version -> id def -> id record -> report_paths =
@@ -644,7 +634,6 @@ module Validation = struct
     fun ~version v typ ->
     match typ with
     | Record m -> record ~version m v
-    | Expansion { expansion; _ } -> value ~version v expansion
     | Int -> none
     | Bool -> none
     | String -> none
@@ -704,17 +693,15 @@ let redirect log key ?(close=ignore) ppf  =
   log.redirections <-
     Keys.add key.name {initialized=ref false;ppf;close} log.redirections
 
-let rec record_scheme: type a. a record typ -> a def  =
+let record_scheme: type a. a record typ -> a def  =
   function
   | Custom _ -> assert false
   | Record sch -> sch
-  | Expansion r -> record_scheme r.expansion
   | _ -> .
 
-let rec record_list_scheme: type a. a record list typ -> a def  =
+let record_list_scheme: type a. a record list typ -> a def  =
   function
   | Custom _ -> assert false
-  | Expansion r -> record_list_scheme r.expansion
   | List r -> record_scheme r
   | _ -> .
 
