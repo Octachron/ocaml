@@ -368,7 +368,8 @@ let fuzzy_match_names compatibility_test missings additions =
     actually_missing @ !name_changes
   in
 
-  if m * n <= 1_000_000 then
+
+  if m <= 100 && n <= 20 then
     stable_marriages ()
   else
     greedy ()
