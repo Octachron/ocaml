@@ -765,14 +765,15 @@ module Error_log = struct[@warning "-unused-value-declaration"]
     let characters = new_field_opt v1 "characters" (Pair(Int,Int))
     let () = seal v1
     let ctyp =
-      let pull _v l =
+      let pull v l =
         let l = loc_summary l in
         let open Record in
-        make @@
-         (characters ^=? l.characters)
-        @ (file ^=? l.file)
-        @ (start_line ^=? l.start_line)
-        @ (end_line ^=? l.end_line)
+        make v [
+          characters ^=? l.characters;
+          file ^=? l.file;
+          start_line ^=? l.start_line;
+          end_line ^=? l.end_line
+        ]
       in
       Custom {
         id = Location; pull; default = Record scheme
@@ -786,7 +787,7 @@ module Error_log = struct[@warning "-unused-value-declaration"]
   let msg_loc = Msg.new_field v1 "loc" Loc.ctyp
   let () = Msg.seal v1
   let msg_typ =
-    let pull _v m = Log.Record.(make [ msg ^= m.txt; msg_loc ^= m.loc ]) in
+    let pull v m = Log.Record.(make  v[ msg ^= m.txt; msg_loc ^= m.loc ]) in
     Custom { id = Msg; pull; default = Record Msg.scheme }
 
   let kind = Reports.Error.new_field v1 "kind"
@@ -800,14 +801,15 @@ module Error_log = struct[@warning "-unused-value-declaration"]
 
   let () = Reports.Error.seal v1
 
-  let pull _v (report:report) =
+  let pull v (report:report) =
     let open Log.Record in
-    make @@ (footnote ^=? report.footnote) @
+    make v
     [
       kind ^= report.kind;
       main ^= report.main;
       sub ^= report.sub;
       quotable_locs ^= report.quotable_locs;
+      footnote ^=? report.footnote
     ]
   let report_typ = Custom { id = Error; pull; default = Reports.Error.raw_type }
   let key = Reports.Compiler.new_field_opt v1 "error" report_typ

@@ -35,5 +35,5 @@ val sexp: t
 
 module Json_schema:sig
   val pp_log: Format.formatter -> 'a log -> unit
-  val pp:  Version.t -> 'a def -> Format.formatter -> unit
+  val pp:  Version.t option -> 'a def -> Format.formatter -> unit
 end

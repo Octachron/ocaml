@@ -18,7 +18,7 @@ val register : pass_name:string -> unit
 
 val with_log
    : log:Reports.Debug.t
-  -> log_key: string list Reports.Debug.key
+  -> field: string list Reports.Debug.field
   -> pass_name:string
   -> f:(unit -> 'b option)
   -> input:'a

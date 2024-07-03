@@ -82,7 +82,11 @@ module Fmt = struct
       conv.assoc.assoc_close ppf
     end
 
-  type ctx = { conv:conv; ext_printer:extension_printer; version:Version.t}
+  type ctx = {
+    conv:conv;
+    ext_printer:extension_printer;
+    version:Version.t option
+  }
 
   let rec elt : type a. ctx -> a typ -> a -> pr = fun ctx typ x ppf ->
     match typ with
@@ -222,7 +226,7 @@ module Fmt = struct
 end
 
   let with_conv ~structured ~extension conv settings version ppf scheme =
-    let ctx = { Fmt.version; conv; ext_printer=extension} in
+    let ctx = { Fmt.version=Some version; conv; ext_printer=extension} in
     let record ppf (R(def, r)) =
       let field_names = field_names def in
       let fs = Log.fields field_names r in
@@ -388,7 +392,7 @@ module Json_schema = struct
            let prs = List.map (fun (key,pr) -> item ~key pr) defs in
            [item ~key:"$defs" @@ obj prs]
      in
-     obj (header @ defs @ schema_field :: record_fields (Some v) keys) ppf
+     obj (header @ defs @ schema_field :: record_fields v keys) ppf
 
   let pp_log ppf log =
     let sch = log_scheme log in

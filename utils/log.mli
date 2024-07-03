@@ -20,7 +20,7 @@
 type !'a def
 type !'a log
 type 'a t = 'a log
-
+type ('a,'b) field
 
 (** {1:log_scheme_versionning  Current version of the log } *)
 module Version: sig
@@ -62,14 +62,12 @@ end
 type version = Version.t = { major:int; minor:int }
 
 type !'id sum
-type !'a field
 type !'a record
 
 type empty = Empty_tag
 
 type _ extension = ..
 
-type ('a,'b) key
 type 'a typ =
   | Unit: unit typ
   | Bool: bool typ
@@ -85,7 +83,7 @@ type 'a typ =
 
   | Custom: {
       id :'b extension;
-      pull: (Version.t -> 'b -> 'a);
+      pull: (Version.t option -> 'b -> 'a);
       default: 'a typ
     } -> 'b typ
 
@@ -114,7 +112,7 @@ val fields: string list -> 'a record -> (string * typed_val) List.t
 val is_optional: key_metadata -> bool
 
 val log_scheme: 'a log -> 'a def
-val log_version: 'a log -> Version.t
+val log_version: 'a log -> Version.t option
 
 val make:
   structured:bool -> printer:printer -> Misc.Color.setting option ->
@@ -131,36 +129,43 @@ end
 module type Def = sig
   type vl
   type id
+  type 'a label
   type definition
 
   type scheme = id def
   type raw_type = definition
   type t = id log
-  type nonrec 'a key = ('a,id) key
 
   val scheme: scheme
   val raw_type: definition typ
 
-  val deprecate: vl Version.update -> 'a key -> unit
-  val delete: vl Version.update -> 'a key -> unit
+  val deprecate: vl Version.update -> 'a label -> 'a label
+  val delete: vl Version.update -> 'a label -> 'a label
   val seal: vl Version.update -> unit
 end
 
 module type Record = sig
   type id
-  include Def with type id := id and type definition := id record
-  val make_required: vl Version.update -> 'a key -> unit
-  val new_field: vl Version.update  -> string -> 'a typ -> 'a key
-  val new_field_opt: vl Version.update  -> string -> 'a typ -> 'a key
+  type nonrec 'a field = ('a,id) field
+  include Def
+    with type id := id
+     and type definition := id record
+     and type 'a label := 'a field
+  val new_field: vl Version.update  -> string -> 'a typ -> 'a field
+  val new_field_opt: vl Version.update  -> string -> 'a typ -> 'a field
+  val make_required: vl Version.update -> 'a field -> unit
 end
 
 module type Sum = sig
   type id
-  include Def with type id := id and type definition := id sum
   type 'a constructor
+  include Def
+    with type id := id
+     and type definition := id sum
+     and type 'a label := 'a constructor
   val new_constr: vl Version.update -> string -> 'a typ -> 'a constructor
   val new_constr0: vl Version.update -> string -> unit constructor
-  val app: Version.t -> 'a constructor -> 'a -> raw_type
+  val app: Version.t option -> 'a constructor -> 'a -> raw_type
   val expand:
     vl Version.update -> 'a constructor -> ('b->'a) -> 'b typ -> 'b constructor
 end
@@ -177,8 +182,6 @@ module New_record (Vl:Version_line):
 module New_sum (Vl:Version_line):
   (Info with type vl:=Vl.id) -> () -> (Sum with type vl := Vl.id)
 
-val version_range: (_,'id) key -> 'id def -> Version.range
-
 
 (** {1:log_creation Log } *)
 
@@ -187,51 +190,53 @@ val flush: 'id log -> unit
 val separate: 'id log -> unit
 val close: 'id log -> unit
 
+val version_range: (_,_) field -> Version.range
 
 val tmp: 'a def -> 'a log
 
-val set: ('a,'b) key  -> 'a -> 'b log -> unit
-val (.%[]<-): 'b log -> ('a,'b) key -> 'a -> unit
-val cons: ('a list, 'b) key -> 'a -> 'b log -> unit
+val set: ('a,'b) field  -> 'a -> 'b log -> unit
+val (.%[]<-): 'b log -> ('a,'b) field -> 'a -> unit
+val cons: ('a list, 'b) field -> 'a -> 'b log -> unit
 
-val get: ('a,'b) key  -> 'b log -> 'a option
+val get: ('a,'b) field  -> 'b log -> 'a option
 val dynamic_get: string  -> 'b log -> typed_val option
 
-val redirect: 'id log -> ('a,'id) key ->
+val redirect: 'id log -> ('a,'id) field ->
   ?close:(unit -> unit) -> Format.formatter ref -> unit
 val replay: 'a log -> 'a log -> unit
 
-val detach: 'id log -> ('id2 record, 'id) key -> 'id2 log
-val detach_item: 'id log -> ('id2 record list, 'id) key -> 'id2 log
+val detach: 'id log -> ('id2 record, 'id) field -> 'id2 log
+val detach_item: 'id log -> ('id2 record list, 'id) field -> 'id2 log
 
-val f : (string,'a) key -> 'a log -> ('b, Format.formatter, unit) format -> 'b
-  (** [fmt key log ppf] records the output of [ppf] as
-      a string at key [key] in [log].
+val f : (string,'a) field -> 'a log -> ('b, Format.formatter, unit) format -> 'b
+  (** [fmt field log ppf] records the output of [ppf] as
+      a string at field [field] in [log].
   *)
 
 val d :
-  (Format_doc.t,'a) key -> 'a log -> ('b, Format_doc.formatter, unit) format
+  (Format_doc.t,'a) field -> 'a log -> ('b, Format_doc.formatter, unit) format
   -> 'b
-  (** [fmt key log ppf] records the formatted message at key [key] in [log].
-  *)
+  (** [fmt field log ppf] records the formatted message at field [field] in
+      [log]. *)
 
 val itemf :
-  (string list,'a) key -> 'a log -> ('b, Format.formatter, unit) format -> 'b
+  (string list,'a) field -> 'a log -> ('b, Format.formatter, unit) format -> 'b
 
 val itemd :
-  (Format_doc.t list,'a) key -> 'a log
+  (Format_doc.t list,'a) field -> 'a log
   -> ('b, Format_doc.formatter, unit) format -> 'b
 
 
 module Record: sig
-  val (^=): ('a,'b) key -> 'a -> 'b field
-  val (^=?): ('a,'b) key -> 'a option -> 'b field list
-  val make: 'a field list -> 'a record
+  type 'a bfield
+  val (^=): ('a,'b) field -> 'a -> 'b bfield
+  val (^=?): ('a,'b) field -> 'a option -> 'b bfield
+  val make: Version.t option -> 'a bfield list -> 'a record
 end
 
 
 val log_if:
-  'id log -> (string, 'id) key -> bool ->
+  'id log -> (string, 'id) field -> bool ->
   (Format.formatter -> 'a -> unit) -> 'a -> unit
 
 (** Metada module *)

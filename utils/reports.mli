@@ -29,7 +29,7 @@ module Structured_text: sig
 
   val register_tag:
     Obj.Extension_constructor.t
-    -> (Log.Version.t -> Format.stag -> Format_tag.id Log.sum)
+    -> (Log.Version.t option -> Format.stag -> Format_tag.id Log.sum)
     -> unit
   val register_tag0:
     V.id Log.Version.update -> Obj.Extension_constructor.t
@@ -40,41 +40,41 @@ end
 
 module Debug: sig
   include Record
-  val source: string key
-  val parsetree: string key
-  val typedtree: string key
-  val shape: string key
-  val instr: string key
-  val raw_lambda: string key
-  val lambda: string key
-  val flambda: string list key
-  val raw_flambda: string list key
-  val clambda: string list key
-  val raw_clambda: string list key
-  val cmm: string list key
-  val remove_free_vars_equal_to_args: string list key
-  val unbox_free_vars_of_closures: string list key
-  val unbox_closures:string list key
-  val unbox_specialised_args:string list  key
-  val mach: string list key
-  val linear: string list key
-  val cmm_invariant: string key
-  val profile: string key
+  val source: string field
+  val parsetree: string field
+  val typedtree: string field
+  val shape: string field
+  val instr: string field
+  val raw_lambda: string field
+  val lambda: string field
+  val flambda: string list field
+  val raw_flambda: string list field
+  val clambda: string list field
+  val raw_clambda: string list field
+  val cmm: string list field
+  val remove_free_vars_equal_to_args: string list field
+  val unbox_free_vars_of_closures: string list field
+  val unbox_closures:string list field
+  val unbox_specialised_args:string list  field
+  val mach: string list field
+  val linear: string list field
+  val cmm_invariant: string field
+  val profile: string field
 end
 
 module Compiler: sig
   include Record
-  val debug: Debug.id Log.record key
+  val debug: Debug.id Log.record field
 end
 module Error: Record
 
 module Toplevel: sig
   include Record
-  val output: doc key
-  val backtrace: doc key
-  val compiler_log: Compiler.id Log.record key
-  val errors: doc list key
-  val trace: doc list key
+  val output: doc field
+  val backtrace: doc field
+  val compiler_log: Compiler.id Log.record field
+  val errors: doc list field
+  val trace: doc list field
 end
 
 (** Access to configuration values *)

@@ -60,7 +60,7 @@ module Structured_text = struct
     let string_tag = new_constr v1 "String_tag" String
 
     type _ extension += Format_tag: Format.stag extension
-    type format_tag_serializer = Version.t -> Format.stag -> raw_type
+    type format_tag_serializer = Version.t option -> Format.stag -> raw_type
     let map: (Obj.Extension_constructor.t, format_tag_serializer) Hashtbl.t =
       Hashtbl.create 5
     let register_tag ext conv = Hashtbl.replace map ext conv

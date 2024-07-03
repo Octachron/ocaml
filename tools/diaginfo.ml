@@ -41,13 +41,13 @@ open Log
 open Reports
 let version () =
   match !version with
-  | None -> Version.current_version V.history
+  | None -> Some (Version.current_version V.history)
   | Some v ->
       match Scanf.sscanf_opt v "%d.%d"
               (fun major minor -> Version.{major;minor})
       with
-      | Some v -> v
-      | None -> Version.current_version V.history
+      | Some _ as v -> v
+      | None -> Some (Version.current_version V.history)
 let schema v ppf =
   function
   | None -> ()

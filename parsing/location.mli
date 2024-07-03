@@ -276,7 +276,7 @@ module Error_log: sig
     | Error: report Log.extension
     | Location: t Log.extension
     | Msg: Format_doc.t loc Log.extension
-  val warnings: report list Reports.Compiler.key
+  val warnings: report list Reports.Compiler.field
   module Kind: Reports.Sum
   module Msg: Reports.Record
 
