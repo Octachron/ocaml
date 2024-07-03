@@ -517,7 +517,7 @@ module Trie : sig
   type 'a t
 
   val add: 'a t -> string -> 'a -> 'a t
-  val of_list: (string * 'a) list -> 'a t
+  val of_seq: (string * 'a) Seq.t -> 'a t
 
   val compute_preferences:
     ?deletion_cost:int ->

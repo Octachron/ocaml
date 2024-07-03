@@ -1130,8 +1130,8 @@ module Trie = struct
     in
     aux (String.to_seq string) (String.length string) trie
 
-  let of_list entries =
-    List.fold_left
+  let of_seq entries =
+    Seq.fold_left
       (fun trie (string, data) -> add trie string data)
       empty
       entries
