@@ -567,7 +567,7 @@ let suggest sgs passes =
       let suggestions = f sgs in
 
       if not recompute_sgs || List.is_empty suggestions then
-        [], sgs
+        suggestions, sgs
       else
         let subst = List.fold_left Suggestion.apply sgs.subst suggestions in
         match compute_signature_diff sgs.env subst sgs.sig1 sgs.sig2 with
