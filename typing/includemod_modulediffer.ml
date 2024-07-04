@@ -341,7 +341,7 @@ let fuzzy_match_names compatibility_test missings additions =
   let m = List.length missings in
   let n = List.length additions in
 
-  if m <= 100 || n <= 100 then
+  if m < 60 && n < 60 then
     (* Stable marriages. *)
     let diff =
       stable_marriage_diff
