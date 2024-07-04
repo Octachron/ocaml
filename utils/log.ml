@@ -35,6 +35,7 @@ module Version = struct
     | Duplicate_key of string
     | Time_travel of t * t
     | Inconsistent_change of range * string
+    | Invalid_constructor_expansion of string
     | Sealed_version of t
 
   type base_event =
@@ -317,12 +318,7 @@ module New_root() = struct
   let v1 = Version.new_version history Version.first
 end
 
-let (.!()) scheme lbl =
-  match List.assoc_opt lbl scheme.keys with
-  | Some x -> x
-  | None ->
-      (* Labels are never deleted *)
-      assert false
+let (.?()) scheme lbl = List.assoc_opt lbl scheme.keys
 
 type key_current_status =
   | Valid
@@ -356,15 +352,23 @@ let key_status version (r:Version.range) =
    | None -> ()
    | Some _ ->  Version.error u scheme_name (Inconsistent_change (range,key))
 
+let (let&?) x f = Option.iter f x
+
 let make_required u f scheme =
-  let kmd = scheme.!(f.name) in
+  let&? kmd = scheme.?(f.name) in
   inconsistent_if_inactive u scheme.scheme_name f.name kmd.status;
   Version.register_event u scheme.scheme_name (Make_required f.name);
   scheme.!(f.name) <- { kmd with optional = false }
 
-let constructor_expansion u old new_typ scheme =
-  let kmd = scheme.!(old.cname) in
+let register_constructor_expansion u old new_typ scheme =
+  let&? kmd = scheme.?(old.cname) in
   inconsistent_if_inactive u scheme.scheme_name old.cname kmd.status;
+  begin match old.expansion with
+  | None -> ()
+  | Some _ ->
+      Version.error u scheme.scheme_name
+        (Invalid_constructor_expansion old.cname)
+  end;
   Version.register_event u scheme.scheme_name
     (Expansion {name=old.cname;
                 expansion = Format.asprintf "%a" pp_typ new_typ});
@@ -372,14 +376,14 @@ let constructor_expansion u old new_typ scheme =
   scheme.!(old.cname) <- { kmd with status; ltyp=T new_typ }
 
 let deprecate_lbl u lbl scheme =
-  let kmd = scheme.!(lbl) in
+  let&? kmd = scheme.?(lbl) in
   inconsistent_if_inactive u scheme.scheme_name lbl kmd.status;
   Version.register_event u scheme.scheme_name (Deprecation lbl);
   let status = { kmd.status with deprecation = Some (Version.v u) } in
   scheme.!(lbl) <- { kmd with status }
 
 let delete_lbl u lbl scheme =
-  let kmd = scheme.!(lbl) in
+  let&? kmd = scheme.?(lbl) in
   inconsistent_if_not_deprecated u scheme.scheme_name lbl kmd.status;
   Version.register_event u scheme.scheme_name (Deletion lbl);
   let status = { kmd.status with deletion = Some (Version.v u) } in
@@ -472,11 +476,7 @@ module New_sum(Vl:Version_line)(Info:Info with type vl:=Vl.id)() = struct
   let app = app
 
   let expand u old core new_ty =
-    begin match old.expansion with
-    | Some _ -> assert false
-    | None -> ()
-    end;
-    let () = constructor_expansion u old new_ty scheme in
+    let () = register_constructor_expansion u old new_ty scheme in
     let expansion = Some(Cexp {core;old;version=Version.v u}) in
     { cname=old.cname; typ=new_ty; expansion }
 
@@ -694,12 +694,14 @@ module Validation = struct
         @^ value ~version vw w
     | Sum def ->
         let Constr c = v in
-        let status = def.!(c.name).status in
-        begin match key_status (Some version) status with
-        | Valid | Expanded -> value ~version c.arg c.typ
-        | Future | Deleted -> invalid [c.name]
-        | Deprecated -> deprecated [c.name] @^ value ~version c.arg c.typ
-        end
+        match def.?(c.name) with
+        | None -> none
+        | Some lmd ->
+            begin match key_status (Some version) lmd.status with
+            | Valid | Expanded -> value ~version c.arg c.typ
+            | Future | Deleted -> invalid [c.name]
+            | Deprecated -> deprecated [c.name] @^ value ~version c.arg c.typ
+            end
 end
 
 
@@ -798,7 +800,11 @@ let set (field: _ field) x log =
   match log.mode with
   | Store st -> Store.record st.data version ~field x
   | Direct d ->
-      match key_status version (log.scheme.!(field.name).status) with
+      let status = match log.scheme.?(field.name) with
+        | Some lmd -> key_status version lmd.status
+        | None -> Deleted
+      in
+      match status with
       | Deleted | Future -> ()
       | Valid | Expanded | Deprecated ->
           let r = Keys.find_opt field.name log.redirections in

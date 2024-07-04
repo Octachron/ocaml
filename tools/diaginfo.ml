@@ -102,6 +102,8 @@ module Pp = struct
     | Time_travel (v,x) ->
         fprintf ppf "Error: future key (%a<%a)" Version.pp v Version.pp x
     | Duplicate_key s -> fprintf ppf "Error: duplicate %s" s
+    | Invalid_constructor_expansion s ->
+        fprintf ppf "Error: second constructor expansion %s" s
     | Inconsistent_change (range,key_name) ->
         fprintf ppf "Error inconsistent change of the %a key %s"
           status range

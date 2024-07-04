@@ -39,6 +39,7 @@ module Version: sig
     | Duplicate_key of string
     | Time_travel of t * t
     | Inconsistent_change of range * string
+    | Invalid_constructor_expansion of string
     | Sealed_version of t
   type base_event =
     | Creation
