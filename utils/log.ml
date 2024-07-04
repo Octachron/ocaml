@@ -124,9 +124,7 @@ and ('a,'b) key = {
 }
 and ('a,'b) field = { range:Version.range; key:('a,'b) key}
 and 'a bound_field = Field: ('a,'b) field * 'a -> 'b bound_field
-and 'id sum =
-  | Constr: ('a,'id) key * 'a -> 'id sum
-  | Enum of (unit,'id) key
+and 'id sum = Constr: ('a,'id) key * 'a -> 'id sum
 and key_metadata =
     Key_metadata:
       { typ: 'a typ;
@@ -167,9 +165,7 @@ and printer = {
   item: Format.formatter -> string * typed_val -> unit
 }
 
-let destruct x f  = match x with
-  | Enum kt -> f kt.name (V (Unit,()))
-  | Constr (kt,x) -> f kt.name (V(kt.typ,x))
+let destruct (Constr(kt,x)) f = f kt.name (V(kt.typ,x))
 let scheme_name x = x.scheme_name
 let field_infos d = d.keys
 let field_names d = List.map fst d.keys
@@ -283,17 +279,13 @@ type ('elt,'id) constructor =
     expansion: ('elt,'id) constructor_expansion option
   }
 
-let make_constructor (type id t) (k: (t,id) key) (x:t) =
-  match k.typ with
-  | Unit -> Enum k
-  | _ -> Constr(k,x)
 
 let app (type t id) v (c:(t,id) constructor) (x:t): id sum =
   match v, c.expansion with
-  | None, _ | _, None -> make_constructor c.ckey x
+  | None, _ | _, None -> Constr (c.ckey,x)
   | Some v, Some (Cexp r) ->
-      if v >= r.version then make_constructor c.ckey x
-      else make_constructor r.old (r.core x)
+      if v >= r.version then Constr(c.ckey,x)
+      else Constr (r.old, r.core x)
 
 module type Sum = sig
   type id
@@ -700,21 +692,13 @@ module Validation = struct
         @^ value ~version vz z
         @^ value ~version vw w
     | Sum def ->
-        match v with
-        | Enum k ->
-            let status = metadata_status def.!(k) in
-            begin match key_status (Some version) status with
-            | Valid | Expanded -> none
-            | Future | Deleted -> invalid [k.name]
-            | Deprecated -> deprecated [k.name]
-            end
-        | Constr(k, v) ->
-            let status = metadata_status def.!(k) in
-            begin match key_status (Some version) status with
-            | Valid | Expanded -> value ~version v k.typ
-            | Future | Deleted -> invalid [k.name]
-            | Deprecated -> deprecated [k.name] @^ value ~version v k.typ
-            end
+        let Constr (k,v) = v in
+        let status = metadata_status def.!(k) in
+        begin match key_status (Some version) status with
+        | Valid | Expanded -> value ~version v k.typ
+        | Future | Deleted -> invalid [k.name]
+        | Deprecated -> deprecated [k.name] @^ value ~version v k.typ
+        end
 end
 
 
