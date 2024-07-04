@@ -87,16 +87,14 @@ type 'a typ =
       default: 'a typ
     } -> 'b typ
 
+type any_typ = T: 'a typ -> any_typ
 type typed_val = V: 'a typ * 'a -> typed_val
 type typed_record = R: 'a def * 'a record -> typed_record
-type key_metadata =
-    Key_metadata:
-      { typ: 'a typ;
-        optional: bool;
-        status:Version.range
-      } ->
-      key_metadata
-
+type label_metadata = {
+  ltyp: any_typ;
+  optional: bool;
+  status:Version.range
+}
 type printer = {
   record: Format.formatter -> typed_record -> unit;
   item: Format.formatter -> string * typed_val -> unit;
@@ -104,12 +102,12 @@ type printer = {
 
 val destruct: 'a sum -> (string -> typed_val -> 'b) -> 'b
 
-val field_infos: 'a def -> (string * key_metadata) list
+val field_infos: 'a def -> (string * label_metadata) list
 val field_names: 'a def -> string list
 
 val scheme_name: 'a def -> string
 val fields: string list -> 'a record -> (string * typed_val) List.t
-val is_optional: key_metadata -> bool
+val is_optional: label_metadata -> bool
 
 val log_scheme: 'a log -> 'a def
 val log_version: 'a log -> Version.t option
@@ -118,7 +116,7 @@ val make:
   structured:bool -> printer:printer -> Misc.Color.setting option ->
   Version.t -> 'a def -> Format.formatter ref -> 'a log
 
-val metakey: string * key_metadata
+val metakey: string * label_metadata
 
 module type Version_line = sig
   type id
@@ -151,7 +149,8 @@ module type Record = sig
     with type id := id
      and type definition := id record
      and type 'a label := 'a field
-  val new_field: vl Version.update  -> string -> 'a typ -> 'a field
+  val new_field:
+    ?opt:bool -> vl Version.update  -> string -> 'a typ -> 'a field
   val new_field_opt: vl Version.update  -> string -> 'a typ -> 'a field
   val make_required: vl Version.update -> 'a field -> unit
 end

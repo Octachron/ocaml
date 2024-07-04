@@ -310,24 +310,24 @@ module Json_schema = struct
 
   let const name = item ~key:"const" @@ string name
   let sum x =
-    let constructor (name, Key_metadata kty) =
-      match kty.typ with
-      | Unit -> obj [const name]
-      | _ -> obj [tuple_typ [const name; typ kty.typ]]
+    let constructor (name, kty) =
+      match kty.ltyp with
+      | T Unit -> obj [const name]
+      | T ty -> obj [tuple_typ [const name; typ ty]]
     in
     obj [ item ~key:"oneOf" (array (List.map constructor (field_infos x))) ]
 
-  let field v (key, Key_metadata km) =
+  let field v (key, {status; ltyp=T ty; _ }) =
     match v with
-    | None -> Some (item ~key (obj [typ km.typ]))
+    | None -> Some (item ~key (obj [typ ty]))
     | Some v ->
-        if (v < km.status.creation) then None else
-          match km.status.deletion with
+        if (v < status.creation) then None else
+          match status.deletion with
           | Some del when del <= v -> None
           | _ ->
-              let typ = typ km.typ in
+              let typ = typ ty in
               let fields =
-                match km.status.deprecation with
+                match status.deprecation with
                 | Some depr when depr >= v ->
                     let deprecated = item ~key:"deprecated" (bool true) in
                     [typ; deprecated]
@@ -379,10 +379,10 @@ module Json_schema = struct
       | Quadruple (x,y,z,w) -> union [refs x; refs y; refs z; refs w]
       | Custom t -> refs t.default
   and subrefs: type a.
-    (string * key_metadata) list -> (Format.formatter -> unit) String_map.t
+    (string * label_metadata) list -> (Format.formatter -> unit) String_map.t
     = fun keys ->
       union @@
-      List.map (fun (_,Key_metadata kty) -> refs kty.typ) keys
+      List.map (fun (_, { ltyp = T t; _}) -> refs t) keys
 
    let pp v sch ppf =
      let keys = metakey :: field_infos sch in
