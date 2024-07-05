@@ -110,7 +110,7 @@ let reverse_diff d =
   of the preference lists).
   *)
 let rec stable_marriage_diff
-  ~cutoff ~max_elements ~compatibility_test
+  ~cutoff ?max_elements ~compatibility_test
   left right
 =
   (* The man / woman semantic is inherited from the paper. Women are left, men
@@ -121,7 +121,7 @@ let rec stable_marriage_diff
 
   if m > n then
     stable_marriage_diff
-      ~cutoff ~max_elements ~compatibility_test
+      ~cutoff ?max_elements ~compatibility_test
       right left
     |> reverse_diff
   else
@@ -173,7 +173,7 @@ let rec stable_marriage_diff
         let sequence =
           Misc.Trie.compute_preference_layers
             ~cutoff:(cutoff man)
-            ~max_elements
+            ?max_elements
             women
             man
         in
