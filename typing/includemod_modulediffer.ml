@@ -93,6 +93,11 @@ module Suggestion = struct
     } ->
         let path = Path.Pident id in
         Subst.add_type suggested_ident path subst
+    | {
+      subject = Sig_modtype (_, {mtd_type = Some mty; _}, _);
+      alteration = Rename_item suggested_ident;
+    } ->
+        Subst.add_modtype suggested_ident mty subst
     | _ -> subst
 end
 
