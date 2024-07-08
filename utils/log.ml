@@ -20,25 +20,102 @@ module Keys = Map.Make(K)
 module Version = struct
 
   type t = { major:int; minor:int }
+  type version = t
   let make ~major ~minor = { major; minor }
 
-  type range = {
-    creation: t;
-    expansion: t option;
-    deprecation: t option;
-    deletion: t option
+  module Lifetime = struct
+    type t = {
+      refinement: version option;
+      creation: version option;
+      expansion: version option;
+      deprecation: version option;
+      deletion: version option;
+    }
+    type point =
+      | Refinement
+      | Creation
+      | Expansion
+      | Deprecation
+      | Deletion
+      | Future
+
+    let next = function
+      | Refinement -> Creation
+      | Creation -> Expansion
+      | Expansion -> Deprecation
+      | Deprecation -> Deletion
+      | Deletion -> Deletion
+      | Future -> Future
+
+    let prev = function
+      | Refinement -> Refinement
+      | Creation -> Refinement
+      | Expansion -> Creation
+      | Deprecation -> Expansion
+      | Deletion -> Deprecation
+      | Future -> Future
+
+    let get r = function
+      | Refinement -> r.refinement
+      | Creation -> r.creation
+      | Expansion -> r.expansion
+      | Deprecation -> r.deprecation
+      | Deletion -> r.deletion
+      | Future -> None
+
+    let rec after r p =
+      if p = Deletion then None
+      else match get r p with
+        | None -> after r (next p)
+        | Some x -> Some (p, x)
+
+    let rec last_change r p =
+      if p = Refinement then Refinement
+        else match get r p with
+          | None -> last_change r (prev p)
+          | Some _ -> p
+
+    let rec stage v current r =
+      if current = Deletion then current else
+      match after r (next current) with
+      | None -> current
+      | Some (p,v1) ->
+          if v < v1 then p else stage v p r
+
+
+  end
+
+  let stage r = Lifetime.(last_change r Deletion)
+
+  let stage_at v r =
+    let open Lifetime in
+    match v, after r Refinement with
+    | Some _, None -> assert false
+    | None, _ -> Creation
+    | Some v, Some (p,v1) ->
+        if v < v1 then Future else Lifetime.stage v p r
+
+
+  let range ?deprecation ?deletion ?expansion creation ={
+    Lifetime.refinement = None; creation=Some creation;
+    expansion; deprecation; deletion
   }
-  let range ?deprecation ?deletion ?expansion creation =
-    { creation; expansion; deprecation; deletion }
+
+  let prerange ?deprecation ?deletion ?expansion ?creation r = {
+    Lifetime.refinement=Some r; creation;
+    expansion; deprecation; deletion
+  }
+
 
   type error =
     | Duplicate_key of string
     | Time_travel of t * t
-    | Inconsistent_change of range * string
+    | Inconsistent_change of Lifetime.t * string
     | Invalid_constructor_expansion of string
     | Sealed_version of t
 
   type base_event =
+    | Refinement of {base_name:string; new_name:string; typ:string}
     | Creation
     | New_key of {name:string; typ:string}
     | Make_required of string
@@ -121,7 +198,7 @@ and ('a,'b) field = {
   name:string;
   typ:'a typ;
   id: 'a Type.Id.t;
-  range:Version.range
+  range:Version.Lifetime.t
 }
 and 'a bound_field = Field: ('a,'b) field * 'a -> 'b bound_field
 and 'id sum = Constr: { name:string; typ:'a typ; arg: 'a} -> 'id sum
@@ -129,7 +206,7 @@ and any_typ = T: 'a typ -> any_typ
 and label_metadata = {
   ltyp: any_typ;
   optional: bool;
-  status:Version.range;
+  status:Version.Lifetime.t;
 }
 and 'a def = {
   scheme_name: string;
@@ -264,7 +341,8 @@ end
 type ('elt,'id) constructor =
   { cname: string;
     typ: 'elt typ;
-    expansion: ('elt,'id) constructor_expansion option
+    approximation: ('elt,'id) constructor_expansion option;
+    expansion: ('elt,'id) constructor_expansion option;
   }
 and ('current,'id) constructor_expansion = Cexp: {
   core: 'current -> 'old;
@@ -274,9 +352,12 @@ and ('current,'id) constructor_expansion = Cexp: {
 
 
 let app (type t id) v (c:(t,id) constructor) (x:t): id sum =
-  match v, c.expansion with
-  | None, _ | _, None -> Constr {name=c.cname; typ=c.typ; arg=x}
-  | Some v, Some (Cexp r) ->
+  match v, c.approximation, c.expansion with
+  | None, _, _ | _, None, None -> Constr {name=c.cname; typ=c.typ; arg=x}
+  | Some v, Some (Cexp r), None ->
+      if v >= r.version then Constr {name=c.cname; typ=c.typ; arg=x}
+      else Constr { name = r.old.cname; typ=r.old.typ; arg=r.core x}
+  | Some v, _, Some (Cexp r) ->
       if v >= r.version then Constr {name=c.cname; typ=c.typ; arg=x}
       else Constr { name = c.cname; typ=r.old.typ; arg=r.core x}
 
@@ -287,11 +368,17 @@ module type Sum = sig
     with type id := id
      and type definition := id sum
      and type 'a label := 'a constructor
+  val app: Version.t option -> 'a constructor -> 'a -> raw_type
+
+  val refine:
+    vl Version.update -> 'a constructor -> ('b -> 'a)
+    -> string -> 'b typ -> 'b constructor
   val new_constr: vl Version.update -> string -> 'a typ -> 'a constructor
   val new_constr0: vl Version.update -> string -> unit constructor
-  val app: Version.t option -> 'a constructor -> 'a -> raw_type
+  val publish: vl Version.update -> 'a constructor -> 'a constructor
   val expand:
     vl Version.update -> 'a constructor -> ('b->'a) -> 'b typ -> 'b constructor
+
 end
 
 module type Version_line = sig
@@ -320,35 +407,15 @@ end
 
 let (.?()) scheme lbl = List.assoc_opt lbl scheme.keys
 
-type key_current_status =
-  | Valid
-  | Expanded
-  | Deprecated
-  | Deleted
-  | Future
-
-let key_status version (r:Version.range) =
-  match version with
-  | None -> Valid
-  | Some version ->
-      if version < r.creation then Future
-      else match r.deprecation, r.deletion with
-        | _, Some del when del <= version -> Deleted
-        | Some dc, _ when dc <= version -> Deprecated
-        | _ ->
-            match r.expansion with
-            | Some e when e <= version -> Expanded
-            | _ -> Valid
-
-
+module Lv = Version.Lifetime
  let inconsistent_if_not_deprecated u scheme_name key range =
-   match range.Version.deprecation, range.Version.deletion with
+   match range.Version.Lifetime.deprecation, range.Lv.deletion with
    | Some _ , None -> ()
    | None, _ | _, Some _ ->
        Version.error u scheme_name (Inconsistent_change (range,key))
 
  let inconsistent_if_inactive u scheme_name key range =
-   match range.Version.deprecation with
+   match range.Lv.deprecation with
    | None -> ()
    | Some _ ->  Version.error u scheme_name (Inconsistent_change (range,key))
 
@@ -374,6 +441,22 @@ let register_constructor_expansion u old new_typ scheme =
                 expansion = Format.asprintf "%a" pp_typ new_typ});
   let status = { kmd.status with expansion = Some (Version.v u) } in
   scheme.!(old.cname) <- { kmd with status; ltyp=T new_typ }
+
+
+let register_constructor_refinement u old new_name new_typ scheme =
+  let&? kmd = scheme.?(old.cname) in
+  inconsistent_if_inactive u scheme.scheme_name old.cname kmd.status;
+  Version.register_event u scheme.scheme_name
+    (Refinement {
+        base_name=old.cname;
+        new_name;
+        typ = Format.asprintf "%a" pp_typ new_typ
+      }
+    );
+  let status = Version.prerange (Version.v u) in
+  let lmd = label_metadata ~optional:false u new_typ in
+  scheme.!(new_name) <- { lmd with status }
+
 
 let deprecate_lbl u lbl scheme =
   let&? kmd = scheme.?(lbl) in
@@ -401,9 +484,9 @@ end
 module Record = struct
   type 'a bfield = Version.t option -> 'a bound_field option
   let (^=) f x v =
-    match key_status v f.range with
-    | Valid | Expanded | Deprecated -> Some (Field(f,x))
-    | Future | Deleted -> None
+    match Version.stage_at v f.range with
+    | Refinement | Creation | Expansion | Deprecation -> Some (Field(f,x))
+    | Future | Deletion -> None
   let (^=?) f x v = match x with
     | None -> None
     | Some x -> (f ^= x) v
@@ -471,14 +554,36 @@ module New_sum(Vl:Version_line)(Info:Info with type vl:=Vl.id)() = struct
     register_label_metadata ~optional:false u scheme name ty;
     { cname = name;
       typ = ty;
-      expansion = None}
+      approximation = None;
+      expansion = None
+    }
   let new_constr0 u name = new_constr u name Unit
   let app = app
 
   let expand u old core new_ty =
     let () = register_constructor_expansion u old new_ty scheme in
     let expansion = Some(Cexp {core;old;version=Version.v u}) in
-    { cname=old.cname; typ=new_ty; expansion }
+    let approximation = match old.approximation with
+      | None -> None
+      | Some (Cexp r) ->
+          let core x = r.core (core x) in
+          Some (Cexp {r with core})
+    in
+    { old with typ=new_ty; expansion; approximation }
+
+  let refine u old core new_name new_ty =
+    let () = register_constructor_refinement u old new_name new_ty scheme in
+    let approximation = Some(Cexp {core;old;version=Version.v u}) in
+    { cname=new_name; typ=new_ty; approximation; expansion=None }
+
+  let publish u c =
+    let version = Version.v u in
+    let () =
+      let&? kmd= scheme.?(c.cname) in
+      let status = { kmd.status with creation = Some version } in
+      scheme.!(c.cname) <- { kmd with status }
+    in
+    { c with approximation = None; expansion = None }
 
   let deprecate u c = deprecate_lbl u c.cname scheme; c
   let delete u c = delete_lbl u c.cname scheme; c
@@ -649,12 +754,12 @@ module Validation = struct
     version:version -> (Keys.key * label_metadata) list -> id bound_field Keys.t
     -> report_paths = fun ~version metadata data ->
     concat_map (fun (k, kmd) ->
-        match key_status (Some version) kmd.status with
-        | Future | Deleted -> invalid [k]
-        | Deprecated ->
+        match Version.stage_at (Some version) kmd.status with
+        | Future | Deletion -> invalid [k]
+        | Deprecation ->
             deprecated [k]  @^
             field  ~version ~optional:(is_optional kmd) k (Keys.find_opt k data)
-        | Valid | Expanded ->
+        | Refinement | Creation | Expansion ->
             field  ~version ~optional:(is_optional kmd) k (Keys.find_opt k data)
       ) metadata
   and field: type a.
@@ -697,10 +802,10 @@ module Validation = struct
         match def.?(c.name) with
         | None -> none
         | Some lmd ->
-            begin match key_status (Some version) lmd.status with
-            | Valid | Expanded -> value ~version c.arg c.typ
-            | Future | Deleted -> invalid [c.name]
-            | Deprecated -> deprecated [c.name] @^ value ~version c.arg c.typ
+            begin match Version.stage_at (Some version) lmd.status with
+            | Refinement | Creation | Expansion -> value ~version c.arg c.typ
+            | Future | Deletion -> invalid [c.name]
+            | Deprecation -> deprecated [c.name] @^ value ~version c.arg c.typ
             end
 end
 
@@ -801,12 +906,12 @@ let set (field: _ field) x log =
   | Store st -> Store.record st.data version ~field x
   | Direct d ->
       let status = match log.scheme.?(field.name) with
-        | Some lmd -> key_status version lmd.status
-        | None -> Deleted
+        | Some lmd -> Version.stage_at version lmd.status
+        | None -> Lv.Deletion
       in
       match status with
-      | Deleted | Future -> ()
-      | Valid | Expanded | Deprecated ->
+      | Deletion | Future -> ()
+      | Refinement | Creation | Expansion | Deprecation ->
           let r = Keys.find_opt field.name log.redirections in
           let out = Option.value ~default:d r in
           let ppf = !(out.ppf) in

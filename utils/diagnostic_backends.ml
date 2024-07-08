@@ -320,15 +320,15 @@ module Json_schema = struct
   let field v (key, {status; ltyp=T ty; _ }) =
     match v with
     | None -> Some (item ~key (obj [typ ty]))
-    | Some v ->
-        if (v < status.creation) then None else
-          match status.deletion with
-          | Some del when del <= v -> None
-          | _ ->
+    | Some _ as v ->
+        let stage = Version.stage_at v status in
+        match stage with
+        | Future | Deletion -> None
+        | _ ->
               let typ = typ ty in
               let fields =
-                match status.deprecation with
-                | Some depr when depr >= v ->
+                match stage with
+                | Deprecation ->
                     let deprecated = item ~key:"deprecated" (bool true) in
                     [typ; deprecated]
                 | _ -> [typ]

@@ -93,10 +93,14 @@ module Pp = struct
 
 
   let status ppf range =
-    match range.deprecation, range.deletion with
-    | None, None -> fprintf ppf "active"
-    | Some _, None -> fprintf ppf "deprecated"
-    | _, Some _ -> fprintf ppf "deleted"
+    match stage range with
+    | Lifetime.Refinement -> fprintf ppf "refined"
+    | Lifetime.Creation -> fprintf ppf "created"
+    | Lifetime.Expansion -> fprintf ppf "expanded"
+    | Lifetime.Deprecation -> fprintf ppf "deprecated"
+    | Lifetime.Deletion -> fprintf ppf "deleted"
+    | Lifetime.Future -> fprintf ppf "future"
+
 
   let error ppf = function
     | Time_travel (v,x) ->
@@ -112,6 +116,9 @@ module Pp = struct
 
   let base_event ppf =
     function
+    | Refinement r ->
+        fprintf ppf "Refinement: %s>%s,%s"
+          r.base_name r.new_name r.typ
     | Creation -> fprintf ppf "Creation"
     | New_key {name;typ} ->
         if typ = "" then fprintf ppf "Key %s" name

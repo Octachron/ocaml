@@ -25,12 +25,23 @@ type ('a,'b) field
 (** {1:log_scheme_versionning  Current version of the log } *)
 module Version: sig
   type t = { major:int; minor:int }
-  type range = {
-    creation: t;
-    expansion: t option;
-    deprecation: t option;
-    deletion:t option
-  }
+  type version = t
+  module Lifetime: sig
+    type t = {
+      refinement: version option;
+      creation: version option;
+      expansion: version option;
+      deprecation: version option;
+      deletion: version option
+    }
+    type point =
+      | Refinement
+      | Creation
+      | Expansion
+      | Deprecation
+      | Deletion
+      | Future
+  end
   val make: major:int -> minor:int -> t
   val pp: Format.formatter -> t -> unit
 
@@ -38,10 +49,11 @@ module Version: sig
   type error =
     | Duplicate_key of string
     | Time_travel of t * t
-    | Inconsistent_change of range * string
+    | Inconsistent_change of Lifetime.t * string
     | Invalid_constructor_expansion of string
     | Sealed_version of t
   type base_event =
+    | Refinement of {base_name:string; new_name:string; typ:string}
     | Creation
     | New_key of {name:string; typ:string}
     | Make_required of string
@@ -57,6 +69,9 @@ module Version: sig
   type 'a update
   val new_version: 'a history -> t -> 'a update
   val v: 'a update -> t
+
+  val stage: Lifetime.t -> Lifetime.point
+  val stage_at: version option -> Lifetime.t -> Lifetime.point
 
 end
 
@@ -94,7 +109,7 @@ type typed_record = R: 'a def * 'a record -> typed_record
 type label_metadata = {
   ltyp: any_typ;
   optional: bool;
-  status:Version.range
+  status:Version.Lifetime.t
 }
 type printer = {
   record: Format.formatter -> typed_record -> unit;
@@ -163,11 +178,17 @@ module type Sum = sig
     with type id := id
      and type definition := id sum
      and type 'a label := 'a constructor
+  val app: Version.t option -> 'a constructor -> 'a -> raw_type
+
+  val refine:
+    vl Version.update -> 'a constructor -> ('b -> 'a)
+    -> string -> 'b typ -> 'b constructor
   val new_constr: vl Version.update -> string -> 'a typ -> 'a constructor
   val new_constr0: vl Version.update -> string -> unit constructor
-  val app: Version.t option -> 'a constructor -> 'a -> raw_type
+  val publish: vl Version.update -> 'a constructor -> 'a constructor
   val expand:
     vl Version.update -> 'a constructor -> ('b->'a) -> 'b typ -> 'b constructor
+
 end
 
 module type Info = sig
@@ -190,7 +211,7 @@ val flush: 'id log -> unit
 val separate: 'id log -> unit
 val close: 'id log -> unit
 
-val version_range: (_,_) field -> Version.range
+val version_range: (_,_) field -> Version.Lifetime.t
 
 val tmp: 'a def -> 'a log
 
