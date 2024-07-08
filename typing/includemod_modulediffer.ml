@@ -114,12 +114,11 @@ let reverse_diff d =
     substitute = List.map (fun (right, left) -> (left, right)) d.substitute;
   }
 
-(* An implementation of Zoltan Kiraly's "New Algorithm" presented in
-  "Linear Time Local Approximation Algorithm for Maximum Stable Marriage":
-  https://www.mdpi.com/1999-4893/6/3/471. It computes a 3/2-approximation of
-  a maximum stable marriage in linear time (linear in the sum of the lengths
-  of the preference lists).
-  *)
+(** An implementation of Zoltan Kiraly's "New Algorithm" presented in
+    "Linear Time Local Approximation Algorithm for Maximum Stable Marriage":
+    https://www.mdpi.com/1999-4893/6/3/471. It computes a 3/2-approximation of
+    a maximum stable marriage in linear time (linear in the sum of the lengths
+    of the preference lists). *)
 let rec stable_marriage_diff
   ~cutoff ?max_elements ~compatibility_test
   left right
@@ -151,7 +150,7 @@ let rec stable_marriage_diff
 
     type bachelor_preferences = {
       mutable bachelor_current_layer : int list;
-        (** Invariant: the list is not empty. *)
+        (** Invariant: this list is not empty. *)
       mutable bachelor_current_layer_distance : distance;
       mutable bachelor_next_layers : (int list * distance) list;
     }
