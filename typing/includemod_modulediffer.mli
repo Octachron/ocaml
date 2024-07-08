@@ -19,6 +19,7 @@ module Suggestion : sig
     | Rename_item of Ident.t
     | Change_type_of_value of Types.type_expr
     | Change_type_of_module of Types.module_type
+    | Change_type_of_class of Types.class_declaration
     | Change_type of Types.type_declaration
 
   type t = {

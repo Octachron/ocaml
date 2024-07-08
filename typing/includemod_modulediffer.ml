@@ -53,6 +53,7 @@ module Suggestion = struct
     | Rename_item of Ident.t
     | Change_type_of_value of Types.type_expr
     | Change_type_of_module of Types.module_type
+    | Change_type_of_class of Types.class_declaration
     | Change_type of Types.type_declaration
 
   type t = {
@@ -75,9 +76,14 @@ module Suggestion = struct
     alteration = Change_type_of_value ty;
   }
 
-  let change_type_of_module item ty = {
+  let change_type_of_module item mty = {
     subject = item;
-    alteration = Change_type_of_module ty;
+    alteration = Change_type_of_module mty;
+  }
+
+  let change_type_of_class item cty = {
+    subject = item;
+    alteration = Change_type_of_class cty;
   }
 
   let change_type item ty = {
@@ -609,7 +615,10 @@ let compute_first_order_suggestions sgs =
         with
         | Ok _ -> true
         | Error _ -> false)
-      (fun _ -> None)
+      (function
+        | item, Core (Class_declarations {expected; _}) ->
+            Some (Suggestion.change_type_of_class item expected)
+        | _ -> None)
   in
 
   List.rev (class_suggestions @ module_suggestions @ value_suggestions)
