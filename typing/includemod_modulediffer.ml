@@ -94,10 +94,10 @@ module Suggestion = struct
         let path = Path.Pident id in
         Subst.add_type suggested_ident path subst
     | {
-      subject = Sig_modtype (_, {mtd_type = Some mty; _}, _);
+      subject = Sig_modtype (id, _, _);
       alteration = Rename_item suggested_ident;
     } ->
-        Subst.add_modtype suggested_ident mty subst
+        Subst.add_modtype suggested_ident (Path.Pident id) subst
     | _ -> subst
 end
 
@@ -627,7 +627,9 @@ let suggest sgs passes =
       if not recompute_sgs || List.is_empty suggestions then
         suggestions, sgs
       else
-        let subst = List.fold_left Suggestion.apply sgs.subst suggestions in
+        let subst =
+          List.fold_left Suggestion.apply sgs.subst suggestions
+        in
         match compute_signature_diff sgs.env subst sgs.sig1 sgs.sig2 with
         | None ->
             suggestions, sgs
