@@ -52,6 +52,7 @@ module Suggestion = struct
     | Add_item
     | Rename_item of Ident.t
     | Change_type_of_value of Types.type_expr
+    | Change_type_of_module of Types.module_type
     | Change_type of Types.type_declaration
 
   type t = {
@@ -72,6 +73,11 @@ module Suggestion = struct
   let change_type_of_value item ty = {
     subject = item;
     alteration = Change_type_of_value ty;
+  }
+
+  let change_type_of_module item ty = {
+    subject = item;
+    alteration = Change_type_of_module ty;
   }
 
   let change_type item ty = {
@@ -563,7 +569,7 @@ let compute_first_order_suggestions sgs =
         | Error _ -> false)
       (function
         | item, Core (Value_descriptions {expected; _}) ->
-          Some (Suggestion.change_type_of_value item expected.val_type)
+            Some (Suggestion.change_type_of_value item expected.val_type)
         | _ -> None)
   in
 
@@ -576,7 +582,10 @@ let compute_first_order_suggestions sgs =
             Some (Field.first_order item decl decl.md_type)
         | _ -> None)
       (is_modtype_eq (fun x -> x.Field.type_) sgs)
-      (fun _ -> None)
+      (function
+        | item, Module_type {expected; _} ->
+            Some (Suggestion.change_type_of_module item expected)
+        | _ -> None)
   in
 
   let class_suggestions =

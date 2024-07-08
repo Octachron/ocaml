@@ -750,6 +750,16 @@ let suggest_changing_type_of_value ppf (item, suggested_type) =
     Style.inline_code (Ident.name id)
     (Style.as_inline_code Printtyp.type_expr) suggested_type
 
+let suggest_changing_type_of_module ppf (item, suggested_type) =
+  let id, _, kind = Includemod.item_ident_name item in
+  Fmt.fprintf ppf "Try changing %s %a to be a %a"
+    (Includemod.kind_of_field_desc kind)
+    Style.inline_code (Ident.name id)
+    (Style.as_inline_code
+      (fun fmt mty ->
+        !Oprint.out_module_type fmt (Out_type.tree_of_modtype mty)))
+      suggested_type
+
 let suggest_changing_type ppf (item, suggested_type) =
   let id, _, kind = Includemod.item_ident_name item in
   Fmt.fprintf ppf "Try changing %s %a to %a"
@@ -909,6 +919,9 @@ and signature ~expansion_token ~env:_ ~before ~ctx:_ sgs =
           (suggestion.subject, suggested_name)
     | Change_type_of_value suggested_type ->
         (Location.msg "%a" suggest_changing_type_of_value)
+          (suggestion.subject, suggested_type)
+    | Change_type_of_module suggested_type ->
+        (Location.msg "%a" suggest_changing_type_of_module)
           (suggestion.subject, suggested_type)
     | Change_type suggested_type ->
         (Location.msg "%a" suggest_changing_type)
