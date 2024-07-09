@@ -1235,13 +1235,7 @@ module Trie = struct
 
     let module PriorityQueue = Pqueue.MakeMin (State) in
 
-    let queue = PriorityQueue.create () in
-    Option.iter
-      (fun state -> PriorityQueue.add queue state)
-      (State.make trie n 0);
-    let seen_states = Hashtbl.create trie.subtrie_count in
-
-    let rec compute = fun () ->
+    let rec compute queue seen_states = fun () ->
       match PriorityQueue.pop_min queue with
       | None -> Seq.Nil
       | Some state ->
@@ -1250,7 +1244,7 @@ module Trie = struct
           else
             let state_id = state.State.trie.uid, state.State.remaining_length in
             if Hashtbl.mem seen_states state_id then
-              compute ()
+              compute queue seen_states ()
             else (
               Hashtbl.add seen_states state_id ();
               List.iter
@@ -1263,11 +1257,17 @@ module Trie = struct
                 distance;
                 _;
               } ->
-                  Seq.Cons ((data, distance), compute)
-              | _ -> compute ()
+                  Seq.Cons ((data, distance), compute queue seen_states)
+              | _ -> compute queue seen_states ()
             )
     in
-    compute
+
+    let queue = PriorityQueue.create () in
+    Option.iter
+      (fun state -> PriorityQueue.add queue state)
+      (State.make trie n 0);
+    let seen_states = Hashtbl.create trie.subtrie_count in
+    compute queue seen_states
 
     let compute_preference_layers (type a) ?(deletion_cost = 1)
         ?(insertion_cost = 1) ?(substitution_cost = 1) ?(cutoff : int option)

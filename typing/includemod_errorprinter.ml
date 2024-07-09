@@ -762,7 +762,7 @@ let suggest_changing_type_of_module ppf (item, suggested_type) =
 
 let suggest_changing_type_of_class ppf (item, suggested_type) =
   let id, _, kind = Includemod.item_ident_name item in
-  Format.fprintf ppf "Try changing %s %a to be a %a"
+  Fmt.fprintf ppf "Try changing %s %a to be a %a"
     (Includemod.kind_of_field_desc kind)
     Style.inline_code (Ident.name id)
     (Style.as_inline_code (Printtyp.class_declaration id)) suggested_type
