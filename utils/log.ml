@@ -64,10 +64,11 @@ module Version = struct
       | Future -> None
 
     let rec after r p =
-      if p = Deletion then None
-      else match get r p with
-        | None -> after r (next p)
-        | Some x -> Some (p, x)
+      match get r p with
+      | None ->
+          if p = Deletion then None
+          else after r (next p)
+      | Some x -> Some (p, x)
 
     let rec last_change r p =
       if p = Refinement then Refinement
@@ -80,8 +81,9 @@ module Version = struct
       match after r (next current) with
       | None -> current
       | Some (p,v1) ->
-          if v < v1 then p else stage v p r
-
+          if v < v1 then current
+          else if v = v1 then p
+          else stage v (next p) r
 
   end
 
@@ -93,8 +95,9 @@ module Version = struct
     | Some _, None -> assert false
     | None, _ -> Creation
     | Some v, Some (p,v1) ->
-        if v < v1 then Future else Lifetime.stage v p r
-
+        if v < v1 then Future
+        else if v = v1 then p
+        else Lifetime.stage v p r
 
   let range ?deprecation ?deletion ?expansion creation ={
     Lifetime.refinement = None; creation=Some creation;
@@ -495,13 +498,15 @@ end
 
 module Record = struct
   type 'a bfield = Version.t option -> 'a bound_field option
-  let (^=) f x v =
+  let field f x v =
     match Version.stage_at v f.range with
     | Refinement | Creation | Expansion | Deprecation -> Some (Field(f,x))
     | Future | Deletion -> None
-  let (^=?) f x v = match x with
+  let opt_field f x v = match x with
     | None -> None
-    | Some x -> (f ^= x) v
+    | Some x -> field f x v
+  let (^=) = field
+  let (^=?) = opt_field
 
   let field_name (Field (f,_)) = f.name
   let make v fields =
@@ -588,7 +593,7 @@ module New_sum(Vl:Version_line)(Info:Info with type vl:=Vl.id)() = struct
       let status = { kmd.status with creation = Some version } in
       scheme.!(c.cname) <- { kmd with status }
     in
-    { c with projection = None }
+    c
 
   let deprecate u c = deprecate_lbl u c.cname scheme; c
   let delete u c = delete_lbl u c.cname scheme; c
@@ -617,7 +622,7 @@ module Store = struct
         let name = field.name in
         Option.iter (fun field ->
         store := Keys.add name field !store
-        ) ((field^=x) v)
+        ) (Record.field field x v)
 
   let get (type a b) (field: (a,b) field) (st:b record): a option =
     match Keys.find_opt field.name (fields st) with
@@ -638,7 +643,7 @@ module Store = struct
         | None -> [x]
         | Some l -> x :: l
       in
-      let f = (field ^= l) v in
+      let f = Record.field field l v in
       Option.iter (fun bfield ->
           store := Keys.add field.name bfield (fields store)
         ) f
@@ -760,7 +765,7 @@ module Validation = struct
     -> report_paths = fun ~version metadata data ->
     concat_map (fun (k, kmd) ->
         match Version.stage_at (Some version) kmd.status with
-        | Future | Deletion -> invalid [k]
+        | Future | Deletion -> none (* those fields will be elided *)
         | Deprecation ->
             deprecated [k]  @^
             field  ~version ~optional:(is_optional kmd) k (Keys.find_opt k data)
