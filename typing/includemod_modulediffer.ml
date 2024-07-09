@@ -120,133 +120,131 @@ let reverse_diff d =
     substitute = List.map (fun (right, left) -> (left, right)) d.substitute;
   }
 
-(** An implementation of Zoltan Kiraly's "New Algorithm" presented in
-    "Linear Time Local Approximation Algorithm for Maximum Stable Marriage":
-    https://www.mdpi.com/1999-4893/6/3/471. It computes a 3/2-approximation of
-    a maximum stable marriage in linear time (linear in the sum of the lengths
-    of the preference lists). *)
-let rec stable_marriage_diff
-  ~cutoff ?max_elements ~compatibility_test
-  left right
-=
-  (* The man / woman semantic is inherited from the paper. Women are left, men
-     are right. *)
+module Stable_marriage_diff = struct
+  type distance = int
 
-  let n = Array.length left in
-  let m = Array.length right in
+  type lad_preferences = {
+    mutable lad_previous_layers : (int list * distance) list;
+      (** Invariant: this list is not empty. *)
+    mutable lad_current_layer : int list;
+      (** Invariant: this list is not empty. *)
+    mutable lad_current_layer_distance : distance;
+    mutable lad_next_layers : (int list * distance) Seq.t;
+  }
 
-  if m > n then
-    stable_marriage_diff
-      ~cutoff ?max_elements
-      ~compatibility_test:(fun a b -> compatibility_test b a)
-      right left
-    |> reverse_diff
-  else
+  type bachelor_preferences = {
+    mutable bachelor_current_layer : int list;
+      (** Invariant: this list is not empty. *)
+    mutable bachelor_current_layer_distance : distance;
+    mutable bachelor_next_layers : (int list * distance) list;
+  }
 
-  let open struct
-    type distance = int
+  type man_situation =
+    | Lad of lad_preferences
+    | Bachelor of bachelor_preferences
 
-    type lad_preferences = {
-      mutable lad_previous_layers : (int list * distance) list;
-        (** Invariant: this list is not empty. *)
-      mutable lad_current_layer : int list;
-        (** Invariant: this list is not empty. *)
-      mutable lad_current_layer_distance : distance;
-      mutable lad_next_layers : (int list * distance) Seq.t;
-    }
+  type man_state =
+    | Active of man_situation
+    | Engaged_man of man_situation
+    | Inactive
+      (** Old bachelor. *)
 
-    type bachelor_preferences = {
-      mutable bachelor_current_layer : int list;
-        (** Invariant: this list is not empty. *)
-      mutable bachelor_current_layer_distance : distance;
-      mutable bachelor_next_layers : (int list * distance) list;
-    }
+  type woman_state =
+    | Maiden
+    | Engaged_woman of int * distance
 
-    type man_situation =
-      | Lad of lad_preferences
-      | Bachelor of bachelor_preferences
+  (** An implementation of Zoltan Kiraly's "New Algorithm" presented in
+      "Linear Time Local Approximation Algorithm for Maximum Stable Marriage":
+      https://www.mdpi.com/1999-4893/6/3/471. It computes a 3/2-approximation of
+      a maximum stable marriage in linear time (linear in the sum of the lengths
+      of the preference lists). *)
+  let rec diff
+    ~cutoff ?max_elements ~compatibility_test
+    left right
+  =
+    (* The man / woman semantic is inherited from the paper. Women are left, men
+      are right. *)
 
-    type man_state =
-      | Active of man_situation
-      | Engaged_man of man_situation
-      | Inactive
-        (** Old bachelor. *)
+    let n = Array.length left in
+    let m = Array.length right in
 
-    type woman_state =
-      | Maiden
-      | Engaged_woman of int * distance
-  end in
-
-  let man_states =
-    let women =
-      left
-      |> Array.mapi (fun j field -> (Field.name field, j))
-      |> Array.to_seq
-      |> Misc.Trie.of_seq
-    in
-    Array.map
-      (fun right_field ->
-        let man = Field.name right_field in
-        let sequence =
-          Misc.Trie.compute_preference_layers
-            ~cutoff:(cutoff man)
-            ?max_elements
-            women
-            man
-        in
-        match sequence () with
-        | Seq.Nil ->
-            Inactive
-        | Seq.Cons ((layer, distance), tail) ->
-            Active (Lad {
-              lad_previous_layers = [ (layer, distance) ];
-              lad_current_layer = layer;
-              lad_current_layer_distance = distance;
-              lad_next_layers = tail;
-            }))
-      right
-  in
-  let woman_states = Array.make n Maiden in
-
-  let is_uncertain i =
-    match man_states.(i) with
-    | Engaged_man Lad {lad_current_layer = current_layer; _}
-    | Engaged_man Bachelor {bachelor_current_layer = current_layer; _} ->
-      let women = current_layer in
-      List.exists (fun j -> woman_states.(j) = Maiden) women
-    | _ -> false
-  in
-
-  let is_flighty j =
-    match woman_states.(j) with
-    | Engaged_woman (i, _) -> is_uncertain i
-    | _ -> false
-  in
-
-  let man_situation i =
-    match man_states.(i) with
-    | Active situation | Engaged_man situation -> Some situation
-    | Inactive -> None
-  in
-
-  let get_preferred_woman man_situation =
-    match man_situation with
-    | Lad preferences ->
-        preferences.lad_current_layer
-        |> List.find_opt (fun j -> woman_states.(j) = Maiden)
-        |> Option.value ~default:(List.hd preferences.lad_current_layer),
-        preferences.lad_current_layer_distance
-    | Bachelor preferences ->
-        preferences.bachelor_current_layer
-        |> List.find_opt (fun j -> woman_states.(j) = Maiden)
-        |> Option.value ~default:(List.hd preferences.bachelor_current_layer),
-        preferences.bachelor_current_layer_distance
-  in
-
-  let propose i j d =
-    if is_flighty j then
-      true
+    if m > n then
+      diff
+        ~cutoff ?max_elements
+        ~compatibility_test:(fun a b -> compatibility_test b a)
+        right left
+      |> reverse_diff
     else
+
+    let man_states =
+      let women =
+        left
+        |> Array.to_seq
+        |> Seq.mapi (fun j field -> (Field.name field, j))
+        |> Misc.Trie.of_seq
+      in
+      Array.map
+        (fun right_field ->
+          let man = Field.name right_field in
+          let sequence =
+            Misc.Trie.compute_preference_layers
+              ~cutoff:(cutoff man)
+              ?max_elements
+              women
+              man
+          in
+          match sequence () with
+          | Seq.Nil ->
+              Inactive
+          | Seq.Cons ((layer, distance), tail) ->
+              Active (Lad {
+                lad_previous_layers = [ (layer, distance) ];
+                lad_current_layer = layer;
+                lad_current_layer_distance = distance;
+                lad_next_layers = tail;
+              }))
+        right
+    in
+    let woman_states = Array.make n Maiden in
+
+    let is_uncertain i =
+      match man_states.(i) with
+      | Engaged_man
+        (Lad {lad_current_layer = current_layer; _}
+        | Bachelor {bachelor_current_layer = current_layer; _}) ->
+        let women = current_layer in
+        List.exists (fun j -> woman_states.(j) = Maiden) women
+      | _ -> false
+    in
+
+    let is_flighty j =
+      match woman_states.(j) with
+      | Engaged_woman (i, _) -> is_uncertain i
+      | _ -> false
+    in
+
+    let man_situation i =
+      match man_states.(i) with
+      | Active situation | Engaged_man situation -> Some situation
+      | Inactive -> None
+    in
+
+    let get_preferred_woman man_situation =
+      match man_situation with
+      | Lad preferences ->
+          preferences.lad_current_layer
+          |> List.find_opt (fun j -> woman_states.(j) = Maiden)
+          |> Option.value ~default:(List.hd preferences.lad_current_layer),
+          preferences.lad_current_layer_distance
+      | Bachelor preferences ->
+          preferences.bachelor_current_layer
+          |> List.find_opt (fun j -> woman_states.(j) = Maiden)
+          |> Option.value ~default:(List.hd preferences.bachelor_current_layer),
+          preferences.bachelor_current_layer_distance
+    in
+
+    let propose i j d =
+      is_flighty j ||
       match woman_states.(j) with
       | Maiden -> true
       | Engaged_woman (i', d') ->
@@ -255,101 +253,102 @@ let rec stable_marriage_diff
             match man_situation i, man_situation i' with
             | Some Bachelor _, Some Lad _ -> true
             | _ -> false
-  in
+    in
 
-  let remove_woman i j =
-    match man_situation i with
-    | Some Lad preferences -> (
-        match list_remove j preferences.lad_current_layer with
-        | [] -> (
-            match preferences.lad_next_layers () with
-            | Seq.Nil ->
-                let (layer, distance), tail =
-                  list_uncons preferences.lad_previous_layers
-                in
-                man_states.(i) <- Active (Bachelor {
-                  bachelor_current_layer = layer;
-                  bachelor_current_layer_distance = distance;
-                  bachelor_next_layers = tail;
-                })
-            | Seq.Cons ((layer, distance), next) ->
-                preferences.lad_previous_layers <-
-                  (layer, distance) :: preferences.lad_previous_layers;
-                preferences.lad_current_layer <- layer;
-                preferences.lad_current_layer_distance <- distance;
-                preferences.lad_next_layers <- next)
-        | remaining_women ->
-            preferences.lad_current_layer <- remaining_women)
-    | Some Bachelor preferences -> (
-          match
-            list_remove j preferences.bachelor_current_layer,
-            preferences.bachelor_next_layers
-          with
-          | [], [] ->
-              man_states.(i) <- Inactive;
-          | [], (layer, distance) :: next_layers ->
-              preferences.bachelor_current_layer <- layer;
-              preferences.bachelor_current_layer_distance <- distance;
-              preferences.bachelor_next_layers <- next_layers
-          | remaining_women, _ ->
-              preferences.bachelor_current_layer <- remaining_women)
-    | None ->
-        failwith "[remove_woman] should not be called with an old bachelor."
-  in
+    let remove_woman i j =
+      match man_situation i with
+      | Some Lad preferences -> (
+          match list_remove j preferences.lad_current_layer with
+          | [] -> (
+              match preferences.lad_next_layers () with
+              | Seq.Nil ->
+                  let (layer, distance), tail =
+                    list_uncons preferences.lad_previous_layers
+                  in
+                  man_states.(i) <- Active (Bachelor {
+                    bachelor_current_layer = layer;
+                    bachelor_current_layer_distance = distance;
+                    bachelor_next_layers = tail;
+                  })
+              | Seq.Cons ((layer, distance), next) ->
+                  preferences.lad_previous_layers <-
+                    (layer, distance) :: preferences.lad_previous_layers;
+                  preferences.lad_current_layer <- layer;
+                  preferences.lad_current_layer_distance <- distance;
+                  preferences.lad_next_layers <- next)
+          | remaining_women ->
+              preferences.lad_current_layer <- remaining_women)
+      | Some Bachelor preferences -> (
+            match
+              list_remove j preferences.bachelor_current_layer,
+              preferences.bachelor_next_layers
+            with
+            | [], [] ->
+                man_states.(i) <- Inactive;
+            | [], (layer, distance) :: next_layers ->
+                preferences.bachelor_current_layer <- layer;
+                preferences.bachelor_current_layer_distance <- distance;
+                preferences.bachelor_next_layers <- next_layers
+            | remaining_women, _ ->
+                preferences.bachelor_current_layer <- remaining_women)
+      | None ->
+          assert false
+    in
 
-  let ok = ref false in
-  while not !ok do
-    ok := true;
-    for i = 0 to m - 1 do
-      match man_states.(i) with
-      | Active situation ->
-        ok := false;
-        let (j, d) = get_preferred_woman situation in
-        if compatibility_test right.(i) left.(j) && propose i j d then (
-          (* [j] breaks off with her current fiance (if any). *)
-          (match woman_states.(j) with
-          | Engaged_woman (i', _) ->
-              (* [i'] is an engaged man, so he has a situation. *)
-              man_states.(i') <- Active (Option.get (man_situation i'));
-              if not (is_uncertain i') then
-                remove_woman i' j
-          | _ -> ());
-          (* [i] and [j] become engaged. *)
-          man_states.(i) <- Engaged_man situation;
-          woman_states.(j) <- Engaged_woman (i, d))
-        else
-          remove_woman i j
-      | _ -> ()
-    done
-  done;
-
-  {
-    delete =
-      woman_states
-      |> Array.to_seq
-      |> Seq.zip (Array.to_seq left)
-      |> Seq.filter_map (function
-        | left_field, Maiden -> Some left_field
-        | _, Engaged_woman _ -> None)
-      |> List.of_seq;
-
-    add =
-      right
-      |> Array.to_list
-      |> List.filteri (fun i _ ->
+    let ok = ref false in
+    while not !ok do
+      ok := true;
+      for i = 0 to m - 1 do
         match man_states.(i) with
-        | Engaged_man _ -> false
-        | _ -> true);
+        | Active situation ->
+          ok := false;
+          let (j, d) = get_preferred_woman situation in
+          if compatibility_test right.(i) left.(j) && propose i j d then (
+            (* [j] breaks off with her current fiance (if any). *)
+            (match woman_states.(j) with
+            | Engaged_woman (i', _) ->
+                (* [i'] is an engaged man, so he has a situation. *)
+                man_states.(i') <- Active (Option.get (man_situation i'));
+                if not (is_uncertain i') then
+                  remove_woman i' j
+            | _ -> ());
+            (* [i] and [j] become engaged. *)
+            man_states.(i) <- Engaged_man situation;
+            woman_states.(j) <- Engaged_woman (i, d))
+          else
+            remove_woman i j
+        | _ -> ()
+      done
+    done;
 
-    substitute =
-      woman_states
-      |> Array.to_seq
-      |> Seq.zip (Array.to_seq left)
-      |> Seq.filter_map (function
-        | left_field, Engaged_woman (i, _) -> Some (left_field, right.(i))
-        | _, Maiden -> None)
-      |> List.of_seq;
-  }
+    {
+      delete =
+        woman_states
+        |> Array.to_seq
+        |> Seq.zip (Array.to_seq left)
+        |> Seq.filter_map (function
+          | left_field, Maiden -> Some left_field
+          | _, Engaged_woman _ -> None)
+        |> List.of_seq;
+
+      add =
+        right
+        |> Array.to_list
+        |> List.filteri (fun i _ ->
+          match man_states.(i) with
+          | Engaged_man _ -> false
+          | _ -> true);
+
+      substitute =
+        woman_states
+        |> Array.to_seq
+        |> Seq.zip (Array.to_seq left)
+        |> Seq.filter_map (function
+          | left_field, Engaged_woman (i, _) -> Some (left_field, right.(i))
+          | _, Maiden -> None)
+        |> List.of_seq;
+    }
+end
 
 let fuzzy_match_names compatibility_test missings additions =
   (* The edit distance between an existing name and a suggested rename must be
@@ -361,7 +360,7 @@ let fuzzy_match_names compatibility_test missings additions =
   if m < 60 && n < 60 then
     (* Stable marriages. *)
     let diff =
-      stable_marriage_diff
+      Stable_marriage_diff.diff
         ~cutoff ~max_elements:10 ~compatibility_test
         (Array.of_list additions)
         (Array.of_list missings)
