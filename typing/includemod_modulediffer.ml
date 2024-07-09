@@ -203,8 +203,7 @@ module Stable_marriage_diff = struct
       | Engaged_man
         (Lad {current_layer; _}
         | Bachelor {current_layer; _}) ->
-        let women = current_layer in
-        List.exists (fun j -> woman_states.(j) = Maiden) women
+          List.exists (fun j -> woman_states.(j) = Maiden) current_layer
       | _ -> false
     in
 
