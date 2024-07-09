@@ -137,7 +137,8 @@ let rec stable_marriage_diff
 
   if m > n then
     stable_marriage_diff
-      ~cutoff ?max_elements ~compatibility_test
+      ~cutoff ?max_elements
+      ~compatibility_test:(fun a b -> compatibility_test b a)
       right left
     |> reverse_diff
   else
