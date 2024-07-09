@@ -13,12 +13,6 @@
 (*                                                                        *)
 (**************************************************************************)
 
-let rec list_remove x list =
-  match list with
-  | [] -> []
-  | hd :: tl when hd = x -> tl
-  | hd :: tl -> hd :: list_remove x tl
-
 module Field = struct
   type ('v, 't) t = {
     item : Types.signature_item;
@@ -115,7 +109,18 @@ let reverse_diff d =
     substitute = List.map (fun (right, left) -> (left, right)) d.substitute;
   }
 
+(** An implementation (in [diff]) of Zoltan Kiraly's "New Algorithm," presented
+    in "Linear Time Local Approximation Algorithm for Maximum Stable Marriage":
+    https://www.mdpi.com/1999-4893/6/3/471. It computes a 3/2-approximation of
+    a maximum stable marriage in linear time (linear in the sum of the lengths
+    of the preference lists). *)
 module Stable_marriage_diff = struct
+  let rec list_remove x list =
+    match list with
+    | [] -> []
+    | hd :: tl when hd = x -> tl
+    | hd :: tl -> hd :: list_remove x tl
+
   type distance = int
 
   type 'a preferences = {
@@ -144,11 +149,6 @@ module Stable_marriage_diff = struct
     | Maiden
     | Engaged_woman of int * distance
 
-  (** An implementation of Zoltan Kiraly's "New Algorithm" presented in
-      "Linear Time Local Approximation Algorithm for Maximum Stable Marriage":
-      https://www.mdpi.com/1999-4893/6/3/471. It computes a 3/2-approximation of
-      a maximum stable marriage in linear time (linear in the sum of the lengths
-      of the preference lists). *)
   let rec diff
     ~cutoff ?max_elements ~compatibility_test
     left right
