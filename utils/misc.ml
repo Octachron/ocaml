@@ -1269,44 +1269,44 @@ module Trie = struct
     let seen_states = Hashtbl.create trie.subtrie_count in
     compute queue seen_states
 
-    let compute_preference_layers (type a) ?(deletion_cost = 1)
-        ?(insertion_cost = 1) ?(substitution_cost = 1) ?(cutoff : int option)
-        ?(max_elements : int option) (trie : a t) (string : string)
-        : (a list * int) Seq.t =
+  let compute_preference_layers (type a) ?(deletion_cost = 1)
+      ?(insertion_cost = 1) ?(substitution_cost = 1) ?(cutoff : int option)
+      ?(max_elements : int option) (trie : a t) (string : string)
+      : (a list * int) Seq.t =
 
-      (* [current_distance = None] iff [acc = []]. *)
-      let rec compute seq current_distance acc = fun () ->
-        match current_distance, seq () with
-        | None, Seq.Nil ->
-            Seq.Nil
-        | Some current_distance, Seq.Nil ->
-            let kont = fun () -> Seq.Nil in
+    (* [current_distance = None] iff [acc = []]. *)
+    let rec compute seq current_distance acc = fun () ->
+      match current_distance, seq () with
+      | None, Seq.Nil ->
+          Seq.Nil
+      | Some current_distance, Seq.Nil ->
+          let kont = fun () -> Seq.Nil in
+          Seq.Cons ((acc, current_distance), kont)
+      | None, Seq.Cons ((data, distance), next) ->
+          compute next (Some distance) [ data ] ()
+      | Some current_distance, Seq.Cons ((data, distance), next) ->
+          if distance = current_distance then
+            compute next (Some current_distance) (data :: acc) ()
+          else
+            let kont = compute next (Some distance) [ data ] in
             Seq.Cons ((acc, current_distance), kont)
-        | None, Seq.Cons ((data, distance), next) ->
-            compute next (Some distance) [ data ] ()
-        | Some current_distance, Seq.Cons ((data, distance), next) ->
-            if distance = current_distance then
-              compute next (Some current_distance) (data :: acc) ()
-            else
-              let kont = compute next (Some distance) [ data ] in
-              Seq.Cons ((acc, current_distance), kont)
-      in
+    in
 
-      let preferences =
-        compute_preferences
-          ~deletion_cost
-          ~insertion_cost
-          ~substitution_cost
-          ?cutoff
-          trie
-          string
-      in
-      let seq =
-        match max_elements with
-        | Some n -> Seq.take n preferences
-        | None -> preferences
-      in
-      compute seq None []
+    let preferences =
+      compute_preferences
+        ~deletion_cost
+        ~insertion_cost
+        ~substitution_cost
+        ?cutoff
+        trie
+        string
+    in
+    let seq =
+      match max_elements with
+      | Some n -> Seq.take n preferences
+      | None -> preferences
+    in
+    compute seq None []
 end
 
 module Error_style = struct
