@@ -251,9 +251,16 @@ let log_version log = log.version
 type 'a t = 'a log
 
 let (.!()<-) scheme name metadata =
-  scheme.keys <-
-    (name, metadata) ::
-    List.filter (fun (k,_) -> k <> name) scheme.keys
+  let rec update_if_present name metadata = function
+    | [] -> None
+    | (a_name, _ as a) :: q ->
+        if a_name = name then Some ((name,metadata) :: q)
+        else
+          Option.map (List.cons a) (update_if_present name metadata q)
+  in
+  let updated = update_if_present name metadata scheme.keys in
+  let keys = Option.value ~default: ((name,metadata)::scheme.keys) updated in
+  scheme.keys <- keys
 
 let rec pp_typ: type a. Format.formatter -> a typ -> unit = fun ppf -> function
 | Unit -> Format.pp_print_string ppf ""
