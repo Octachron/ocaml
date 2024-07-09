@@ -341,25 +341,29 @@ end
 type ('elt,'id) constructor =
   { cname: string;
     typ: 'elt typ;
-    approximation: ('elt,'id) constructor_expansion option;
-    expansion: ('elt,'id) constructor_expansion option;
+    projection: ('elt,'id) constructor_projection option;
   }
-and ('current,'id) constructor_expansion = Cexp: {
-  core: 'current -> 'old;
-  old: ('old,'id) constructor;
-  version: Version.t;
-} -> ('current,'id) constructor_expansion
+and ('current,'id) constructor_projection =
+  | Proj: {
+      map: 'current -> 'old;
+      old: ('old,'id) constructor;
+      version: Version.t;
+    } -> ('current,'id) constructor_projection
 
+let is_expansion c (Proj p) = c.cname = p.old.cname
 
-let app (type t id) v (c:(t,id) constructor) (x:t): id sum =
-  match v, c.approximation, c.expansion with
-  | None, _, _ | _, None, None -> Constr {name=c.cname; typ=c.typ; arg=x}
-  | Some v, Some (Cexp r), None ->
-      if v >= r.version then Constr {name=c.cname; typ=c.typ; arg=x}
-      else Constr { name = r.old.cname; typ=r.old.typ; arg=r.core x}
-  | Some v, _, Some (Cexp r) ->
-      if v >= r.version then Constr {name=c.cname; typ=c.typ; arg=x}
-      else Constr { name = c.cname; typ=r.old.typ; arg=r.core x}
+let rec project: type t id. Version.t -> (t,id) constructor -> t -> id sum =
+  fun v c x ->
+  match c.projection with
+  | None -> Constr { name = c.cname; typ=c.typ; arg=x}
+  | Some (Proj p) ->
+      if v >= p.version then  Constr { name = c.cname; typ=c.typ; arg=x}
+      else project v p.old (p.map x)
+
+let app v c x =
+  match v with
+  | None -> Constr {name=c.cname; typ=c.typ; arg=x}
+  | Some v -> project v c x
 
 module type Sum = sig
   type id
@@ -430,11 +434,12 @@ let make_required u f scheme =
 let register_constructor_expansion u old new_typ scheme =
   let&? kmd = scheme.?(old.cname) in
   inconsistent_if_inactive u scheme.scheme_name old.cname kmd.status;
-  begin match old.expansion with
+  begin match old.projection with
   | None -> ()
-  | Some _ ->
-      Version.error u scheme.scheme_name
-        (Invalid_constructor_expansion old.cname)
+  | Some p ->
+      if is_expansion old p then
+        Version.error u scheme.scheme_name
+          (Invalid_constructor_expansion old.cname)
   end;
   Version.register_event u scheme.scheme_name
     (Expansion {name=old.cname;
@@ -554,27 +559,20 @@ module New_sum(Vl:Version_line)(Info:Info with type vl:=Vl.id)() = struct
     register_label_metadata ~optional:false u scheme name ty;
     { cname = name;
       typ = ty;
-      approximation = None;
-      expansion = None
+      projection = None;
     }
   let new_constr0 u name = new_constr u name Unit
   let app = app
 
-  let expand u old core new_ty =
+  let expand u old map new_ty =
     let () = register_constructor_expansion u old new_ty scheme in
-    let expansion = Some(Cexp {core;old;version=Version.v u}) in
-    let approximation = match old.approximation with
-      | None -> None
-      | Some (Cexp r) ->
-          let core x = r.core (core x) in
-          Some (Cexp {r with core})
-    in
-    { old with typ=new_ty; expansion; approximation }
+    let projection = Some(Proj {map;old;version=Version.v u}) in
+    { old with typ=new_ty; projection }
 
-  let refine u old core new_name new_ty =
+  let refine u old map new_name new_ty =
     let () = register_constructor_refinement u old new_name new_ty scheme in
-    let approximation = Some(Cexp {core;old;version=Version.v u}) in
-    { cname=new_name; typ=new_ty; approximation; expansion=None }
+    let projection = Some(Proj {map;old;version=Version.v u}) in
+    { cname=new_name; typ=new_ty; projection }
 
   let publish u c =
     let version = Version.v u in
@@ -583,7 +581,7 @@ module New_sum(Vl:Version_line)(Info:Info with type vl:=Vl.id)() = struct
       let status = { kmd.status with creation = Some version } in
       scheme.!(c.cname) <- { kmd with status }
     in
-    { c with approximation = None; expansion = None }
+    { c with projection = None }
 
   let deprecate u c = deprecate_lbl u c.cname scheme; c
   let delete u c = delete_lbl u c.cname scheme; c
