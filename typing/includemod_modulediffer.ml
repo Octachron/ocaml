@@ -350,6 +350,59 @@ module Stable_marriage_diff = struct
     }
 end
 
+let greedy_matching ~compatibility_test ~cutoff missings additions =
+  let rec list_extract predicate l =
+    match l with
+    | [] -> None
+    | hd :: tl when predicate hd -> Some (hd, tl)
+    | hd :: tl -> (
+        match list_extract predicate tl with
+        | None -> None
+        | Some (x, tl') -> Some (x, hd :: tl'))
+  in
+
+  let compute_distance expected_field added_field =
+    if compatibility_test expected_field added_field then
+      let distance =
+        let expected_name = Field.name expected_field in
+        Misc.edit_distance
+          expected_name
+          (Field.name added_field)
+          (cutoff expected_name)
+      in
+      Misc.Maybe_infinite.of_option distance
+    else
+      Misc.Maybe_infinite.Infinity ()
+  in
+
+  let remaining_added_fields = ref additions in
+  let name_changes = ref [] in
+  let actually_missing =
+    missings
+    |> List.filter
+      (fun missing_field ->
+        let missing_id = Field.ident missing_field in
+        let missing_name = Ident.name missing_id in
+        match
+          list_extract
+            (fun added_field ->
+              compute_distance missing_field added_field
+                < Misc.Maybe_infinite.Finite (cutoff missing_name))
+            !remaining_added_fields
+        with
+        | None -> true
+        | Some (added_field, additions) ->
+            let name_change =
+              Suggestion.rename added_field.Field.item missing_id
+            in
+            name_changes := name_change :: !name_changes;
+            remaining_added_fields := additions;
+            false)
+    |> List.map (fun missing -> Suggestion.add missing.Field.item)
+  in
+
+  actually_missing @ !name_changes
+
 let fuzzy_match_names compatibility_test missings additions =
   (* The edit distance between an existing name and a suggested rename must be
      at most half the length of the name. *)
@@ -381,57 +434,7 @@ let fuzzy_match_names compatibility_test missings additions =
 
   else
     (* Greedy. *)
-    let rec list_extract predicate l =
-      match l with
-      | [] -> None
-      | hd :: tl when predicate hd -> Some (hd, tl)
-      | hd :: tl -> (
-          match list_extract predicate tl with
-          | None -> None
-          | Some (x, tl') -> Some (x, hd :: tl'))
-    in
-
-    let compute_distance expected_field added_field =
-      if compatibility_test expected_field added_field then
-        let distance =
-          let expected_name = Field.name expected_field in
-          Misc.edit_distance
-            expected_name
-            (Field.name added_field)
-            (cutoff expected_name)
-        in
-        Misc.Maybe_infinite.of_option distance
-      else
-        Misc.Maybe_infinite.Infinity ()
-    in
-
-    let remaining_added_fields = ref additions in
-    let name_changes = ref [] in
-    let actually_missing =
-      missings
-      |> List.filter
-        (fun missing_field ->
-          let missing_id = Field.ident missing_field in
-          let missing_name = Ident.name missing_id in
-          match
-            list_extract
-              (fun added_field ->
-                compute_distance missing_field added_field
-                  < Misc.Maybe_infinite.Finite (cutoff missing_name))
-              !remaining_added_fields
-          with
-          | None -> true
-          | Some (added_field, additions) ->
-              let name_change =
-                Suggestion.rename added_field.Field.item missing_id
-              in
-              name_changes := name_change :: !name_changes;
-              remaining_added_fields := additions;
-              false)
-      |> List.map (fun missing -> Suggestion.add missing.Field.item)
-    in
-
-    actually_missing @ !name_changes
+    greedy_matching ~compatibility_test ~cutoff missings additions
 
 let compute_signature_diff env subst sig1 sig2 =
   try
