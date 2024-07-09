@@ -516,7 +516,7 @@ end
 module Trie : sig
   type 'a t
 
-  val add: 'a t -> string -> 'a -> 'a t
+  val add: 'a t -> string -> 'a -> unit
   val of_seq: (string * 'a) Seq.t -> 'a t
 
   val compute_preferences:

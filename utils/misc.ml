@@ -1063,24 +1063,24 @@ module Trie = struct
       incr counter;
       !counter
 
-  module CharMap = Map.Make (Char)
-
   type 'a t = {
     uid : int;
-    leaf_data : 'a option;
-    strict_suffixes : 'a t CharMap.t;
-    subtrie_count : int;
-    shortest_suffix : (int * 'a) option;
+    mutable leaf_data : 'a option;
+    strict_suffixes : (char, 'a t) Hashtbl.t;
+    mutable subtrie_count : int;
+        (** The total number of subtries this trie contains (including
+            itself). *)
+    mutable shortest_suffix : (int * 'a) option;
         (** The length and associated data of a shortest suffix, if any. *)
-    longest_suffix : (int * 'a) option;
+    mutable longest_suffix : (int * 'a) option;
         (** The length and associated data of a longest suffix, if any. *)
   }
 
-  let empty =
+  let create () =
     {
       uid = new_uid ();
       leaf_data = None;
-      strict_suffixes = CharMap.empty;
+      strict_suffixes = Hashtbl.create 1;
       subtrie_count = 1;
       shortest_suffix = None;
       longest_suffix = None;
@@ -1088,53 +1088,37 @@ module Trie = struct
 
   let add trie string data =
     let rec aux s length trie =
-      let shortest_suffix =
+      (trie.shortest_suffix <-
         match trie.shortest_suffix with
         | Some (l, d) when l <= length -> Some (l, d)
-        | _ -> Some (length, data)
-      in
-      let longest_suffix =
+        | _ -> Some (length, data));
+      (trie.longest_suffix <-
         match trie.longest_suffix with
         | Some (l, d) when l >= length -> Some (l, d)
-        | _ -> Some (length, data)
-      in
+        | _ -> Some (length, data));
       match s () with
       | Seq.Nil ->
-          {
-            trie with
-            uid = new_uid ();
-            leaf_data = Some data;
-            shortest_suffix;
-            longest_suffix;
-          }
+          trie.leaf_data <- Some data
       | Seq.Cons (c, next) ->
-          let subtrie_count = ref trie.subtrie_count in
-          let strict_suffixes =
-            CharMap.update
-                c
-                (fun subtrie ->
-                  incr subtrie_count;
-                  match subtrie with
-                  | None -> Some (aux next (length - 1) empty)
-                  | Some child -> Some (aux next (length - 1) child))
-                trie.strict_suffixes
-          in
-          {
-            uid = new_uid ();
-            leaf_data = trie.leaf_data;
-            strict_suffixes;
-            subtrie_count = !subtrie_count;
-            shortest_suffix;
-            longest_suffix;
-          }
+          match Hashtbl.find_opt trie.strict_suffixes c with
+          | None ->
+              let new_child = create () in
+              aux next (length - 1) new_child;
+              Hashtbl.add trie.strict_suffixes c new_child;
+              trie.subtrie_count <- trie.subtrie_count + new_child.subtrie_count
+          | Some child ->
+              let subtries_without_child =
+                trie.subtrie_count - child.subtrie_count
+              in
+              aux next (length - 1) child;
+              trie.subtrie_count <- subtries_without_child + child.subtrie_count
     in
     aux (String.to_seq string) (String.length string) trie
 
   let of_seq entries =
-    Seq.fold_left
-      (fun trie (string, data) -> add trie string data)
-      empty
-      entries
+    let trie = create () in
+    Seq.iter (fun (string, data) -> add trie string data) entries;
+    trie
 
   let compute_preferences (type a) ?(deletion_cost = 1) ?(insertion_cost = 1)
       ?(substitution_cost = 1) ?(cutoff : int option) (trie : a t)
@@ -1202,7 +1186,7 @@ module Trie = struct
             else
               transitions)
         (* Insertions. *)
-        |> CharMap.fold
+        |> Hashtbl.fold
             (fun _ suffix_trie transitions ->
               match
                 make suffix_trie state.remaining_length
@@ -1212,7 +1196,7 @@ module Trie = struct
               | Some transition -> transition :: transitions)
             state.trie.strict_suffixes
         (* Substitutions. *)
-        |> CharMap.fold
+        |> Hashtbl.fold
             (fun c suffix_trie transitions ->
               if state.remaining_length > 0 then
                 let substitution_cost_here =
