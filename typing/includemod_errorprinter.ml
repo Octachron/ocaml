@@ -738,39 +738,32 @@ let suggest_adding_field ppf item =
 
 let suggest_renaming_field ppf (item, suggested_name) =
   let current_id, _, kind = Includemod.item_ident_name item in
-  Fmt.fprintf ppf "Try renaming %s %a to %a"
+  Fmt.fprintf ppf "@{<hint>Hint@}: Try renaming %s %a to %a"
     (Includemod.kind_of_field_desc kind)
     Style.inline_code (Ident.name current_id)
     Style.inline_code suggested_name
 
 let suggest_changing_type_of_value ppf (item, suggested_type) =
-  let id, _, kind = Includemod.item_ident_name item in
-  Fmt.fprintf ppf "Try changing %s %a to be a %a"
-    (Includemod.kind_of_field_desc kind)
+  let id, _, _ = Includemod.item_ident_name item in
+  Fmt.fprintf ppf "Try changing value %a to be a %a"
     Style.inline_code (Ident.name id)
     (Style.as_inline_code Printtyp.type_expr) suggested_type
 
 let suggest_changing_type_of_module ppf (item, suggested_type) =
-  let id, _, kind = Includemod.item_ident_name item in
-  Fmt.fprintf ppf "Try changing %s %a to be a %a"
-    (Includemod.kind_of_field_desc kind)
+  let id, _, _ = Includemod.item_ident_name item in
+  Fmt.fprintf ppf "Try changing module %a to be a@ %a"
     Style.inline_code (Ident.name id)
-    (Style.as_inline_code
-      (fun fmt mty ->
-        !Oprint.out_module_type fmt (Out_type.tree_of_modtype mty)))
-      suggested_type
+   Printtyp.modtype suggested_type
 
 let suggest_changing_type_of_class ppf (item, suggested_type) =
-  let id, _, kind = Includemod.item_ident_name item in
-  Fmt.fprintf ppf "Try changing %s %a to be a %a"
-    (Includemod.kind_of_field_desc kind)
+  let id, _, _ = Includemod.item_ident_name item in
+  Fmt.fprintf ppf "Try changing class %a to be a@ %a"
     Style.inline_code (Ident.name id)
-    (Style.as_inline_code (Printtyp.class_declaration id)) suggested_type
+    (Printtyp.class_declaration id) suggested_type
 
 let suggest_changing_type ppf (item, suggested_type) =
-  let id, _, kind = Includemod.item_ident_name item in
-  Fmt.fprintf ppf "Try changing %s %a to %a"
-    (Includemod.kind_of_field_desc kind)
+  let id, _, _ = Includemod.item_ident_name item in
+  Fmt.fprintf ppf "Try changing type %a to %a"
     Style.inline_code (Ident.name id)
     (Style.as_inline_code (Printtyp.type_declaration id)) suggested_type
 
@@ -919,22 +912,22 @@ and signature ~expansion_token ~env:_ ~before ~ctx:_ sgs =
     let open Includemod_modulediffer.Suggestion in
     match suggestion.alteration with
     | Add_item ->
-        (Location.msg "%a" suggest_adding_field) suggestion.subject
+        Location.msg "%a" suggest_adding_field suggestion.subject
     | Rename_item suggested_ident ->
         let suggested_name = Ident.name suggested_ident in
-        (Location.msg "%a" suggest_renaming_field)
+        Location.msg "%a" suggest_renaming_field
           (suggestion.subject, suggested_name)
     | Change_type_of_value suggested_type ->
-        (Location.msg "%a" suggest_changing_type_of_value)
+        Location.msg "%a" suggest_changing_type_of_value
           (suggestion.subject, suggested_type)
     | Change_type_of_module suggested_type ->
-        (Location.msg "%a" suggest_changing_type_of_module)
+        Location.msg "%a" suggest_changing_type_of_module
           (suggestion.subject, suggested_type)
     | Change_type_of_class suggested_type ->
-        (Location.msg "%a" suggest_changing_type_of_class)
+        Location.msg "%a" suggest_changing_type_of_class
           (suggestion.subject, suggested_type)
     | Change_type suggested_type ->
-        (Location.msg "%a" suggest_changing_type)
+        Location.msg "%a" suggest_changing_type
           (suggestion.subject, suggested_type)
   in
   Printtyp.wrap_printing_env ~error:true sgs.env (fun () ->
