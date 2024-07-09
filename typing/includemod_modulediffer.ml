@@ -19,11 +19,6 @@ let rec list_remove x list =
   | hd :: tl when hd = x -> tl
   | hd :: tl -> hd :: list_remove x tl
 
-let list_uncons list =
-  match list with
-  | [] -> failwith "Expected list not to be empty"
-  | hd :: tl -> hd, tl
-
 module Field = struct
   type ('v, 't) t = {
     item : Types.signature_item;
@@ -123,21 +118,17 @@ let reverse_diff d =
 module Stable_marriage_diff = struct
   type distance = int
 
-  type lad_preferences = {
-    mutable lad_previous_layers : (int list * distance) list;
+  type 'a preferences = {
+    mutable previous_layers : 'a;
+      (** Invariant: if this is a list, it is not empty. *)
+    mutable current_layer : int list;
       (** Invariant: this list is not empty. *)
-    mutable lad_current_layer : int list;
-      (** Invariant: this list is not empty. *)
-    mutable lad_current_layer_distance : distance;
-    mutable lad_next_layers : (int list * distance) Seq.t;
+    mutable current_layer_distance : distance;
+    mutable next_layers : (int list * distance) Seq.t;
   }
 
-  type bachelor_preferences = {
-    mutable bachelor_current_layer : int list;
-      (** Invariant: this list is not empty. *)
-    mutable bachelor_current_layer_distance : distance;
-    mutable bachelor_next_layers : (int list * distance) list;
-  }
+  type lad_preferences = (int list * distance) list preferences
+  type bachelor_preferences = unit preferences
 
   type man_situation =
     | Lad of lad_preferences
@@ -198,10 +189,10 @@ module Stable_marriage_diff = struct
               Inactive
           | Seq.Cons ((layer, distance), tail) ->
               Active (Lad {
-                lad_previous_layers = [ (layer, distance) ];
-                lad_current_layer = layer;
-                lad_current_layer_distance = distance;
-                lad_next_layers = tail;
+                previous_layers = [ (layer, distance) ];
+                current_layer = layer;
+                current_layer_distance = distance;
+                next_layers = tail;
               }))
         right
     in
@@ -210,8 +201,8 @@ module Stable_marriage_diff = struct
     let is_uncertain i =
       match man_states.(i) with
       | Engaged_man
-        (Lad {lad_current_layer = current_layer; _}
-        | Bachelor {bachelor_current_layer = current_layer; _}) ->
+        (Lad {current_layer; _}
+        | Bachelor {current_layer; _}) ->
         let women = current_layer in
         List.exists (fun j -> woman_states.(j) = Maiden) women
       | _ -> false
@@ -232,15 +223,15 @@ module Stable_marriage_diff = struct
     let get_preferred_woman man_situation =
       match man_situation with
       | Lad preferences ->
-          preferences.lad_current_layer
+          preferences.current_layer
           |> List.find_opt (fun j -> woman_states.(j) = Maiden)
-          |> Option.value ~default:(List.hd preferences.lad_current_layer),
-          preferences.lad_current_layer_distance
+          |> Option.value ~default:(List.hd preferences.current_layer),
+          preferences.current_layer_distance
       | Bachelor preferences ->
-          preferences.bachelor_current_layer
+          preferences.current_layer
           |> List.find_opt (fun j -> woman_states.(j) = Maiden)
-          |> Option.value ~default:(List.hd preferences.bachelor_current_layer),
-          preferences.bachelor_current_layer_distance
+          |> Option.value ~default:(List.hd preferences.current_layer),
+          preferences.current_layer_distance
     in
 
     let propose i j d =
@@ -255,42 +246,51 @@ module Stable_marriage_diff = struct
             | _ -> false
     in
 
+    let create_bachelor layers =
+      match layers with
+      | [] -> assert false
+      | (layer, distance) :: tail ->
+          Bachelor {
+            previous_layers = ();
+            current_layer = layer;
+            current_layer_distance = distance;
+            next_layers = List.to_seq tail;
+          }
+    in
+
+    let remove_woman_from_preferences preferences j nil_callback cons_callback =
+      match list_remove j preferences.current_layer with
+      | [] -> (
+          match preferences.next_layers () with
+          | Seq.Nil ->
+              nil_callback ()
+          | Seq.Cons ((layer, distance), next) ->
+              preferences.current_layer <- layer;
+              preferences.current_layer_distance <- distance;
+              preferences.next_layers <- next;
+              cons_callback layer distance)
+      | remaining_women ->
+          preferences.current_layer <- remaining_women
+    in
+
     let remove_woman i j =
       match man_situation i with
-      | Some Lad preferences -> (
-          match list_remove j preferences.lad_current_layer with
-          | [] -> (
-              match preferences.lad_next_layers () with
-              | Seq.Nil ->
-                  let (layer, distance), tail =
-                    list_uncons preferences.lad_previous_layers
-                  in
-                  man_states.(i) <- Active (Bachelor {
-                    bachelor_current_layer = layer;
-                    bachelor_current_layer_distance = distance;
-                    bachelor_next_layers = tail;
-                  })
-              | Seq.Cons ((layer, distance), next) ->
-                  preferences.lad_previous_layers <-
-                    (layer, distance) :: preferences.lad_previous_layers;
-                  preferences.lad_current_layer <- layer;
-                  preferences.lad_current_layer_distance <- distance;
-                  preferences.lad_next_layers <- next)
-          | remaining_women ->
-              preferences.lad_current_layer <- remaining_women)
-      | Some Bachelor preferences -> (
-            match
-              list_remove j preferences.bachelor_current_layer,
-              preferences.bachelor_next_layers
-            with
-            | [], [] ->
-                man_states.(i) <- Inactive;
-            | [], (layer, distance) :: next_layers ->
-                preferences.bachelor_current_layer <- layer;
-                preferences.bachelor_current_layer_distance <- distance;
-                preferences.bachelor_next_layers <- next_layers
-            | remaining_women, _ ->
-                preferences.bachelor_current_layer <- remaining_women)
+      | Some Lad preferences ->
+          remove_woman_from_preferences
+            preferences
+            j
+            (fun () ->
+              man_states.(i) <-
+                Active (create_bachelor preferences.previous_layers))
+            (fun layer distance ->
+              preferences.previous_layers <-
+                (layer, distance) :: preferences.previous_layers)
+      | Some Bachelor preferences ->
+          remove_woman_from_preferences
+            preferences
+            j
+            (fun () -> man_states.(i) <- Inactive)
+            (fun _ _ -> ())
       | None ->
           assert false
     in
