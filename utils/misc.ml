@@ -1216,7 +1216,7 @@ module Trie = struct
             (fun c suffix_trie transitions ->
               if state.remaining_length > 0 then
                 let substitution_cost_here =
-                  if c == string.[n - state.remaining_length] then
+                  if c = string.[n - state.remaining_length] then
                     0
                   else
                     substitution_cost
