@@ -763,9 +763,12 @@ let suggest_changing_type_of_class ppf (item, suggested_type) =
 
 let suggest_changing_type ppf (item, suggested_type) =
   let id, _, _ = Includemod.item_ident_name item in
-  Fmt.fprintf ppf "Try changing type %a to %a"
+  Fmt.fprintf ppf "Try changing type %a to@ %a"
     Style.inline_code (Ident.name id)
-    (Style.as_inline_code (Printtyp.type_declaration id)) suggested_type
+    (fun fmt ty ->
+      !Oprint.out_sig_item fmt
+        (Printtyp.tree_of_type_declaration id ty Trec_not))
+    suggested_type
 
 let module_types {Err.got=mty1; expected=mty2} =
   Fmt.dprintf
