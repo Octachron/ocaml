@@ -121,6 +121,18 @@ module Stable_marriage_diff = struct
     | hd :: tl when hd = x -> tl
     | hd :: tl -> hd :: list_remove x tl
 
+  (* This implementation does not use the same semantics as the original paper.
+     Below is a conversion from the paper's terms to the implementation's terms:
+     - woman: left
+     - man: right
+     - engaged (woman / man): paired
+     - maiden (woman) / active (man): available
+     - lad: first phase
+     - bachelor: second phase
+     - old bachelor: closed
+     - uncertain (man): has a better choice
+     - flighty (woman): has a weak pair *)
+
   type distance = int
 
   type 'a preferences = {
@@ -132,30 +144,23 @@ module Stable_marriage_diff = struct
     mutable next_layers : (int list * distance) Seq.t;
   }
 
-  type lad_preferences = (int list * distance) list preferences
-  type bachelor_preferences = unit preferences
+  type left_state =
+    | Left_available
+    | Left_paired of int * distance
 
-  type man_situation =
-    | Lad of lad_preferences
-    | Bachelor of bachelor_preferences
+  type right_phase =
+    | First_phase of (int list * distance) list preferences
+    | Second_phase of unit preferences
 
-  type man_state =
-    | Active of man_situation
-    | Engaged_man of man_situation
-    | Inactive
-        (** Old bachelor. *)
-
-  type woman_state =
-    | Maiden
-    | Engaged_woman of int * distance
+  type right_state =
+    | Right_available of right_phase
+    | Right_paired of right_phase
+    | Right_closed
 
   let rec diff
     ~cutoff ?max_elements ~compatibility_test
     left right
   =
-    (* The man / woman semantic is inherited from the paper. Women are left, men
-      are right. *)
-
     let n = Array.length left in
     let m = Array.length right in
 
@@ -167,8 +172,9 @@ module Stable_marriage_diff = struct
       |> reverse_diff
     else
 
-    let man_states =
-      let women =
+    let left_states = Array.make n Left_available in
+    let right_states =
+      let left_trie =
         left
         |> Array.to_seq
         |> Seq.mapi (fun j field -> (Field.name field, j))
@@ -176,19 +182,19 @@ module Stable_marriage_diff = struct
       in
       Array.map
         (fun right_field ->
-          let man = Field.name right_field in
+          let name = Field.name right_field in
           let sequence =
             Misc.Trie.compute_preference_layers
-              ~cutoff:(cutoff man)
+              ~cutoff:(cutoff name)
               ?max_elements
-              women
-              man
+              left_trie
+              name
           in
           match sequence () with
           | Seq.Nil ->
-              Inactive
+              Right_closed
           | Seq.Cons ((layer, distance), tail) ->
-              Active (Lad {
+              Right_available (First_phase {
                 previous_layers = [ (layer, distance) ];
                 current_layer = layer;
                 current_layer_distance = distance;
@@ -196,60 +202,59 @@ module Stable_marriage_diff = struct
               }))
         right
     in
-    let woman_states = Array.make n Maiden in
 
-    let is_uncertain i =
-      match man_states.(i) with
-      | Engaged_man
-        (Lad {current_layer; _}
-        | Bachelor {current_layer; _}) ->
-          List.exists (fun j -> woman_states.(j) = Maiden) current_layer
+    let has_better_choice i =
+      match right_states.(i) with
+      | Right_paired
+        (First_phase {current_layer; _}
+        | Second_phase {current_layer; _}) ->
+          List.exists (fun j -> left_states.(j) = Left_available) current_layer
       | _ -> false
     in
 
-    let is_flighty j =
-      match woman_states.(j) with
-      | Engaged_woman (i, _) -> is_uncertain i
+    let has_weak_pair j =
+      match left_states.(j) with
+      | Left_paired (i, _) -> has_better_choice i
       | _ -> false
     in
 
-    let man_situation i =
-      match man_states.(i) with
-      | Active situation | Engaged_man situation -> Some situation
-      | Inactive -> None
+    let phase i =
+      match right_states.(i) with
+      | Right_available phase | Right_paired phase -> Some phase
+      | Right_closed -> None
     in
 
-    let get_preferred_woman man_situation =
-      match man_situation with
-      | Lad preferences ->
+    let get_preferred_candidate phase =
+      match phase with
+      | First_phase preferences ->
           preferences.current_layer
-          |> List.find_opt (fun j -> woman_states.(j) = Maiden)
+          |> List.find_opt (fun j -> left_states.(j) = Left_available)
           |> Option.value ~default:(List.hd preferences.current_layer),
           preferences.current_layer_distance
-      | Bachelor preferences ->
+      | Second_phase preferences ->
           preferences.current_layer
-          |> List.find_opt (fun j -> woman_states.(j) = Maiden)
+          |> List.find_opt (fun j -> left_states.(j) = Left_available)
           |> Option.value ~default:(List.hd preferences.current_layer),
           preferences.current_layer_distance
     in
 
     let propose i j d =
-      is_flighty j ||
-      match woman_states.(j) with
-      | Maiden -> true
-      | Engaged_woman (i', d') ->
+      has_weak_pair j ||
+      match left_states.(j) with
+      | Left_available -> true
+      | Left_paired (i', d') ->
           d < d' ||
           d = d' &&
-            match man_situation i, man_situation i' with
-            | Some Bachelor _, Some Lad _ -> true
+            match phase i, phase i' with
+            | Some Second_phase _, Some First_phase _ -> true
             | _ -> false
     in
 
-    let create_bachelor layers =
+    let create_second_phase layers =
       match layers with
       | [] -> assert false
       | (layer, distance) :: tail ->
-          Bachelor {
+          Second_phase {
             previous_layers = ();
             current_layer = layer;
             current_layer_distance = distance;
@@ -257,7 +262,7 @@ module Stable_marriage_diff = struct
           }
     in
 
-    let remove_woman_from_preferences preferences j nil_callback cons_callback =
+    let remove_left_from_preferences preferences j nil_callback cons_callback =
       match list_remove j preferences.current_layer with
       | [] -> (
           match preferences.next_layers () with
@@ -268,27 +273,27 @@ module Stable_marriage_diff = struct
               preferences.current_layer_distance <- distance;
               preferences.next_layers <- next;
               cons_callback layer distance)
-      | remaining_women ->
-          preferences.current_layer <- remaining_women
+      | remaining_elements ->
+          preferences.current_layer <- remaining_elements
     in
 
-    let remove_woman i j =
-      match man_situation i with
-      | Some Lad preferences ->
-          remove_woman_from_preferences
+    let remove_left i j =
+      match phase i with
+      | Some First_phase preferences ->
+          remove_left_from_preferences
             preferences
             j
             (fun () ->
-              man_states.(i) <-
-                Active (create_bachelor preferences.previous_layers))
+              let phase = create_second_phase preferences.previous_layers in
+              right_states.(i) <- Right_available phase)
             (fun layer distance ->
               preferences.previous_layers <-
                 (layer, distance) :: preferences.previous_layers)
-      | Some Bachelor preferences ->
-          remove_woman_from_preferences
+      | Some Second_phase preferences ->
+          remove_left_from_preferences
             preferences
             j
-            (fun () -> man_states.(i) <- Inactive)
+            (fun () -> right_states.(i) <- Right_closed)
             (fun _ _ -> ())
       | None ->
           assert false
@@ -298,53 +303,53 @@ module Stable_marriage_diff = struct
     while not !ok do
       ok := true;
       for i = 0 to m - 1 do
-        match man_states.(i) with
-        | Active situation ->
+        match right_states.(i) with
+        | Right_available right_phase ->
           ok := false;
-          let (j, d) = get_preferred_woman situation in
+          let (j, d) = get_preferred_candidate right_phase in
           if compatibility_test right.(i) left.(j) && propose i j d then (
-            (* [j] breaks off with her current fiance (if any). *)
-            (match woman_states.(j) with
-            | Engaged_woman (i', _) ->
-                (* [i'] is an engaged man, so he has a situation. *)
-                man_states.(i') <- Active (Option.get (man_situation i'));
-                if not (is_uncertain i') then
-                  remove_woman i' j
+            (* Unpair [j]. *)
+            (match left_states.(j) with
+            | Left_paired (i', _) ->
+                (* [i'] is paired, so it has a phase. *)
+                right_states.(i') <- Right_available (Option.get (phase i'));
+                if not (has_better_choice i') then
+                  remove_left i' j
             | _ -> ());
-            (* [i] and [j] become engaged. *)
-            man_states.(i) <- Engaged_man situation;
-            woman_states.(j) <- Engaged_woman (i, d))
+            (* Pair [i] and [j]. *)
+            right_states.(i) <- Right_paired right_phase;
+            left_states.(j) <- Left_paired (i, d))
           else
-            remove_woman i j
+            remove_left i j
         | _ -> ()
       done
     done;
 
     {
       delete =
-        woman_states
+        left_states
         |> Array.to_seq
         |> Seq.zip (Array.to_seq left)
         |> Seq.filter_map (function
-          | left_field, Maiden -> Some left_field
-          | _, Engaged_woman _ -> None)
+          | left_field, Left_available -> Some left_field
+          | _, Left_paired _ -> None)
         |> List.of_seq;
 
       add =
         right
         |> Array.to_list
         |> List.filteri (fun i _ ->
-          match man_states.(i) with
-          | Engaged_man _ -> false
+          match right_states.(i) with
+          | Right_paired _ -> false
           | _ -> true);
 
       substitute =
-        woman_states
+        left_states
         |> Array.to_seq
         |> Seq.zip (Array.to_seq left)
         |> Seq.filter_map (function
-          | left_field, Engaged_woman (i, _) -> Some (left_field, right.(i))
-          | _, Maiden -> None)
+          | left_field, Left_paired (i, _) -> Some (left_field, right.(i))
+          | _, Left_available -> None)
         |> List.of_seq;
     }
 end
