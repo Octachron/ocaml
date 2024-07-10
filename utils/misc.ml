@@ -1294,8 +1294,7 @@ module Trie = struct
       | None, Seq.Nil ->
           Seq.Nil
       | Some current_distance, Seq.Nil ->
-          let kont = fun () -> Seq.Nil in
-          Seq.Cons ((acc, current_distance), kont)
+          Seq.Cons ((acc, current_distance), Seq.empty)
       | None, Seq.Cons ((data, distance), next) ->
           compute next (Some distance) [ data ] ()
       | Some current_distance, Seq.Cons ((data, distance), next) ->
