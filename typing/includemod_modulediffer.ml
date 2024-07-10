@@ -310,22 +310,22 @@ module Stable_marriage_diff = struct
       for i = 0 to m - 1 do
         match right_states.(i) with
         | Right_available right_phase ->
-          ok := false;
-          let (j, d) = get_preferred_candidate right_phase in
-          if compatibility_test right.(i) left.(j) && propose i j d then (
-            (* Unpair [j]. *)
-            (match left_states.(j) with
-            | Left_paired (i', _) ->
-                (* [i'] is paired, so it has a phase. *)
-                right_states.(i') <- Right_available (Option.get (phase i'));
-                if not (has_better_choice i') then
-                  remove_left i' j
-            | _ -> ());
-            (* Pair [i] and [j]. *)
-            right_states.(i) <- Right_paired right_phase;
-            left_states.(j) <- Left_paired (i, d))
-          else
-            remove_left i j
+            ok := false;
+            let (j, d) = get_preferred_candidate right_phase in
+            if compatibility_test right.(i) left.(j) && propose i j d then (
+              (* Unpair [j]. *)
+              (match left_states.(j) with
+              | Left_paired (i', _) ->
+                  (* [i'] is paired, so it has a phase. *)
+                  right_states.(i') <- Right_available (Option.get (phase i'));
+                  if not (has_better_choice i') then
+                    remove_left i' j
+              | _ -> ());
+              (* Pair [i] and [j]. *)
+              right_states.(i) <- Right_paired right_phase;
+              left_states.(j) <- Left_paired (i, d))
+            else
+              remove_left i j
         | _ -> ()
       done
     done;
