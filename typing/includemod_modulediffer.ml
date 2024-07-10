@@ -529,7 +529,13 @@ let compute_second_order_suggestions sgs =
   in
 
   let module_type_suggestions =
-    let get x = Option.get x.Field.value.Types.mtd_type in
+    let get x = x.Field.value.Types.mtd_type in
+    let compare e g =  match get g, get e with
+      | _, None -> true
+      | None, Some _ -> false
+      | Some g, Some e ->
+          is_modtype_eq Fun.id sgs e g
+    in
     compute_suggestions
       sgs
       (fun item ->
@@ -537,7 +543,7 @@ let compute_second_order_suggestions sgs =
         | Types.Sig_modtype (_, decl, _) ->
             Some (Field.second_order item decl)
         | _ -> None)
-      (is_modtype_eq get sgs)
+      compare
       (fun _ -> None)
   in
 
