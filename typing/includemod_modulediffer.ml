@@ -231,16 +231,12 @@ module Stable_marriage_diff = struct
 
     let get_preferred_candidate phase =
       match phase with
-      | First_phase preferences ->
-          preferences.current_layer
+      | First_phase {current_layer; current_layer_distance; _}
+      | Second_phase {current_layer; current_layer_distance; _} ->
+          current_layer
           |> List.find_opt (fun j -> left_states.(j) = Left_available)
-          |> Option.value ~default:(List.hd preferences.current_layer),
-          preferences.current_layer_distance
-      | Second_phase preferences ->
-          preferences.current_layer
-          |> List.find_opt (fun j -> left_states.(j) = Left_available)
-          |> Option.value ~default:(List.hd preferences.current_layer),
-          preferences.current_layer_distance
+          |> Option.value ~default:(List.hd current_layer),
+          current_layer_distance
     in
 
     let propose i j d =
