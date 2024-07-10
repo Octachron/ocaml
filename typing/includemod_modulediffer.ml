@@ -44,6 +44,7 @@ module Suggestion = struct
     | Change_type_of_module of Types.module_type
     | Change_type_of_class of Types.class_declaration
     | Change_type of Types.type_declaration
+    | Change_module_type of Types.modtype_declaration
 
   type t = {
     subject : Types.signature_item;
@@ -78,6 +79,11 @@ module Suggestion = struct
   let change_type item ty = {
     subject = item;
     alteration = Change_type ty;
+  }
+
+  let change_module_type item mty = {
+    subject = item;
+    alteration = Change_module_type mty;
   }
 
   let apply subst suggestion =
@@ -524,7 +530,7 @@ let compute_second_order_suggestions sgs =
         | Error _ -> false)
       (function
         | item, Core (Type_declarations {expected; _}) ->
-          Some (Suggestion.change_type item expected)
+            Some (Suggestion.change_type item expected)
         | _ -> None)
   in
 
@@ -544,7 +550,10 @@ let compute_second_order_suggestions sgs =
             Some (Field.second_order item decl)
         | _ -> None)
       compare
-      (fun _ -> None)
+      (function
+        | item, Module_type_declaration {expected; _} ->
+            Some (Suggestion.change_module_type item expected)
+        | _ -> None)
   in
 
   let class_type_suggestions =

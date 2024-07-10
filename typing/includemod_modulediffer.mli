@@ -21,6 +21,7 @@ module Suggestion : sig
     | Change_type_of_module of Types.module_type
     | Change_type_of_class of Types.class_declaration
     | Change_type of Types.type_declaration
+    | Change_module_type of Types.modtype_declaration
 
   type t = {
     subject : Types.signature_item;

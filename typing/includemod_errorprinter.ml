@@ -767,6 +767,12 @@ let suggest_changing_type ppf (item, suggested_type) =
     Style.inline_code (Ident.name id)
     (Printtyp.type_declaration id) suggested_type
 
+let suggest_changing_module_type ppf (item, suggested_type) =
+  let id, _, _ = Includemod.item_ident_name item in
+  Fmt.fprintf ppf "Try changing module type %a to@ %a"
+    Style.inline_code (Ident.name id)
+    (Printtyp.modtype_declaration id) suggested_type
+
 let module_types {Err.got=mty1; expected=mty2} =
   Fmt.dprintf
     "@[<hv 2>Modules do not match:@ \
@@ -928,6 +934,9 @@ and signature ~expansion_token ~env:_ ~before ~ctx:_ sgs =
           (suggestion.subject, suggested_type)
     | Change_type suggested_type ->
         Location.msg "%a" suggest_changing_type
+          (suggestion.subject, suggested_type)
+    | Change_module_type suggested_type ->
+        Location.msg "%a" suggest_changing_module_type
           (suggestion.subject, suggested_type)
   in
   Printtyp.wrap_printing_env ~error:true sgs.env (fun () ->
