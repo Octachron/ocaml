@@ -14,8 +14,7 @@
 (**************************************************************************)
 
 
-module K = struct type t = string let compare = compare end
-module Keys = Map.Make(K)
+module Label_map = Misc.Stdlib.String.Map
 
 module Version = struct
 
@@ -213,10 +212,10 @@ and label_metadata = {
 }
 and 'a def = {
   scheme_name: string;
-  mutable keys: (Keys.key * label_metadata) list;
+  mutable labels: (Label_map.key * label_metadata) list;
   polarity: polarity;
 }
-and 'a record = 'a bound_field Keys.t ref
+and 'a record = 'a bound_field Label_map.t ref
 
 type ppf_with_close =
   {
@@ -227,7 +226,7 @@ type ppf_with_close =
 
 type 'a log =
   {
-      mutable redirections: ppf_with_close Keys.t;
+      mutable redirections: ppf_with_close Label_map.t;
       version: version option;
       scheme: 'a def;
       settings: Misc.Color.setting option;
@@ -246,8 +245,8 @@ and printer = {
 
 let destruct (Constr c) f = f c.name (V(c.typ,c.arg))
 let scheme_name x = x.scheme_name
-let field_infos d = d.keys
-let field_names d = List.map fst d.keys
+let field_infos d = d.labels
+let field_names d = List.map fst d.labels
 let log_scheme log = log.scheme
 let log_version log = log.version
 
@@ -261,9 +260,9 @@ let (.!()<-) scheme name metadata =
         else
           Option.map (List.cons a) (update_if_present name metadata q)
   in
-  let updated = update_if_present name metadata scheme.keys in
-  let keys = Option.value ~default: ((name,metadata)::scheme.keys) updated in
-  scheme.keys <- keys
+  let updated = update_if_present name metadata scheme.labels in
+  let labels = Option.value ~default:((name,metadata)::scheme.labels) updated in
+  scheme.labels <- labels
 
 let rec pp_typ: type a. Format.formatter -> a typ -> unit = fun ppf -> function
 | Unit -> Format.pp_print_string ppf ""
@@ -300,7 +299,7 @@ let register_label_metadata ~optional update scheme name typ =
   | Positive -> ()
   | Negative -> Version.breaking_change update scheme.scheme_name
   end;
-  if List.mem_assoc name scheme.keys then
+  if List.mem_assoc name scheme.labels then
     Version.(error update scheme.scheme_name (Duplicate_key name));
   let metadata = label_metadata ~optional update typ in
   scheme.!(name) <- metadata;
@@ -419,7 +418,7 @@ module New_root() = struct
   let v1 = Version.new_version history Version.first
 end
 
-let (.?()) scheme lbl = List.assoc_opt lbl scheme.keys
+let (.?()) scheme lbl = List.assoc_opt lbl scheme.labels
 
 module Lv = Version.Lifetime
  let inconsistent_if_not_deprecated u scheme_name key range =
@@ -513,8 +512,8 @@ module Record = struct
     let fields = List.fold_left (fun fields field ->
         match field v with
         | None -> fields
-        | Some field ->  Keys.add (field_name field) field fields
-      ) Keys.empty fields
+        | Some field ->  Label_map.add (field_name field) field fields
+      ) Label_map.empty fields
     in
     ref fields
   let fields x = !x
@@ -527,7 +526,7 @@ module New_record(Vl:Version_line)(Info:Info with type vl:=Vl.id)() = struct
   type raw_type = id record
   let scheme = {
     scheme_name = Info.name;
-    keys = [];
+    labels = [];
     polarity=Positive;
   }
   let raw_type = Record scheme
@@ -561,7 +560,7 @@ module New_sum(Vl:Version_line)(Info:Info with type vl:=Vl.id)() = struct
   type raw_type = id sum
   let scheme = {
     scheme_name = Info.name;
-    keys = [];
+    labels = [];
     polarity = Negative;
   }
   let raw_type = Sum scheme
@@ -609,7 +608,7 @@ let is_optional r = r.optional
 let rec is_empty: type a. a typ -> a -> bool = fun ty x ->
   match ty, x with
   | List _, [] -> true
-  | Record _, x -> Keys.for_all is_empty_field !x
+  | Record _, x -> Label_map.for_all is_empty_field !x
   | _ -> false
 and is_empty_field: type a. _ -> a bound_field -> bool =
   fun _ (Field (kt,x)) -> is_empty kt.typ x
@@ -621,11 +620,11 @@ module Store = struct
     = fun store v ~field x ->
         let name = field.name in
         Option.iter (fun field ->
-        store := Keys.add name field !store
+        store := Label_map.add name field !store
         ) (Record.field field x v)
 
   let get (type a b) (field: (a,b) field) (st:b record): a option =
-    match Keys.find_opt field.name (fields st) with
+    match Label_map.find_opt field.name (fields st) with
     | None -> None
     | Some (Field(f,x)) ->
         match Type.Id.provably_equal f.id field.id with
@@ -633,7 +632,7 @@ module Store = struct
         | Some Type.Equal -> Some x
 
   let dynamic_get name st =
-    Keys.find_opt name (fields st)
+    Label_map.find_opt name (fields st)
     |> Option.map (fun (Field(k,x)) -> V (k.typ,x))
 
   let cons: type ty s.
@@ -645,21 +644,21 @@ module Store = struct
       in
       let f = Record.field field l v in
       Option.iter (fun bfield ->
-          store := Keys.add field.name bfield (fields store)
+          store := Label_map.add field.name bfield (fields store)
         ) f
 
-  let trim keys prod =
+  let trim labels prod =
      let field key  =
-        match Keys.find_opt key (fields prod) with
+        match Label_map.find_opt key (fields prod) with
         | None -> None
         | Some (Field (kt,x)) as c ->
             if is_empty kt.typ x then None else c
       in
-      List.filter_map field (List.rev keys)
+      List.filter_map field (List.rev labels)
 end
-let fields keys r =
-  let keys = Store.trim keys r in
-  List.map (fun (Field (k,v)) -> k.name, V(k.typ,v)) keys
+let fields labels r =
+  let labels = Store.trim labels r in
+  List.map (fun (Field (k,v)) -> k.name, V(k.typ,v)) labels
 
 module Metadata_versions = New_root()
 module Metadata = struct
@@ -738,8 +737,8 @@ module Validation = struct
   let rec record: type id.
     ?toplevel:bool -> version:version -> id def -> id record -> report_paths =
     fun ?(toplevel=false) ~version sch st ->
-    let r = fields ~version sch.keys (Record.fields st) in
-    (* don't add validation metakeys to empty sublog*)
+    let r = fields ~version sch.labels (Record.fields st) in
+    (* don't add validation metalabels to empty sublog*)
     if toplevel then begin
       let valid = match List.is_empty r.deprecated, List.is_empty r.invalid with
         | true, true -> Metadata.Validity.full
@@ -761,16 +760,19 @@ module Validation = struct
     end;
     r
   and fields: type id.
-    version:version -> (Keys.key * label_metadata) list -> id bound_field Keys.t
-    -> report_paths = fun ~version metadata data ->
+    version:version -> (Label_map.key * label_metadata) list
+    -> id bound_field Label_map.t -> report_paths
+    = fun ~version metadata data ->
     concat_map (fun (k, kmd) ->
         match Version.stage_at (Some version) kmd.status with
         | Future | Deletion -> none (* those fields will be elided *)
         | Deprecation ->
             deprecated [k]  @^
-            field  ~version ~optional:(is_optional kmd) k (Keys.find_opt k data)
+            field  ~version ~optional:(is_optional kmd) k
+              (Label_map.find_opt k data)
         | Refinement | Creation | Expansion ->
-            field  ~version ~optional:(is_optional kmd) k (Keys.find_opt k data)
+            field  ~version ~optional:(is_optional kmd) k
+              (Label_map.find_opt k data)
       ) metadata
   and field: type a.
     version:version -> optional:bool -> string -> a bound_field option
@@ -827,7 +829,7 @@ let make ~structured ~printer settings version scheme ppf =
     else Direct out
   in
   {
-    redirections = Keys.empty;
+    redirections = Label_map.empty;
     settings;
     version=Some version;
     printer;
@@ -837,7 +839,7 @@ let make ~structured ~printer settings version scheme ppf =
 
 let redirect log field ?(close=ignore) ppf  =
   log.redirections <-
-    Keys.add field.name {initialized=ref false;ppf;close} log.redirections
+    Label_map.add field.name {initialized=ref false;ppf;close} log.redirections
 
 let record_scheme: type a. a record typ -> a def  =
   function
@@ -851,8 +853,8 @@ let record_list_scheme: type a. a record list typ -> a def  =
   | List r -> record_scheme r
   | _ -> .
 
-let generic_detach key_scheme ~store ~lift ~extract log (field: _ field) =
-  let out = Keys.find_opt field.name log.redirections in
+let generic_detach label_scheme ~store ~lift ~extract log (field: _ field) =
+  let out = Label_map.find_opt field.name log.redirections in
   let version = log.version in
   let mode = match log.mode with
     | Direct d ->
@@ -872,25 +874,25 @@ let generic_detach key_scheme ~store ~lift ~extract log (field: _ field) =
         in Store { data; out }
   in
   let child =
-    { scheme=key_scheme field.typ;
+    { scheme=label_scheme field.typ;
       mode;
       printer=log.printer;
       version = log.version;
       settings = log.settings;
-      redirections = Keys.empty;
+      redirections = Label_map.empty;
     } in
   child
 
 let some x = Some x
-let detach log key =
+let detach log field =
   generic_detach record_scheme
-    ~store:Store.record ~lift:Fun.id ~extract:some log key
-let detach_item log key =
+    ~store:Store.record ~lift:Fun.id ~extract:some log field
+let detach_item log field =
   generic_detach record_list_scheme
     ~store:Store.cons
     ~lift:Fun.id
     ~extract:(Fun.const None)
-    log key
+    log field
 
 module Fmt = struct
    let init color ppf =
@@ -922,7 +924,7 @@ let set (field: _ field) x log =
       match status with
       | Deletion | Future -> ()
       | Refinement | Creation | Expansion | Deprecation ->
-          let r = Keys.find_opt field.name log.redirections in
+          let r = Label_map.find_opt field.name log.redirections in
           let out = Option.value ~default:d r in
           let ppf = !(out.ppf) in
           if not !(d.initialized) then
@@ -937,19 +939,19 @@ let cons field x log =
 
 let (.%[]<-) log field x = set field x log
 
-let get key log = match log.mode with
+let get field log = match log.mode with
   | Direct _ -> None
-  | Store st -> Store.get key st.data
+  | Store st -> Store.get field st.data
 
-let dynamic_get key log = match log.mode with
+let dynamic_get field log = match log.mode with
   | Direct _ -> None
-  | Store st -> Store.dynamic_get key st.data
+  | Store st -> Store.dynamic_get field st.data
 
-let f key log fmt = Format.kasprintf (fun s -> log.%[key] <- s) fmt
-let itemf key log fmt = Format.kasprintf (fun s -> cons key s log) fmt
+let f field log fmt = Format.kasprintf (fun s -> log.%[field] <- s) fmt
+let itemf field log fmt = Format.kasprintf (fun s -> cons field s log) fmt
 
-let d key log fmt = Format_doc.kdoc_printf (fun s -> log.%[key] <- s) fmt
-let itemd key log fmt = Format_doc.kdoc_printf (fun s -> cons key s log) fmt
+let d field log fmt = Format_doc.kdoc_printf (fun s -> log.%[field] <- s) fmt
+let itemd field log fmt = Format_doc.kdoc_printf (fun s -> cons field s log) fmt
 
 let flush: type a. a log -> unit = fun log ->
   begin match log.mode with
@@ -965,9 +967,9 @@ let flush: type a. a log -> unit = fun log ->
           let ppf = !(out.ppf) in
           log.printer.record ppf (R(log.scheme, st.data))
         ) st.out;
-        st.data := Keys.empty
+        st.data := Label_map.empty
   end;
-  Keys.iter (fun _ -> Fmt.flush) log.redirections
+  Label_map.iter (fun _ -> Fmt.flush) log.redirections
 
 let separate log = match log.mode with
   | Direct d -> Fmt.separate d
@@ -979,7 +981,7 @@ let close: type a. a log -> unit = fun log ->
   | Store { out = Some out } -> out.close ()
   | Store _ -> ()
   end;
-  Keys.iter (fun _ -> Fmt.close) log.redirections
+  Label_map.iter (fun _ -> Fmt.close) log.redirections
 
 let close log = flush log; close log
 
@@ -987,8 +989,8 @@ let replay source dest =
   match source.mode with
   | Direct _ -> ()
   | Store st ->
-      Keys.iter
-        (fun _ (Field(key,x)) -> dest.%[key] <- x )
+      Label_map.iter
+        (fun _ (Field(field,x)) -> dest.%[field] <- x )
         (Record.fields st.data)
 
 (** {1:log_creation }*)
@@ -996,7 +998,7 @@ let replay source dest =
 let tmp scheme =
   {
   settings = None;
-  redirections = Keys.empty;
+  redirections = Label_map.empty;
   version=None;
   scheme;
   printer = { record = (fun _ _ -> ()); item = (fun _ _ -> ()) };
@@ -1005,6 +1007,6 @@ let tmp scheme =
 
 
 
-let log_if dlog key flag printer x =
+let log_if dlog field flag printer x =
   if flag then
-    Format.kasprintf (fun s -> dlog.%[key] <- s) "%a" printer x
+    Format.kasprintf (fun s -> dlog.%[field] <- s) "%a" printer x
