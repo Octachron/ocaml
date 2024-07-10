@@ -144,8 +144,7 @@ module Stable_marriage_diff = struct
   type 'a preferences = {
     mutable previous_layers : 'a;
         (** Invariant: if this is a list, it is not empty. *)
-    mutable current_layer : int list;
-        (** Invariant: this list is not empty. *)
+    mutable current_layer : int list; (** Invariant: this list is not empty. *)
     mutable current_layer_distance : distance;
     mutable next_layers : (int list * distance) Seq.t;
   }
