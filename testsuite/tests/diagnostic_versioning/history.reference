@@ -1,14 +1,14 @@
 Metadata:
   v1.0
     metadata
-      Creation
+      Publication
       Key version, i*i
       Key valid, validity
       Key invalid_paths, ?l l s
       Key deprecated_paths, ?l l s
       Seal
     validity
-      Creation
+      Publication
       Key Full
       Key Deprecated
       Key Invalid
@@ -16,7 +16,7 @@ Metadata:
 Config:
   v1.0
     config
-      Creation
+      Publication
       Key version, s
       Key standard_library_default, s
       Key standard_library, s
@@ -76,7 +76,7 @@ Config:
 Main:
   v1.0
     box_type
-      Creation
+      Publication
       Key H
       Key V
       Key HV
@@ -84,14 +84,14 @@ Main:
       Key B
       Seal
     compiler
-      Creation
+      Publication
       Key debug, ?debug
       Key error, ?error_report
       Key warnings, ?l error_report
       Key alerts, ?l error_report
       Seal
     debug
-      Creation
+      Publication
       Key parsetree, ?s
       Key source, ?s
       Key typedtree, ?s
@@ -114,7 +114,7 @@ Main:
       Key profile, ?s
       Seal
     error_kind
-      Creation
+      Publication
       Key Report_error
       Key Report_alert, s
       Key Report_alert_as_error, s
@@ -122,12 +122,12 @@ Main:
       Key Report_warning_as_error, s
       Seal
     error_msg
-      Creation
+      Publication
       Key msg, l structured_text
       Key loc, loc
       Seal
     error_report
-      Creation
+      Publication
       Key kind, error_kind
       Key main, error_msg
       Key sub, ?l error_msg
@@ -135,7 +135,7 @@ Main:
       Key quotable_locs, ?l loc
       Seal
     format_tag
-      Creation
+      Publication
       Key <Unknown>, s
       Key String_tag, s
       Key Error
@@ -149,14 +149,14 @@ Main:
       Key Preservation
       Seal
     loc
-      Creation
+      Publication
       Key file, ?s
       Key start_line, ?i
       Key stop_line, ?i
       Key characters, ?i*i
       Seal
     structured_text
-      Creation
+      Publication
       Key Text, s
       Key With_size, i
       Key Open_box, box_type*i
@@ -175,7 +175,7 @@ Main:
       Key <deprecated>
       Seal
     toplevel
-      Creation
+      Publication
       Key output, ?l structured_text
       Key backtrace, ?l structured_text
       Key compiler_log, ?compiler

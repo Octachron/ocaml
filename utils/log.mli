@@ -29,15 +29,15 @@ module Version: sig
   type version = t
   module Lifetime: sig
     type t = {
-      refinement: version option;
-      creation: version option;
+      inception: version option;
+      publication: version option;
       expansion: version option;
       deprecation: version option;
       deletion: version option
     }
     type point =
-      | Refinement
-      | Creation
+      | Inception
+      | Publication
       | Expansion
       | Deprecation
       | Deletion
@@ -54,8 +54,8 @@ module Version: sig
     | Invalid_constructor_expansion of string
     | Sealed_version of t
   type base_event =
-    | Refinement of {base_name:string; new_name:string; typ:string}
-    | Creation
+    | Inception of {base_name:string; new_name:string; typ:string}
+    | Publication
     | New_key of {name:string; typ:string}
     | Make_required of string
     | Expansion of {name:string; expansion:string}
@@ -205,7 +205,7 @@ module New_sum (Vl:Version_line):
   (Info with type vl:=Vl.id) -> () -> (Sum with type vl := Vl.id)
 
 
-(** {1:log_creation Log } *)
+(** {1:log_publication Log } *)
 
 
 val flush: 'id log -> unit

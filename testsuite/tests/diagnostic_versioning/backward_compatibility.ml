@@ -240,8 +240,8 @@ val cval : s = C true
 let rx = version_range x
 [%%expect {|
 val rx : Log.Version.Lifetime.t =
-  {Log.Version.Lifetime.refinement = None;
-   creation = Some {Log.Version.major = 1; minor = 0}; expansion = None;
+  {Log.Version.Lifetime.inception = None;
+   publication = Some {Log.Version.major = 1; minor = 0}; expansion = None;
    deprecation = Some {Log.Version.major = 1; minor = 1};
    deletion = Some {Log.Version.major = 2; minor = 0}}
 |}]
@@ -255,7 +255,7 @@ let xst =
 val xst :
   Log.Version.Lifetime.point * Log.Version.Lifetime.point *
   Log.Version.Lifetime.point =
-  (Log.Version.Lifetime.Creation, Log.Version.Lifetime.Deprecation,
+  (Log.Version.Lifetime.Publication, Log.Version.Lifetime.Deprecation,
    Log.Version.Lifetime.Deletion)
 |}]
 
