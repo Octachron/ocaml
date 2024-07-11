@@ -44,6 +44,9 @@ and dllibs = ref ([] : string list)     (* .so and -dllib -lxxx *)
 
 let cmi_file = ref None
 
+let dump_fields: (string,bool) Hashtbl.t = Hashtbl.create 3
+let dump_flambda_let: int option ref = ref None
+
 let compile_only = ref false            (* -c *)
 and output_name = ref (None : string option) (* -o *)
 and include_dirs = ref ([] : string list) (* -I *)
@@ -103,40 +106,13 @@ and float_const_prop = ref true         (* -no-float-const-prop *)
 and transparent_modules = ref false     (* -trans-mod *)
 let unique_ids = ref true               (* -d(no-)unique-ds *)
 let locations = ref true                (* -d(no-)locations *)
-let dump_source = ref false             (* -dsource *)
-let dump_parsetree = ref false          (* -dparsetree *)
-and dump_typedtree = ref false          (* -dtypedtree *)
-and dump_shape = ref false              (* -dshape *)
-and dump_rawlambda = ref false          (* -drawlambda *)
-and dump_lambda = ref false             (* -dlambda *)
-and dump_rawclambda = ref false         (* -drawclambda *)
-and dump_clambda = ref false            (* -dclambda *)
-and dump_rawflambda = ref false            (* -drawflambda *)
-and dump_flambda = ref false            (* -dflambda *)
-and dump_flambda_let = ref (None : int option) (* -dflambda-let=... *)
-and dump_flambda_verbose = ref false    (* -dflambda-verbose *)
-and dump_instr = ref false              (* -dinstr *)
 and keep_camlprimc_file = ref false     (* -dcamlprimc *)
 
 let keep_asm_file = ref false           (* -S *)
 let optimize_for_speed = ref true       (* -compact *)
 and opaque = ref false                  (* -opaque *)
 
-and dump_cmm = ref false                (* -dcmm *)
-let dump_selection = ref false          (* -dsel *)
-let dump_cse = ref false                (* -dcse *)
-let dump_live = ref false               (* -dlive *)
-let dump_spill = ref false              (* -dspill *)
-let dump_split = ref false              (* -dsplit *)
-let dump_interf = ref false             (* -dinterf *)
-let dump_prefer = ref false             (* -dprefer *)
-let dump_regalloc = ref false           (* -dalloc *)
-let dump_reload = ref false             (* -dreload *)
-let dump_scheduling = ref false         (* -dscheduling *)
-let dump_linear = ref false             (* -dlinear *)
-let dump_interval = ref false           (* -dinterval *)
 let keep_startup_file = ref false       (* -dstartup *)
-let dump_combine = ref false            (* -dcombine *)
 let profile_columns : Profile.column list ref = ref [] (* -dprofile/-dtimings *)
 
 let native_code = ref false             (* set to true under ocamlopt *)
@@ -618,6 +594,19 @@ let create_log_on_formatter_ref ~default_backend history scheme ppf =
     Option.value ~default:default_backend !log_format
   in
   backend.Diagnostic_backends.make !color version ppf scheme
+
+let dump name =
+  Option.value ~default:false (Hashtbl.find_opt dump_fields name)
+
+let dump_on_log log field pr x =
+  Log.log_if log field (dump (Log.field_name field)) pr x
+
+let dump_item_on_log log field fmt =
+  if dump (Log.field_name field) then
+    Log.itemf field log fmt
+  else
+    (* the formatter argument is not used *)
+    Format.ifprintf Format.std_formatter fmt
 
 (* showing configuration and configuration variables *)
 let show_config_and_exit () =

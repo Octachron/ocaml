@@ -1609,6 +1609,7 @@ let options_with_command_line_syntax options r =
 module Default = struct
   open Clflags
   let set r () = r := true
+  let dump_set name () = Hashtbl.replace dump_fields name true
   let clear r () = r := false
 
   module Common = struct
@@ -1649,12 +1650,12 @@ module Default = struct
     let _I dir = include_dirs := dir :: (!include_dirs)
     let _H dir = hidden_include_dirs := dir :: (!hidden_include_dirs)
     let _color = Misc.set_or_ignore color_reader.parse color
-    let _dlambda = set dump_lambda
-    let _dparsetree = set dump_parsetree
-    let _drawlambda = set dump_rawlambda
-    let _dsource = set dump_source
-    let _dtypedtree = set dump_typedtree
-    let _dshape = set dump_shape
+    let _dlambda = dump_set "lambda"
+    let _dparsetree = dump_set "parsetree"
+    let _drawlambda = dump_set "raw_lambda"
+    let _dsource = dump_set "source"
+    let _dtypedtree = dump_set "typedtree"
+    let _dshape = dump_set "shape"
     let _dunique_ids = set unique_ids
     let _dno_unique_ids = clear unique_ids
     let _dlocations = set locations
@@ -1676,30 +1677,30 @@ module Default = struct
     let _clambda_checks () = clambda_checks := true
     let _classic_inlining () = classic_inlining := true
     let _compact = clear optimize_for_speed
-    let _dalloc = set dump_regalloc
-    let _dclambda = set dump_clambda
-    let _dcmm = set dump_cmm
+    let _dalloc = dump_set "regalloc"
+    let _dclambda = dump_set "clambda"
+    let _dcmm = dump_set "cmm"
     let _dcmm_invariants = set cmm_invariants
-    let _dcombine = set dump_combine
-    let _dcse = set dump_cse
-    let _dflambda = set dump_flambda
+    let _dcombine = dump_set "combine"
+    let _dcse = dump_set "cse"
+    let _dflambda = dump_set "flambda"
     let _dflambda_invariants = set flambda_invariant_checks
     let _dflambda_let stamp = dump_flambda_let := (Some stamp)
     let _dflambda_no_invariants = clear flambda_invariant_checks
     let _dflambda_verbose () =
-      set dump_flambda (); set dump_flambda_verbose ()
-    let _dinterval = set dump_interval
-    let _dinterf = set dump_interf
-    let _dlinear = set dump_linear
-    let _dlive () = dump_live := true
-    let _dprefer = set dump_prefer
-    let _drawclambda = set dump_rawclambda
-    let _drawflambda = set dump_rawflambda
-    let _dreload = set dump_reload
-    let _dscheduling = set dump_scheduling
-    let _dsel = set dump_selection
-    let _dspill = set dump_spill
-    let _dsplit = set dump_split
+      dump_set "flambda" (); dump_set "flambda_verbose" ()
+    let _dinterval = dump_set "interval"
+    let _dinterf = dump_set "interf"
+    let _dlinear = dump_set "linear"
+    let _dlive () = dump_set "live" ()
+    let _dprefer = dump_set "prefer"
+    let _drawclambda = dump_set "rawclambda"
+    let _drawflambda = dump_set "rawflambda"
+    let _dreload = dump_set "reload"
+    let _dscheduling = dump_set "scheduling"
+    let _dsel = dump_set "selection"
+    let _dspill = dump_set "spill"
+    let _dsplit = dump_set "split"
     let _dstartup = set keep_startup_file
     let _dump_pass pass = set_dumped_pass pass true
     let _inline spec =
@@ -1790,7 +1791,7 @@ module Default = struct
     let _config_var = Reports.Config.show_config_variable_and_exit
     let _dprofile () = profile_columns := Profile.all_columns
     let _dtimings () = profile_columns := [`Time]
-    let _dump_into_file = set dump_into_file
+    let _dump_into_file = dump_set "into_file"
     let _dump_dir s = dump_dir := Some s
     let _for_pack s = for_package := (Some s)
     let _g = set debug
@@ -1866,7 +1867,7 @@ module Default = struct
   module Topmain = struct
     include Toplevel
     include Core
-    let _dinstr = set dump_instr
+    let _dinstr = dump_set "instr"
   end
 
   module Opttopmain = struct
@@ -1939,7 +1940,7 @@ third-party libraries such as Lwt, but with a different API."
     let _compat_32 = set bytecode_compatible_32
     let _custom = set custom_runtime
     let _dcamlprimc = set keep_camlprimc_file
-    let _dinstr = set dump_instr
+    let _dinstr = dump_set "instr"
     let _dllib s = Compenv.defer (ProcessDLLs (Misc.rev_split_words s))
     let _dllpath s = dllpaths := ((!dllpaths) @ [s])
     let _make_runtime () =

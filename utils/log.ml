@@ -245,6 +245,7 @@ and printer = {
 
 let destruct (Constr c) f = f c.name (V(c.typ,c.arg))
 let scheme_name x = x.scheme_name
+let field_name f = f.name
 let field_infos d = d.labels
 let field_names d = List.map fst d.labels
 let log_scheme log = log.scheme

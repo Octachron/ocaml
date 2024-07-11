@@ -71,13 +71,11 @@ include Topcommon.MakeEvalPrinter(EvalBase)
 let may_trace = ref false (* Global lock on tracing *)
 
 let load_lambda dlog lam =
-  let log_if flag key pr x = Log.log_if dlog key flag pr x in
-  log_if !Clflags.dump_rawlambda Reports.Debug.raw_lambda
-    Printlambda.lambda lam;
+  Clflags.dump_on_log dlog Reports.Debug.raw_lambda Printlambda.lambda lam;
   let slam = Simplif.simplify_lambda lam in
-  log_if !Clflags.dump_lambda Reports.Debug.lambda Printlambda.lambda slam;
+  Clflags.dump_on_log dlog Reports.Debug.lambda Printlambda.lambda slam;
   let instrs, can_free = Bytegen.compile_phrase slam in
-  log_if !Clflags.dump_instr Reports.Debug.instr Printinstr.instrlist instrs;
+  Clflags.dump_on_log dlog Reports.Debug.instr Printinstr.instrlist instrs;
   let (code, reloc, events) =
     Emitcode.to_memory instrs
   in
@@ -126,14 +124,13 @@ let execute_phrase print_outcome log phr =
       let (str, sg, sn, shape, newenv) =
         Typemod.type_toplevel_phrase oldenv sstr
       in
-      let log_if key flag pr x =Log.log_if (debug_log log) key flag pr x in
-      log_if Reports.Debug.typedtree !Clflags.dump_typedtree
-        Printtyped.implementation str;
+      let dlog pr x = Clflags.dump_on_log (debug_log log) pr x in
+      dlog Reports.Debug.typedtree Printtyped.implementation str;
       let sg' = Typemod.Signature_names.simplify newenv sn sg in
       ignore (Includemod.signatures ~mark:Mark_positive oldenv sg sg');
       Typecore.force_delayed_checks ();
       let shape = Shape_reduce.local_reduce Env.empty shape in
-      log_if Reports.Debug.shape !Clflags.dump_shape Shape.print shape;
+      dlog Reports.Debug.shape Shape.print shape;
       let lam = Translmod.transl_toplevel_definition str in
       Warnings.check_fatal ();
       begin try

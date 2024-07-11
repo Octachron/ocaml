@@ -88,11 +88,9 @@ include Topcommon.MakeEvalPrinter(EvalBase)
 let may_trace = ref false (* Global lock on tracing *)
 
 let load_lambda dlog ~module_ident ~required_globals phrase_name lam size =
-  Log.log_if dlog Reports.Debug.raw_lambda !Clflags.dump_rawlambda
-    Printlambda.lambda lam;
+  Clflags.dump_on_log dlog Reports.Debug.raw_lambda Printlambda.lambda lam;
   let slam = Simplif.simplify_lambda lam in
-  Log.log_if dlog Reports.Debug.lambda !Clflags.dump_lambda
-    Printlambda.lambda slam;
+  Clflags.dump_on_log dlog Reports.Debug.lambda Printlambda.lambda slam;
   let program =
     { Lambda.
       code = slam;
@@ -166,14 +164,13 @@ let execute_phrase print_outcome log phr =
       let (str, sg, names, shape, newenv) =
         Typemod.type_toplevel_phrase oldenv sstr
       in
-      let log_if flag key = Log.log_if (debug_log log) key flag in
-      log_if !Clflags.dump_typedtree Reports.Debug.typedtree
-        Printtyped.implementation str;
+      let dlog field = Clflags.dump_on_log (debug_log log) field in
+      dlog Reports.Debug.typedtree Printtyped.implementation str;
       let sg' = Typemod.Signature_names.simplify newenv names sg in
       ignore (Includemod.signatures oldenv ~mark:Mark_positive sg sg');
       Typecore.force_delayed_checks ();
       let shape = Shape_reduce.local_reduce Env.empty shape in
-      log_if !Clflags.dump_shape Reports.Debug.shape Shape.print shape;
+      dlog Reports.Debug.shape Shape.print shape;
       (* `let _ = <expression>` or even just `<expression>` require special
          handling in toplevels, or nothing is displayed. In bytecode, the
          lambda for <expression> is directly executed and the result _is_ the

@@ -28,8 +28,8 @@ let interface ~log ~source_file ~output_prefix =
 
 let (|>>) (x, y) f = (x, f y)
 
-let log_if i key flag printer x =
-  Log.log_if i.debug_log key !flag printer x; x
+let dump_if i field printer x =
+  Clflags.dump_on_log i.debug_log field printer x; x
 module D = Reports.Debug
 
 (** Native compilation backend for .ml files. *)
@@ -51,9 +51,9 @@ let flambda i backend Typedtree.{structure; coercion; _} =
       let () =
         let (module_ident, main_module_block_size), code =
           ((module_ident, main_module_block_size), code)
-          |>> log_if i D.raw_lambda Clflags.dump_rawlambda Printlambda.lambda
+          |>> dump_if i D.raw_lambda Printlambda.lambda
           |>> Simplif.simplify_lambda
-          |>> log_if i D.lambda Clflags.dump_lambda Printlambda.lambda
+          |>> dump_if i D.lambda Printlambda.lambda
         in
 
         if Clflags.(should_stop_after Compiler_pass.Lambda) then () else (
@@ -80,12 +80,12 @@ let clambda i backend Typedtree.{structure; coercion; _} =
   (structure, coercion)
   |> Profile.(record transl)
     (Translmod.transl_store_implementation (Unit_info.modname i.target))
-  |> log_if i D.raw_lambda Clflags.dump_rawlambda Printlambda.program
+  |> dump_if i D.raw_lambda Printlambda.program
   |> Profile.(record generate)
     (fun program ->
        let code = Simplif.simplify_lambda program.Lambda.code in
        { program with Lambda.code }
-       |> log_if i D.lambda Clflags.dump_lambda Printlambda.program
+       |> dump_if i D.lambda Printlambda.program
        |>(fun lambda ->
            if Clflags.(should_stop_after Compiler_pass.Lambda) then () else
              Asmgen.compile_implementation

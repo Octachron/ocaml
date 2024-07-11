@@ -131,36 +131,10 @@ val float_const_prop : bool ref
 val transparent_modules : bool ref
 val unique_ids : bool ref
 val locations : bool ref
-val dump_source : bool ref
-val dump_parsetree : bool ref
-val dump_typedtree : bool ref
-val dump_shape : bool ref
-val dump_rawlambda : bool ref
-val dump_lambda : bool ref
-val dump_rawclambda : bool ref
-val dump_clambda : bool ref
-val dump_rawflambda : bool ref
-val dump_flambda : bool ref
-val dump_flambda_let : int option ref
-val dump_instr : bool ref
 val keep_camlprimc_file : bool ref
 val keep_asm_file : bool ref
 val optimize_for_speed : bool ref
-val dump_cmm : bool ref
-val dump_selection : bool ref
-val dump_cse : bool ref
-val dump_live : bool ref
-val dump_spill : bool ref
-val dump_split : bool ref
-val dump_interf : bool ref
-val dump_prefer : bool ref
-val dump_regalloc : bool ref
-val dump_reload : bool ref
-val dump_scheduling : bool ref
-val dump_linear : bool ref
-val dump_interval : bool ref
 val keep_startup_file : bool ref
-val dump_combine : bool ref
 val native_code : bool ref
 val default_inline_threshold : float
 val inline_threshold : Float_arg_helper.parsed ref
@@ -210,12 +184,12 @@ val cmm_invariants : bool ref
 val default_inline_max_depth : int
 val inline_max_depth : Int_arg_helper.parsed ref
 val remove_unused_arguments : bool ref
-val dump_flambda_verbose : bool ref
 val classic_inlining : bool ref
 val afl_instrument : bool ref
 val afl_inst_ratio : int ref
 val function_sections : bool ref
-
+val dump_fields: (string,bool) Hashtbl.t
+val dump_flambda_let: int option ref
 val all_passes : string list ref
 val dumped_pass : string -> bool
 val set_dumped_pass : string -> bool -> unit
@@ -289,6 +263,18 @@ val create_log_on_formatter_ref:
   -> 'a Log.def
   -> Format.formatter ref
   -> 'a Log.t
+
+val dump: string -> bool
+
+(** dump content on log if the field was enabled *)
+val dump_on_log:
+  'id Log.t -> (string, 'id) Log.field ->
+  (Format.formatter -> 'a -> unit) -> 'a -> unit
+
+(** dump content on log if the field was enabled *)
+val dump_item_on_log:
+ 'id Log.t -> (string list,'id) Log.field -> ('b, Format.formatter, unit) format
+ -> 'b
 
 val show_config_and_exit : unit -> unit
   (** Display the values of all compiler configuration variables from module

@@ -58,23 +58,28 @@ let compile_file filename =
 
 let usage = "Usage: codegen <options> <files>\noptions are:"
 
+let set_dump name =
+  Arg.Unit (fun () ->
+      Hashtbl.replace Clflags.dump_fields name true
+    )
+
 let main() =
   Arg.parse [
      "-S", Arg.Set write_asm_file,
        " Output file to filename.s (default is stdout)";
      "-g", Arg.Set Clflags.debug, "";
-     "-dcmm", Arg.Set dump_cmm, "";
-     "-dcse", Arg.Set dump_cse, "";
-     "-dsel", Arg.Set dump_selection, "";
-     "-dlive", Arg.Unit(fun () -> dump_live := true ), "";
-     "-dspill", Arg.Set dump_spill, "";
-     "-dsplit", Arg.Set dump_split, "";
-     "-dinterf", Arg.Set dump_interf, "";
-     "-dprefer", Arg.Set dump_prefer, "";
-     "-dalloc", Arg.Set dump_regalloc, "";
-     "-dreload", Arg.Set dump_reload, "";
-     "-dscheduling", Arg.Set dump_scheduling, "";
-     "-dlinear", Arg.Set dump_linear, "";
+     "-dcmm", set_dump "cmm", "";
+     "-dcse", set_dump "cse", "";
+     "-dsel", set_dump "selection", "";
+     "-dlive",  set_dump "live", "";
+     "-dspill", set_dump "spill", "";
+     "-dsplit", set_dump "split", "";
+     "-dinterf", set_dump "interf", "";
+     "-dprefer", set_dump "prefer", "";
+     "-dalloc", set_dump "regalloc", "";
+     "-dreload", set_dump "reload", "";
+     "-dscheduling", set_dump "scheduling", "";
+     "-dlinear", set_dump "linear", "";
      "-dtimings", Arg.Unit (fun () -> profile_columns := [ `Time ]), "";
     ] compile_file usage
 

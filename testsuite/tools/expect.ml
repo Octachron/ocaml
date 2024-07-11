@@ -158,13 +158,12 @@ let capture_everything buf ~f =
 
 
 let exec_phrase log phrase =
-  let log_if flag kind pr x =
-    Log.log_if (Topcommon.debug_log log) kind flag pr x
+  let log_if kind pr x =
+    Clflags.dump_on_log (Topcommon.debug_log log) kind pr x
   in
   Location.reset ();
-  log_if !Clflags.dump_parsetree Reports.Debug.parsetree
-    Printast.top_phrase phrase;
-  log_if !Clflags.dump_source Reports.Debug.source Pprintast.top_phrase phrase;
+  log_if Reports.Debug.parsetree Printast.top_phrase phrase;
+  log_if Reports.Debug.source Pprintast.top_phrase phrase;
   Toploop.execute_phrase true log phrase
 
 let parse_contents ~fname contents =

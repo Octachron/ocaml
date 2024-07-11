@@ -813,10 +813,8 @@ let apply ~what ~log clam =
   in
   let var_info = make_var_info clam in
   let clam = un_anf var_info V.Map.empty clam in
-  if !Clflags.dump_clambda then begin
-    Log.itemf Reports.Debug.clambda log
-      "@.un-anf (%a):@ %a@."
-        Symbol.print what
-        Printclambda.clambda clam
-  end;
+  Clflags.dump_item_on_log log Reports.Debug.clambda
+    "@.un-anf (%a):@ %a@."
+    Symbol.print what
+    Printclambda.clambda clam;
   clam

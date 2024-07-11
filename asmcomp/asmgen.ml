@@ -31,7 +31,7 @@ exception Error of error
 
 let cmm_invariants log fd_cmm =
   let print_fundecl =
-    if !Clflags.dump_cmm then Printcmm.fundecl
+    if Clflags.dump "cmm" then Printcmm.fundecl
     else fun ppf fdecl -> Format.fprintf ppf "%s" fdecl.fun_name
   in
   if !Clflags.cmm_invariants && Cmm_invariants.run log fd_cmm then
@@ -44,13 +44,14 @@ let liveness phrase = Liveness.fundecl phrase; phrase
 let log_key = Reports.Debug.mach
 
 let dump_if log flag message phrase =
-  if !flag then Log.itemf log_key log "%a" (Printmach.phase message) phrase
+  if Clflags.dump flag then
+    Log.itemf log_key log "%a" (Printmach.phase message) phrase
 
 let pass_dump_if log flag message phrase =
   dump_if log flag message phrase; phrase
 
 let pass_dump_linear_if log flag message phrase =
-  if !flag then
+  if dump flag then
     Log.itemf Reports.Debug.linear log "*** %s@.%a@."
       message Printlinear.fundecl phrase;
   phrase
@@ -112,26 +113,26 @@ let rec regalloc ~log round fd =
   if round > 50 then
     fatal_error(fd.Mach.fun_name ^
                 ": function too complex, cannot complete register allocation");
-  dump_if log dump_live "Liveness analysis" fd;
+  dump_if log "live" "Liveness analysis" fd;
   let num_stack_slots =
     if !use_linscan then begin
       (* Linear Scan *)
       let intervals = Interval.build_intervals fd in
-      if !dump_interval then
+      if dump "interval" then
         Log.itemf log_key log "%a" Printmach.intervals intervals;
       Linscan.allocate_registers intervals
     end else begin
       (* Graph Coloring *)
       Interf.build_graph fd;
-      if !dump_interf then
+      if dump "interf" then
         Log.itemf log_key log "%a" Printmach.interferences ();
-      if !dump_prefer then Log.itemf log_key log "%a" Printmach.preferences ();
+      if dump "prefer" then Log.itemf log_key log "%a" Printmach.preferences ();
       Coloring.allocate_registers()
     end
   in
-  dump_if log dump_regalloc "After register allocation" fd;
+  dump_if log "regalloc" "After register allocation" fd;
   let (newfd, redo_regalloc) = Reload.fundecl fd num_stack_slots in
-  dump_if log dump_reload "After insertion of reloading code" newfd;
+  dump_if log "reload" "After insertion of reloading code" newfd;
   if redo_regalloc then begin
     Reg.reinit(); Liveness.fundecl newfd; regalloc ~log (round + 1) newfd
   end else newfd
@@ -147,25 +148,25 @@ let compile_fundecl ~log ~funcnames fd_cmm =
                     (Selection.fundecl ~future_funcnames:funcnames)
   ++ Profile.record ~accumulate:true "polling"
                     (Polling.instrument_fundecl ~future_funcnames:funcnames)
-  ++ pass_dump_if log dump_selection "After instruction selection"
+  ++ pass_dump_if log "selection" "After instruction selection"
   ++ Profile.record ~accumulate:true "comballoc" Comballoc.fundecl
-  ++ pass_dump_if log dump_combine "After allocation combining"
+  ++ pass_dump_if log "combine" "After allocation combining"
   ++ Profile.record ~accumulate:true "cse" CSE.fundecl
-  ++ pass_dump_if log dump_cse "After CSE"
+  ++ pass_dump_if log "cse" "After CSE"
   ++ Profile.record ~accumulate:true "liveness" liveness
   ++ Profile.record ~accumulate:true "deadcode" Deadcode.fundecl
-  ++ pass_dump_if log dump_live "Liveness analysis"
+  ++ pass_dump_if log "live" "Liveness analysis"
   ++ Profile.record ~accumulate:true "spill" Spill.fundecl
   ++ Profile.record ~accumulate:true "liveness" liveness
-  ++ pass_dump_if log dump_spill "After spilling"
+  ++ pass_dump_if log "spill" "After spilling"
   ++ Profile.record ~accumulate:true "split" Split.fundecl
-  ++ pass_dump_if log dump_split "After live range splitting"
+  ++ pass_dump_if log "split" "After live range splitting"
   ++ Profile.record ~accumulate:true "liveness" liveness
   ++ Profile.record ~accumulate:true "regalloc" (regalloc ~log 1)
   ++ Profile.record ~accumulate:true "linearize" Linearize.fundecl
-  ++ pass_dump_linear_if log dump_linear "Linearized code"
+  ++ pass_dump_linear_if log "linear" "Linearized code"
   ++ Profile.record ~accumulate:true "scheduling" Scheduling.fundecl
-  ++ pass_dump_linear_if log dump_scheduling "After instruction scheduling"
+  ++ pass_dump_linear_if log "scheduling" "After instruction scheduling"
   ++ save_linear
   ++ emit_fundecl
 
@@ -188,8 +189,7 @@ let compile_phrases ~log ps =
     match ps with
     | [] -> ()
     | p :: ps ->
-       if !dump_cmm then
-         Log.itemf Reports.Debug.cmm log "%a@." Printcmm.phrase p;
+       Clflags.dump_item_on_log log Reports.Debug.cmm "%a@." Printcmm.phrase p;
        match p with
        | Cfunction fd ->
           compile_fundecl ~log ~funcnames fd;

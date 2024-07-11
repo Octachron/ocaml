@@ -21,6 +21,7 @@ type !'a def
 type !'a log
 type 'a t = 'a log
 type ('a,'b) field
+val field_name: _ field -> string
 
 (** {1:log_scheme_versionning  Current version of the log } *)
 module Version: sig

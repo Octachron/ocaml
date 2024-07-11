@@ -65,7 +65,7 @@ let lambda_to_flambda ~log ~prefixname ~backend ~size
          in
          let (+-+) flam (name, pass) =
            incr pass_number;
-           if !Clflags.dump_flambda_verbose then begin
+           if Clflags.dump "flambda_verbose" then begin
              let log fmt = Log.itemf Reports.Debug.flambda log fmt in
              log  "@.PASS: %s@." name;
              log "Before pass %d, round %d:@ %a@."
@@ -86,7 +86,7 @@ let lambda_to_flambda ~log ~prefixname ~backend ~size
                   |> Closure_conversion.lambda_to_flambda ~backend
                        ~module_ident ~size)
            in
-           if !Clflags.dump_rawflambda
+           if Clflags.dump "rawflambda"
            then
              Log.itemf Reports.Debug.raw_flambda log
                "After closure conversion:@ %a@."
@@ -188,11 +188,9 @@ let lambda_to_flambda ~log ~prefixname ~backend ~size
                     "[@unrolled] attribute was not used on this function \
                      application (the optimizer did not know what function \
                      was being applied)"));
-           if !Clflags.dump_flambda
-           then
-             Log.itemf Reports.Debug.flambda log
-               "End of middle end:@ %a@."
-               Flambda.print_program flam;
+           Clflags.dump_item_on_log log Reports.Debug.flambda
+             "End of middle end:@ %a@."
+             Flambda.print_program flam;
            check flam;
            (* CR-someday mshinwell: add -d... option for this *)
            (* dump_function_sizes flam ~backend; *)
@@ -202,7 +200,7 @@ let lambda_to_flambda ~log ~prefixname ~backend ~size
 let flambda_raw_clambda_dump_if log
       ({ Flambda_to_clambda. expr = ulambda; preallocated_blocks = _;
         structured_constants; exported = _; } as input) =
-  if !Clflags.dump_rawclambda then
+  if Clflags.dump "rawclambda" then
     begin
       let log fmt = Log.itemf Reports.Debug.raw_clambda log fmt in
       log "@.clambda (before Un_anf):@.";
@@ -213,7 +211,7 @@ let flambda_raw_clambda_dump_if log
             Printclambda.structured_constant cst)
         structured_constants
     end;
-  if !Clflags.dump_cmm then Log.itemf Reports.Debug.cmm log "@.cmm:@.";
+  Clflags.dump_item_on_log log Reports.Debug.cmm "@.cmm:@.";
   input
 
 let lambda_to_clambda ~backend ~prefixname ~log
