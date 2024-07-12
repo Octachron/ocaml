@@ -199,6 +199,7 @@ type 'a typ =
 and ('a,'b) field = {
   name:string;
   typ:'a typ;
+  opt:bool;
   id: 'a Type.Id.t;
   range:Version.Lifetime.t
 }
@@ -539,6 +540,7 @@ module New_record(Vl:Version_line)(Info:Info with type vl:=Vl.id)() = struct
     {
       name;
       typ = ty;
+      opt;
       id = Type.Id.make ();
       range = Version.range (Version.v v)
     }
@@ -606,14 +608,6 @@ let version_range field = field.range
 
 let is_optional r = r.optional
 
-let rec is_empty: type a. a typ -> a -> bool = fun ty x ->
-  match ty, x with
-  | List _, [] -> true
-  | Record _, x -> Label_map.for_all is_empty_field !x
-  | _ -> false
-and is_empty_field: type a. _ -> a bound_field -> bool =
-  fun _ (Field (kt,x)) -> is_empty kt.typ x
-
 module Store = struct
   open Record
   let record:
@@ -647,19 +641,14 @@ module Store = struct
       Option.iter (fun bfield ->
           store := Label_map.add field.name bfield (fields store)
         ) f
-
-  let trim labels prod =
-     let field key  =
-        match Label_map.find_opt key (fields prod) with
-        | None -> None
-        | Some (Field (kt,x)) as c ->
-            if is_empty kt.typ x then None else c
-      in
-      List.filter_map field (List.rev labels)
 end
 let fields labels r =
-  let labels = Store.trim labels r in
-  List.map (fun (Field (k,v)) -> k.name, V(k.typ,v)) labels
+  let field rfields label =
+    rfields
+    |> Label_map.find_opt label
+    |> Option.map (fun (Field (k,v)) -> k.name, k.opt, V(k.typ,v))
+  in
+  List.filter_map (field @@ Record.fields r) (List.rev labels)
 
 module Metadata_versions = New_root()
 module Metadata = struct
@@ -689,6 +678,7 @@ module Metadata = struct
       {
         range = Version.range (Version.v v1);
         name = "metadata";
+        opt=false;
         typ = raw_type;
         id = Type.Id.make ()
       }

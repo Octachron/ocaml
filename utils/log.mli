@@ -123,7 +123,7 @@ val field_infos: 'a def -> (string * label_metadata) list
 val field_names: 'a def -> string list
 
 val scheme_name: 'a def -> string
-val fields: string list -> 'a record -> (string * typed_val) List.t
+val fields: string list -> 'a record -> (string * bool * typed_val) List.t
 val is_optional: label_metadata -> bool
 
 val log_scheme: 'a log -> 'a def

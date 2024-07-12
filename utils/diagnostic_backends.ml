@@ -131,14 +131,32 @@ module Fmt = struct
                   ppf
           )
     | Record m -> elt_record ctx (field_names m,x) ppf
-
+  and trim_item: type a.
+    ctx -> key:string -> optional:bool -> a typ -> a -> pr option =
+    fun ctx ~key ~optional ty x ->
+    if not optional then Some (elt_item ctx ~key ty x) else
+      match ty, x with
+      | List _ , [] -> None
+      | Record def, _ ->
+          begin match fields ctx (field_names def,x) with
+          | [] -> None
+          | _ :: _ as fields -> Some (record ctx.conv fields)
+          end
+      | Custom {pull;default;id}, _ ->
+          begin
+            match ctx.ext_printer.extension id with
+            | Some pr -> Some (fun ppf -> pr ppf x)
+            | None -> trim_item ctx ~key ~optional default (pull ctx.version x)
+          end
+      | _ -> Some (elt_item ctx  ~key ty x)
   and elt_item: type a. ctx -> key:string -> a typ -> a -> pr =
     fun ctx ~key ty x ppf -> item ctx.conv ~key (elt ctx ty x) ppf
   and fields: type p. ctx -> (string list * p record)  -> pr list
     = fun ctx (keys,prod) ->
       let fields = Log.fields keys prod in
-      let pp_field (name, V(typ,x)) = elt_item ctx ~key:name typ x in
-      List.map pp_field fields
+      let pp_field (name, optional, V(typ,x)) =
+        trim_item ctx ~optional ~key:name typ x in
+      List.filter_map pp_field fields
   and elt_record: type p. ctx -> (string list * p record) -> pr =
     fun ctx x -> record ctx.conv (fields ctx x)
 
