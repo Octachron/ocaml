@@ -710,7 +710,7 @@ module Error_log = struct[@warning "-unused-value-declaration"]
   let () = Kind.seal v1
 
 
-  let loc_summary loc =
+  let loc_summary ~strict loc =
     let line_valid line = if line > 0 then Some line else None in
     let chars_valid ~startchar ~endchar =
       if startchar <> -1 && endchar <> -1 then Some (startchar, endchar)
@@ -723,10 +723,11 @@ module Error_log = struct[@warning "-unused-value-declaration"]
       else loc.loc_start.pos_fname
     in
     let file = match file with
-      | "_none_" ->
+      | "_none_"->
+          if strict then None
           (* This is a dummy placeholder, but we print it anyway to please
              editors that parse locations in error messages (e.g. Emacs). *)
-          Some file
+          else (Some file)
       | "" | "//toplevel//" -> None
       | _ -> Some file
     in
@@ -766,7 +767,7 @@ module Error_log = struct[@warning "-unused-value-declaration"]
     let () = seal v1
     let ctyp =
       let pull v l =
-        let l = loc_summary l in
+        let l = loc_summary ~strict:true l in
         let open Record in
         make v [
           characters ^=? l.characters;
@@ -784,10 +785,10 @@ module Error_log = struct[@warning "-unused-value-declaration"]
 
   module Msg = New_record(Vl)(struct let name="error_msg" let update=v1 end)()
   let msg = Msg.new_field v1 "msg" doc
-  let msg_loc = Msg.new_field v1 "loc" Loc.ctyp
+  let msg_loc = Msg.new_field_opt v1 "loc" Loc.ctyp
   let () = Msg.seal v1
   let msg_typ =
-    let pull v m = Log.Record.(make  v[ msg ^= m.txt; msg_loc ^= m.loc ]) in
+    let pull v m = Log.Record.(make v [ msg ^= m.txt; msg_loc ^= m.loc ]) in
     Custom { id = Msg; pull; default = Record Msg.scheme }
 
   let kind = Reports.Error.new_field v1 "kind"

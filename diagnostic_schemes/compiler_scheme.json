@@ -81,7 +81,7 @@
                   "items" : { "$ref" : "#/$defs/structured_text"}
                 }
             },
-          "required" : ["loc", "msg"]
+          "required" : ["msg"]
         },
       "error_report" :
         {

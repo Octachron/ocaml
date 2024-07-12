@@ -124,7 +124,7 @@ Main:
     error_msg
       Publication
       Key msg, l structured_text
-      Key loc, loc
+      Key loc, ?loc
       Seal
     error_report
       Publication
