@@ -140,7 +140,8 @@ module Fmt = struct
       | Record def, _ ->
           begin match fields ctx (field_names def,x) with
           | [] -> None
-          | _ :: _ as fields -> Some (record ctx.conv fields)
+          | _ :: _ as fields ->
+              Some (item ctx.conv ~key @@ record ctx.conv fields)
           end
       | Custom {pull;default;id}, _ ->
           begin
