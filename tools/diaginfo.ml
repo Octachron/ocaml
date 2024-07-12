@@ -13,7 +13,6 @@
 (*                                                                        *)
 (**************************************************************************)
 
-
 let json_schema = ref None
 let history = ref false
 let output = ref None
@@ -108,6 +107,8 @@ module Pp = struct
     | Duplicate_key s -> fprintf ppf "Error: duplicate %s" s
     | Invalid_constructor_expansion s ->
         fprintf ppf "Error: second constructor expansion %s" s
+    | Invalid_publication s ->
+        fprintf ppf "Error: second constructor publication %s" s
     | Inconsistent_change (range,key_name) ->
         fprintf ppf "Error inconsistent change of the %a key %s"
           status range
@@ -118,11 +119,13 @@ module Pp = struct
     function
     | Inception r ->
         fprintf ppf "Inception: %s>%s,%s" r.base_name r.new_name r.typ
-    | Publication -> fprintf ppf "Publication"
-    | New_key {name;typ} ->
-        if typ = "" then fprintf ppf "Key %s" name
-        else fprintf ppf "Key %s, %s" name typ
-    | Expansion {name;expansion} -> fprintf ppf "Key %s>%s" name expansion
+    | Declaration -> fprintf ppf "Declaration"
+    | Publication name -> fprintf ppf "Publication %s" name
+    | Creation {name;typ} ->
+        if typ = "" then fprintf ppf "New label %s" name
+        else fprintf ppf "New label %s, %s" name typ
+    | Expansion {name;expansion} ->
+        fprintf ppf "Constructor %s>%s" name expansion
     | Make_required name -> fprintf ppf "Newly required %s" name
     | Deprecation name -> fprintf ppf "Deprecation %s" name
     | Seal -> fprintf ppf "Seal"

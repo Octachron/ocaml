@@ -52,11 +52,13 @@ module Version: sig
     | Time_travel of t * t
     | Inconsistent_change of Lifetime.t * string
     | Invalid_constructor_expansion of string
+    | Invalid_publication of string
     | Sealed_version of t
   type base_event =
+    | Declaration
     | Inception of {base_name:string; new_name:string; typ:string}
-    | Publication
-    | New_key of {name:string; typ:string}
+    | Publication of string
+    | Creation of {name:string; typ:string}
     | Make_required of string
     | Expansion of {name:string; expansion:string}
     | Deprecation of string

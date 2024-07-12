@@ -114,12 +114,14 @@ module Version = struct
     | Time_travel of t * t
     | Inconsistent_change of Lifetime.t * string
     | Invalid_constructor_expansion of string
+    | Invalid_publication of string
     | Sealed_version of t
 
   type base_event =
+    | Declaration
     | Inception of {base_name:string; new_name:string; typ:string}
-    | Publication
-    | New_key of {name:string; typ:string}
+    | Publication of string
+    | Creation of {name:string; typ:string}
     | Make_required of string
     | Expansion of {name:string; expansion:string}
     | Deprecation of string
@@ -306,7 +308,7 @@ let register_label_metadata ~optional update scheme name typ =
   let metadata = label_metadata ~optional update typ in
   scheme.!(name) <- metadata;
   Version.register_event update scheme.scheme_name
-    (New_key {
+    (Creation {
         name;
         typ=Format.asprintf "%s%a" (if optional then "?" else "") pp_typ typ
       };
@@ -473,6 +475,17 @@ let register_constructor_inception u old new_name new_typ scheme =
   let lmd = label_metadata ~optional:false u new_typ in
   scheme.!(new_name) <- { lmd with status }
 
+let register_constructor_publication u name scheme =
+  let&? kmd = scheme.?(name) in
+  begin match Version.stage kmd.status with
+  | Inception -> ()
+  | _ -> Version.error u scheme.scheme_name (Invalid_publication name)
+  end;
+  Version.register_event u scheme.scheme_name (Publication name);
+  let status = { kmd.status with publication = Some (Version.v u) } in
+  scheme.!(name) <- { kmd with status }
+
+
 
 let deprecate_lbl u lbl scheme =
   let&? kmd = scheme.?(lbl) in
@@ -533,7 +546,7 @@ module New_record(Vl:Version_line)(Info:Info with type vl:=Vl.id)() = struct
   }
   let raw_type = Record scheme
 
-  let () = Version.register_event Info.update Info.name Publication
+  let () = Version.register_event Info.update Info.name Declaration
 
   let new_field ?(opt=false) (type t) v name (ty:t typ): t field =
     register_label_metadata ~optional:opt v scheme name ty;
@@ -568,7 +581,7 @@ module New_sum(Vl:Version_line)(Info:Info with type vl:=Vl.id)() = struct
   }
   let raw_type = Sum scheme
   type nonrec 'a constructor = ('a,id) constructor
-  let () = Version.register_event Info.update Info.name Publication
+  let () = Version.register_event Info.update Info.name Declaration
   let new_constr u name (ty:'a typ): 'a constructor  =
     register_label_metadata ~optional:false u scheme name ty;
     { cname = name;
@@ -589,12 +602,7 @@ module New_sum(Vl:Version_line)(Info:Info with type vl:=Vl.id)() = struct
     { cname=new_name; typ=new_ty; projection }
 
   let publish u c =
-    let version = Version.v u in
-    let () =
-      let&? kmd= scheme.?(c.cname) in
-      let status = { kmd.status with publication = Some version } in
-      scheme.!(c.cname) <- { kmd with status }
-    in
+    register_constructor_publication u c.cname scheme;
     c
 
   let deprecate u c = deprecate_lbl u c.cname scheme; c

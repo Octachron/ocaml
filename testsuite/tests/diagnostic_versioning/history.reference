@@ -1,184 +1,184 @@
 Metadata:
   v1.0
     metadata
-      Publication
-      Key version, i*i
-      Key valid, validity
-      Key invalid_paths, ?l l s
-      Key deprecated_paths, ?l l s
+      Declaration
+      New label version, i*i
+      New label valid, validity
+      New label invalid_paths, ?l l s
+      New label deprecated_paths, ?l l s
       Seal
     validity
-      Publication
-      Key Full
-      Key Deprecated
-      Key Invalid
+      Declaration
+      New label Full
+      New label Deprecated
+      New label Invalid
       Seal
 Config:
   v1.0
     config
-      Publication
-      Key version, s
-      Key standard_library_default, s
-      Key standard_library, s
-      Key ccomp_type, s
-      Key c_compiler, s
-      Key ocamlc_cflags, s
-      Key ocamlc_cppflags, s
-      Key ocamlopt_cflags, s
-      Key ocamlopt_cppflags, s
-      Key bytecomp_c_compiler, s
-      Key native_c_compiler, s
-      Key bytecomp_c_libraries, s
-      Key native_c_libraries, s
-      Key native_ldflags, s
-      Key native_pack_linker, s
-      Key native_compiler, b
-      Key architecture, s
-      Key model, s
-      Key int_size, i
-      Key word_size, i
-      Key system, s
-      Key asm, s
-      Key asm_cfi_supported, b
-      Key with_frame_pointers, b
-      Key ext_exe, s
-      Key ext_obj, s
-      Key ext_asm, s
-      Key ext_lib, s
-      Key ext_dll, s
-      Key os_type, s
-      Key default_executable_name, s
-      Key systhread_supported, b
-      Key host, s
-      Key target, s
-      Key flambda, b
-      Key safe_string, b
-      Key default_safe_string, b
-      Key flat_float_array, b
-      Key function_sections, b
-      Key afl_instrument, b
-      Key tsan, b
-      Key windows_unicode, b
-      Key supports_shared_libraries, b
-      Key native_dynlink, b
-      Key naked_pointers, b
-      Key exec_magic_number, s
-      Key cmi_magic_number, s
-      Key cmo_magic_number, s
-      Key cma_magic_number, s
-      Key cmx_magic_number, s
-      Key cmxa_magic_number, s
-      Key ast_impl_magic_number, s
-      Key ast_intf_magic_number, s
-      Key cmxs_magic_number, s
-      Key cmt_magic_number, s
-      Key linear_magic_number, s
+      Declaration
+      New label version, s
+      New label standard_library_default, s
+      New label standard_library, s
+      New label ccomp_type, s
+      New label c_compiler, s
+      New label ocamlc_cflags, s
+      New label ocamlc_cppflags, s
+      New label ocamlopt_cflags, s
+      New label ocamlopt_cppflags, s
+      New label bytecomp_c_compiler, s
+      New label native_c_compiler, s
+      New label bytecomp_c_libraries, s
+      New label native_c_libraries, s
+      New label native_ldflags, s
+      New label native_pack_linker, s
+      New label native_compiler, b
+      New label architecture, s
+      New label model, s
+      New label int_size, i
+      New label word_size, i
+      New label system, s
+      New label asm, s
+      New label asm_cfi_supported, b
+      New label with_frame_pointers, b
+      New label ext_exe, s
+      New label ext_obj, s
+      New label ext_asm, s
+      New label ext_lib, s
+      New label ext_dll, s
+      New label os_type, s
+      New label default_executable_name, s
+      New label systhread_supported, b
+      New label host, s
+      New label target, s
+      New label flambda, b
+      New label safe_string, b
+      New label default_safe_string, b
+      New label flat_float_array, b
+      New label function_sections, b
+      New label afl_instrument, b
+      New label tsan, b
+      New label windows_unicode, b
+      New label supports_shared_libraries, b
+      New label native_dynlink, b
+      New label naked_pointers, b
+      New label exec_magic_number, s
+      New label cmi_magic_number, s
+      New label cmo_magic_number, s
+      New label cma_magic_number, s
+      New label cmx_magic_number, s
+      New label cmxa_magic_number, s
+      New label ast_impl_magic_number, s
+      New label ast_intf_magic_number, s
+      New label cmxs_magic_number, s
+      New label cmt_magic_number, s
+      New label linear_magic_number, s
 Main:
   v1.0
     box_type
-      Publication
-      Key H
-      Key V
-      Key HV
-      Key HoV
-      Key B
+      Declaration
+      New label H
+      New label V
+      New label HV
+      New label HoV
+      New label B
       Seal
     compiler
-      Publication
-      Key debug, ?debug
-      Key error, ?error_report
-      Key warnings, ?l error_report
-      Key alerts, ?l error_report
+      Declaration
+      New label debug, ?debug
+      New label error, ?error_report
+      New label warnings, ?l error_report
+      New label alerts, ?l error_report
       Seal
     debug
-      Publication
-      Key parsetree, ?s
-      Key source, ?s
-      Key typedtree, ?s
-      Key shape, ?s
-      Key instr, ?s
-      Key lambda, ?s
-      Key raw_lambda, ?s
-      Key flambda, ?l s
-      Key raw_flambda, ?l s
-      Key clambda, ?l s
-      Key raw_clambda, ?l s
-      Key cmm, ?l s
-      Key remove-free-vars-equal-to-args, ?l s
-      Key unbox-free-vars-of-closures, ?l s
-      Key unbox-closures, ?l s
-      Key unbox-specialised-args, ?l s
-      Key mach, ?l s
-      Key linear, ?l s
-      Key cmm_invariant, ?s
-      Key profile, ?s
+      Declaration
+      New label parsetree, ?s
+      New label source, ?s
+      New label typedtree, ?s
+      New label shape, ?s
+      New label instr, ?s
+      New label lambda, ?s
+      New label raw_lambda, ?s
+      New label flambda, ?l s
+      New label raw_flambda, ?l s
+      New label clambda, ?l s
+      New label raw_clambda, ?l s
+      New label cmm, ?l s
+      New label remove-free-vars-equal-to-args, ?l s
+      New label unbox-free-vars-of-closures, ?l s
+      New label unbox-closures, ?l s
+      New label unbox-specialised-args, ?l s
+      New label mach, ?l s
+      New label linear, ?l s
+      New label cmm_invariant, ?s
+      New label profile, ?s
       Seal
     error_kind
-      Publication
-      Key Report_error
-      Key Report_alert, s
-      Key Report_alert_as_error, s
-      Key Report_warning, s
-      Key Report_warning_as_error, s
+      Declaration
+      New label Report_error
+      New label Report_alert, s
+      New label Report_alert_as_error, s
+      New label Report_warning, s
+      New label Report_warning_as_error, s
       Seal
     error_msg
-      Publication
-      Key msg, l structured_text
-      Key loc, ?loc
+      Declaration
+      New label msg, l structured_text
+      New label loc, ?loc
       Seal
     error_report
-      Publication
-      Key kind, error_kind
-      Key main, error_msg
-      Key sub, ?l error_msg
-      Key footnote, ?l structured_text
-      Key quotable_locs, ?l loc
+      Declaration
+      New label kind, error_kind
+      New label main, error_msg
+      New label sub, ?l error_msg
+      New label footnote, ?l structured_text
+      New label quotable_locs, ?l loc
       Seal
     format_tag
-      Publication
-      Key <Unknown>, s
-      Key String_tag, s
-      Key Error
-      Key Warning
-      Key Loc
-      Key Inline_code
-      Key Hint
-      Key Deletion
-      Key Insertion
-      Key Modification
-      Key Preservation
+      Declaration
+      New label <Unknown>, s
+      New label String_tag, s
+      New label Error
+      New label Warning
+      New label Loc
+      New label Inline_code
+      New label Hint
+      New label Deletion
+      New label Insertion
+      New label Modification
+      New label Preservation
       Seal
     loc
-      Publication
-      Key file, ?s
-      Key start_line, ?i
-      Key stop_line, ?i
-      Key characters, ?i*i
+      Declaration
+      New label file, ?s
+      New label start_line, ?i
+      New label stop_line, ?i
+      New label characters, ?i*i
       Seal
     structured_text
-      Publication
-      Key Text, s
-      Key With_size, i
-      Key Open_box, box_type*i
-      Key Close_box
-      Key Open_tag, format_tag
-      Key Close_tag
-      Key Open_tbox
-      Key Close_tbox
-      Key Tab_break, i*i
-      Key Set_tab
-      Key Simple_break, i*i
-      Key Break, (s*i*s)*(s*i*s)
-      Key Flush, b
-      Key Newline
-      Key If_newline
-      Key <deprecated>
+      Declaration
+      New label Text, s
+      New label With_size, i
+      New label Open_box, box_type*i
+      New label Close_box
+      New label Open_tag, format_tag
+      New label Close_tag
+      New label Open_tbox
+      New label Close_tbox
+      New label Tab_break, i*i
+      New label Set_tab
+      New label Simple_break, i*i
+      New label Break, (s*i*s)*(s*i*s)
+      New label Flush, b
+      New label Newline
+      New label If_newline
+      New label <deprecated>
       Seal
     toplevel
-      Publication
-      Key output, ?l structured_text
-      Key backtrace, ?l structured_text
-      Key compiler_log, ?compiler
-      Key errors, ?l l structured_text
-      Key trace, ?l l structured_text
+      Declaration
+      New label output, ?l structured_text
+      New label backtrace, ?l structured_text
+      New label compiler_log, ?compiler
+      New label errors, ?l l structured_text
+      New label trace, ?l l structured_text
       Seal
