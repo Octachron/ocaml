@@ -1200,7 +1200,7 @@ and tree_of_typfields mode rest = function
 and tree_of_pack_fields mode fl =
   List.map
     (fun (li, ty) -> (
-      String.concat "." (Longident.flatten li),
+      String.concat "." li,
       tree_of_typexp mode ty
     )) fl
 
