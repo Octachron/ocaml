@@ -35,4 +35,4 @@ module Suggestion : sig
 end
 
 val suggest :
-  Includemod.Error.signature_symptom -> int -> Suggestion.t list
+  Includemod.Error.signature_symptom -> Suggestion.t list

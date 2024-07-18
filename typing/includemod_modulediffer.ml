@@ -524,6 +524,21 @@ let compute_suggestions
 let compute_second_order_suggestions sgs =
   let open Includemod.Error in
 
+  let module_suggestions =
+    compute_suggestions
+      sgs
+      (fun item ->
+        match item with
+        | Types.Sig_module (_, _, decl, _, _) ->
+            Some (Field.first_order item decl decl.md_type)
+        | _ -> None)
+      (is_modtype_eq (fun x -> x.Field.type_) sgs)
+      (function
+        | item, Module_type {expected; _} ->
+            Some (Suggestion.change_type_of_module item expected)
+        | _ -> None)
+  in
+
   let type_suggestions =
     compute_suggestions
       sgs
@@ -590,7 +605,11 @@ let compute_second_order_suggestions sgs =
       (fun _ -> None)
   in
 
-  List.rev (class_type_suggestions @ module_type_suggestions @ type_suggestions)
+  List.rev (
+    class_type_suggestions
+    @ module_type_suggestions
+    @ type_suggestions
+    @ module_suggestions)
 
 let compute_first_order_suggestions sgs =
   let open Includemod.Error in
@@ -619,21 +638,6 @@ let compute_first_order_suggestions sgs =
         | _ -> None)
   in
 
-  let module_suggestions =
-    compute_suggestions
-      sgs
-      (fun item ->
-        match item with
-        | Types.Sig_module (_, _, decl, _, _) ->
-            Some (Field.first_order item decl decl.md_type)
-        | _ -> None)
-      (is_modtype_eq (fun x -> x.Field.type_) sgs)
-      (function
-        | item, Module_type {expected; _} ->
-            Some (Suggestion.change_type_of_module item expected)
-        | _ -> None)
-  in
-
   let class_suggestions =
     compute_suggestions
       sgs
@@ -657,39 +661,38 @@ let compute_first_order_suggestions sgs =
         | _ -> None)
   in
 
-  List.rev (class_suggestions @ module_suggestions @ value_suggestions)
+  List.rev (class_suggestions @ value_suggestions)
 
-let suggest sgs passes =
+let suggest sgs =
   let open Includemod.Error in
 
-  let rec iterate f sgs i recompute_sgs =
-    if i = 0 then
-      [], sgs
+  let rec iterate f sgs fioul =
+    if fioul = 0 then ([], Some sgs) else
+
+    let suggestions = f sgs in
+
+    if List.is_empty suggestions then
+      (suggestions, Some sgs)
     else
-      let suggestions = f sgs in
-
-      if not recompute_sgs || List.is_empty suggestions then
-        suggestions, sgs
-      else
-        let subst =
-          List.fold_left Suggestion.apply sgs.subst suggestions
-        in
-        match compute_signature_diff sgs.env subst sgs.sig1 sgs.sig2 with
-        | None ->
-            suggestions, sgs
-        | Some sgs' ->
-            let new_suggestions, _ = iterate f sgs' (i - 1) recompute_sgs in
-            new_suggestions @ suggestions, sgs'
+      let subst = List.fold_left Suggestion.apply sgs.subst suggestions in
+      match compute_signature_diff sgs.env subst sgs.sig1 sgs.sig2 with
+      | None ->
+          (suggestions, None)
+      | Some sgs' ->
+          let new_suggestions, sgs'' = iterate f sgs' (fioul - 1) in
+          (new_suggestions @ suggestions, sgs'')
   in
 
-  let second_order_suggestions, sgs' =
-    iterate compute_second_order_suggestions sgs passes true
-  in
-  let first_order_suggestions, _ =
-    iterate compute_first_order_suggestions sgs' passes false
+  let all_suggestions =
+    match iterate compute_second_order_suggestions sgs 5 with
+    | second_order_suggestions, None ->
+        second_order_suggestions
+    | second_order_suggestions, Some sgs' ->
+        let first_order_suggestions = compute_first_order_suggestions sgs' in
+        second_order_suggestions @ first_order_suggestions
   in
 
-  second_order_suggestions @ first_order_suggestions
+  all_suggestions
   |> List.fold_left
     (fun (acc, affected_items) suggestion ->
       if AffectedItemSet.mem suggestion.Suggestion.affects affected_items then
