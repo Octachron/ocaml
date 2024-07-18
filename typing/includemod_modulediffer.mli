@@ -13,6 +13,10 @@
 (*                                                                        *)
 (**************************************************************************)
 
+module Item_id : sig
+  type t
+end
+
 module Suggestion : sig
   type alteration =
     | Add_item
@@ -24,6 +28,7 @@ module Suggestion : sig
     | Change_module_type of Types.modtype_declaration
 
   type t = {
+    affects: Item_id.t;
     subject : Types.signature_item;
     alteration : alteration;
   }

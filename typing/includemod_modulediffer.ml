@@ -36,6 +36,44 @@ module Field = struct
   let name field = Ident.name (ident field)
 end
 
+module Item_id = struct
+  type item_kind =
+    | Value
+    | Module
+    | Class
+    | Type
+    | Module_type
+    | Class_type
+    | Type_ext
+
+  type t = item_kind * string
+
+  let kind_of_item item =
+    let open Types in
+    match item with
+    | Sig_value (_, _, _) -> Value
+    | Sig_type (_, _, _, _) -> Type
+    | Sig_typext (_, _, _, _) -> Type_ext
+    | Sig_module (_, _, _, _, _) -> Module
+    | Sig_modtype (_, _, _) -> Module_type
+    | Sig_class (_, _, _, _) -> Class
+    | Sig_class_type (_, _, _, _) -> Class_type
+
+  let of_item item =
+    let open Types in
+    match item with
+    | Sig_value (id, _, _) -> Value, Ident.name id
+    | Sig_type (id, _, _, _) -> Type, Ident.name id
+    | Sig_typext (id, _, _, _) -> Type_ext, Ident.name id
+    | Sig_module (id, _, _, _, _) -> Module, Ident.name id
+    | Sig_modtype (id, _, _) -> Module_type, Ident.name id
+    | Sig_class (id, _, _, _) -> Class, Ident.name id
+    | Sig_class_type (id, _, _, _) -> Class_type, Ident.name id
+
+  let compare = compare
+end
+module AffectedItemSet = Set.Make (Item_id)
+
 module Suggestion = struct
   type alteration =
     | Add_item
@@ -47,41 +85,49 @@ module Suggestion = struct
     | Change_module_type of Types.modtype_declaration
 
   type t = {
+    affects : Item_id.t;
     subject : Types.signature_item;
     alteration : alteration;
   }
 
   let add item = {
+    affects = Item_id.of_item item;
     subject = item;
     alteration = Add_item;
   }
 
   let rename item ident = {
+    affects = Item_id.kind_of_item item, Ident.name ident;
     subject = item;
     alteration = Rename_item ident;
   }
 
   let change_type_of_value item ty = {
+    affects = Item_id.of_item item;
     subject = item;
     alteration = Change_type_of_value ty;
   }
 
   let change_type_of_module item mty = {
+    affects = Item_id.of_item item;
     subject = item;
     alteration = Change_type_of_module mty;
   }
 
   let change_type_of_class item cty = {
+    affects = Item_id.of_item item;
     subject = item;
     alteration = Change_type_of_class cty;
   }
 
   let change_type item ty = {
+    affects = Item_id.of_item item;
     subject = item;
     alteration = Change_type ty;
   }
 
   let change_module_type item mty = {
+    affects = Item_id.of_item item;
     subject = item;
     alteration = Change_module_type mty;
   }
@@ -448,33 +494,6 @@ let compute_signature_diff env subst sig1 sig2 =
   with
   | Includemod.Error (_, Includemod.Error.In_Signature reason) -> Some reason
 
-module ItemId = struct
-  type item_kind =
-    | Value
-    | Module
-    | Class
-    | Type
-    | Module_type
-    | Class_type
-    | Type_ext
-
-  type t = item_kind * string
-
-  let of_item item =
-    let open Types in
-    match item with
-    | Sig_value (id, _, _) -> Value, Ident.name id
-    | Sig_type (id, _, _, _) -> Type, Ident.name id
-    | Sig_typext (id, _, _, _) -> Type_ext, Ident.name id
-    | Sig_module (id, _, _, _, _) -> Module, Ident.name id
-    | Sig_modtype (id, _, _) -> Module_type, Ident.name id
-    | Sig_class (id, _, _, _) -> Class, Ident.name id
-    | Sig_class_type (id, _, _, _) -> Class_type, Ident.name id
-
-  let compare = compare
-end
-module AffectedItemSet = Set.Make (ItemId)
-
 let direction = Includemod.Directionality.any
 let is_modtype_eq get (sgs : Includemod.Error.signature_symptom) gotten expected =
   let expected = Subst.modtype Keep sgs.subst (get expected) in
@@ -673,10 +692,10 @@ let suggest sgs passes =
   second_order_suggestions @ first_order_suggestions
   |> List.fold_left
     (fun (acc, affected_items) suggestion ->
-      let id = ItemId.of_item suggestion.Suggestion.subject in
-      if AffectedItemSet.mem id affected_items then
+      if AffectedItemSet.mem suggestion.Suggestion.affects affected_items then
         acc, affected_items
       else
-        (suggestion :: acc, AffectedItemSet.add id affected_items))
+        (suggestion :: acc,
+        AffectedItemSet.add suggestion.Suggestion.affects affected_items))
     ([], AffectedItemSet.empty)
   |> fst
