@@ -60,8 +60,8 @@
               {
                 "type" : "array",
                 "prefixItems" :
-                  [{ "const" : "Report_alert_as_error"}, { "type" : "string"}
-                    ]
+                  [{ "const" : "Report_alert_as_error"},
+                    { "type" : "string"}]
               },
               {
                 "type" : "array",

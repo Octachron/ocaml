@@ -218,7 +218,7 @@ module Fmt = struct
       atom = (fun s ppf -> escape_string ppf s);
       list = {
         list_open=Format.dprintf "@[<b 2>[";
-        list_close = Format.dprintf "@,]@]";
+        list_close = Format.dprintf "]@]";
         sep = Format.dprintf ",@ ";
       };
       assoc = {

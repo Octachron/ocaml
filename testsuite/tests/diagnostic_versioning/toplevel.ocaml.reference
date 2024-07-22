@@ -1,38 +1,41 @@
 {
   "metadata" : { "version" : [1, 0], "valid" : "Full"},
   "output" :
-    [["Open_box", ["V", 0]], ["Open_box", ["B", 2]], ["Open_box", ["B", 2]],
-      ["Text", "val"], ["Text", " "], ["Text", "x"], ["Text", " :"],
-      ["Simple_break", [1, 0]], ["Open_box", ["B", 0]], ["Text", "int"],
-      "Close_box", "Close_box", ["Text", " ="], ["Simple_break", [1, 0]],
-      ["Text", "1"], "Close_box", ["Simple_break", [1, 0]],
-      ["Open_box", ["B", 2]], ["Open_box", ["B", 2]], ["Text", "val"],
-      ["Text", " "], ["Text", "y"], ["Text", " :"], ["Simple_break", [1, 0]],
-      ["Open_box", ["B", 0]], ["Text", "float"], "Close_box", "Close_box",
-      ["Text", " ="], ["Simple_break", [1, 0]], ["Text", "2."], "Close_box",
-      "Close_box"]
+    [["Box", "V", 0,
+       [["Box", "B", 2,
+          [["Box", "B", 2,
+             [["Text", "val x :"], ["Simple_break", 1, 0],
+               ["Box", "B", 0, [["Text", "int"]]]]],
+            ["Text", " ="], ["Simple_break", 1, 0], ["Text", "1"]]],
+         ["Simple_break", 1, 0],
+         ["Box", "B", 2,
+           [["Box", "B", 2,
+              [["Text", "val y :"], ["Simple_break", 1, 0],
+                ["Box", "B", 0, [["Text", "float"]]]]],
+             ["Text", " ="], ["Simple_break", 1, 0], ["Text", "2."]]]]]]
 }
 {
   "metadata" : { "version" : [1, 0], "valid" : "Full"},
   "errors" :
-    [[["Text", "Unknown directive "], ["Open_tag", "Inline_code"],
-       ["Text", "shw"], "Close_tag", ["Text", "."], ["Flush", false],
-       "Newline", ["Open_box", ["B", 0]], ["Open_tag", "Hint"],
-       ["Text", "Hint"], "Close_tag", ["Text", ": Did you mean "],
-       ["Text", ""], ["Open_tag", "Inline_code"], ["Text", "show"],
-       "Close_tag", ["Text", "?"], "Close_box"]
-      ]
+    [[["Text", "Unknown directive "],
+       ["Tag", "Inline_code", [["Text", "shw"]]], ["Text", "."],
+       ["Flush", false], "Newline",
+       ["Box", "B", 0,
+         [["Tag", "Hint", [["Text", "Hint"]]], ["Text", ": Did you mean "],
+           ["Tag", "Inline_code", [["Text", "show"]]], ["Text", "?"]]]]]
 }
 {
   "metadata" : { "version" : [1, 0], "valid" : "Full"},
   "output" :
-    [["Open_box", ["B", 0]], ["Open_box", ["V", 0]], ["Open_box", ["B", 2]],
-      ["Text", "val"], ["Text", " "], ["Text", "hd"], ["Text", " :"],
-      ["Simple_break", [1, 0]], ["Open_box", ["B", 0]],
-      ["Open_box", ["B", 0]], ["Text", "'a"], ["Simple_break", [1, 0]],
-      ["Text", "list"], "Close_box", ["Text", " ->"],
-      ["Simple_break", [1, 0]], ["Text", "'a"], "Close_box", "Close_box",
-      "Close_box", "Close_box"]
+    [["Box", "B", 0,
+       [["Box", "V", 0,
+          [["Box", "B", 2,
+             [["Text", "val hd :"], ["Simple_break", 1, 0],
+               ["Box", "B", 0,
+                 [["Box", "B", 0,
+                    [["Text", "'a"], ["Simple_break", 1, 0],
+                      ["Text", "list"]]],
+                   ["Text", " ->"], ["Simple_break", 1, 0], ["Text", "'a"]]]]]]]]]]
 }
 {
   "metadata" : { "version" : [1, 0], "valid" : "Full"},
@@ -44,15 +47,17 @@
           "main" :
             {
               "msg" :
-                [["Open_box", ["V", 0]], ["Open_box", ["B", 0]],
-                  ["Text", "This expression has type"],
-                  ["Simple_break", [1, 2]], ["Open_tag", "Inline_code"],
-                  ["Open_box", ["B", 0]], ["Text", "float"], "Close_box",
-                  "Close_tag", ["Simple_break", [1, 0]],
-                  ["Text", "but an expression was expected of type"],
-                  ["Simple_break", [1, 2]], ["Open_tag", "Inline_code"],
-                  ["Open_box", ["B", 0]], ["Text", "int"], "Close_box",
-                  "Close_tag", "Close_box", "Close_box"],
+                [["Box", "V", 0,
+                   [["Box", "B", 0,
+                      [["Text", "This expression has type"],
+                        ["Simple_break", 1, 2],
+                        ["Tag", "Inline_code",
+                          [["Box", "B", 0, [["Text", "float"]]]]],
+                        ["Simple_break", 1, 0],
+                        ["Text", "but an expression was expected of type"],
+                        ["Simple_break", 1, 2],
+                        ["Tag", "Inline_code",
+                          [["Box", "B", 0, [["Text", "int"]]]]]]]]]],
               "loc" :
                 { "start_line" : 2, "stop_line" : 2, "characters" : [12, 13]}
             },
@@ -63,42 +68,40 @@
 }
 {
   "metadata" : { "version" : [1, 0], "valid" : "Full"},
-  "trace" :
-    [[["Text", "List"], ["Text", "."], ["Text", "map"],
-       ["Text", " is now traced."]]
-      ]
+  "trace" : [[["Text", "List.map is now traced."]]]
 }
 {
   "metadata" : { "version" : [1, 0], "valid" : "Full"},
   "output" :
-    [["Open_box", ["V", 0]], ["Open_box", ["B", 2]], ["Open_box", ["B", 2]],
-      ["Text", "val"], ["Text", " "], ["Text", "l"], ["Text", " :"],
-      ["Simple_break", [1, 0]], ["Open_box", ["B", 0]],
-      ["Open_box", ["B", 0]], ["Text", "int"], "Close_box",
-      ["Simple_break", [1, 0]], ["Text", "list"], "Close_box", "Close_box",
-      ["Text", " ="], ["Simple_break", [1, 0]], ["Open_box", ["B", 1]],
-      ["Text", "["], ["Text", "2"], ["Text", ";"], ["Simple_break", [1, 0]],
-      ["Text", "3"], ["Text", ";"], ["Simple_break", [1, 0]], ["Text", "4"],
-      ["Text", "]"], "Close_box", "Close_box", "Close_box"],
+    [["Box", "V", 0,
+       [["Box", "B", 2,
+          [["Box", "B", 2,
+             [["Text", "val l :"], ["Simple_break", 1, 0],
+               ["Box", "B", 0,
+                 [["Box", "B", 0, [["Text", "int"]]], ["Simple_break", 1, 0],
+                   ["Text", "list"]]]]],
+            ["Text", " ="], ["Simple_break", 1, 0],
+            ["Box", "B", 1,
+              [["Text", "[2;"], ["Simple_break", 1, 0], ["Text", "3;"],
+                ["Simple_break", 1, 0], ["Text", "4]"]]]]]]]],
   "trace" :
-    [[["Open_box", ["B", 2]], ["Text", "List"], ["Text", "."],
-       ["Text", "map*"], ["Text", " -->"], ["Simple_break", [1, 0]],
-       ["Open_box", ["B", 1]], ["Text", "["], ["Text", "<poly>"],
-       ["Text", ";"], ["Simple_break", [1, 0]], ["Text", "<poly>"],
-       ["Text", ";"], ["Simple_break", [1, 0]], ["Text", "<poly>"],
-       ["Text", "]"], "Close_box", "Close_box"],
-      [["Open_box", ["B", 2]], ["Text", "List"], ["Text", "."],
-        ["Text", "map*"], ["Text", " <--"], ["Simple_break", [1, 0]],
-        ["Open_box", ["B", 1]], ["Text", "["], ["Text", "<poly>"],
-        ["Text", ";"], ["Simple_break", [1, 0]], ["Text", "<poly>"],
-        ["Text", ";"], ["Simple_break", [1, 0]], ["Text", "<poly>"],
-        ["Text", "]"], "Close_box", "Close_box"],
-      [["Open_box", ["B", 2]], ["Text", "List"], ["Text", "."],
-        ["Text", "map"], ["Text", " -->"], ["Simple_break", [1, 0]],
-        ["Text", "<fun>"], "Close_box"],
-      [["Open_box", ["B", 2]], ["Text", "List"], ["Text", "."],
-        ["Text", "map"], ["Text", " <--"], ["Simple_break", [1, 0]],
-        ["Text", "<fun>"], "Close_box"]
-      ]
+    [[["Box", "B", 2,
+        [["Text", "List.map* -->"], ["Simple_break", 1, 0],
+          ["Box", "B", 1,
+            [["Text", "[<poly>;"], ["Simple_break", 1, 0],
+              ["Text", "<poly>;"], ["Simple_break", 1, 0],
+              ["Text", "<poly>]"]]]]]],
+      [["Box", "B", 2,
+         [["Text", "List.map* <--"], ["Simple_break", 1, 0],
+           ["Box", "B", 1,
+             [["Text", "[<poly>;"], ["Simple_break", 1, 0],
+               ["Text", "<poly>;"], ["Simple_break", 1, 0],
+               ["Text", "<poly>]"]]]]]],
+      [["Box", "B", 2,
+         [["Text", "List.map -->"], ["Simple_break", 1, 0],
+           ["Text", "<fun>"]]]],
+      [["Box", "B", 2,
+         [["Text", "List.map <--"], ["Simple_break", 1, 0],
+           ["Text", "<fun>"]]]]]
 }
 
