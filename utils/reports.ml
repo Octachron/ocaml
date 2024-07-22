@@ -111,13 +111,6 @@ module Structured_text = struct
     ()
 
   let text = new_constr v1 "Text" String
-  let with_size = new_constr v1 "With_size" Int
-  let open_box = new_constr v1 "Open_box" (Pair(Box_type.typ,Int))
-  let close_box = new_constr0 v1 "Close_box"
-  let open_tag = new_constr v1 "Open_tag" Format_tag.typ
-  let close_tag = new_constr0 v1 "Close_tag"
-  let open_tbox = new_constr0 v1 "Open_tbox"
-  let close_tbox = new_constr0 v1 "Close_tbox"
   let tab_break = new_constr v1 "Tab_break" (Pair(Int,Int))
   let set_tab = new_constr0 v1 "Set_tab"
   let simple_break = new_constr v1 "Simple_break" (Pair(Int,Int))
@@ -128,34 +121,40 @@ module Structured_text = struct
   let newline = new_constr0 v1 "Newline"
   let if_newline = new_constr0 v1 "If_newline"
 
+
+
   let deprecated = new_constr0 v1 "<deprecated>"
-  let () = seal v1
 
   type _ extension += Doc: Doc.t extension
+  let with_size = new_constr v1 "With_size" (Pair(Int,raw_type))
+  let box = new_constr v1 "Box" (Triple(Box_type.typ,Int,List raw_type))
+  let tag = new_constr v1 "Tag" (Pair(Format_tag.typ,List raw_type))
+  let tbox = new_constr v1 "Tbox" (List raw_type)
+
   let typ =
-    let elt_pull v = function
-      | Doc.Text x -> app v text x
-      | Doc.With_size x -> app v with_size x
-      | Doc.Open_box r -> app v open_box (r.kind, r.indent)
-      | Doc.Close_box -> app v close_box ()
-      | Doc.Open_tag t -> app v open_tag t
-      | Doc.Close_tag -> app v close_tag ()
-      | Doc.Open_tbox -> app v open_tbox ()
-      | Doc.Close_tbox -> app v close_tbox ()
-      | Doc.Tab_break t -> app v tab_break (t.width,t.offset)
-      | Doc.Set_tab -> app v set_tab ()
-      | Doc.Simple_break r -> app v simple_break (r.spaces, r.indent)
-      | Doc.Break r -> app v break (r.fits, r.breaks)
-      | Doc.Flush r -> app v flush r.newline
-      | Doc.Newline -> app v newline ()
-      | Doc.If_newline -> app v if_newline ()
-      | Doc.Deprecated _ -> app v deprecated ()
-    in
+    let rec tree_pull v =
+      let open Doc.Tree in
+      function
+      | Core (Text x) -> app v text x
+      | With_size {size;subtree} -> app v with_size (size, tree_pull v subtree)
+      | Box r -> app v box (r.kind, r.indent, trees v r.subtrees)
+      | Tagged t -> app v tag (t.tag, trees v t.subtrees)
+      | Tbox s -> app v tbox (trees v s)
+      | Core (Tab_break t) -> app v tab_break (t.width,t.offset)
+      | Core Set_tab -> app v set_tab ()
+      | Core (Simple_break r) -> app v simple_break (r.spaces, r.indent)
+      | Core (Break r) -> app v break (r.fits, r.breaks)
+      | Core (Flush r) -> app v flush r.newline
+      | Core Newline -> app v newline ()
+      | Core If_newline -> app v if_newline ()
+      | Core (Deprecated _) -> app v deprecated ()
+    and trees v = List.map (tree_pull v) in
     let default = List raw_type in
-    let pull v d =
-      List.rev @@
-      Format_doc.Doc.fold (fun l x -> elt_pull v x :: l ) [] d in
+    let pull v d = trees v (Doc.Tree.parse d) in
     Custom {id = Doc; default; pull }
+  let () = seal v1
+
+
 
   let register_tag = Format_tag.register_tag
   let register_tag0 = Format_tag.register_tag0
