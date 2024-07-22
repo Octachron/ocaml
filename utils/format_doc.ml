@@ -125,6 +125,12 @@ type stream_element =
               parse (With_size {size; subtree=Core x}::c) q k
           | q -> parse c q k
           end
+      | Core (Text x) :: Core (Text y) :: q ->
+          let b = Buffer.create 10 in
+          Buffer.add_string b x;
+          Buffer.add_string b y;
+          let t , r = merge_text b q in
+          parse (Core (Text t) :: c) r k
       | Core x :: q -> parse (Core x :: c) q k
       | (Close_box | Close_tag | Close_tbox) :: q -> k c q
      and parse_box c q k constr =
@@ -132,6 +138,15 @@ type stream_element =
            let b = constr (List.rev l) in
            parse (b::c) r k
          )
+     and merge_text b: stream_element list -> _ =
+       function
+       | [] -> Buffer.contents b, []
+       | Core (Text x) :: q ->
+           Buffer.add_string b x;
+           merge_text b q
+       | q ->
+           Buffer.contents b, q
+
       let parse d = parse [] (List.rev d.rev) (fun l _ -> List.rev l)
 
 
