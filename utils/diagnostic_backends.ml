@@ -74,6 +74,13 @@ module Fmt = struct
     Format.pp_print_list ~pp_sep (fun ppf pr -> pr ppf) ppf prs;
     conv.list.list_close ppf
 
+  let tuple ~inline conv prs ppf =
+    let pp_sep ppf () = conv.list.sep ppf in
+    if not inline then conv.list.list_open ppf;
+    Format.pp_print_list ~pp_sep (fun ppf pr -> pr ppf) ppf prs;
+    if not inline then conv.list.list_close ppf
+
+
   let record conv fields ppf =
     if List.is_empty fields then () else begin
       conv.assoc.assoc_open ppf;
@@ -88,7 +95,8 @@ module Fmt = struct
     version:Version.t option
   }
 
-  let rec elt : type a. ctx -> a typ -> a -> pr = fun ctx typ x ppf ->
+  let rec elt : type a. ?inline:bool -> ctx -> a typ -> a -> pr =
+    fun ?(inline=false) ctx typ x ppf ->
     match typ with
     | Unit -> Format.pp_print_int ppf 0
     | Int -> Format.pp_print_int ppf x
@@ -96,20 +104,20 @@ module Fmt = struct
     | String -> ctx.conv.string ppf x
     | Pair (a,b) ->
         let x,y = x in
-        list ctx.conv [
+        tuple ~inline ctx.conv [
         elt ctx a x;
         elt ctx b y;
       ] ppf
     | Triple (a,b,c) ->
         let x, y, z = x in
-        list ctx.conv [
+        tuple ~inline ctx.conv [
         elt ctx a x;
         elt ctx b y;
         elt ctx c z;
       ] ppf
     | Quadruple (a,b,c,d) ->
         let x, y, z ,w = x in
-        list ctx.conv [
+        tuple ~inline ctx.conv [
         elt ctx a x;
         elt ctx b y;
         elt ctx c z;
@@ -120,14 +128,14 @@ module Fmt = struct
         | Some pr -> pr ppf x
         | None -> elt ctx default (pull ctx.version x) ppf
       end
-    |  List e -> list ctx.conv (List.map (elt ctx e) x) ppf
+    | List e -> list ctx.conv (List.map (elt ~inline:false ctx e) x) ppf
     | Sum _ ->
         destruct x (fun name (V(typ,x)) ->
             match typ with
             | Unit -> ctx.conv.atom name ppf
             | _ ->
-                list ctx.conv
-                  [ ctx.conv.atom name; elt ctx typ x ]
+                tuple ~inline:false ctx.conv
+                  [ ctx.conv.atom name; elt ~inline:true ctx typ x ]
                   ppf
           )
     | Record m -> elt_record ctx (field_names m,x) ppf
@@ -332,6 +340,10 @@ module Json_schema = struct
     let constructor (name, kty) =
       match kty.ltyp with
       | T Unit -> obj [const name]
+      | T (Pair(x,y)) -> obj [tuple_typ [const name; typ x; typ y]]
+      | T (Triple(x,y,z)) -> obj [tuple_typ [const name; typ x; typ y; typ z]]
+      | T (Quadruple(x,y,z,w)) ->
+          obj [tuple_typ [const name; typ x; typ y; typ z; typ w]]
       | T ty -> obj [tuple_typ [const name; typ ty]]
     in
     obj [ item ~key:"oneOf" (array (List.map constructor (field_infos x))) ]

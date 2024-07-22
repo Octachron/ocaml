@@ -183,42 +183,27 @@
               {
                 "type" : "array",
                 "prefixItems" :
-                  [{ "const" : "Tag"},
+                  [{ "const" : "Tag"}, { "$ref" : "#/$defs/format_tag"},
                     {
                       "type" : "array",
-                      "prefixItems" :
-                        [{ "$ref" : "#/$defs/format_tag"},
-                          {
-                            "type" : "array",
-                            "items" : { "$ref" : "#/$defs/structured_text"}
-                          }]
+                      "items" : { "$ref" : "#/$defs/structured_text"}
                     }]
               },
               {
                 "type" : "array",
                 "prefixItems" :
-                  [{ "const" : "Box"},
+                  [{ "const" : "Box"}, { "$ref" : "#/$defs/box_type"},
+                    { "type" : "integer"},
                     {
                       "type" : "array",
-                      "prefixItems" :
-                        [{ "$ref" : "#/$defs/box_type"},
-                          { "type" : "integer"},
-                          {
-                            "type" : "array",
-                            "items" : { "$ref" : "#/$defs/structured_text"}
-                          }]
+                      "items" : { "$ref" : "#/$defs/structured_text"}
                     }]
               },
               {
                 "type" : "array",
                 "prefixItems" :
-                  [{ "const" : "With_size"},
-                    {
-                      "type" : "array",
-                      "prefixItems" :
-                        [{ "type" : "integer"},
-                          { "$ref" : "#/$defs/structured_text"}]
-                    }]
+                  [{ "const" : "With_size"}, { "type" : "integer"},
+                    { "$ref" : "#/$defs/structured_text"}]
               }, { "const" : "<deprecated>"}, { "const" : "If_newline"},
               { "const" : "Newline"},
               {
@@ -232,39 +217,27 @@
                     {
                       "type" : "array",
                       "prefixItems" :
-                        [{
-                           "type" : "array",
-                           "prefixItems" :
-                             [{ "type" : "string"}, { "type" : "integer"},
-                               { "type" : "string"}]
-                         },
-                          {
-                            "type" : "array",
-                            "prefixItems" :
-                              [{ "type" : "string"}, { "type" : "integer"},
-                                { "type" : "string"}]
-                          }]
+                        [{ "type" : "string"}, { "type" : "integer"},
+                          { "type" : "string"}]
+                    },
+                    {
+                      "type" : "array",
+                      "prefixItems" :
+                        [{ "type" : "string"}, { "type" : "integer"},
+                          { "type" : "string"}]
                     }]
               },
               {
                 "type" : "array",
                 "prefixItems" :
-                  [{ "const" : "Simple_break"},
-                    {
-                      "type" : "array",
-                      "prefixItems" :
-                        [{ "type" : "integer"}, { "type" : "integer"}]
-                    }]
+                  [{ "const" : "Simple_break"}, { "type" : "integer"},
+                    { "type" : "integer"}]
               }, { "const" : "Set_tab"},
               {
                 "type" : "array",
                 "prefixItems" :
-                  [{ "const" : "Tab_break"},
-                    {
-                      "type" : "array",
-                      "prefixItems" :
-                        [{ "type" : "integer"}, { "type" : "integer"}]
-                    }]
+                  [{ "const" : "Tab_break"}, { "type" : "integer"},
+                    { "type" : "integer"}]
               },
               {
                 "type" : "array",
