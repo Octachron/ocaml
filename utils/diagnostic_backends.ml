@@ -298,12 +298,13 @@ module Json_schema = struct
   let string s ppf = Format.fprintf ppf "%S" s
   let bool = Fmt.bool json
   let item = Fmt.item json
-  let header =
+  let header name  =
       [
         (item ~key:"$schema" @@
          string "https://json-schema.org/draft/2020-12/schema");
-        (item ~key:"$id" @@
-         string "https://github.com/ocaml/schema/compiler.schema.json");
+        (item ~key:"$id" @@ string @@
+         Format.asprintf "https://github.com/ocaml/schema/%s.schema.json"
+           name);
       ]
 
   let tfield  x = item ~key:"type" (string x)
@@ -429,7 +430,11 @@ module Json_schema = struct
            let prs = List.map (fun (key,pr) -> item ~key pr) defs in
            [item ~key:"$defs" @@ obj prs]
      in
-     obj (header @ defs @ schema_field :: record_fields v keys) ppf
+     obj (
+       header (scheme_name sch)
+       @ defs
+       @ schema_field :: record_fields v keys
+     ) ppf
 
   let pp_log ppf log =
     let sch = log_scheme log in
