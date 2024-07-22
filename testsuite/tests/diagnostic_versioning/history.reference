@@ -158,13 +158,6 @@ Main:
     structured_text
       Declaration
       New label Text, s
-      New label With_size, i
-      New label Open_box, box_type*i
-      New label Close_box
-      New label Open_tag, format_tag
-      New label Close_tag
-      New label Open_tbox
-      New label Close_tbox
       New label Tab_break, i*i
       New label Set_tab
       New label Simple_break, i*i
@@ -173,6 +166,10 @@ Main:
       New label Newline
       New label If_newline
       New label <deprecated>
+      New label With_size, i*structured_text
+      New label Box, box_type*i*l structured_text
+      New label Tag, format_tag*l structured_text
+      New label Tbox, l structured_text
       Seal
     toplevel
       Declaration

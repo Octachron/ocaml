@@ -375,37 +375,43 @@ module Json_schema = struct
 
   let simple_record x = obj (record_fields None x)
 
-  module String_map = Map.Make(String)
-  let union a =
-    List.fold_left (fun m acc -> String_map.union (fun _ x _ -> Some x) m acc)
-      String_map.empty
-      a
-  let rec refs: type a. a typ -> (Format.formatter -> unit) String_map.t =
-    fun ty -> match ty with
+  module String_map = Misc.Stdlib.String.Map
+  let union map a = List.fold_left (fun m add -> add m) map a
+  let rec refs: type a.
+    a typ -> ((Format.formatter -> unit) String_map.t as 'r) -> 'r  =
+    fun ty map -> match ty with
       | Sum x ->
-          String_map.add (scheme_name x) (sum x) (subrefs @@ field_infos x)
+          let name = scheme_name x in
+          if String_map.mem name map then map
+          else
+            let map = String_map.add (scheme_name x) (sum x) map in
+            subrefs (field_infos x) map
       | Record x ->
-          String_map.add (scheme_name x)
-            (simple_record @@ field_infos x)
-            (subrefs @@ field_infos x)
-      | Int -> String_map.empty
-      | Bool -> String_map.empty
-      | String -> String_map.empty
-      | Unit -> String_map.empty
-      | List elt -> refs elt
-      | Pair (x,y) -> union [refs x; refs y]
-      | Triple (x,y,z) -> union [refs x; refs y; refs z]
-      | Quadruple (x,y,z,w) -> union [refs x; refs y; refs z; refs w]
-      | Custom t -> refs t.default
+          let name = scheme_name x in
+          if String_map.mem name map then map
+          else
+            let fields = field_infos x in
+            let map = String_map.add name (simple_record fields) map in
+            subrefs fields map
+      | Int -> map
+      | Bool -> map
+      | String -> map
+      | Unit -> map
+      | List elt -> refs elt map
+      | Pair (x,y) -> union map [refs x; refs y]
+      | Triple (x,y,z) -> union map [refs x; refs y; refs z]
+      | Quadruple (x,y,z,w) -> union map [refs x; refs y; refs z; refs w]
+      | Custom t -> refs t.default map
   and subrefs: type a.
-    (string * label_metadata) list -> (Format.formatter -> unit) String_map.t
-    = fun keys ->
-      union @@
+    (string * label_metadata) list ->
+    ((Format.formatter -> unit) String_map.t as 'm) -> 'm
+    = fun keys map ->
+      union map @@
       List.map (fun (_, { ltyp = T t; _}) -> refs t) keys
 
    let pp v sch ppf =
      let keys = metakey :: field_infos sch in
-     let defs = match String_map.bindings (subrefs keys) with
+     let defs = match String_map.bindings (subrefs keys String_map.empty) with
        | [] -> []
        | defs ->
            let prs = List.map (fun (key,pr) -> item ~key pr) defs in

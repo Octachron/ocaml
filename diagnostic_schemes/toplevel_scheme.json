@@ -191,7 +191,55 @@
       "structured_text" :
         {
           "oneOf" :
-            [{ "const" : "<deprecated>"}, { "const" : "If_newline"},
+            [{
+               "type" : "array",
+               "prefixItems" :
+                 [{ "const" : "Tbox"},
+                   {
+                     "type" : "array",
+                     "items" : { "$ref" : "#/$defs/structured_text"}
+                   }]
+             },
+              {
+                "type" : "array",
+                "prefixItems" :
+                  [{ "const" : "Tag"},
+                    {
+                      "type" : "array",
+                      "prefixItems" :
+                        [{ "$ref" : "#/$defs/format_tag"},
+                          {
+                            "type" : "array",
+                            "items" : { "$ref" : "#/$defs/structured_text"}
+                          }]
+                    }]
+              },
+              {
+                "type" : "array",
+                "prefixItems" :
+                  [{ "const" : "Box"},
+                    {
+                      "type" : "array",
+                      "prefixItems" :
+                        [{ "$ref" : "#/$defs/box_type"},
+                          { "type" : "integer"},
+                          {
+                            "type" : "array",
+                            "items" : { "$ref" : "#/$defs/structured_text"}
+                          }]
+                    }]
+              },
+              {
+                "type" : "array",
+                "prefixItems" :
+                  [{ "const" : "With_size"},
+                    {
+                      "type" : "array",
+                      "prefixItems" :
+                        [{ "type" : "integer"},
+                          { "$ref" : "#/$defs/structured_text"}]
+                    }]
+              }, { "const" : "<deprecated>"}, { "const" : "If_newline"},
               { "const" : "Newline"},
               {
                 "type" : "array",
@@ -237,28 +285,6 @@
                       "prefixItems" :
                         [{ "type" : "integer"}, { "type" : "integer"}]
                     }]
-              }, { "const" : "Close_tbox"}, { "const" : "Open_tbox"},
-              { "const" : "Close_tag"},
-              {
-                "type" : "array",
-                "prefixItems" :
-                  [{ "const" : "Open_tag"}, { "$ref" : "#/$defs/format_tag"}]
-              }, { "const" : "Close_box"},
-              {
-                "type" : "array",
-                "prefixItems" :
-                  [{ "const" : "Open_box"},
-                    {
-                      "type" : "array",
-                      "prefixItems" :
-                        [{ "$ref" : "#/$defs/box_type"},
-                          { "type" : "integer"}]
-                    }]
-              },
-              {
-                "type" : "array",
-                "prefixItems" :
-                  [{ "const" : "With_size"}, { "type" : "integer"}]
               },
               {
                 "type" : "array",
