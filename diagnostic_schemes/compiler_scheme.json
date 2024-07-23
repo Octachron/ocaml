@@ -88,8 +88,6 @@
           "type" : "object",
           "properties" :
             {
-              "quotable_locs" :
-                { "type" : "array", "items" : { "$ref" : "#/$defs/loc"}},
               "footnote" :
                 {
                   "type" : "array",

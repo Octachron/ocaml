@@ -42,6 +42,5 @@ let () =
            not printed.@]";
     ];
     footnote=None;
-    quotable_locs = [];
   } in
   Format.printf "%a@." print_report report

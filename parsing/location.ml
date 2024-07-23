@@ -690,7 +690,6 @@ type report = {
   main : msg;
   sub : msg list;
   footnote: Fmt.t option;
-  quotable_locs: t list;
 }
 
 module Error_log = struct[@warning "-unused-value-declaration"]
@@ -797,8 +796,6 @@ module Error_log = struct[@warning "-unused-value-declaration"]
   let main = Reports.Error.new_field v1 "main" msg_typ
   let sub = Reports.Error.new_field_opt v1 "sub" (Log.List msg_typ)
   let footnote = Reports.Error.new_field_opt v1 "footnote" doc
-  let quotable_locs =
-    Reports.Error.new_field_opt v1 "quotable_locs" (Log.List Loc.ctyp)
 
   let () = Reports.Error.seal v1
 
@@ -809,7 +806,6 @@ module Error_log = struct[@warning "-unused-value-declaration"]
       kind ^= report.kind;
       main ^= report.main;
       sub ^= report.sub;
-      quotable_locs ^= report.quotable_locs;
       footnote ^=? report.footnote
     ]
   let report_typ = Custom { id = Error; pull; default = Reports.Error.raw_type }
@@ -826,7 +822,7 @@ type report_printer = {
   pp_main_loc: (report_kind * t) printer;
   pp_sub_loc : (report_kind * t) printer;
   pp_msg : Format_doc.t printer;
-  pp_quotable_locs: t list printer;
+  pp_highlight_locs: report printer;
 }
 
 let is_dummy_loc loc =
@@ -884,7 +880,7 @@ let pp_report reporter ppf report =
     *)
     separate_new_message' ppf;
     print_updating_num_loc_lines ppf (fun ppf () ->
-      reporter.pp_quotable_locs ppf report.quotable_locs;
+      reporter.pp_highlight_locs ppf report;
       Format.fprintf ppf "@[<v>%a%a%a: %a%a%a%a%a@]"
       Format.pp_open_tbox ()
       reporter.pp_main_loc (report.kind, report.main.loc)
@@ -943,12 +939,12 @@ let batch_mode_printer : report_printer =
           Format.pp_open_stag Misc.Style.Error
           w
   in
-  let pp_quotable_locs _ _  = () in
+  let pp_highlight_locs _ _  = () in
   let pp_main_loc = pp_loc in
   let pp_sub_loc ppf (_,loc as kloc) =
     if not loc.loc_ghost then pp_loc ppf kloc
   in
-  { pp_report_kind; pp_msg; pp_sub_loc; pp_main_loc; pp_quotable_locs }
+  { pp_report_kind; pp_msg; pp_sub_loc; pp_main_loc; pp_highlight_locs }
 
 let make_quotable_locs main sub =
     let sub_locs = List.map (fun { loc; _ } -> loc) sub in
@@ -956,17 +952,17 @@ let make_quotable_locs main sub =
     List.filter is_quotable_loc all_locs
 
 let terminfo_toplevel_printer (lb: lexbuf): report_printer =
-  let pp_quotable_locs ppf locs =
+  let pp_highlight_locs ppf report =
     (* Highlight all toplevel locations of the report, instead of displaying
        the main location. Do it now instead of in [pp_main_loc], to avoid
        messing with Format boxes. *)
-       highlight_terminfo lb ppf locs
+       highlight_terminfo lb ppf (make_quotable_locs report.main report.sub)
   in
   let pp_main_loc _ _ = () in
   let pp_sub_loc ppf (_,loc) =
     if not loc.loc_ghost then
       Format.fprintf ppf "%a:@ " print_loc loc in
-  { batch_mode_printer with pp_main_loc; pp_sub_loc; pp_quotable_locs }
+  { batch_mode_printer with pp_main_loc; pp_sub_loc; pp_highlight_locs }
 
 let best_toplevel_printer () =
   setup_terminal ();
@@ -1000,7 +996,6 @@ type delayed_msg = unit -> Fmt.t option
 
 let mkerror loc sub footnote txt =
   {
-    quotable_locs = make_quotable_locs { loc; txt } sub;
     kind = Report_error;
     main = { loc; txt };
     sub;
@@ -1033,8 +1028,7 @@ let default_warning_alert_reporter report mk (loc: t) w : report option =
       let sub = List.map (fun (loc, sub_message) ->
         { loc; txt = msg_of_str sub_message }
       ) sub_locs in
-      let quotable_locs = make_quotable_locs main sub in
-      Some { kind; main; sub; quotable_locs; footnote=None }
+      Some { kind; main; sub; footnote=None }
 
 let default_warning_reporter =
   default_warning_alert_reporter

@@ -208,7 +208,6 @@ type report = {
   main : msg;
   sub : msg list;
   footnote: Format_doc.t option;
-  quotable_locs: t list;
 }
 
 
@@ -218,7 +217,7 @@ type report_printer = {
   pp_main_loc: (report_kind * t) printer;
   pp_sub_loc : (report_kind * t) printer;
   pp_msg : Format_doc.t printer;
-  pp_quotable_locs: t list printer;
+  pp_highlight_locs: report printer;
 }
 (** A printer for [report]s.
     The goal is to make it easy to define new printers by re-using code from

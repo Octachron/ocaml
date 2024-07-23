@@ -268,13 +268,13 @@ let () = test sexp v2_0 A
 let () = test sexp v2_0 (B { possibly=false; maybe=true})
 [%%expect {|
 ((metadata ((version (2 0)) (valid Full)))
-(s (B ((content 0) (maybe true) (possibly false)))) (y false) (z 2))
+ (s (B ((content 0) (maybe true) (possibly false)))) (y false) (z 2))
 |}]
 
 let () = test sexp v2_0 bval
 [%%expect {|
 ((metadata ((version (2 0)) (valid Full)))
-(s (B ((content 0) (maybe true) (possibly false)))) (y false) (z 2))
+ (s (B ((content 0) (maybe true) (possibly false)))) (y false) (z 2))
 |}]
 
 let () = test sexp v2_0 cval

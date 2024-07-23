@@ -151,7 +151,7 @@ module Toplevel = struct
          problem to a fragile pattern-matching. *)
       pp_report_kind = base.pp_report_kind;
       pp_msg = base.pp_msg;
-      pp_quotable_locs = base.pp_quotable_locs;
+      pp_highlight_locs = base.pp_highlight_locs;
     }
 
   (** Capture warnings and keep them in a list *)

@@ -132,7 +132,6 @@ Main:
       New label main, error_msg
       New label sub, ?l error_msg
       New label footnote, ?l structured_text
-      New label quotable_locs, ?l loc
       Seal
     format_tag
       Declaration

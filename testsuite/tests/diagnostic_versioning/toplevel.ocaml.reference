@@ -60,9 +60,7 @@
                           [["Box", "B", 0, [["Text", "int"]]]]]]]]]],
               "loc" :
                 { "start_line" : 2, "stop_line" : 2, "characters" : [12, 13]}
-            },
-          "quotable_locs" :
-            [{ "start_line" : 2, "stop_line" : 2, "characters" : [12, 13]}]
+            }
         }
     }
 }
