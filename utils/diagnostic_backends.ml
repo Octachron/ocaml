@@ -195,8 +195,8 @@ module Fmt = struct
     { direct with atom = Format.dprintf "%s"; assoc  }
 
   let sexp =
-    let list_open = Format.dprintf "@[("
-    and list_close = Format.dprintf ")@]"
+    let list_open = Format.dprintf "@[<hov 1>("
+    and list_close = Format.dprintf "@,)@]"
     and sep = Format.dprintf "@ " in
     {
       atom = (fun s ppf -> Format.pp_print_string ppf s);
@@ -205,10 +205,10 @@ module Fmt = struct
       assoc = {
         assoc_open = list_open;
         assoc_close = list_close;
-        open_with_label = Format.dprintf "@[<b 2>(";
+        open_with_label = Format.dprintf "@[<hov 1>(";
         sep = (fun ppf () -> sep ppf);
         label_sep = sep;
-        close_with_label = Format.dprintf ")@]";
+        close_with_label = Format.dprintf "@;<0 -1>)@]";
       }
     }
 
