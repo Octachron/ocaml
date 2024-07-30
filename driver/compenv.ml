@@ -380,6 +380,14 @@ let read_one_param log position name v =
       | Some backend -> log_version := Some backend
       end
 
+  | "log-file" ->
+      begin match log_file_reader.parse v with
+      | None ->
+          Printf.ksprintf (print_error log)
+            "bad value %s for \"log-file\", (%s)" v log_version_reader.usage
+      | Some file -> log_file := Some file
+      end
+
 
   | "intf-suffix" -> Config.interface_suffix := v
 

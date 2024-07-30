@@ -19,7 +19,8 @@ open Clflags
 module Options = Main_args.Make_bytecomp_options (Main_args.Default.Main)
 
 let main_log rlog ppf =
-  let log = Location.log_on_formatter ~prev:(Some !rlog) ppf in
+  let device = Clflags.create_log_device ppf in
+  let log = Location.log_on_device ~prev:(Some !rlog) device in
   rlog := log;
   log
 

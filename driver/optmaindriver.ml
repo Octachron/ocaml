@@ -37,7 +37,8 @@ let backend = (module Backend : Backend_intf.S)
 module Options = Main_args.Make_optcomp_options (Main_args.Default.Optmain)
 
 let main_log rlog ppf =
-  rlog := Location.log_on_formatter ~prev:(Some !rlog) ppf;
+  let device = Clflags.create_log_device ppf in
+  rlog := Location.log_on_device ~prev:(Some !rlog) device;
   !rlog
 
 let process argv log ppf =

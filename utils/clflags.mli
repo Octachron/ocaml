@@ -215,7 +215,8 @@ val log_format: Diagnostic_backends.t option ref
 val log_format_reader: Diagnostic_backends.t env_reader
 val log_version: Log.Version.t option ref
 val log_version_reader: Log.Version.t env_reader
-
+val log_file: string option ref
+val log_file_reader: string env_reader
 
 val unboxed_types : bool ref
 
@@ -257,11 +258,14 @@ val reset_arguments : unit -> unit
 
 
 (** create a logger *)
-val create_log_on_formatter_ref:
+
+val create_log_device: Format.formatter -> Log.device
+
+val create_log:
   default_backend:Diagnostic_backends.t
   -> 'v Log.Version.history
   -> 'a Log.def
-  -> Format.formatter ref
+  -> Log.device
   -> 'a Log.t
 
 val dump: string -> bool

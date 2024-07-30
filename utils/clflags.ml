@@ -402,6 +402,7 @@ let log_format_reader = {
   usage={|expected "stdout", "json", or "sexp"|};
   env_var = "OCAML_LOG_FORMAT"
 }
+
 let log_version = ref None
 let log_version_reader =
   let parse s =
@@ -413,6 +414,15 @@ let log_version_reader =
     print = (Format.asprintf "%a" Log.Version.pp);
     usage={|expected "%d.%d"|};
     env_var = "OCAML_LOG_VERSION"
+  }
+
+let log_file = ref None
+let log_file_reader =
+  {
+    parse = (fun x -> Some x);
+    print = Fun.id;
+    usage={|expected "filename"|};
+    env_var = "OCAML_LOG_FILE"
   }
 
 
@@ -584,7 +594,18 @@ let create_usage_msg program =
 let print_arguments program =
   Arg.usage !arg_spec (create_usage_msg program)
 
-let create_log_on_formatter_ref ~default_backend history scheme ppf =
+
+let create_log_device ppf =
+  match !
+          log_file with
+  | None -> Log.make_device (ref ppf)
+  | Some f ->
+      let out = Out_channel.open_text f in
+      let on_close () = Out_channel.close out in
+      let ppf = Format.formatter_of_out_channel out in
+      Log.make_device ~on_close (ref ppf)
+
+let create_log ~default_backend history scheme device =
   let current_version = Log.Version.current_version history in
   let version = match !log_version with
     | None -> current_version
@@ -593,7 +614,7 @@ let create_log_on_formatter_ref ~default_backend history scheme ppf =
   let backend =
     Option.value ~default:default_backend !log_format
   in
-  backend.Diagnostic_backends.make !color version ppf scheme
+  backend.Diagnostic_backends.make ?color:!color ~version ~device scheme
 
 let dump name =
   Option.value ~default:false (Hashtbl.find_opt dump_fields name)
@@ -610,12 +631,13 @@ let dump_item_on_log log field fmt =
 
 (* showing configuration and configuration variables *)
 let show_config_and_exit () =
+  let device = create_log_device Format.std_formatter in
   let log =
-    create_log_on_formatter_ref
+    create_log
       ~default_backend:Diagnostic_backends.fmt_with_fields
       Reports.Config_versions.history
       Reports.Config.scheme
-      (ref Format.std_formatter)
+      device
   in
   Reports.Config.print_config log;
   exit 0

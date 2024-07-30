@@ -220,16 +220,30 @@ and 'a def = {
 }
 and 'a record = 'a bound_field Label_map.t ref
 
-type ppf_with_close =
+type device =
   {
     initialized: bool ref;
     ppf: Format.formatter ref;
-    close: unit -> unit;
+    on_close: unit -> unit;
   }
+
+let make_device ?(on_close=ignore) ppf =
+  { initialized=ref false; ppf; on_close}
+let err = make_device (ref Format.err_formatter)
+let std = make_device (ref Format.std_formatter)
+let ppf d = !(d.ppf)
+
+let out_channel_device out =
+  let on_close () =
+    Out_channel.flush out;
+    Out_channel.close out
+  in
+  let ppf = Format.formatter_of_out_channel out in
+  make_device ~on_close (ref ppf)
 
 type 'a log =
   {
-      mutable redirections: ppf_with_close Label_map.t;
+      mutable redirections: device Label_map.t;
       version: version option;
       scheme: 'a def;
       settings: Misc.Color.setting option;
@@ -237,8 +251,8 @@ type 'a log =
       printer:printer;
   }
 and 'a mode =
-  | Direct of ppf_with_close
-  | Store of {data:'a record; out:ppf_with_close option}
+  | Direct of device
+  | Store of {data:'a record; out:device option}
 and typed_record = R: 'a def * 'a record -> typed_record
 and typed_val = V: 'a typ * 'a -> typed_val
 and printer = {
@@ -821,9 +835,8 @@ module Validation = struct
 end
 
 
-let make ~structured ~printer settings version scheme ppf =
+let make ~structured ~printer settings version scheme out =
   let mode =
-    let out = {initialized=ref false; ppf; close=ignore} in
     if structured then Store {data=Record.make version []; out= Some out}
     else Direct out
   in
@@ -836,9 +849,9 @@ let make ~structured ~printer settings version scheme ppf =
     scheme;
   }
 
-let redirect log field ?(close=ignore) ppf  =
+let redirect log field device  =
   log.redirections <-
-    Label_map.add field.name {initialized=ref false;ppf;close} log.redirections
+    Label_map.add field.name device log.redirections
 
 let record_scheme: type a. a record typ -> a def  =
   function
@@ -907,7 +920,7 @@ module Fmt = struct
   let close c =
     if not !(c.initialized) then ()
     else (Format.fprintf !(c.ppf) "@,@]%!"; c.initialized := false);
-    c.close ()
+    c.on_close ()
 end
 
 (** *)
@@ -977,7 +990,7 @@ let separate log = match log.mode with
 let close: type a. a log -> unit = fun log ->
   begin match log.mode with
   | Direct d -> Fmt.close d
-  | Store { out = Some out } -> out.close ()
+  | Store { out = Some out } -> out.on_close ()
   | Store _ -> ()
   end;
   Label_map.iter (fun _ -> Fmt.close) log.redirections

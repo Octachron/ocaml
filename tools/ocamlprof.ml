@@ -493,7 +493,7 @@ let print_version_num () =
   exit 0
 
 let main () =
-  let log = Location.log_on_formatter ~prev:None Format.err_formatter in
+  let log = Location.log_on_device ~prev:None Log.err in
   try
     Option.iter Location.(prerr_alert none) @@ Warnings.parse_options false "a";
     Arg.parse_expand [

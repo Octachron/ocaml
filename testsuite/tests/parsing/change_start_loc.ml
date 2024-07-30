@@ -24,7 +24,7 @@ let print_error_in_parse set_position_variant =
             Lexing.set_filename lexbuf "file.ml"; (* also testing set_filename *)
             Parse.expression lexbuf in ()
     with e ->
-      let log = Location.log_on_formatter ~prev:None Format.std_formatter in
+      let log = Location.log_on_device ~prev:None Log.std in
       Location.log_exception log e
 
 let _ =

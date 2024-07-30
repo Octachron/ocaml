@@ -408,17 +408,17 @@ let compiler_log log =
   if !Location.formatter_for_warnings != Format.err_formatter then
     begin
       Log.redirect clog Location.Error_log.warnings
-        Location.formatter_for_warnings;
+        (Log.make_device Location.formatter_for_warnings);
     end;
   clog
 
-let log_on_formatter ppf =
+let log_on_device device =
   let log =
-    Clflags.create_log_on_formatter_ref
+    Clflags.create_log
       ~default_backend:Diagnostic_backends.fmt
       Reports.V.history
       Reports.Toplevel.scheme
-      (ref ppf)
+      device
   in
   let _ = compiler_log log in
   log

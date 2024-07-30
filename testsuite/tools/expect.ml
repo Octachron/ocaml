@@ -220,7 +220,8 @@ let eval_expect_file _fname ~file_contents =
   in
   let buf = Buffer.create 1024 in
   let ppf = Format.formatter_of_buffer buf in
-  let log = Topcommon.log_on_formatter ppf in
+  let dev = Log.make_device (ref ppf) in
+  let log = Topcommon.log_on_device dev in
   let exec_phrases phrases =
     let phrases =
       match min_line_number phrases with
@@ -368,7 +369,7 @@ let () =
     Printf.eprintf "expect: no input file\n";
     exit 2
   with exn ->
-    let log = Location.log_on_formatter ~prev:None Format.err_formatter in
+    let log = Location.log_on_device ~prev:None Log.err in
     Location.log_exception  log exn;
     Log.flush log;
     exit 2

@@ -51,7 +51,7 @@ val record_backtrace : unit -> unit
 
 (*Log creation *)
 
-val log_on_formatter: Format.formatter -> Reports.Toplevel.t
+val log_on_device: Log.device -> Reports.Toplevel.t
 val compiler_log: Reports.Toplevel.t -> Reports.Compiler.t
 val debug_log: Reports.Toplevel.t -> Reports.Debug.t
 

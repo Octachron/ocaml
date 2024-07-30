@@ -45,7 +45,7 @@ let check_file kind fn =
     try
       invariants kind ast
     with exn ->
-      let log = Location.log_on_formatter ~prev:None Format.std_formatter in
+      let log = Location.log_on_device ~prev:None Log.std in
       Location.log_exception log exn
 
 type file_kind =

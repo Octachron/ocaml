@@ -235,7 +235,7 @@ let print_raw_dependencies source_file deps =
 
 (* Process one file *)
 
-let log = Location.log_on_formatter ~prev:None Format.err_formatter
+let log = Location.log_on_device ~prev:None Log.err
 
 let print_exception exn =
   Location.log_exception log exn

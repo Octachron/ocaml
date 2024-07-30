@@ -374,8 +374,8 @@ val raise_errorf: ?loc:t -> ?sub:msg list -> ?footnote:delayed_msg ->
 val log_exception: Reports.Compiler.t -> exn -> unit
 (** Reraise the exception if it is unknown or log it. *)
 
-val log_on_formatter:
-  prev:Reports.Compiler.t option -> Format.formatter -> Reports.Compiler.t
+val log_on_device:
+  prev:Reports.Compiler.t option -> Log.device -> Reports.Compiler.t
 
 (** Store log events while waiting for log configuration*)
 val temporary_log: unit -> Reports.Compiler.t

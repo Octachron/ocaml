@@ -100,6 +100,7 @@ let read_clflags_from_env () =
   set_from_env Clflags.error_style Clflags.error_style_reader;
   set_from_env Clflags.log_format Clflags.log_format_reader;
   set_from_env Clflags.log_version Clflags.log_version_reader;
+  set_from_env Clflags.log_file Clflags.log_file_reader;
   ()
 
 let rec make_directory dir =
@@ -110,26 +111,21 @@ let rec make_directory dir =
     end
 
 let dump_file ~file_prefix =
-  let with_ch ch =
-    let ppf = Format.formatter_of_out_channel ch in
-    ref ppf,
-    (fun () -> flush ch; close_out ch)
-  in
   match !Clflags.dump_dir, !Clflags.dump_into_file with
   | None, false -> None
   | None, true ->
-      Some (with_ch (open_out (file_prefix ^ ".dump")))
+      Some (Log.out_channel_device (open_out (file_prefix ^ ".dump")))
   | Some d, _ ->
       let () = make_directory Filename.(dirname @@ concat d @@ file_prefix) in
       let _, ch =
         Filename.open_temp_file ~temp_dir:d (file_prefix ^ ".")  ".dump"
       in
-      Some (with_ch ch)
+      Some (Log.out_channel_device ch)
 
 let with_debug_log ~file_prefix log f =
   match dump_file ~file_prefix with
   | None -> f (Log.detach log Reports.Compiler.debug)
-  | Some (ppf,close) ->
-      Log.redirect log Reports.Compiler.debug ~close ppf;
+  | Some device ->
+      Log.redirect log Reports.Compiler.debug device;
       let dlog = Log.detach log Reports.Compiler.debug in
       Fun.protect ~finally:(fun () -> Log.close dlog) (fun () -> f dlog)

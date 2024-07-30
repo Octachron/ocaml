@@ -1052,23 +1052,24 @@ let () =
 
 let formatter_for_warnings = ref Format.err_formatter
 
-let create_log_on_formatter_ref ppf =
+let create_log device =
   let default_backend = Diagnostic_backends.fmt in
   let log =
-    Clflags.create_log_on_formatter_ref ~default_backend
-      Reports.V.history Reports.Compiler.scheme ppf
+    Clflags.create_log ~default_backend
+      Reports.V.history Reports.Compiler.scheme device
   in
   if !formatter_for_warnings != Format.err_formatter then
-    Log.redirect log Error_log.warnings formatter_for_warnings;
+    Log.redirect log Error_log.warnings
+      (Log.make_device formatter_for_warnings);
   log
 
-let current_log = ref (create_log_on_formatter_ref formatter_for_warnings)
+let current_log = ref (create_log @@ Log.make_device formatter_for_warnings)
 
 
 let temporary_log () = Log.tmp Reports.Compiler.scheme
 
-let log_on_formatter ~prev ppf =
-  let log = create_log_on_formatter_ref (ref ppf) in
+let log_on_device ~prev device =
+  let log = create_log device in
   current_log := log;
   Option.iter (fun prev -> Log.replay prev log) prev;
   log

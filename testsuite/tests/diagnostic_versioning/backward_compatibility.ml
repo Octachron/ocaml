@@ -215,7 +215,7 @@ val x : int R.field = <abstr>
 let test backend v sval =
   let log =
     let open Diagnostic_backends in
-    backend.make None v (ref Format.std_formatter) R.scheme
+    backend.make ~version:v ~device:Log.std R.scheme
   in
   log.%[s] <- sval;
   log.%[x] <- 0;

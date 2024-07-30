@@ -202,7 +202,7 @@ module Toplevel = struct
       (eprintf "Invalid repo root: %s?%!" !repo_root; exit 2)
 
   let exec (_,ppf) p =
-    let log = Topcommon.log_on_formatter ppf in
+    let log = Topcommon.log_on_device (Log.make_device (ref ppf)) in
     try
       ignore @@ Toploop.execute_phrase true log p
     with exn ->

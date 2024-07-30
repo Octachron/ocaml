@@ -270,21 +270,24 @@ end
     in
     make ~structured ~printer:{record;item} settings version scheme ppf
 
-  let structured conv =
+  let structured conv ?color ~version ~device sch =
     with_conv ~structured:true ~extension:Fmt.no_extension conv
-  let sexp color version ppf sch = structured Fmt.sexp color version ppf sch
-  let json color version ppf sch = structured Fmt.json color version ppf sch
-  let direct color version ppf sch =
+      color version device sch
+  let sexp ?color ~version ~device sch =
+    structured Fmt.sexp ?color ~version ~device sch
+  let json ?color ~version ~device sch =
+    structured Fmt.json ?color ~version ~device sch
+  let direct ?color ~version ~device sch =
     with_conv ~structured:false ~extension:(!Fmt.extensions)
-      Fmt.direct color version ppf sch
-  let direct_with_fields color version ppf sch =
+      Fmt.direct color version device sch
+  let direct_with_fields ?color ~version ~device sch =
     with_conv ~structured:false ~extension:(!Fmt.extensions)
-      Fmt.direct_with_fields color version ppf sch
+      Fmt.direct_with_fields color version device sch
 
 
   type t = {
     name:string;
-    make: 'a. Misc.Color.setting option -> version -> Format.formatter ref
+    make: 'a. ?color:Misc.Color.setting -> version:version -> device:Log.device
       -> 'a def -> 'a log;
   }
   let fmt = { name="direct"; make = direct }

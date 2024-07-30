@@ -131,9 +131,16 @@ val is_optional: label_metadata -> bool
 val log_scheme: 'a log -> 'a def
 val log_version: 'a log -> Version.t option
 
+type device
+val make_device: ?on_close:(unit->unit) -> Format.formatter ref -> device
+val out_channel_device: Out_channel.t -> device
+val ppf: device -> Format.formatter
+val err: device
+val std: device
+
 val make:
   structured:bool -> printer:printer -> Misc.Color.setting option ->
-  Version.t -> 'a def -> Format.formatter ref -> 'a log
+  Version.t -> 'a def -> device -> 'a log
 
 val metakey: string * label_metadata
 
@@ -225,8 +232,7 @@ val cons: ('a list, 'b) field -> 'a -> 'b log -> unit
 val get: ('a,'b) field  -> 'b log -> 'a option
 val dynamic_get: string  -> 'b log -> typed_val option
 
-val redirect: 'id log -> ('a,'id) field ->
-  ?close:(unit -> unit) -> Format.formatter ref -> unit
+val redirect: 'id log -> ('a,'id) field -> device -> unit
 val replay: 'a log -> 'a log -> unit
 
 val detach: 'id log -> ('id2 record, 'id) field -> 'id2 log
