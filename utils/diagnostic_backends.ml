@@ -100,6 +100,7 @@ module Fmt = struct
     match typ with
     | Unit -> Format.pp_print_int ppf 0
     | Int -> Format.pp_print_int ppf x
+    | Float -> Format.pp_print_float ppf x
     | Bool -> bool ctx.conv x ppf
     | String -> ctx.conv.string ppf x
     | Pair (a,b) ->
@@ -322,6 +323,7 @@ module Json_schema = struct
     | Bool -> tfield {|boolean|}
     | Unit -> tfield {|int|}
     | String -> tfield {|string|}
+    | Float -> tfield "number"
     | List e ->
         Format.dprintf "%t,@ %t"
           (tfield  {|array|})
@@ -413,6 +415,7 @@ module Json_schema = struct
       | Bool -> map
       | String -> map
       | Unit -> map
+      | Float -> map
       | List elt -> refs elt map
       | Pair (x,y) -> union map [refs x; refs y]
       | Triple (x,y,z) -> union map [refs x; refs y; refs z]

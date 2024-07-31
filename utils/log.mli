@@ -91,6 +91,7 @@ type 'a typ =
   | Unit: unit typ
   | Bool: bool typ
   | Int: int typ
+  | Float: float typ
   | String: string typ
   | List: 'a typ -> 'a list typ
   | Pair: 'a typ * 'b typ -> ('a * 'b) typ

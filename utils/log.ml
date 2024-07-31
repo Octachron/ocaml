@@ -184,6 +184,7 @@ type 'a typ =
   | Unit: unit typ
   | Bool: bool typ
   | Int: int typ
+  | Float: float typ
   | String: string typ
   | List: 'a typ -> 'a list typ
   | Pair: 'a typ * 'b typ -> ('a * 'b) typ
@@ -286,6 +287,7 @@ let rec pp_typ: type a. Format.formatter -> a typ -> unit = fun ppf -> function
 | Unit -> Format.pp_print_string ppf ""
 | Int -> Format.pp_print_string ppf "i"
 | Bool -> Format.pp_print_string ppf "b"
+| Float -> Format.pp_print_string ppf "f"
 | String -> Format.pp_print_string ppf "s"
 | List elt -> Format.fprintf ppf "l %a" with_parens elt
 | Pair (x,y) -> Format.fprintf ppf "%a*%a" with_parens x with_parens y
@@ -734,6 +736,7 @@ module Validation = struct
     | Int -> false
     | String -> false
     | Bool -> false
+    | Float -> false
     | Pair (x,y) -> possibly_invalid x || possibly_invalid y
     | Triple (x,y,z) ->
         possibly_invalid x || possibly_invalid y || possibly_invalid z
@@ -802,6 +805,7 @@ module Validation = struct
     | Int -> none
     | Bool -> none
     | String -> none
+    | Float -> none
     | Custom _ -> none
     | Unit -> none
     | List elt ->
