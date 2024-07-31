@@ -124,10 +124,12 @@ let main argv ppf =
     | exception Continue
     | _ ->
         let print_profile = not @@ List.is_empty !Clflags.profile_columns in
-        Compmisc.with_debug_log ~file_prefix:"profile" !log
-          (fun log -> Log.log_if log Reports.Debug.profile print_profile
-              Profile.print !Clflags.profile_columns
-          );
+        if print_profile then
+          Compmisc.with_debug_log ~file_prefix:"profile" !log
+            (fun log ->
+               let profile = Profile.get !Clflags.profile_columns in
+               log.Log.%[Profile.profile] <- profile
+            );
         0
     | exception x ->
         Location.log_exception !log x;

@@ -195,8 +195,6 @@ module Debug = struct
   let mach = new_field_opt v1 "mach" slist
   let linear = new_field_opt v1 "linear" slist
   let cmm_invariant = new_field_opt v1 "cmm_invariant" String
-  let profile = new_field_opt v1 "profile" String
-  let () = seal v1
 end
 
 module Error =

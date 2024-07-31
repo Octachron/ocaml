@@ -59,7 +59,6 @@ module Debug: sig
   val mach: string list field
   val linear: string list field
   val cmm_invariant: string field
-  val profile: string field
 end
 
 module Compiler: sig
