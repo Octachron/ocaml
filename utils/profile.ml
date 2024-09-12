@@ -122,7 +122,8 @@ module Profile_report = struct
 end
 
 
-let profile = Reports.Debug.new_field Reports.V.v1 "profile" Profile_report.typ
+let profile =
+  Reports.Debug.new_field_opt Reports.V.v1 "profile" Profile_report.typ
 let () = Reports.(Debug.seal V.v1)
 
 let create () = E (Hashtbl.create 2)
