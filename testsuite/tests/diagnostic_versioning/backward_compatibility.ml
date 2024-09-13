@@ -402,24 +402,23 @@ let () = test json ~v:v2_0 cval
 |}]
 
 let () = test json cval
-
 [%%expect{|
 {
   "s" :
     ["C",
       {
         "approx" :
-          ["B",
-            {
-              "approx" : "B",
-              "content" : 0,
-              "maybe" : true,
-              "possibly" : false
-            }],
+          ["B", { "content" : 0, "maybe" : true, "possibly" : false}],
         "contents" : true
       }],
   "x" : 0,
   "y" : false,
   "z" : 2
 }
+|}]
+
+let () = test sexp bval
+
+[%%expect{|
+((s (B ((content 0) (maybe true) (possibly false)))) (x 0) (y false) (z 2))
 |}]

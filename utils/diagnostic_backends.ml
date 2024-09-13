@@ -148,7 +148,10 @@ module Fmt = struct
        [ ctx.conv.atom name; elt ~inline:true ctx typ x ]
        ppf
      end
-  | (name, V(typ,x)) :: rest ->
+  | (name, V(typ,x) as head) :: ((name',_) :: r as rest) ->
+      if name = name' then
+        sum ctx (head::r) ppf
+      else
       let approx = item ctx.conv ~key:"approx" (sum ctx rest) in
       let arg =
         match scrap_custom ctx.version typ x with
