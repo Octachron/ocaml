@@ -95,6 +95,12 @@ module Fmt = struct
     version:Version.t option
   }
 
+  let rec scrap_custom: type t. Version.t option -> t typ -> t -> typed_val =
+    fun v t x ->
+    match t with
+    | Custom r -> scrap_custom v r.default (r.pull v x)
+    | t -> V(t,x)
+
   let rec elt : type a. ?inline:bool -> ctx -> a typ -> a -> pr =
     fun ?(inline=false) ctx typ x ppf ->
     match typ with
@@ -130,16 +136,33 @@ module Fmt = struct
         | None -> elt ctx default (pull ctx.version x) ppf
       end
     | List e -> list ctx.conv (List.map (elt ~inline:false ctx e) x) ppf
-    | Sum _ ->
-        destruct x (fun name (V(typ,x)) ->
-            match typ with
-            | Unit -> ctx.conv.atom name ppf
-            | _ ->
-                tuple ~inline:false ctx.conv
-                  [ ctx.conv.atom name; elt ~inline:true ctx typ x ]
-                  ppf
-          )
+    | Sum _ -> destruct x (fun l -> sum ctx l ppf)
     | Record m -> elt_record ctx (field_names m,x) ppf
+  and sum ctx nested_c ppf = match nested_c with
+  | [] -> ()
+  | [name,V(typ,x)] ->
+     begin match typ with
+     | Unit -> ctx.conv.atom name ppf
+     | _ ->
+       tuple ~inline:false ctx.conv
+       [ ctx.conv.atom name; elt ~inline:true ctx typ x ]
+       ppf
+     end
+  | (name, V(typ,x)) :: rest ->
+      let approx = item ctx.conv ~key:"approx" (sum ctx rest) in
+      let arg =
+        match scrap_custom ctx.version typ x with
+        | V(Record r,x) ->
+            let fields = approx :: fields ctx (field_names r,x) in
+            record ctx.conv fields
+        | _ -> record ctx.conv [
+            approx;
+            elt_item ctx ~key:"contents" typ x
+          ]
+      in
+       tuple ~inline:false ctx.conv
+         [ ctx.conv.atom name; arg] ppf
+
   and trim_item: type a.
     ctx -> key:string -> optional:bool -> a typ -> a -> pr option =
     fun ctx ~key ~optional ty x ->
@@ -254,7 +277,7 @@ module Fmt = struct
 end
 
   let with_conv ~structured ~extension conv settings version ppf scheme =
-    let ctx = { Fmt.version=Some version; conv; ext_printer=extension} in
+    let ctx = { Fmt.version; conv; ext_printer=extension} in
     let record ppf (R(def, r)) =
       let field_names = field_names def in
       let fs = Log.fields field_names r in
@@ -288,8 +311,8 @@ end
 
   type t = {
     name:string;
-    make: 'a. ?color:Misc.Color.setting -> version:version -> device:Log.device
-      -> 'a def -> 'a log;
+    make: 'a. ?color:Misc.Color.setting -> version:version option
+      -> device:Log.device -> 'a def -> 'a log;
   }
   let fmt = { name="direct"; make = direct }
   let fmt_with_fields = { name="direct_with_fields"; make = direct_with_fields }

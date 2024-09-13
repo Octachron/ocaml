@@ -24,8 +24,8 @@ end
 type t = {
   name:string;
   make:
-    'a. ?color:Misc.Color.setting -> version:version -> device:Log.device ->
-    'a def -> 'a log;
+    'a. ?color:Misc.Color.setting -> version:version option
+    -> device:Log.device -> 'a def -> 'a log;
 }
 val fmt: t
 val fmt_with_fields:t

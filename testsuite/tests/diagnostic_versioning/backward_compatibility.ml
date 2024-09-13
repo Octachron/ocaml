@@ -135,7 +135,7 @@ val b : r S.constructor = <abstr>
 let c =
   S.refine u1_2 b
     (fun maybe -> {maybe;possibly=false})
-    "c" Bool
+    "C" Bool
 let () = S.seal u1_2
 
 let c = S.publish u2_0 c
@@ -212,7 +212,7 @@ val x : int R.field = <abstr>
 |}]
 
 
-let test backend v sval =
+let test backend ?v sval =
   let log =
     let open Diagnostic_backends in
     backend.make ~version:v ~device:Log.std R.scheme
@@ -228,7 +228,7 @@ let sexp = Diagnostic_backends.sexp
 let bval = B { possibly=false; maybe=true};;
 let cval = C true
 [%%expect {|
-val test : Diagnostic_backends.t -> Log.version -> s -> unit = <fun>
+val test : Diagnostic_backends.t -> ?v:Log.version -> s -> unit = <fun>
 val json : Diagnostic_backends.t =
   {Diagnostic_backends.name = "json"; make = <fun>}
 val sexp : Diagnostic_backends.t =
@@ -260,29 +260,29 @@ val xst :
 |}]
 
 
-let () = test sexp v2_0 A
+let () = test sexp ~v:v2_0 A
 [%%expect {|
 ((metadata ((version (2 0)) (valid Full))) (s A) (y false) (z 2))
 |}]
 
-let () = test sexp v2_0 (B { possibly=false; maybe=true})
+let () = test sexp ~v:v2_0 (B { possibly=false; maybe=true})
 [%%expect {|
 ((metadata ((version (2 0)) (valid Full)))
  (s (B ((content 0) (maybe true) (possibly false)))) (y false) (z 2))
 |}]
 
-let () = test sexp v2_0 bval
+let () = test sexp ~v:v2_0 bval
 [%%expect {|
 ((metadata ((version (2 0)) (valid Full)))
  (s (B ((content 0) (maybe true) (possibly false)))) (y false) (z 2))
 |}]
 
-let () = test sexp v2_0 cval
+let () = test sexp ~v:v2_0 cval
 [%%expect {|
-((metadata ((version (2 0)) (valid Full))) (s (c true)) (y false) (z 2))
+((metadata ((version (2 0)) (valid Full))) (s (C true)) (y false) (z 2))
 |}]
 
-let () = test json v1_0 A
+let () = test json ~v:v1_0 A
 [%%expect {|
 {
   "metadata" : { "version" : [1, 0], "valid" : "Full"},
@@ -292,7 +292,7 @@ let () = test json v1_0 A
 }
 |}]
 
-let () = test json v1_1 A
+let () = test json ~v:v1_1 A
 [%%expect {|
 {
   "metadata" :
@@ -308,7 +308,7 @@ let () = test json v1_1 A
 }
 |}]
 
-let () = test json v2_0 A
+let () = test json ~v:v2_0 A
 [%%expect {|
 {
   "metadata" : { "version" : [2, 0], "valid" : "Full"},
@@ -318,7 +318,7 @@ let () = test json v2_0 A
 }
 |}]
 
-let () = test json v1_0 bval
+let () = test json ~v:v1_0 bval
 [%%expect {|
 {
   "metadata" : { "version" : [1, 0], "valid" : "Full"},
@@ -327,7 +327,7 @@ let () = test json v1_0 bval
   "y" : false
 }
 |}]
-let () = test json v1_1 bval
+let () = test json ~v:v1_1 bval
 [%%expect {|
 {
   "metadata" :
@@ -342,7 +342,7 @@ let () = test json v1_1 bval
   "z" : 2
 }
 |}]
-let () = test json v2_0 bval
+let () = test json ~v:v2_0 bval
 [%%expect {|
 {
   "metadata" : { "version" : [2, 0], "valid" : "Full"},
@@ -352,7 +352,7 @@ let () = test json v2_0 bval
 }
 |}]
 
-let () = test json v1_0 cval
+let () = test json ~v:v1_0 cval
 [%%expect {|
 {
   "metadata" : { "version" : [1, 0], "valid" : "Full"},
@@ -362,7 +362,7 @@ let () = test json v1_0 cval
 }
 |}]
 
-let () = test json v1_1 cval
+let () = test json ~v:v1_1 cval
 [%%expect {|
 {
   "metadata" :
@@ -380,22 +380,45 @@ let () = test json v1_1 cval
 
 
 
-let () = test json v1_2 cval
+let () = test json ~v:v1_2 cval
 [%%expect {|
 {
   "metadata" : { "version" : [1, 2], "valid" : "Full"},
-  "s" : ["c", true],
+  "s" : ["C", true],
   "y" : false,
   "z" : 2
 }
 |}]
 
 
-let () = test json v2_0 cval
+let () = test json ~v:v2_0 cval
 [%%expect {|
 {
   "metadata" : { "version" : [2, 0], "valid" : "Full"},
-  "s" : ["c", true],
+  "s" : ["C", true],
+  "y" : false,
+  "z" : 2
+}
+|}]
+
+let () = test json cval
+
+[%%expect{|
+{
+  "s" :
+    ["C",
+      {
+        "approx" :
+          ["B",
+            {
+              "approx" : "B",
+              "content" : 0,
+              "maybe" : true,
+              "possibly" : false
+            }],
+        "contents" : true
+      }],
+  "x" : 0,
   "y" : false,
   "z" : 2
 }

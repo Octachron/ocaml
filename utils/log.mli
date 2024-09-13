@@ -120,7 +120,7 @@ type printer = {
   item: Format.formatter -> string * typed_val -> unit;
 }
 
-val destruct: 'a sum -> (string -> typed_val -> 'b) -> 'b
+val destruct: 'a sum -> ((string * typed_val) list -> 'b) -> 'b
 
 val field_infos: 'a def -> (string * label_metadata) list
 val field_names: 'a def -> string list
@@ -141,7 +141,7 @@ val std: device
 
 val make:
   structured:bool -> printer:printer -> Misc.Color.setting option ->
-  Version.t -> 'a def -> device -> 'a log
+  Version.t option -> 'a def -> device -> 'a log
 
 val metakey: string * label_metadata
 

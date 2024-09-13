@@ -207,7 +207,9 @@ and ('a,'b) field = {
   range:Version.Lifetime.t
 }
 and 'a bound_field = Field: ('a,'b) field * 'a -> 'b bound_field
-and 'id sum = Constr: { name:string; typ:'a typ; arg: 'a} -> 'id sum
+and 'id sum =
+    Constr: { name:string; typ:'a typ; arg:'a; approx: 'id sum option }
+      -> 'id sum
 and any_typ = T: 'a typ -> any_typ
 and label_metadata = {
   ltyp: any_typ;
@@ -261,7 +263,14 @@ and printer = {
   item: Format.formatter -> string * typed_val -> unit
 }
 
-let destruct (Constr c) f = f c.name (V(c.typ,c.arg))
+let destruct c f =
+  let rec expand (Constr c) =
+    let head = c.name, V (c.typ,c.arg) in
+      match c.approx with
+      | None -> [head]
+      | Some t -> head :: expand t
+  in
+  f (expand c)
 let scheme_name x = x.scheme_name
 let field_name f = f.name
 let field_infos d = d.labels
@@ -381,18 +390,28 @@ and ('current,'id) constructor_projection =
 
 let is_expansion c (Proj p) = c.cname = p.old.cname
 
-let rec project: type t id. Version.t -> (t,id) constructor -> t -> id sum =
+let rec select_version:
+  type t id. Version.t -> (t,id) constructor -> t -> id sum =
   fun v c x ->
   match c.projection with
-  | None -> Constr { name = c.cname; typ=c.typ; arg=x}
+  | None -> Constr { name = c.cname; typ=c.typ; arg=x; approx = None}
   | Some (Proj p) ->
-      if v >= p.version then  Constr { name = c.cname; typ=c.typ; arg=x}
-      else project v p.old (p.map x)
+      if v >= p.version then
+        Constr { name = c.cname; typ=c.typ; arg=x; approx=None}
+      else select_version v p.old (p.map x)
+
+let rec expand_all_approx: type t id. (t,id) constructor -> t -> id sum =
+  fun c x ->
+  match c.projection with
+  | None -> Constr { name = c.cname; typ=c.typ; arg=x; approx = None}
+  | Some (Proj p) ->
+    let approx = Some (expand_all_approx p.old (p.map x)) in
+    Constr { name = c.cname; typ=c.typ; arg=x; approx}
 
 let app v c x =
   match v with
-  | None -> Constr {name=c.cname; typ=c.typ; arg=x}
-  | Some v -> project v c x
+  | None -> expand_all_approx c x
+  | Some v -> select_version v c x
 
 module type Sum = sig
   type id
@@ -847,7 +866,7 @@ let make ~structured ~printer settings version scheme out =
   {
     redirections = Label_map.empty;
     settings;
-    version=Some version;
+    version;
     printer;
     mode;
     scheme;
