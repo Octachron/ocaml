@@ -14,7 +14,15 @@
           "type" : "object",
           "properties" :
             {
-              "profile" : { "type" : "string"},
+              "profile" :
+                {
+                  "type" : "array",
+                  "prefixItems" :
+                    [{
+                       "type" : "array",
+                       "items" : { "$ref" : "#/$defs/hierarchy"}
+                     }, { "$ref" : "#/$defs/measure_diff"}]
+                },
               "cmm_invariant" : { "type" : "string"},
               "linear" : { "type" : "array", "items" : { "type" : "string"}},
               "mach" : { "type" : "array", "items" : { "type" : "string"}},
@@ -122,6 +130,21 @@
                   [{ "const" : "<Unknown>"}, { "type" : "string"}]
               }]
         },
+      "hierarchy" :
+        {
+          "type" : "object",
+          "properties" :
+            {
+              "children" :
+                {
+                  "type" : "array",
+                  "items" : { "$ref" : "#/$defs/hierarchy"}
+                },
+              "measure" : { "$ref" : "#/$defs/measure_diff"},
+              "name" : { "type" : "string"}
+            },
+          "required" : ["children", "measure", "name"]
+        },
       "loc" :
         {
           "type" : "object",
@@ -138,6 +161,20 @@
               "file" : { "type" : "string"}
             },
           "required" : []
+        },
+      "measure_diff" :
+        {
+          "type" : "object",
+          "properties" :
+            {
+              "top_heap_words_increase" : { "type" : "integer"},
+              "allocated_words" : { "type" : "number"},
+              "duration" : { "type" : "number"},
+              "timestamp" : { "type" : "integer"}
+            },
+          "required" :
+            ["top_heap_words_increase", "allocated_words", "duration",
+              "timestamp"]
         },
       "metadata" :
         {
