@@ -14,8 +14,10 @@ let x = [[1]; 2.0]
 Line 2, characters 14-17:
 2 | let x = [[1]; 2.0]
                   ^^^
-Error: The constant "2.0" has type "float" but an expression was expected of type
-         "int list"
+Error: The constant "2.0" has type "float/2"
+       but an expression was expected of type "int list"
+       File "_none_", line 1:
+         Definition of type "float/2"
 |}]
 
 type a = A
@@ -42,19 +44,29 @@ Error: The value "f" has type "a/2 -> a -> unit"
 type int = A
 type int = B
 let f A = B
-let g f = 0 + f B
-let n = g f
-
-[%%expect{|
+let g f = 0 + f A
+[%%expect {|
 type int = A
 type int = B
 val f : int/2 -> int = <fun>
-val g : (int -> int) -> int = <fun>
-Line 5, characters 10-11:
-5 | let n = g f
+val g : (int/2 -> Abbrev.int) -> Abbrev.int = <fun>
+|}]
+
+
+let h f = 0 + f B;;
+[%%expect{|
+val h : (int -> Abbrev.int) -> Abbrev.int = <fun>
+|}]
+
+
+let n = h f
+
+[%%expect{|
+Line 1, characters 10-11:
+1 | let n = h f
               ^
 Error: The value "f" has type "int/2 -> int"
-       but an expression was expected of type "int -> int"
+       but an expression was expected of type "int -> Abbrev.int"
        Type "int/2" is not compatible with type "int"
        Line 2, characters 0-12:
          Definition of type "int"

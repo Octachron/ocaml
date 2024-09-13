@@ -287,7 +287,7 @@ let human_id id index =
     let ordinal = index + 1 in
     String.concat "/" [Ident.name id; string_of_int ordinal]
 
-let indexed_name namespace id =
+let find_index namespace id =
   let find namespace id env = match namespace with
     | Type -> Env.find_type_index id env
     | Module -> Env.find_module_index id env
@@ -296,6 +296,9 @@ let indexed_name namespace id =
     | Class_type-> Env.find_cltype_index id env
     | Value | Extension_constructor | Constructor | Label -> None
   in
+  in_printing_env (find namespace id)
+
+let index_without_short_path namespace id =
   let index =
     match M.find_opt (Ident.name id) !bound_in_recursion with
     | Some rec_bound_id ->
@@ -306,30 +309,38 @@ let indexed_name namespace id =
         else
           (* the current recursive definition shadows one more time the
             previously existing identifier with the same name *)
-          Option.map succ (in_printing_env (find namespace id))
-    | None ->
-        in_printing_env (find namespace id)
+          Option.map succ (find_index namespace id)
+    | None -> find_index namespace id
   in
+  (* If [index] is [None] at this point, it might indicate that
+     the identifier id is not defined in the environment, while there
+     are other identifiers in scope that share the same name.
+     Currently, this kind of partially incoherent environment happens
+     within functor error messages where the left and right hand side
+     have a different views of the environment at the source level.
+     Printing the source-level by using a default index of `0`
+     seems like a reasonable compromise in this situation however.*)
+  Option.value index ~default:0
+
+let indexed_name ?short_ident namespace id =
   let index =
-    (* If [index] is [None] at this point, it might indicate that
-       the identifier id is not defined in the environment, while there
-       are other identifiers in scope that share the same name.
-       Currently, this kind of partially incoherent environment happens
-       within functor error messages where the left and right hand side
-       have a different views of the environment at the source level.
-       Printing the source-level by using a default index of `0`
-       seems like a reasonable compromise in this situation however.*)
-    Option.value index ~default:0
+    match short_ident with
+    | None -> index_without_short_path namespace id
+    | Some sid ->
+        if Ident.same id sid then 0
+        else match find_index namespace sid with
+          | Some 0 -> index_without_short_path namespace id
+          | _ -> 1 + index_without_short_path namespace id
   in
   human_id id index
 
-let ident_name namespace id =
+let ident_name ?short_ident namespace id =
   match namespace, !enabled with
   | None, _ | _, false -> Out_name.create (Ident.name id)
   | Some namespace, true ->
       if fuzzy_id namespace id then Out_name.create (Ident.name id)
       else
-        let name = indexed_name namespace id in
+        let name = indexed_name ?short_ident namespace id in
         Ident_conflicts.collect_explanation namespace id ~name;
         Out_name.create name
 end
@@ -403,12 +414,12 @@ let rewrite_double_underscore_paths env p =
   else
     rewrite_double_underscore_paths env p
 
-let rec tree_of_path ?(disambiguation=true) namespace p =
+let rec tree_of_path ?short_ident ?(disambiguation=true) namespace p =
   let tree_of_path namespace p = tree_of_path ~disambiguation namespace p in
   let namespace = if disambiguation then namespace else None in
   match p with
   | Pident id ->
-      Oide_ident (ident_name namespace id)
+      Oide_ident (ident_name ?short_ident namespace id)
   | Pdot(_, s) as path when non_shadowed_stdlib namespace path ->
       Oide_ident (Out_name.create s)
   | Pdot(p, s) ->
@@ -427,8 +438,8 @@ let rec tree_of_path ?(disambiguation=true) namespace p =
           tree_of_path None p
     end
 
-let tree_of_path ?disambiguation namespace p =
-  tree_of_path ?disambiguation namespace
+let tree_of_path ?short_ident ?disambiguation namespace p =
+  tree_of_path ?short_ident ?disambiguation namespace
     (rewrite_double_underscore_paths !printing_env p)
 
 
@@ -473,9 +484,11 @@ let printing_pers = ref String.Set.empty
 let printing_depth = ref 0
 let printing_cont = ref ([] : Env.iter_cont list)
 let printing_map = ref Path.Map.empty
+let printing_ident_map = ref String.Map.empty
 (**
    - {!printing_map} is the main value stored in the cache.
    Note that it is evaluated lazily and its value is updated during printing.
+   - {!printing_map_ident} stores ident selected as short paths
    - {!printing_dep} is the current exploration depth of the environment,
    it is used to determine whenever the {!printing_map} should be evaluated
    further before completing a request.
@@ -534,6 +547,13 @@ let same_printing_env env =
   let used_pers = Env.used_persistent () in
   Env.same_types !printing_old env && String.Set.equal !printing_pers used_pers
 
+let record_best_ident p =
+  match p with
+  | Pident id ->
+      printing_ident_map :=
+        String.Map.add (Ident.name id) id !printing_ident_map
+  | _ -> ()
+
 let set_printing_env env =
   printing_env := env;
   if !Clflags.real_paths ||
@@ -545,6 +565,7 @@ let set_printing_env env =
     printing_old := env;
     printing_pers := Env.used_persistent ();
     printing_map := Path.Map.empty;
+    printing_ident_map := String.Map.empty;
     printing_depth := 0;
     (* printf "Recompute printing_map.@."; *)
     let cont =
@@ -572,7 +593,7 @@ let wrap_printing_env ~error env f =
   if error then Env.without_cmis (wrap_printing_env env) f
   else wrap_printing_env env f
 
-let rec lid_of_path = function
+(*let rec lid_of_path = function
     Path.Pident id ->
       Longident.Lident (Ident.name id)
   | Path.Pdot (p1, s) | Path.Pextra_ty (p1, Pcstr_ty s)  ->
@@ -580,25 +601,26 @@ let rec lid_of_path = function
   | Path.Papply (p1, p2) ->
       Longident.Lapply (lid_of_path p1, lid_of_path p2)
   | Path.Pextra_ty (p, Pext_ty) -> lid_of_path p
-
+*)
 let is_unambiguous path env =
   let l = Env.find_shadowed_types path env in
-  List.exists (Path.same path) l || (* concrete paths are ok *)
+   List.exists (Path.same path) l ||  (* concrete paths are ok *)
   match l with
     [] -> true
   | p :: rem ->
       (* allow also coherent paths:  *)
       let normalize p = fst (normalize_type_path ~cache:true env p) in
       let p' = normalize p in
-      List.for_all (fun p -> Path.same (normalize p) p') rem ||
-      (* also allow repeatedly defining and opening (for toplevel) *)
+      List.for_all (fun p -> Path.same (normalize p) p') rem (* ||
+      (* also allow repeatedly defining and opening (for toplevel)
       let id = lid_of_path p in
       List.for_all (fun p -> lid_of_path p = id) rem &&
-      Path.same p (fst (Env.find_type_by_name id env))
+      Path.same p (fst (Env.find_type_by_name id env)) *)
+                                                                 *)
 
 let rec get_best_path r =
   match !r with
-    Best p' -> p'
+    Best p' -> record_best_ident p'; p'
   | Paths [] -> raise Not_found
   | Paths l ->
       r := Paths [];
@@ -634,9 +656,12 @@ let best_type_path p =
    identifiers whenever the short-path algorithm detected a better path than
    the original one.*)
 let tree_of_best_type_path p p' =
-  if Path.same p p' && not (Path.Map.mem p' !printing_map) then
-    tree_of_path (Some Type) p'
-  else tree_of_path ~disambiguation:false None p'
+  if not (Path.same p p') then tree_of_path ~disambiguation:false None p'
+  else match p with
+    | Pident id ->
+        let short_ident = String.Map.find_opt (Ident.name id) !printing_ident_map in
+        tree_of_path ?short_ident (Some Type) p'
+    | _ -> tree_of_path (Some Type) p'
 
 (* Print a type expression *)
 
@@ -1723,6 +1748,7 @@ let wrap_env fenv ftree arg =
   let old_pers = !printing_pers in
   (* to data *)
   let old_map = !printing_map in
+  let old_ident_map = !printing_ident_map in
   let old_depth = !printing_depth in
   let old_cont = !printing_cont in
   set_printing_env (fenv env);
@@ -1737,7 +1763,8 @@ let wrap_env fenv ftree arg =
     printing_pers := old_pers;
     printing_depth := old_depth;
     printing_cont := old_cont;
-    printing_map := old_map
+    printing_map := old_map;
+    printing_ident_map := old_ident_map
   end;
   set_printing_env env;
   tree
@@ -1960,6 +1987,7 @@ let prepare_expansion Errortrace.{ty; expanded} =
 (* Adapt functions to exposed interface *)
 let namespaced_tree_of_path n = tree_of_path (Some n)
 let tree_of_path ?disambiguation p = tree_of_path ?disambiguation None p
+let ident_name namespace id = ident_name namespace id
 let tree_of_modtype = tree_of_modtype ~ellipsis:false
 let tree_of_type_declaration ident td rs =
   with_hidden_items [{hide=true; ident}]
