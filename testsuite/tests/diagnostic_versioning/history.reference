@@ -111,7 +111,7 @@ Main:
       New label mach, ?l s
       New label linear, ?l s
       New label cmm_invariant, ?s
-      New label profile, ?l hierarchy*measure_diff
+      New label profile, ?l s*l profile
       Seal
     error_kind
       Declaration
@@ -147,11 +147,6 @@ Main:
       New label Modification
       New label Preservation
       Seal
-    hierarchy
-      Declaration
-      New label name, s
-      New label measure, measure_diff
-      New label children, l hierarchy
     loc
       Declaration
       New label file, ?s
@@ -159,12 +154,11 @@ Main:
       New label stop_line, ?i
       New label characters, ?i*i
       Seal
-    measure_diff
+    profile
       Declaration
-      New label timestamp, i
-      New label duration, f
-      New label allocated_words, f
-      New label top_heap_words_increase, i
+      New label name, s
+      New label columns, ?l f
+      New label children, ?l profile
     structured_text
       Declaration
       New label Text, s

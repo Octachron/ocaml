@@ -216,11 +216,13 @@ utils/profile.cmo : \
     utils/reports.cmi \
     utils/misc.cmi \
     utils/log.cmi \
+    utils/diagnostic_backends.cmi \
     utils/profile.cmi
 utils/profile.cmx : \
     utils/reports.cmx \
     utils/misc.cmx \
     utils/log.cmx \
+    utils/diagnostic_backends.cmx \
     utils/profile.cmi
 utils/profile.cmi : \
     utils/reports.cmi

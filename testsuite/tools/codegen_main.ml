@@ -85,6 +85,6 @@ let main() =
 
 let () =
   main ();
-  let profile = Profile.get !Clflags.profile_columns in
+  let profile = Profile.compute_rows !Clflags.profile_columns in
   Profile.print Format.std_formatter profile;
   exit 0

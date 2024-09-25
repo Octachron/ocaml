@@ -67,65 +67,6 @@ type hierarchy =
 [@@unboxed]
 type column = [ `Time | `Alloc | `Top_heap | `Abs_top_heap ]
 
-type t = hierarchy * Measure_diff.t * Measure.t * column list
-type _ Log.extension +=
-  | Profile: t Log.extension
-  | Measure_diff: Measure_diff.t Log.extension
-
-module Measure_diff_report = struct
-  let v1 = Reports.V.v1
-  open Log
-  include New_record(Reports.V)(struct
-    let name = "measure_diff"
-    let update = v1
-    end)()
-
-  let timestamp = new_field v1 "timestamp" Int
-  let duration = new_field v1 "duration" Float
-  let allocated_words = new_field v1 "allocated_words" Float
-  let top_heap_words_increase = new_field v1 "top_heap_words_increase" Int
-  let typ =
-    let pull v (x:Measure_diff.t) =
-      Record.make v Record.[
-          timestamp ^= x.timestamp;
-          duration ^= x.duration;
-          allocated_words ^= x.allocated_words;
-          top_heap_words_increase ^= x.top_heap_words_increase;
-        ]
-    in
-    Log.Custom {id = Measure_diff; pull; default = raw_type }
-end
-
-module Profile_report = struct
-  let v1 = Reports.V.v1
-  include Log.New_record(Reports.V)(struct
-      let name = "hierarchy"
-      let update = v1
-    end)()
-
-  let name = new_field v1 "name" String
-  let measure = new_field v1 "measure" Measure_diff_report.typ
-  let children = new_field v1 "children" (List raw_type)
-
-  let typ =
-    let rec pull_h v (E x) =
-      let bindings = Hashtbl.to_seq x in
-      let pull_binding (n,(m,c)) =
-        Log.Record.(make v [name^=n;measure^=m;children^=pull_h v c] )
-      in
-      List.of_seq @@ Seq.map pull_binding bindings
-    in
-    let pull v (h, d,_initial, _cl) = pull_h v h, d in
-    let default = Log.Pair (List raw_type,Measure_diff_report.typ) in
-    Log.Custom {id = Profile; pull; default }
-
-end
-
-
-let profile =
-  Reports.Debug.new_field_opt Reports.V.v1 "profile" Profile_report.typ
-let () = Reports.(Debug.seal V.v1)
-
 let create () = E (Hashtbl.create 2)
 let hierarchy = ref (create ())
 let initial_measure = ref None
@@ -248,6 +189,35 @@ let compute_other_category (E table : hierarchy) (total : Measure_diff.t) =
 
 type row = R of string * (float * display) list * row list
 
+module Profile_report = struct
+  type _ Log.extension += Profile: (string list * row list) Log.extension
+  let v1 = Reports.V.v1
+  include Log.New_record(Reports.V)(struct
+      let name = "profile"
+      let update = v1
+    end)()
+
+  let name = new_field v1 "name" String
+  let columns = new_field_opt v1 "columns" (List Float)
+  let children = new_field_opt v1 "children" (List raw_type)
+
+  let typ =
+    let rec pull_r v (R (n,ms,c)) =
+      let open Log.Record in
+      make v [
+              name^=n;
+              columns^=List.map fst ms;
+              children^=pull_rows v c
+      ]
+    and pull_rows v rows = List.map (pull_r v) rows in
+    let pull v (x,y) = x, pull_rows v y in
+    let default = Log.(Pair (List String, List raw_type)) in
+    Log.Custom {id = Profile; pull; default }
+end
+let profile =
+  Reports.Debug.new_field_opt Reports.V.v1 "profile" Profile_report.typ
+let () = Reports.(Debug.seal V.v1)
+
 let rec rows_of_hierarchy ~nesting make_row name measure_diff hierarchy env =
   let rows =
     rows_of_hierarchy_list
@@ -359,21 +329,16 @@ let display_rows ppf rows =
   in
   List.iter (loop ~indentation:"") rows
 
-let get columns =
+let compute_rows columns =
   let initial_measure =
     match !initial_measure with
     | Some v -> v
     | None -> Measure.zero
   in
   let total = Measure_diff.of_diff Measure.zero (Measure.create ()) in
-  !hierarchy, total, initial_measure, columns
+  rows_of_hierarchy !hierarchy total initial_measure columns
 
-let print ppf (hierarchy, total, initial_measure, columns) =
-  match columns with
-  | [] -> ()
-  | _ :: _ ->
-     display_rows ppf
-       (rows_of_hierarchy hierarchy total initial_measure columns)
+let print ppf rows = display_rows ppf rows
 
 let column_mapping = [
   "time", `Time;
@@ -381,6 +346,23 @@ let column_mapping = [
   "top-heap", `Top_heap;
   "absolute-top-heap", `Abs_top_heap;
 ]
+
+let report columns log =
+  let name l =
+    List.find_map (fun (x,y) -> if y = l then Some x else None)
+    column_mapping
+  in
+  log.Log.%[profile] <- (List.filter_map name columns, compute_rows columns)
+
+let () =
+  let extension: type a.
+    a Log.extension -> (Format.formatter -> a -> unit) option =
+    function
+    | Profile_report.Profile -> Some (fun ppf (_,rows) -> print ppf rows)
+    | _ -> None
+  in
+  Diagnostic_backends.Fmt.add_extension { extension }
+
 
 let column_names = List.map fst column_mapping
 
