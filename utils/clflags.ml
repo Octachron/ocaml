@@ -607,7 +607,10 @@ let create_log_device ppf =
 
 let create_log ~default_backend history scheme device =
   let current_version = Log.Version.current_version history in
-  let version = Option.map (min current_version ) !log_version in
+  let version = match !log_version with
+    | None -> Log.Downward_compatible current_version
+    | Some v -> Log.Exact v
+  in
   let backend =
     Option.value ~default:default_backend !log_format
   in

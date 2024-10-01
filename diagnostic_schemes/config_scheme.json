@@ -21,6 +21,7 @@
                     { "type" : "array", "items" : { "type" : "string"}}
                 },
               "valid" : { "$ref" : "#/$defs/validity"},
+              "downward_compatible" : { "type" : "boolean"},
               "version" :
                 {
                   "type" : "array",
@@ -28,7 +29,7 @@
                     [{ "type" : "integer"}, { "type" : "integer"}]
                 }
             },
-          "required" : ["valid", "version"]
+          "required" : ["valid", "downward_compatible", "version"]
         },
       "validity" :
         {

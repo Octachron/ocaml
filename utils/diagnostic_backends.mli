@@ -24,7 +24,7 @@ end
 type t = {
   name:string;
   make:
-    'a. ?color:Misc.Color.setting -> version:version option
+    'a. ?color:Misc.Color.setting -> version:diagnostic_version
     -> device:Log.device -> 'a def -> 'a log;
 }
 val fmt: t

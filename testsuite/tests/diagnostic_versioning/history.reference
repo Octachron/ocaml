@@ -3,6 +3,7 @@ Metadata:
     metadata
       Declaration
       New label version, i*i
+      New label downward_compatible, b
       New label valid, validity
       New label invalid_paths, ?l l s
       New label deprecated_paths, ?l l s

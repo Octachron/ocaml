@@ -280,7 +280,10 @@ module Fmt = struct
 end
 
   let with_conv ~structured ~extension conv settings version ppf scheme =
-    let ctx = { Fmt.version; conv; ext_printer=extension} in
+    let ctx = {
+      Fmt.version=(Log.exact_version version);
+      conv; ext_printer=extension}
+    in
     let record ppf (R(def, r)) =
       let field_names = field_names def in
       let fs = Log.fields field_names r in
@@ -314,7 +317,7 @@ end
 
   type t = {
     name:string;
-    make: 'a. ?color:Misc.Color.setting -> version:version option
+    make: 'a. ?color:Misc.Color.setting -> version:diagnostic_version
       -> device:Log.device -> 'a def -> 'a log;
   }
   let fmt = { name="direct"; make = direct }

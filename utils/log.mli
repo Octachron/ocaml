@@ -79,6 +79,11 @@ module Version: sig
 end
 
 type version = Version.t = { major:int; minor:int }
+type diagnostic_version =
+  | Downward_compatible of version
+  | Exact of version
+val diagnostic_version: diagnostic_version -> version
+val exact_version: diagnostic_version -> version option
 
 type !'id sum
 type !'a record
@@ -130,7 +135,7 @@ val fields: string list -> 'a record -> (string * bool * typed_val) List.t
 val is_optional: label_metadata -> bool
 
 val log_scheme: 'a log -> 'a def
-val log_version: 'a log -> Version.t option
+val log_version: 'a log -> version option
 
 type device
 val make_device: ?on_close:(unit->unit) -> Format.formatter ref -> device
@@ -141,7 +146,7 @@ val std: device
 
 val make:
   structured:bool -> printer:printer -> Misc.Color.setting option ->
-  Version.t option -> 'a def -> device -> 'a log
+  diagnostic_version -> 'a def -> device -> 'a log
 
 val metakey: string * label_metadata
 

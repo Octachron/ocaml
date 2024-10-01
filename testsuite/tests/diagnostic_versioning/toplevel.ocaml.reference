@@ -1,5 +1,6 @@
 {
-  "metadata" : { "version" : [1, 0], "valid" : "Full"},
+  "metadata" :
+    { "version" : [1, 0], "downward_compatible" : true, "valid" : "Full"},
   "output" :
     [["Box", "V", 0,
        [["Box", "B", 2,
@@ -15,7 +16,8 @@
              ["Text", " ="], ["Simple_break", 1, 0], ["Text", "2."]]]]]]
 }
 {
-  "metadata" : { "version" : [1, 0], "valid" : "Full"},
+  "metadata" :
+    { "version" : [1, 0], "downward_compatible" : true, "valid" : "Full"},
   "errors" :
     [[["Text", "Unknown directive "],
        ["Tag", "Inline_code", [["Text", "shw"]]], ["Text", "."],
@@ -25,7 +27,8 @@
            ["Tag", "Inline_code", [["Text", "show"]]], ["Text", "?"]]]]]
 }
 {
-  "metadata" : { "version" : [1, 0], "valid" : "Full"},
+  "metadata" :
+    { "version" : [1, 0], "downward_compatible" : true, "valid" : "Full"},
   "output" :
     [["Box", "B", 0,
        [["Box", "V", 0,
@@ -38,7 +41,8 @@
                    ["Text", " ->"], ["Simple_break", 1, 0], ["Text", "'a"]]]]]]]]]]
 }
 {
-  "metadata" : { "version" : [1, 0], "valid" : "Full"},
+  "metadata" :
+    { "version" : [1, 0], "downward_compatible" : true, "valid" : "Full"},
   "compiler_log" :
     {
       "error" :
@@ -65,11 +69,13 @@
     }
 }
 {
-  "metadata" : { "version" : [1, 0], "valid" : "Full"},
+  "metadata" :
+    { "version" : [1, 0], "downward_compatible" : true, "valid" : "Full"},
   "trace" : [[["Text", "List.map is now traced."]]]
 }
 {
-  "metadata" : { "version" : [1, 0], "valid" : "Full"},
+  "metadata" :
+    { "version" : [1, 0], "downward_compatible" : true, "valid" : "Full"},
   "output" :
     [["Box", "V", 0,
        [["Box", "B", 2,

@@ -244,10 +244,21 @@ let out_channel_device out =
   let ppf = Format.formatter_of_out_channel out in
   make_device ~on_close (ref ppf)
 
+type diagnostic_version =
+  | Downward_compatible of version
+  | Exact of version
+let diagnostic_version (Exact v | Downward_compatible v) = v
+let exact_version = function
+  | Exact v -> Some v
+  | Downward_compatible _ -> None
+let downward_compatible = function
+  | Downward_compatible _ -> true
+  | _ -> false
+
 type 'a log =
   {
       mutable redirections: device Label_map.t;
-      version: version option;
+      version: diagnostic_version;
       scheme: 'a def;
       settings: Misc.Color.setting option;
       mode: 'a mode;
@@ -276,7 +287,7 @@ let field_name f = f.name
 let field_infos d = d.labels
 let field_names d = List.map fst d.labels
 let log_scheme log = log.scheme
-let log_version log = log.version
+let log_version log = exact_version log.version
 
 type 'a t = 'a log
 
@@ -654,8 +665,10 @@ let is_optional r = r.optional
 module Store = struct
   open Record
   let record:
-    type ty s. s record -> Version.t option -> field:(ty,s) field -> ty -> unit
+    type ty s.
+      s record -> diagnostic_version -> field:(ty,s) field -> ty -> unit
     = fun store v ~field x ->
+        let v = exact_version v in
         let name = field.name in
         Option.iter (fun field ->
         store := Label_map.add name field !store
@@ -674,12 +687,13 @@ module Store = struct
     |> Option.map (fun (Field(k,x)) -> V (k.typ,x))
 
   let cons: type ty s.
-    s record -> Version.t option -> field:(ty list,s) field -> ty -> unit =
+    s record -> diagnostic_version -> field:(ty list,s) field -> ty -> unit =
     fun store v ~field x ->
       let l = match get field store with
         | None -> [x]
         | Some l -> x :: l
       in
+      let v = exact_version v in
       let f = Record.field field l v in
       Option.iter (fun bfield ->
           store := Label_map.add field.name bfield (fields store)
@@ -701,6 +715,7 @@ module Metadata = struct
       let update = v1
     end)()
   let version = new_field v1 "version" version_ty
+  let downward_compatible = new_field v1 "downward_compatible" Bool
   module Validity = struct
     include New_sum(Metadata_versions)(struct
         let name = "validity"
@@ -770,30 +785,8 @@ module Validation = struct
     | Record _ -> true
 
   let rec record: type id.
-    ?toplevel:bool -> version:version -> id def -> id record -> report_paths =
-    fun ?(toplevel=false) ~version sch st ->
-    let r = fields ~version sch.labels (Record.fields st) in
-    (* don't add validation metalabels to empty sublog*)
-    if toplevel then begin
-      let valid = match List.is_empty r.deprecated, List.is_empty r.invalid with
-        | true, true -> Metadata.Validity.full
-        | false, true ->Metadata. Validity.deprecated
-        | _, false -> Metadata.Validity.invalid
-      in
-      let v1 = Some (Version.v Metadata.v1) in
-      let valid = app v1 valid () in
-      let metadata =
-        let open Record in
-        make v1 [
-          Metadata.version ^= version;
-          Metadata.valid ^= valid;
-          Metadata.invalid_paths ^= r.invalid;
-          Metadata.deprecated_paths ^= r.deprecated;
-        ]
-      in
-      Store.record st v1 ~field:(Metadata.universal_field ()) metadata
-    end;
-    r
+    version:version -> id def -> id record -> report_paths =
+    fun ~version sch st -> fields ~version sch.labels (Record.fields st)
   and fields: type id.
     version:version -> (Label_map.key * label_metadata) list
     -> id bound_field Label_map.t -> report_paths
@@ -855,6 +848,33 @@ module Validation = struct
             | Future | Deletion -> invalid [c.name]
             | Deprecation -> deprecated [c.name] @^ value ~version c.arg c.typ
             end
+
+  let diagnostic ~version:v sch st =
+    let version = diagnostic_version v in
+    let r = record ~version sch st in
+      let valid = match r.deprecated, r.invalid with
+        | [], [] -> Metadata.Validity.full
+        | _::_, [] ->Metadata. Validity.deprecated
+        | _, _ :: _  -> Metadata.Validity.invalid
+      in
+      let v1 = Version.v Metadata.v1 in
+      let valid = app (Some v1) valid () in
+      let metadata =
+        let open Record in
+        make (Some v1) [
+          Metadata.version ^= version;
+          Metadata.downward_compatible ^= downward_compatible v;
+          Metadata.valid ^= valid;
+          Metadata.invalid_paths ^= r.invalid;
+          Metadata.deprecated_paths ^= r.deprecated;
+        ]
+      in
+      Store.record st (Downward_compatible v1)
+        ~field:(Metadata.universal_field ())
+        metadata;
+      r
+
+
 end
 
 
@@ -890,7 +910,6 @@ let record_list_scheme: type a. a record list typ -> a def  =
 
 let generic_detach label_scheme ~store ~lift ~extract log (field: _ field) =
   let out = Label_map.find_opt field.name log.redirections in
-  let version = log.version in
   let mode = match log.mode with
     | Direct d ->
         let out = Option.value ~default:d out in
@@ -900,8 +919,8 @@ let generic_detach label_scheme ~store ~lift ~extract log (field: _ field) =
           match Option.bind (Store.get field st) extract with
           | Some data -> data
           | None ->
-              let data = Record.make version [] in
-              store st version ~field (lift data); data
+              let data = Record.make None [] in
+              store st log.version ~field (lift data); data
         in
         let out = match out with
           | Some _ -> out
@@ -953,7 +972,9 @@ let set (field: _ field) x log =
   | Store st -> Store.record st.data version ~field x
   | Direct d ->
       let status = match log.scheme.?(field.name) with
-        | Some lmd -> Version.stage_at version lmd.status
+        | Some lmd ->
+          let v = diagnostic_version version in
+          Version.stage_at (Some v) lmd.status
         | None -> Lv.Deletion
       in
       match status with
@@ -992,12 +1013,7 @@ let flush: type a. a log -> unit = fun log ->
   begin match log.mode with
   | Direct d -> Fmt.flush d
   | Store st ->
-      let _valid =
-        Option.map (fun version ->
-            Validation.record ~toplevel:true ~version log.scheme st.data
-          )
-          log.version
-      in
+      let _ = Validation.diagnostic ~version:log.version log.scheme st.data in
       Option.iter (fun out ->
           let ppf = !(out.ppf) in
           log.printer.record ppf (R(log.scheme, st.data))
@@ -1034,7 +1050,7 @@ let tmp scheme =
   {
   settings = None;
   redirections = Label_map.empty;
-  version=None;
+  version=(Downward_compatible {major=0;minor=0});
   scheme;
   printer = { record = (fun _ _ -> ()); item = (fun _ _ -> ()) };
   mode = Store { out=None; data=Record.make None [] }
