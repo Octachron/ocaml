@@ -26,13 +26,19 @@ type type_replacement =
   | Path of Path.t
   | Type_function of { params : type_expr list; body : type_expr }
 
-type t =
+type subst =
   { types: type_replacement Path.Map.t;
     modules: Path.t Path.Map.t;
     modtypes: module_type Path.Map.t;
     for_saving: bool;
     loc: Location.t option;
   }
+
+type 'a s = subst
+type t = [`safe] s
+type local = [`local] s
+exception First_class_module_path_substituted_away of Path.t
+
 
 let identity =
   { types = Path.Map.empty;
@@ -42,6 +48,8 @@ let identity =
     loc = None;
   }
 
+let local x = x
+
 let add_type_path id p s = { s with types = Path.Map.add id (Path p) s.types }
 let add_type id p s = add_type_path (Pident id) p s
 
@@ -49,10 +57,14 @@ let add_type_function id ~params ~body s =
   { s with types = Path.Map.add id (Type_function { params; body }) s.types }
 
 let add_module_path id p s = { s with modules = Path.Map.add id p s.modules }
+
 let add_module id p s = add_module_path (Pident id) p s
 
 let add_modtype_path p ty s = { s with modtypes = Path.Map.add p ty s.modtypes }
 let add_modtype id ty s = add_modtype_path (Pident id) ty s
+let add_modtype_id_path id p s =
+  let mty = Mty_ident p in
+  { s with modtypes = Path.Map.add (Pident id) mty s.modtypes }
 
 let for_saving s = { s with for_saving = true }
 
@@ -101,7 +113,7 @@ let modtype_path s path =
       match Path.Map.find path s.modtypes with
       | Mty_ident p -> p
       | Mty_alias _ | Mty_signature _ | Mty_functor _ ->
-         fatal_error "Subst.modtype_path"
+          raise (First_class_module_path_substituted_away path)
       | exception Not_found ->
          match path with
          | Pdot(p, n) ->
@@ -792,6 +804,10 @@ and compose s1 s2 =
     loc = keep_latest_loc s1.loc s2.loc;
   }
 
+let local_compose s1 s2 =
+  match compose s1 s2 with
+  | x -> Ok x
+  | exception First_class_module_path_substituted_away p -> Error p
 
 let subst_lazy_signature_item scoping s comp =
   For_copy.with_scope
@@ -826,6 +842,11 @@ let signature sc s sg =
 
 let signature_item sc s comp =
   Lazy.(comp|> of_signature_item |> signature_item sc s |> force_signature_item)
+
+let local_signature_item sc s comp =
+    match signature_item sc s comp with
+    | x -> Ok x
+    | exception First_class_module_path_substituted_away p -> Error p
 
 let modtype_declaration sc s decl =
   Lazy.(decl |> of_modtype_decl |> modtype_decl sc s |> force_modtype_decl)

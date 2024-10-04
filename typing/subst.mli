@@ -17,7 +17,10 @@
 
 open Types
 
-type t
+type 'a s
+
+type t = [`safe] s
+type local = [`local] s
 
 (*
    Substitutions are used to translate a type from one context to
@@ -31,16 +34,19 @@ type t
    well-formed (decreasing levels), even if the original one was not.
 *)
 
-val identity: t
+val identity: 'a s
+val local: t -> local
 
-val add_type: Ident.t -> Path.t -> t -> t
-val add_type_path: Path.t -> Path.t -> t -> t
+val add_type: Ident.t -> Path.t -> 'a s -> 'a s
+val add_type_path: Path.t -> Path.t -> 'a s -> 'a s
 val add_type_function:
-  Path.t -> params:type_expr list -> body:type_expr -> t -> t
-val add_module: Ident.t -> Path.t -> t -> t
-val add_module_path: Path.t -> Path.t -> t -> t
-val add_modtype: Ident.t -> module_type -> t -> t
-val add_modtype_path: Path.t -> module_type -> t -> t
+  Path.t -> params:type_expr list -> body:type_expr -> 'a s -> 'a s
+val add_module: Ident.t -> Path.t -> 'a s -> 'a s
+val add_module_path: Path.t -> Path.t -> 'a s -> 'a s
+val add_modtype: Ident.t -> module_type -> 'any s -> local
+val add_modtype_id_path: Ident.t -> Path.t -> 'a s -> 'a s
+
+val add_modtype_path: Path.t -> module_type -> 'a s -> 'a s
 
 val for_saving: t -> t
 val reset_for_saving: unit -> unit
@@ -76,6 +82,8 @@ type scoping =
 val modtype: scoping -> t -> module_type -> module_type
 val signature: scoping -> t -> signature -> signature
 val signature_item: scoping -> t -> signature_item -> signature_item
+val local_signature_item:
+  scoping -> local -> signature_item -> (signature_item, Path.t) result
 val modtype_declaration:
   scoping -> t -> modtype_declaration -> modtype_declaration
 val module_declaration: scoping -> t -> module_declaration -> module_declaration
@@ -83,6 +91,9 @@ val module_declaration: scoping -> t -> module_declaration -> module_declaration
 (* Composition of substitutions:
      apply (compose s1 s2) x = apply s2 (apply s1 x) *)
 val compose: t -> t -> t
+val local_compose: local -> local -> (local, Path.t) result
+(** Due to the eager nature of composition for module types, composition of
+    local substitution may fail. *)
 
 module Lazy : sig
   type module_decl =

@@ -76,7 +76,7 @@ type error =
   | Badly_formed_signature of string * Typedecl.error
   | Cannot_hide_id of hiding_error
   | Invalid_type_subst_rhs
-  | Unpackable_local_modtype_subst of Path.t
+  | Non_packable_local_modtype_subst of Path.t
   | With_cannot_remove_packed_modtype of Path.t * module_type
   | Cannot_alias of Path.t
 
@@ -988,8 +988,7 @@ module Signature_names : sig
     | `Exported
     | `From_open
     | `Shadowable of shadowable
-    | `Substituted_away of Subst.t
-    | `Unpackable_modtype_substituted_away of Ident.t * Subst.t
+    | `Substituted_away of Subst.local
   ]
 
   val create : unit -> t
@@ -1025,8 +1024,7 @@ end = struct
 
   type info = [
     | `From_open
-    | `Substituted_away of Subst.t
-    | `Unpackable_modtype_substituted_away of Ident.t * Subst.t
+    | `Substituted_away of Subst.local
     | bound_info
   ]
 
@@ -1035,9 +1033,8 @@ end = struct
     | Shadowed_by of Ident.t * Location.t
 
   type to_be_removed = {
-    mutable subst: Subst.t;
+    mutable subst: Subst.local;
     mutable hide: (Sig_component_kind.t * Location.t * hide_reason) Ident.Map.t;
-    mutable unpackable_modtypes: Ident.Set.t;
   }
 
   type names_infos = (string, bound_info) Hashtbl.t
@@ -1072,7 +1069,6 @@ end = struct
     to_be_removed = {
       subst = Subst.identity;
       hide = Ident.Map.empty;
-      unpackable_modtypes = Ident.Set.empty;
     };
   }
 
@@ -1087,15 +1083,19 @@ end = struct
     | Class -> names.classes
     | Class_type -> names.class_types
 
+ let check_local_subst loc env: _ result -> _ = function
+    | Ok x -> x
+    | Error p -> raise (Error (loc, env, Non_packable_local_modtype_subst p))
+
   let check cl t loc id (info : info) =
     let to_be_removed = t.to_be_removed in
     match info with
     | `Substituted_away s ->
-        to_be_removed.subst <- Subst.compose s to_be_removed.subst;
-    | `Unpackable_modtype_substituted_away (id,s) ->
-        to_be_removed.subst <- Subst.compose s to_be_removed.subst;
-        to_be_removed.unpackable_modtypes <-
-          Ident.Set.add id to_be_removed.unpackable_modtypes
+        let subst =
+          check_local_subst loc Env.empty @@
+          Subst.local_compose s to_be_removed.subst
+        in
+        to_be_removed.subst <- subst;
     | `From_open ->
         to_be_removed.hide <-
           Ident.Map.add id (cl, loc, From_open) to_be_removed.hide
@@ -1165,31 +1165,6 @@ end = struct
        thus never appear in includes *)
      List.iter (check ?info names loc) (Signature_group.rec_items item.group)
 
-  (*
-    Before applying local module type substitutions where the
-    right-hand side is not a path, we need to check that those module types
-    where never used to pack modules. For instance
-    {[
-    module type T := sig end
-    val x: (module T)
-    ]}
-    should raise an error.
-  *)
-  let check_unpackable_modtypes ~loc ~env to_remove component =
-    if not (Ident.Set.is_empty to_remove.unpackable_modtypes) then
-      with_type_mark begin fun mark ->
-        let iterator =
-          let error p = Unpackable_local_modtype_subst p in
-          let paths =
-            List.map (fun id -> Pident id)
-              (Ident.Set.elements to_remove.unpackable_modtypes)
-          in
-          check_usage_of_module_types ~loc ~error ~paths
-            (ref (lazy env)) (Btype.type_iterators mark)
-        in
-        iterator.Btype.it_signature_item iterator component
-      end
-
   (* We usually require name uniqueness of signature components (e.g. types,
      modules, etc), however in some situation reusing the name is allowed: if
      the component is a value or an extension, or if the name is introduced by
@@ -1200,7 +1175,6 @@ end = struct
      If some reference cannot be removed, then we error out with
      [Cannot_hide_id].
   *)
-
   let simplify env t sg =
     let to_remove = t.to_be_removed in
     let ids_to_remove =
@@ -1230,10 +1204,8 @@ end = struct
           if to_remove.subst == Subst.identity then
             component
           else
-            begin
-              check_unpackable_modtypes ~loc:user_loc ~env to_remove component;
-              Subst.signature_item Keep to_remove.subst component
-            end
+            check_local_subst user_loc env @@
+            Subst.local_signature_item Keep to_remove.subst component
         in
         let component =
           match ids_to_remove with
@@ -1612,9 +1584,7 @@ and transl_signature env sg =
                     assert false
               in
               let subst = Subst.add_modtype mtd.mtd_id mty Subst.identity in
-              match mty with
-              | Mty_ident _ -> `Substituted_away subst
-              | _ -> `Unpackable_modtype_substituted_away (mtd.mtd_id,subst)
+              `Substituted_away subst
             in
             Signature_names.check_modtype ~info names pmtd.pmtd_loc mtd.mtd_id;
             let (trem, rem, final_env) = transl_sig newenv srem in
@@ -3493,7 +3463,7 @@ let report_error ~loc _env = function
   | Invalid_type_subst_rhs ->
       Location.errorf ~loc "Only type synonyms are allowed on the right of %a"
         Style.inline_code  ":="
-  | Unpackable_local_modtype_subst p ->
+  | Non_packable_local_modtype_subst p ->
       let[@manual.ref "ss:module-type-substitution"] manual_ref =
         [ 12; 7; 3 ]
       in
