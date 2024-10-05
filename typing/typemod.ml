@@ -344,21 +344,7 @@ let check_usage_of_path_of_substituted_item paths ~loc ~lid env super =
       );
     }
 
-(* When doing a module type destructive substitution [with module type T = RHS]
-   where RHS is not a module type path, we need to check that the module type
-   T was not used as a path for a packed module
-*)
-let check_usage_of_module_types ~error ~paths ~loc env super =
-  let it_do_type_expr it ty = match get_desc ty with
-    | Tpackage (p, _) ->
-       begin match List.find_opt (Path.same p) paths with
-       | Some p -> raise (Error(loc,Lazy.force !env,error p))
-       | _ -> super.Btype.it_do_type_expr it ty
-       end
-    | _ -> super.Btype.it_do_type_expr it ty in
-  { super with Btype.it_do_type_expr }
-
-let do_check_after_substitution env ~loc ~lid paths unpackable_modtype sg =
+let do_check_after_substitution env ~loc ~lid paths sg =
   with_type_mark begin fun mark ->
   let env, iterator = iterator_with_env (Btype.type_iterators mark) env in
   let last, rest = match List.rev paths with
@@ -373,19 +359,13 @@ let do_check_after_substitution env ~loc ~lid paths unpackable_modtype sg =
     | _ :: _ ->
         check_usage_of_path_of_substituted_item rest ~loc ~lid env iterator
   in
-  let iterator = match unpackable_modtype with
-    | None -> iterator
-    | Some mty ->
-       let error p = With_cannot_remove_packed_modtype(p,mty) in
-       check_usage_of_module_types ~error ~paths ~loc env iterator
-  in
   iterator.Btype.it_signature iterator sg
   end
 
-let check_usage_after_substitution env ~loc ~lid paths unpackable_modtype sg =
-  match paths, unpackable_modtype with
-  | [_], None -> ()
-  | _ -> do_check_after_substitution env ~loc ~lid paths unpackable_modtype sg
+let check_usage_after_substitution env ~loc ~lid paths sg =
+  match paths with
+  | [_] -> ()
+  | _ -> do_check_after_substitution env ~loc ~lid paths sg
 
 (* After substitution one also needs to re-check the well-foundedness
    of type declarations in recursive modules *)
@@ -480,7 +460,6 @@ let merge_constraint initial_env loc sg lid constr =
     | With_typesubst _ | With_modsubst _ | With_modtypesubst _  -> true
   in
   let real_ids = ref [] in
-  let unpackable_modtype = ref None in
   let split_row_id s ghosts =
     let srow = s ^ "#row" in
     let rec split before = function
@@ -612,10 +591,6 @@ let merge_constraint initial_env loc sg lid constr =
         else begin
           let path = Pident id in
           real_ids := [path];
-          begin match mty.mty_type with
-          | Mty_ident _ -> ()
-          | mty -> unpackable_modtype := Some mty
-          end;
           return ~replace_by:None
             (Pident id, lid, Some (Twith_modtypesubst mty))
         end
@@ -672,8 +647,7 @@ let merge_constraint initial_env loc sg lid constr =
     let names = Longident.flatten lid.txt in
     let (tcstr, sg) = merge_signature initial_env sg names in
     if destructive_substitution then
-      check_usage_after_substitution ~loc ~lid initial_env !real_ids
-        !unpackable_modtype sg;
+      check_usage_after_substitution ~loc ~lid initial_env !real_ids sg;
     let sg =
     match tcstr with
     | (_, _, Some (Twith_typesubst tdecl)) ->
@@ -719,7 +693,12 @@ let merge_constraint initial_env loc sg lid constr =
         let add s p = Subst.add_modtype_path p tmty.mty_type s in
         let sub = Subst.change_locs Subst.identity loc in
         let sub = List.fold_left add sub !real_ids in
-        Subst.signature Make_local sub sg
+        begin match Subst.local_signature Make_local sub sg with
+        | Ok x -> x
+        | Error p ->
+            let error = With_cannot_remove_packed_modtype(p,tmty.mty_type) in
+            raise (Error(loc,initial_env,error))
+        end
     | _ ->
        sg
     in
@@ -3317,14 +3296,13 @@ let report_error ~loc _env = function
       let[@manual.ref "ss:module-type-substitution"] manual_ref =
         [ 12; 7; 3 ]
       in
-      let pp_constraint ppf () =
-        fprintf ppf "%s := %a"
-          (Path.name p) modtype mty
+      let pp_constraint ppf (p,mty) =
+        fprintf ppf "%s := %a" (Path.name p) modtype mty
       in
       Location.errorf ~loc
         "This %a constraint@ %a@ makes a packed module ill-formed.@ %a"
         Style.inline_code "with"
-        (Style.as_inline_code pp_constraint) ()
+        (Style.as_inline_code pp_constraint) (p,mty)
         Misc.print_see_manual manual_ref
   | With_package_manifest (lid, ty) ->
       Location.errorf ~loc

@@ -43,14 +43,14 @@ val add_type_function:
   Path.t -> params:type_expr list -> body:type_expr -> 'a s -> 'a s
 val add_module: Ident.t -> Path.t -> 'a s -> 'a s
 val add_module_path: Path.t -> Path.t -> 'a s -> 'a s
-val add_modtype: Ident.t -> module_type -> 'any s -> local
-val add_modtype_id_path: Ident.t -> Path.t -> 'a s -> 'a s
 
-val add_modtype_path: Path.t -> module_type -> 'a s -> 'a s
+val add_modtype_id_to_path: Ident.t -> Path.t -> 'a s -> 'a s
+val add_modtype: Ident.t -> module_type -> 'any s -> local
+val add_modtype_path: Path.t -> module_type -> 'any s -> local
 
 val for_saving: t -> t
 val reset_for_saving: unit -> unit
-val change_locs: t -> Location.t -> t
+val change_locs: 'a s -> Location.t -> 'a s
 
 val module_path: t -> Path.t -> Path.t
 val type_path: t -> Path.t -> Path.t
@@ -81,6 +81,7 @@ type scoping =
 
 val modtype: scoping -> t -> module_type -> module_type
 val signature: scoping -> t -> signature -> signature
+val local_signature: scoping -> local -> signature -> (signature, Path.t) result
 val signature_item: scoping -> t -> signature_item -> signature_item
 val local_signature_item:
   scoping -> local -> signature_item -> (signature_item, Path.t) result

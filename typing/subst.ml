@@ -62,9 +62,7 @@ let add_module id p s = add_module_path (Pident id) p s
 
 let add_modtype_path p ty s = { s with modtypes = Path.Map.add p ty s.modtypes }
 let add_modtype id ty s = add_modtype_path (Pident id) ty s
-let add_modtype_id_path id p s =
-  let mty = Mty_ident p in
-  { s with modtypes = Path.Map.add (Pident id) mty s.modtypes }
+let add_modtype_id_to_path id p s = add_modtype id (Mty_ident p) s
 
 let for_saving s = { s with for_saving = true }
 
@@ -839,6 +837,11 @@ end
 
 let signature sc s sg =
   Lazy.(sg |> of_signature |> signature sc s |> force_signature)
+
+let local_signature sc s comp =
+    match signature sc s comp with
+    | x -> Ok x
+    | exception First_class_module_path_substituted_away p -> Error p
 
 let signature_item sc s comp =
   Lazy.(comp|> of_signature_item |> signature_item sc s |> force_signature_item)
