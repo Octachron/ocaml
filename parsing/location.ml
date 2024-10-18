@@ -871,11 +871,10 @@ let default_warning_alert_reporter report mk (loc: t) w : report option =
   match report w with
   | `Inactive -> None
   | `Active { Warnings.id; message; is_error; sub_locs } ->
-      let msg_of_str str = Format_doc.Doc.(empty |> string str) in
       let kind = mk is_error id in
-      let main = { loc; txt = msg_of_str message } in
+      let main = { loc; txt = message } in
       let sub = List.map (fun (loc, sub_message) ->
-        { loc; txt = msg_of_str sub_message }
+        { loc; txt = sub_message }
       ) sub_locs in
       Some { kind; main; sub; footnote=None }
 
@@ -941,7 +940,7 @@ let auto_include_alert lib =
       Style.inline_code ("-package " ^ lib) in
   let alert =
     {Warnings.kind="ocaml_deprecated_auto_include"; use=none; def=none;
-     message = Format.asprintf "@[@\n%a@]" Format.pp_print_text message}
+     message=Format.asprintf "@[@\n%a@]" Format.pp_print_text message}
   in
   prerr_alert none alert
 
@@ -957,7 +956,7 @@ let deprecated_script_alert program =
   in
   let alert =
     {Warnings.kind="ocaml_deprecated_cli"; use=none; def=none;
-     message = Format.asprintf "@[@\n%a@]" Format.pp_print_text message}
+     message=Format.asprintf "@[@\n%a@]" Format.pp_print_text message}
   in
   prerr_alert none alert
 
