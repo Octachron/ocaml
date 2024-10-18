@@ -27,5 +27,5 @@ Error: This pattern matches values of type "($x, 'a -> $x) elt"
        but a pattern was expected which matches values of type
          "($x, 'a -> $'b -> nil) elt"
        The type constructor "$'b" would escape its scope
-       Hint: "$x" is an existential type bound by the constructor "Cons".
+  Hint: "$x" is an existential type bound by the constructor "Cons".
 |}];;

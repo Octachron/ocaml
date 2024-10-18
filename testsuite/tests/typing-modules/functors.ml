@@ -60,8 +60,8 @@ Line 1, characters 11-15:
 1 | module M = F(W)
                ^^^^
 Error: Modules do not match: sig type w = W.w end is not included in
-       x
-     The type "x" is required but not provided
+  x
+The type "x" is required but not provided
 |}]
 
 module M = F(Y)
@@ -165,7 +165,7 @@ Line 2, characters 11-31:
 2 | module M = F(struct type x end)
                ^^^^^^^^^^^^^^^^^^^^
 Error: Modules do not match: sig type x end is not included in sig type t end
-     The type "t" is required but not provided
+The type "t" is required but not provided
 |}]
 
 module F(X:sig type x end)(Y:sig type y end)(Z:sig type z end) = struct
@@ -1710,7 +1710,7 @@ Line 2, characters 11-40:
 2 | module R = F(struct end[@warning "-73"]);;
                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: Modules do not match: sig end is not included in A
-     The type "a" is required but not provided
+The type "a" is required but not provided
 |}]
 
 module F()(X:empty)()(Y:A) = struct end

@@ -19,10 +19,9 @@ Line 5, characters 4-34:
 5 |     Node (map f left, map f right)
         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: "[@tail_mod_cons]": this constructor application may be TMC-transformed
-       in several different ways. Please disambiguate by adding an explicit
-       "[@tailcall]" attribute to the call that should be made tail-recursive,
-       or a "[@tailcall false]" attribute on calls that should not be
-       transformed.
+  in several different ways. Please disambiguate by adding an explicit
+  "[@tailcall]" attribute to the call that should be made tail-recursive, or a
+  "[@tailcall false]" attribute on calls that should not be transformed.
 Line 5, characters 10-20:
 5 |     Node (map f left, map f right)
               ^^^^^^^^^^
@@ -145,10 +144,9 @@ Line 7, characters 10-71:
 7 |           Node (map f t1, (map f t2, (map f t3, (map f t4, map f t5))))
               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: "[@tail_mod_cons]": this constructor application may be TMC-transformed
-       in several different ways. Please disambiguate by adding an explicit
-       "[@tailcall]" attribute to the call that should be made tail-recursive,
-       or a "[@tailcall false]" attribute on calls that should not be
-       transformed.
+  in several different ways. Please disambiguate by adding an explicit
+  "[@tailcall]" attribute to the call that should be made tail-recursive, or a
+  "[@tailcall false]" attribute on calls that should not be transformed.
 Line 7, characters 16-24:
 7 |           Node (map f t1, (map f t2, (map f t3, (map f t4, map f t5))))
                     ^^^^^^^^
@@ -204,10 +202,9 @@ Lines 13-20, characters 8-9:
 19 |            else shift ~flip k right)
 20 |         )
 Error: "[@tail_mod_cons]": this constructor application may be TMC-transformed
-       in several different ways. Please disambiguate by adding an explicit
-       "[@tailcall]" attribute to the call that should be made tail-recursive,
-       or a "[@tailcall false]" attribute on calls that should not be
-       transformed.
+  in several different ways. Please disambiguate by adding an explicit
+  "[@tailcall]" attribute to the call that should be made tail-recursive, or a
+  "[@tailcall false]" attribute on calls that should not be transformed.
 Line 15, characters 16-38:
 15 |            then shift ~flip (- k) left
                      ^^^^^^^^^^^^^^^^^^^^^^
@@ -275,10 +272,10 @@ Lines 7-14, characters 8-9:
 13 |            else (shift[@tailcall]) ~flip k right)
 14 |         )
 Error: "[@tail_mod_cons]": this constructor application may be TMC-transformed
-       in several different ways. Only one of the arguments may become a TMC
-       call, but several arguments contain calls that are explicitly marked
-       as tail-recursive. Please fix the conflict by reviewing and fixing the
-       conflicting annotations.
+  in several different ways. Only one of the arguments may become a TMC call,
+  but several arguments contain calls that are explicitly marked as
+  tail-recursive. Please fix the conflict by reviewing and fixing the
+  conflicting annotations.
 Line 9, characters 16-51:
 9 |            then (shift[@tailcall]) ~flip (- k) left
                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

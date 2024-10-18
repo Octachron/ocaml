@@ -23,9 +23,9 @@ Lines 1-5, characters 34-31:
 4 | | (false, _) -> ()
 5 | | (_, {contents = false}) -> ()
 Warning 74 [degraded-to-partial-match]: This pattern-matching is compiled
-as partial, even if it appears to be total. It may generate a Match_failure
-exception. This typically occurs due to complex matches on mutable fields.
-(see manual section 13.5.5)
+  as partial, even if it appears to be total. It may generate a "Match_failure"
+  exception. This typically occurs due to complex matches on mutable fields.
+  (see manual section 13.5.5)
 
 val f : bool * bool ref -> unit = <fun>
 |}];;
@@ -42,9 +42,9 @@ Lines 1-4, characters 34-31:
 3 | | (false, _) -> ()
 4 | | (_, {contents = false}) -> ()
 Warning 74 [degraded-to-partial-match]: This pattern-matching is compiled
-as partial, even if it appears to be total. It may generate a Match_failure
-exception. This typically occurs due to complex matches on mutable fields.
-(see manual section 13.5.5)
+  as partial, even if it appears to be total. It may generate a "Match_failure"
+  exception. This typically occurs due to complex matches on mutable fields.
+  (see manual section 13.5.5)
 
 val g : bool * bool ref -> unit = <fun>
 |}];;
@@ -77,9 +77,9 @@ Lines 2-6, characters 2-33:
 5 |   | (false, _) -> ()
 6 |   | (_, {contents = false}) -> ()
 Warning 74 [degraded-to-partial-match]: This pattern-matching is compiled
-as partial, even if it appears to be total. It may generate a Match_failure
-exception. This typically occurs due to complex matches on mutable fields.
-(see manual section 13.5.5)
+  as partial, even if it appears to be total. It may generate a "Match_failure"
+  exception. This typically occurs due to complex matches on mutable fields.
+  (see manual section 13.5.5)
 
 val f : bool * bool ref -> unit = <fun>
 |}];;
@@ -97,9 +97,9 @@ Lines 1-5, characters 34-31:
 4 | | (false, _) -> ()
 5 | | (_, {contents = false}) -> ()
 Warning 74 [degraded-to-partial-match]: This pattern-matching is compiled
-as partial, even if it appears to be total. It may generate a Match_failure
-exception. This typically occurs due to complex matches on mutable fields.
-(see manual section 13.5.5)
+  as partial, even if it appears to be total. It may generate a "Match_failure"
+  exception. This typically occurs due to complex matches on mutable fields.
+  (see manual section 13.5.5)
 
 val f : bool * bool ref -> unit = <fun>
 |}];;

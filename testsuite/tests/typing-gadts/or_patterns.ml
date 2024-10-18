@@ -763,5 +763,5 @@ Line 2, characters 6-7:
           ^
 Error: This pattern matches values of type "$a"
        The type constructor "$a" would escape its scope
-       Hint: "$a" is an existential type bound by the constructor "A".
+  Hint: "$a" is an existential type bound by the constructor "A".
 |}]

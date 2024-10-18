@@ -54,7 +54,7 @@ Line 1, characters 14-15:
 1 | let f (module M : S with type t = 'a) = M.x;; (* Error *)
                   ^
 Error: The type of this packed module contains variables:
-       "(module S with type t = 'a)"
+  "(module S with type t = 'a)"
 |}];;
 
 let f (type a) (module M : S with type t = a) = M.x;;
@@ -82,7 +82,7 @@ Line 1, characters 9-19:
 1 | let f {s=(module M)} = M.x;; (* Error *)
              ^^^^^^^^^^
 Error: The type of this packed module contains variables:
-       "(module S with type t = 'a)"
+  "(module S with type t = 'a)"
 |}];;
 
 let f (type a) ({s=(module M)} : a s) = M.x;;
@@ -478,7 +478,7 @@ Line 4, characters 10-51:
 4 |   (module struct type elt = A type t = elt list end : S with type t = _ list)
               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: The type "t" in this module cannot be exported.
-       Its type contains local dependencies: "elt list"
+  Its type contains local dependencies: "elt list"
 |}];;
 
 type 'a s = (module S with type t = 'a);;
@@ -497,7 +497,7 @@ Line 1, characters 23-44:
 1 | let x : 'a s = (module struct type t = A end);;
                            ^^^^^^^^^^^^^^^^^^^^^
 Error: The type "t" in this module cannot be exported.
-       Its type contains local dependencies: "t"
+  Its type contains local dependencies: "t"
 |}];;
 
 let x : 'a s = (module struct end);;

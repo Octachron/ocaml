@@ -516,19 +516,19 @@ Line 17, characters 16-29:
 17 | module Ignore = Force(Choose)
                      ^^^^^^^^^^^^^
 Error: Modules do not match:
-       () -> sig module Choice : T val r : '_weak1 list ref ref end
-     is not included in () -> S
-     Modules do not match:
-       sig module Choice : T val r : '_weak1 list ref ref end
-     is not included in
-       S
-     Values do not match:
-       val r : '_weak1 list ref ref
-     is not included in
-       val r : Choice.t list ref ref
-     The type "'_weak1 list ref ref" is not compatible with the type
-       "Choice.t list ref ref"
-     The type constructor "Choice.t" would escape its scope
+  () -> sig module Choice : T val r : '_weak1 list ref ref end
+is not included in () -> S
+Modules do not match:
+  sig module Choice : T val r : '_weak1 list ref ref end
+is not included in
+  S
+Values do not match:
+  val r : '_weak1 list ref ref
+is not included in
+  val r : Choice.t list ref ref
+The type "'_weak1 list ref ref" is not compatible with the type
+  "Choice.t list ref ref"
+The type constructor "Choice.t" would escape its scope
 |}];;
 
 module O = struct

@@ -184,7 +184,7 @@ Line 1, characters 25-58:
 1 | module type fst_erased = fst with module type t := sig end
                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: This "with" constraint "t := sig end" makes a packed module ill-formed.
-       (see manual section 12.7.3)
+  (see manual section 12.7.3)
 |}]
 
 module type fst_ok = fst with module type t = sig end
@@ -206,7 +206,7 @@ Line 8, characters 16-49:
 8 | module type R = S with module type M.T := sig end
                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: This "with" constraint "M.T := sig end" makes a packed module ill-formed.
-       (see manual section 12.7.3)
+  (see manual section 12.7.3)
 |}]
 
 
@@ -224,7 +224,7 @@ Line 8, characters 16-49:
 8 | module type R = S with module type M.T := sig end
                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: This "with" constraint "T := sig end" makes a packed module ill-formed.
-       (see manual section 12.7.3)
+  (see manual section 12.7.3)
 |}]
 
 
@@ -308,8 +308,8 @@ Line 3, characters 2-19:
 3 |   val x: (module t)
       ^^^^^^^^^^^^^^^^^
 Error: The module type "t" is not a valid type for a packed module:
-       it is defined as a local substitution (temporary name)
-       for an anonymous module type. (see manual section 12.7.3)
+  it is defined as a local substitution (temporary name)
+  for an anonymous module type. (see manual section 12.7.3)
 |}]
 
 
@@ -333,8 +333,8 @@ Line 3, characters 2-22:
 3 |   type s := (module t)
       ^^^^^^^^^^^^^^^^^^^^
 Error: The module type "t" is not a valid type for a packed module:
-       it is defined as a local substitution (temporary name)
-       for an anonymous module type. (see manual section 12.7.3)
+  it is defined as a local substitution (temporary name)
+  for an anonymous module type. (see manual section 12.7.3)
 |}]
 
 module type s = sig
@@ -347,8 +347,8 @@ Line 4, characters 2-22:
 4 |   type s := (module r)
       ^^^^^^^^^^^^^^^^^^^^
 Error: The module type "r" is not a valid type for a packed module:
-       it is defined as a local substitution (temporary name)
-       for an anonymous module type. (see manual section 12.7.3)
+  it is defined as a local substitution (temporary name)
+  for an anonymous module type. (see manual section 12.7.3)
 |}]
 
 module type s = sig
@@ -364,6 +364,6 @@ Lines 3-5, characters 2-5:
 4 |       type s = (module t)
 5 |   end
 Error: The module type "t" is not a valid type for a packed module:
-       it is defined as a local substitution (temporary name)
-       for an anonymous module type. (see manual section 12.7.3)
+  it is defined as a local substitution (temporary name)
+  for an anonymous module type. (see manual section 12.7.3)
 |}]

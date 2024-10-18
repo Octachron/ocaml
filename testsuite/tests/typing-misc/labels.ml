@@ -10,7 +10,7 @@ val f : x:int -> int = <fun>
 Line 2, characters 5-6:
 2 | f ?x:0;;
          ^
-Warning 43 [nonoptional-label]: the label x is not optional.
+Warning 43 [nonoptional-label]: the label "x" is not optional.
 
 - : int = 1
 |}];;
@@ -72,8 +72,8 @@ Line 1, characters 37-38:
 1 | let f g = ignore (g ?x:(Some 2) ()); g ~x:3 () ;;
                                          ^
 Error: This function is applied to arguments
-       in an order different from other calls.
-       This is only allowed when the real type is known.
+  in an order different from other calls.
+  This is only allowed when the real type is known.
 |}];;
 
 let f g = let _ = g ?x:(Some 2) () in g ~x:3 () ;;
@@ -82,8 +82,8 @@ Line 1, characters 38-39:
 1 | let f g = let _ = g ?x:(Some 2) () in g ~x:3 () ;;
                                           ^
 Error: This function is applied to arguments
-       in an order different from other calls.
-       This is only allowed when the real type is known.
+  in an order different from other calls.
+  This is only allowed when the real type is known.
 |}];;
 
 (* principality warning *)

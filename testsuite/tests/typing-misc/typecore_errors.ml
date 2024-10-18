@@ -280,8 +280,8 @@ Line 1, characters 23-24:
 1 | let g f = f ~x:0 ~y:0; f ~y:0 ~x:0
                            ^
 Error: This function is applied to arguments
-       in an order different from other calls.
-       This is only allowed when the real type is known.
+  in an order different from other calls.
+  This is only allowed when the real type is known.
 |}]
 
 (** Inlined record *)

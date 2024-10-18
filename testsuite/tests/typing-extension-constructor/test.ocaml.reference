@@ -8,6 +8,6 @@ Line 2, characters 1-27:
      ^^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: This expression has type "extension_constructor/2"
        but an expression was expected of type "M.extension_constructor" = "int"
-       File "_none_", line 1:
-         Definition of type "extension_constructor/2"
+  File "_none_", line 1:
+    Definition of type "extension_constructor/2"
 

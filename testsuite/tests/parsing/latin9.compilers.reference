@@ -18,7 +18,7 @@ Line 1, characters 9-14:
 1 | let ko = {Là|x|Là};;
              ^^^^^
 Error: "Là" cannot be used as a quoted string delimiter,
-       it must contain only lowercase letters.
+  it must contain only lowercase letters.
 Line 2, characters 10-20:
 2 | let x = {%âcre.name été|x|été};;
               ^^^^^^^^^^
