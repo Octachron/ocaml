@@ -23,6 +23,8 @@
 
 *)
 
+(** Testing github action*)
+
 type t =
     Lident of string
   | Ldot of t * string
