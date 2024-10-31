@@ -51,3 +51,14 @@ let f (W: _ t) = ()
 [%%expect{|
 val f : int M.p t -> unit = <fun>
 |}]
+
+let f (type a) (Equal : ('a M.p * a, 'b M.p * int) Type.eq) = ();;
+[%%expect{|
+Line 1, characters 16-21:
+1 | let f (type a) (Equal : ('a M.p * a, 'b M.p * int) Type.eq) = ();;
+                    ^^^^^
+Error: This pattern matches values of type "($'a M.p * a, $'a M.p * a) Type.eq"
+       but a pattern was expected which matches values of type
+         "($'a M.p * a, 'b M.p * int) Type.eq"
+       The type constructor "$'a" would escape its scope
+|}]
