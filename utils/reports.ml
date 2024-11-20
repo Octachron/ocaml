@@ -14,7 +14,7 @@
 (**************************************************************************)
 
 open Log
-module V = New_root()
+module V = Diagnostic_history.Make()
 let v1 = V.v1
 
 module type Record = Log.Record with type vl := V.id
@@ -60,7 +60,7 @@ module Structured_text = struct
     let string_tag = new_constr v1 "String_tag" String
 
     type _ extension += Format_tag: Format.stag extension
-    type format_tag_serializer = Version.t option -> Format.stag -> raw_type
+    type format_tag_serializer = version option -> Format.stag -> raw_type
     let map: (Obj.Extension_constructor.t, format_tag_serializer) Hashtbl.t =
       Hashtbl.create 5
     let register_tag ext conv = Hashtbl.replace map ext conv
@@ -234,7 +234,7 @@ end
 
 
 
-module Config_versions = Log.New_root()
+module Config_versions = Diagnostic_history.Make()
 module Config = struct
   let v1 = Config_versions.v1
   include Log.New_record(Config_versions)(struct

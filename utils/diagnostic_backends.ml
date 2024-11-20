@@ -92,10 +92,10 @@ module Fmt = struct
   type ctx = {
     conv:conv;
     ext_printer:extension_printer;
-    version:Version.t option
+    version:Log.version option
   }
 
-  let rec scrap_custom: type t. Version.t option -> t typ -> t -> typed_val =
+  let rec scrap_custom: type t. version option -> t typ -> t -> typed_val =
     fun v t x ->
     match t with
     | Custom r -> scrap_custom v r.default (r.pull v x)
@@ -387,7 +387,7 @@ module Json_schema = struct
     match v with
     | None -> Some (item ~key (obj [typ ty]))
     | Some _ as v ->
-        let stage = Version.stage_at v status in
+        let stage = Diagnostic_history.stage_at v status in
         match stage with
         | Future | Deletion -> None
         | _ ->

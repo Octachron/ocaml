@@ -13,6 +13,7 @@
 (*                                                                        *)
 (**************************************************************************)
 
+open Diagnostic_history
 let json_schema = ref None
 let history = ref false
 let output = ref None
@@ -40,13 +41,13 @@ open Log
 open Reports
 let version () =
   match !version with
-  | None -> Some (Version.current_version V.history)
+  | None -> Some (Diagnostic_history.current_version V.history)
   | Some v ->
       match Scanf.sscanf_opt v "%d.%d"
-              (fun major minor -> Version.{major;minor})
+              (fun major minor -> {Diagnostic_history.major;minor})
       with
       | Some _ as v -> v
-      | None -> Some (Version.current_version V.history)
+      | None -> Some (Diagnostic_history.current_version V.history)
 let schema v ppf =
   function
   | None -> ()
@@ -69,15 +70,15 @@ let schema v ppf =
 
 module Pp = struct
   open Format
-  open Log.Version
   module Vmap = Map.Make(struct
-      type t = Log.Version.t
+      type t = Diagnostic_history.version
       let compare: t -> t -> int = Stdlib.compare
     end)
 
   module String_map = Map.Make(String)
 
-  let group_by_version_then_scheme events =
+  let group_by_version_then_scheme event_seq =
+    let open Diagnostic_history in
     let add (m,errors) e =
       let map_at_v =
         Option.value ~default:String_map.empty (Vmap.find_opt e.version m) in
@@ -88,7 +89,7 @@ module Pp = struct
       let errors = match e.event with Error e -> e :: errors | _ -> errors in
       Vmap.add e.version map_at_v m, errors
     in
-    Seq.fold_left add (Vmap.empty,[]) events
+    Seq.fold_left add (Vmap.empty,[]) event_seq
 
 
   let status ppf range =
@@ -101,9 +102,11 @@ module Pp = struct
     | Lifetime.Future -> fprintf ppf "future"
 
 
-  let error ppf = function
+  let error ppf =
+    let open Diagnostic_history in
+    function
     | Time_travel (v,x) ->
-        fprintf ppf "Error: future key (%a<%a)" Version.pp v Version.pp x
+        fprintf ppf "Error: future key (%a<%a)" pp v pp x
     | Duplicate_key s -> fprintf ppf "Error: duplicate %s" s
     | Invalid_constructor_expansion s ->
         fprintf ppf "Error: second constructor expansion %s" s
@@ -113,7 +116,7 @@ module Pp = struct
         fprintf ppf "Error inconsistent change of the %a key %s"
           status range
           key_name
-    | Sealed_version v -> fprintf ppf "Error: seal breach %a" Version.pp v
+    | Sealed_version v -> fprintf ppf "Error: seal breach %a" pp v
 
   let base_event ppf =
     function
@@ -138,7 +141,7 @@ module Pp = struct
       (pp_print_list base_event) (List.rev events)
 
   let events_by_version_then_scheme ppf (version, map_at_v) =
-    Format.fprintf ppf "@[<v 2>%a@," Version.pp version;
+    Format.fprintf ppf "@[<v 2>%a@," pp version;
     pp_print_seq scheme_at_v ppf (String_map.to_seq map_at_v);
     Format.fprintf ppf "@]"
 

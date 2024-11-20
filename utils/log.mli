@@ -13,75 +13,31 @@
 (*                                                                        *)
 (**************************************************************************)
 
-(** The log module provides an unified interface for logging in
-    a structured log
+(** The {!Log} module provides an unified interface for logging structured data
+    in a log. A log can be printed on a collection of {!Format} device.
 *)
 
+ (** The definition of a representation scheme for a type *)
 type !'a def
-type !'a log
-type 'a t = 'a log
-type ('a,'b) field
+
+type !'id log
+type 'id t = 'id log
+ (** A structured log with tag ['id]. *)
+
+type ('id,'a) field
+(** A field of type ['a] for the a ['id log]. *)
+
 val field_name: _ field -> string
 
-(** {1:log_scheme_versionning  Current version of the log } *)
-module Version: sig
-  type t = { major:int; minor:int }
-  type version = t
-  module Lifetime: sig
-    type t = {
-      inception: version option;
-      publication: version option;
-      expansion: version option;
-      deprecation: version option;
-      deletion: version option
-    }
-    type point =
-      | Inception
-      | Publication
-      | Expansion
-      | Deprecation
-      | Deletion
-      | Future
-  end
-  val make: major:int -> minor:int -> t
-  val pp: Format.formatter -> t -> unit
 
-  type 'a history
-  type error =
-    | Duplicate_key of string
-    | Time_travel of t * t
-    | Inconsistent_change of Lifetime.t * string
-    | Invalid_constructor_expansion of string
-    | Invalid_publication of string
-    | Sealed_version of t
-  type base_event =
-    | Declaration
-    | Inception of {base_name:string; new_name:string; typ:string}
-    | Publication of string
-    | Creation of {name:string; typ:string}
-    | Make_required of string
-    | Expansion of {name:string; expansion:string}
-    | Deprecation of string
-    | Deletion of string
-    | Seal
-    | Error of error
-  type event = { scheme: string; version:t; event:base_event }
-  val events: 'a history -> event Seq.t
-  val current_version: 'a history -> t
 
-  type 'a update
-  val new_version: 'a history -> t -> 'a update
-  val v: 'a update -> t
+type version = Diagnostic_history.version = { major:int; minor:int }
+type 'a update = 'a Diagnostic_history.update
 
-  val stage: Lifetime.t -> Lifetime.point
-  val stage_at: version option -> Lifetime.t -> Lifetime.point
-
-end
-
-type version = Version.t = { major:int; minor:int }
 type diagnostic_version =
   | Downward_compatible of version
   | Exact of version
+
 val diagnostic_version: diagnostic_version -> version
 val exact_version: diagnostic_version -> version option
 
@@ -108,7 +64,7 @@ type 'a typ =
 
   | Custom: {
       id :'b extension;
-      pull: (Version.t option -> 'b -> 'a);
+      pull: (Diagnostic_history.version option -> 'b -> 'a);
       default: 'a typ
     } -> 'b typ
 
@@ -118,7 +74,7 @@ type typed_record = R: 'a def * 'a record -> typed_record
 type label_metadata = {
   ltyp: any_typ;
   optional: bool;
-  status:Version.Lifetime.t
+  status:Diagnostic_history.Lifetime.t
 }
 type printer = {
   record: Format.formatter -> typed_record -> unit;
@@ -150,12 +106,6 @@ val make:
 
 val metakey: string * label_metadata
 
-module type Version_line = sig
-  type id
-  val history: id Version.history
-  val v1: id Version.update
-end
-
 module type Def = sig
   type vl
   type id
@@ -169,9 +119,9 @@ module type Def = sig
   val scheme: scheme
   val raw_type: definition typ
 
-  val deprecate: vl Version.update -> 'a label -> 'a label
-  val delete: vl Version.update -> 'a label -> 'a label
-  val seal: vl Version.update -> unit
+  val deprecate: vl update -> 'a label -> 'a label
+  val delete: vl update -> 'a label -> 'a label
+  val seal: vl update -> unit
 end
 
 module type Record = sig
@@ -181,10 +131,9 @@ module type Record = sig
     with type id := id
      and type definition := id record
      and type 'a label := 'a field
-  val new_field:
-    ?opt:bool -> vl Version.update  -> string -> 'a typ -> 'a field
-  val new_field_opt: vl Version.update  -> string -> 'a typ -> 'a field
-  val make_required: vl Version.update -> 'a field -> unit
+  val new_field: ?opt:bool -> vl update  -> string -> 'a typ -> 'a field
+  val new_field_opt: vl update  -> string -> 'a typ -> 'a field
+  val make_required: vl update -> 'a field -> unit
 end
 
 module type Sum = sig
@@ -194,29 +143,28 @@ module type Sum = sig
     with type id := id
      and type definition := id sum
      and type 'a label := 'a constructor
-  val app: Version.t option -> 'a constructor -> 'a -> raw_type
+  val app: Diagnostic_history.version option -> 'a constructor -> 'a -> raw_type
 
   val refine:
-    vl Version.update -> 'a constructor -> ('b -> 'a)
+    vl update -> 'a constructor -> ('b -> 'a)
     -> string -> 'b typ -> 'b constructor
-  val new_constr: vl Version.update -> string -> 'a typ -> 'a constructor
-  val new_constr0: vl Version.update -> string -> unit constructor
-  val publish: vl Version.update -> 'a constructor -> 'a constructor
+  val new_constr: vl update -> string -> 'a typ -> 'a constructor
+  val new_constr0: vl update -> string -> unit constructor
+  val publish: vl update -> 'a constructor -> 'a constructor
   val expand:
-    vl Version.update -> 'a constructor -> ('b->'a) -> 'b typ -> 'b constructor
+    vl update -> 'a constructor -> ('b->'a) -> 'b typ -> 'b constructor
 
 end
 
 module type Info = sig
   type vl
   val name: string
-  val update: vl Version.update
+  val update: vl update
 end
 
-module New_root: () -> Version_line
-module New_record (Vl:Version_line):
+module New_record (Vl:Diagnostic_history.S):
   (Info with type vl:=Vl.id)-> () -> (Record with type vl := Vl.id)
-module New_sum (Vl:Version_line):
+module New_sum (Vl:Diagnostic_history.S):
   (Info with type vl:=Vl.id) -> () -> (Sum with type vl := Vl.id)
 
 
@@ -227,7 +175,7 @@ val flush: 'id log -> unit
 val separate: 'id log -> unit
 val close: 'id log -> unit
 
-val version_range: (_,_) field -> Version.Lifetime.t
+val version_range: (_,_) field -> Diagnostic_history.Lifetime.t
 
 val tmp: 'a def -> 'a log
 
@@ -267,7 +215,7 @@ module Record: sig
   type 'a bfield
   val (^=): ('a,'b) field -> 'a -> 'b bfield
   val (^=?): ('a,'b) field -> 'a option -> 'b bfield
-  val make: Version.t option -> 'a bfield list -> 'a record
+  val make: Diagnostic_history.version option -> 'a bfield list -> 'a record
 end
 
 
@@ -276,5 +224,5 @@ val log_if:
   (Format.formatter -> 'a -> unit) -> 'a -> unit
 
 (** Metada module *)
-module Metadata_versions: Version_line
+module Metadata_versions: Diagnostic_history.S
 module Metadata: Record with type vl := Metadata_versions.id

@@ -407,11 +407,11 @@ let log_version = ref None
 let log_version_reader =
   let parse s =
     Scanf.sscanf_opt s "%d.%d"
-      (fun major minor -> Log.Version.make ~minor ~major)
+      (fun major minor -> Diagnostic_history.version ~minor ~major)
   in
   {
     parse;
-    print = (Format.asprintf "%a" Log.Version.pp);
+    print = (Format.asprintf "%a" Diagnostic_history.pp);
     usage={|expected "%d.%d"|};
     env_var = "OCAML_LOG_VERSION"
   }
@@ -606,7 +606,7 @@ let create_log_device ppf =
       Log.make_device ~on_close (ref ppf)
 
 let create_log ~default_backend history scheme device =
-  let current_version = Log.Version.current_version history in
+  let current_version = Diagnostic_history.current_version history in
   let version = match !log_version with
     | None -> Log.Downward_compatible current_version
     | Some v -> Log.Exact v

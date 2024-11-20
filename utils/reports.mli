@@ -18,7 +18,7 @@
 *)
 
 
-module V: Log.Version_line
+module V: Diagnostic_history.S
 module type Record = Log.Record with type vl := V.id
 module type Sum = Log.Sum with type vl := V.id
 
@@ -29,10 +29,10 @@ module Structured_text: sig
 
   val register_tag:
     Obj.Extension_constructor.t
-    -> (Log.Version.t option -> Format.stag -> Format_tag.id Log.sum)
+    -> (Log.version option -> Format.stag -> Format_tag.id Log.sum)
     -> unit
   val register_tag0:
-    V.id Log.Version.update -> Obj.Extension_constructor.t
+    V.id Log.update -> Obj.Extension_constructor.t
     -> unit
 
   val typ: doc Log.typ
@@ -77,7 +77,7 @@ module Toplevel: sig
 end
 
 (** Access to configuration values *)
-module Config_versions: Log.Version_line
+module Config_versions: Diagnostic_history.S
 module Config: sig
   include Log.Record with type vl := Config_versions.id
 

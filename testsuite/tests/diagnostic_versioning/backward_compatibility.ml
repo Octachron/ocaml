@@ -5,28 +5,30 @@
 
 
 open Log
+module H = Diagnostic_history
 
-module V = New_root ()
+module V = H.Make()
 
 let u1 = V.v1
-let v1_0 = Version.v u1
-let v1_1 = { Version.major = 1; minor=1}
-let v1_2 = { Version.major = 1; minor=2}
-let v2_0 = { Version.major = 2; minor=0}
+let v1_0 = H.v u1
+let v1_1 = { H.major = 1; minor=1}
+let v1_2 = { H.major = 1; minor=2}
+let v2_0 = { H.major = 2; minor=0}
 
-let u1_1 = Version.new_version V.history v1_1
-let u1_2 = Version.new_version V.history v1_2
-let u2_0 = Version.new_version V.history v2_0
+let u1_1 = H.new_version V.history v1_1
+let u1_2 = H.new_version V.history v1_2
+let u2_0 = H.new_version V.history v2_0
 [%%expect {|
-module V : Log.Version_line
-val u1 : V.id Log.Version.update = <abstr>
-val v1_0 : Log.Version.t = {Log.Version.major = 1; minor = 0}
-val v1_1 : Log.Version.t = {Log.Version.major = 1; minor = 1}
-val v1_2 : Log.Version.t = {Log.Version.major = 1; minor = 2}
-val v2_0 : Log.Version.t = {Log.Version.major = 2; minor = 0}
-val u1_1 : V.id Log.Version.update = <abstr>
-val u1_2 : V.id Log.Version.update = <abstr>
-val u2_0 : V.id Log.Version.update = <abstr>
+module H = Diagnostic_history
+module V : Diagnostic_history.S
+val u1 : V.id Diagnostic_history.update = <abstr>
+val v1_0 : H.version = {H.major = 1; minor = 0}
+val v1_1 : H.version = {H.major = 1; minor = 1}
+val v1_2 : H.version = {H.major = 1; minor = 2}
+val v2_0 : H.version = {H.major = 2; minor = 0}
+val u1_1 : V.id H.update = <abstr>
+val u1_2 : V.id H.update = <abstr>
+val u2_0 : V.id H.update = <abstr>
 |}]
 
 module S = New_sum(V)(struct
@@ -43,20 +45,20 @@ module S :
     type t = id Log.log
     val scheme : scheme
     val raw_type : id Log.sum Log.typ
-    val deprecate :
-      V.id Log.Version.update -> 'a constructor -> 'a constructor
-    val delete : V.id Log.Version.update -> 'a constructor -> 'a constructor
-    val seal : V.id Log.Version.update -> unit
-    val app : Log.Version.t option -> 'a constructor -> 'a -> raw_type
+    val deprecate : V.id Log.update -> 'a constructor -> 'a constructor
+    val delete : V.id Log.update -> 'a constructor -> 'a constructor
+    val seal : V.id Log.update -> unit
+    val app :
+      Diagnostic_history.version option -> 'a constructor -> 'a -> raw_type
     val refine :
-      V.id Log.Version.update ->
+      V.id Log.update ->
       'a constructor -> ('b -> 'a) -> string -> 'b Log.typ -> 'b constructor
     val new_constr :
-      V.id Log.Version.update -> string -> 'a Log.typ -> 'a constructor
-    val new_constr0 : V.id Log.Version.update -> string -> unit constructor
-    val publish : V.id Log.Version.update -> 'a constructor -> 'a constructor
+      V.id Log.update -> string -> 'a Log.typ -> 'a constructor
+    val new_constr0 : V.id Log.update -> string -> unit constructor
+    val publish : V.id Log.update -> 'a constructor -> 'a constructor
     val expand :
-      V.id Log.Version.update ->
+      V.id Log.update ->
       'a constructor -> ('b -> 'a) -> 'b Log.typ -> 'b constructor
   end
 |}]
@@ -113,15 +115,13 @@ module Inline_b :
     type t = id Log.log
     val scheme : scheme
     val raw_type : id Log.record Log.typ
-    val deprecate : V.id Log.Version.update -> 'a field -> 'a field
-    val delete : V.id Log.Version.update -> 'a field -> 'a field
-    val seal : V.id Log.Version.update -> unit
+    val deprecate : V.id Log.update -> 'a field -> 'a field
+    val delete : V.id Log.update -> 'a field -> 'a field
+    val seal : V.id Log.update -> unit
     val new_field :
-      ?opt:bool ->
-      V.id Log.Version.update -> string -> 'a Log.typ -> 'a field
-    val new_field_opt :
-      V.id Log.Version.update -> string -> 'a Log.typ -> 'a field
-    val make_required : V.id Log.Version.update -> 'a field -> unit
+      ?opt:bool -> V.id Log.update -> string -> 'a Log.typ -> 'a field
+    val new_field_opt : V.id Log.update -> string -> 'a Log.typ -> 'a field
+    val make_required : V.id Log.update -> 'a field -> unit
   end
 val ib_contents : unit Inline_b.field = <abstr>
 val maybe : bool Inline_b.field = <abstr>
@@ -193,15 +193,13 @@ module R :
     type t = id Log.log
     val scheme : scheme
     val raw_type : id Log.record Log.typ
-    val deprecate : V.id Log.Version.update -> 'a field -> 'a field
-    val delete : V.id Log.Version.update -> 'a field -> 'a field
-    val seal : V.id Log.Version.update -> unit
+    val deprecate : V.id Log.update -> 'a field -> 'a field
+    val delete : V.id Log.update -> 'a field -> 'a field
+    val seal : V.id Log.update -> unit
     val new_field :
-      ?opt:bool ->
-      V.id Log.Version.update -> string -> 'a Log.typ -> 'a field
-    val new_field_opt :
-      V.id Log.Version.update -> string -> 'a Log.typ -> 'a field
-    val make_required : V.id Log.Version.update -> 'a field -> unit
+      ?opt:bool -> V.id Log.update -> string -> 'a Log.typ -> 'a field
+    val new_field_opt : V.id Log.update -> string -> 'a Log.typ -> 'a field
+    val make_required : V.id Log.update -> 'a field -> unit
   end
 val s : s R.field = <abstr>
 val x : int R.field = <abstr>
@@ -243,24 +241,22 @@ val cval : s = C true
 
 let rx = version_range x
 [%%expect {|
-val rx : Log.Version.Lifetime.t =
-  {Log.Version.Lifetime.inception = None;
-   publication = Some {Log.Version.major = 1; minor = 0}; expansion = None;
-   deprecation = Some {Log.Version.major = 1; minor = 1};
-   deletion = Some {Log.Version.major = 2; minor = 0}}
+val rx : Diagnostic_history.Lifetime.t =
+  {Diagnostic_history.Lifetime.inception = None;
+   publication = Some {Diagnostic_history.major = 1; minor = 0};
+   expansion = None;
+   deprecation = Some {Diagnostic_history.major = 1; minor = 1};
+   deletion = Some {Diagnostic_history.major = 2; minor = 0}}
 |}]
 
 
 let xst =
-  Version.stage_at (Some v1_0) (version_range x),
-  Version.stage_at (Some v1_1) (version_range x),
-  Version.stage_at (Some v2_0) (version_range x)
+  H.stage_at (Some v1_0) (version_range x),
+  H.stage_at (Some v1_1) (version_range x),
+  H.stage_at (Some v2_0) (version_range x)
 [%%expect {|
-val xst :
-  Log.Version.Lifetime.point * Log.Version.Lifetime.point *
-  Log.Version.Lifetime.point =
-  (Log.Version.Lifetime.Publication, Log.Version.Lifetime.Deprecation,
-   Log.Version.Lifetime.Deletion)
+val xst : H.Lifetime.point * H.Lifetime.point * H.Lifetime.point =
+  (H.Lifetime.Publication, H.Lifetime.Deprecation, H.Lifetime.Deletion)
 |}]
 
 

@@ -82,6 +82,7 @@ COMPILERLIBS_SOURCES=\
   utils/arg_helper.ml \
   utils/local_store.ml \
   utils/load_path.ml \
+  utils/diagnostic_history.ml \
   utils/log.ml \
   utils/reports.ml \
   utils/diagnostic_backends.ml \

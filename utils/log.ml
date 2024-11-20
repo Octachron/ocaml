@@ -16,163 +16,9 @@
 
 module Label_map = Misc.Stdlib.String.Map
 
-module Version = struct
-
-  type t = { major:int; minor:int }
-  type version = t
-  let make ~major ~minor = { major; minor }
-
-  module Lifetime = struct
-    type t = {
-      inception: version option;
-      publication: version option;
-      expansion: version option;
-      deprecation: version option;
-      deletion: version option;
-    }
-    type point =
-      | Inception
-      | Publication
-      | Expansion
-      | Deprecation
-      | Deletion
-      | Future
-
-    let next = function
-      | Inception -> Publication
-      | Publication -> Expansion
-      | Expansion -> Deprecation
-      | Deprecation -> Deletion
-      | Deletion -> Deletion
-      | Future -> Future
-
-    let prev = function
-      | Inception -> Inception
-      | Publication -> Inception
-      | Expansion -> Publication
-      | Deprecation -> Expansion
-      | Deletion -> Deprecation
-      | Future -> Future
-
-    let get r = function
-      | Inception -> r.inception
-      | Publication -> r.publication
-      | Expansion -> r.expansion
-      | Deprecation -> r.deprecation
-      | Deletion -> r.deletion
-      | Future -> None
-
-    let rec after r p =
-      match get r p with
-      | None ->
-          if p = Deletion then None
-          else after r (next p)
-      | Some x -> Some (p, x)
-
-    let rec last_change r p =
-      if p = Inception then Inception
-        else match get r p with
-          | None -> last_change r (prev p)
-          | Some _ -> p
-
-    let rec stage v current r =
-      if current = Deletion then current else
-      match after r (next current) with
-      | None -> current
-      | Some (p,v1) ->
-          if v < v1 then current
-          else if v = v1 then p
-          else stage v (next p) r
-
-  end
-
-  let stage r = Lifetime.(last_change r Deletion)
-
-  let stage_at v r =
-    let open Lifetime in
-    match v, after r Inception with
-    | Some _, None -> assert false
-    | None, _ -> Publication
-    | Some v, Some (p,v1) ->
-        if v < v1 then Future
-        else if v = v1 then p
-        else Lifetime.stage v p r
-
-  let range ?deprecation ?deletion ?expansion publication ={
-    Lifetime.inception = None; publication=Some publication;
-    expansion; deprecation; deletion
-  }
-
-  let prerange ?deprecation ?deletion ?expansion ?publication r = {
-    Lifetime.inception=Some r; publication;
-    expansion; deprecation; deletion
-  }
-
-
-  type error =
-    | Duplicate_key of string
-    | Time_travel of t * t
-    | Inconsistent_change of Lifetime.t * string
-    | Invalid_constructor_expansion of string
-    | Invalid_publication of string
-    | Sealed_version of t
-
-  type base_event =
-    | Declaration
-    | Inception of {base_name:string; new_name:string; typ:string}
-    | Publication of string
-    | Creation of {name:string; typ:string}
-    | Make_required of string
-    | Expansion of {name:string; expansion:string}
-    | Deprecation of string
-    | Deletion of string
-    | Seal
-    | Error of error
-
-  type event =
-    { scheme: string; version:t; event:base_event }
-  type _ history = {
-    mutable current: t;
-    events: event Dynarray.t
-  }
-
-  type 'a update = {
-    v:t;
-    history:'a history;
-    minor_update:bool;
-  }
-  let v x = x.v
-
-  let register_event update scheme event =
-    let h = update.history in
-    Dynarray.add_last h.events { scheme; version=update.v; event}
-
-  let error update sch err = register_event update sch (Error err)
-
-  let breaking_change update sch = if update.minor_update then
-      error update sch (Sealed_version update.history.current)
-
-  let zeroth = { major = 0; minor = 0}
-  let first = { major = 1; minor = 0 }
-
-  let new_version history version =
-    let sv = history.current in
-    if version <= sv  then begin
-      let error=Error (Time_travel (version, sv)) in
-      let event = { scheme=""; version=sv; event=error} in
-      Dynarray.add_last history.events event
-    end;
-    let minor_update = version.major = sv.major in
-    history.current <- version;
-    { v=version; minor_update; history }
-
-  let current_version history = history.current
-  let events history = Dynarray.to_seq history.events
-
-  let pp ppf x = Format.fprintf ppf "v%d.%d" x.major x.minor
-
-end
-type version = Version.t = { major:int; minor:int }
+module H = Diagnostic_history
+type version = Diagnostic_history.version = { major:int; minor:int }
+type 'a update = 'a Diagnostic_history.update
 
 type _ extension = ..
 
@@ -196,7 +42,7 @@ type 'a typ =
   | Record: 'id def -> 'id record typ
   | Custom: {
       id :'b extension;
-      pull: (Version.t option -> 'b -> 'a);
+      pull: (version option -> 'b -> 'a);
       default: 'a typ
     } -> 'b typ
 and ('a,'b) field = {
@@ -204,7 +50,7 @@ and ('a,'b) field = {
   typ:'a typ;
   opt:bool;
   id: 'a Type.Id.t;
-  range:Version.Lifetime.t
+  range:Diagnostic_history.Lifetime.t
 }
 and 'a bound_field = Field: ('a,'b) field * 'a -> 'b bound_field
 and 'id sum =
@@ -214,7 +60,7 @@ and any_typ = T: 'a typ -> any_typ
 and label_metadata = {
   ltyp: any_typ;
   optional: bool;
-  status:Version.Lifetime.t;
+  status:Diagnostic_history.Lifetime.t;
 }
 and 'a def = {
   scheme_name: string;
@@ -329,7 +175,7 @@ and with_parens: type a. Format.formatter -> a typ -> unit = fun ppf elt ->
   if parens_needed then Format.fprintf ppf "(%a)" pp_typ elt else pp_typ ppf elt
 
 let label_metadata ~optional update typ = {
-    status = Version.range (Version.v update);
+    status = Diagnostic_history.(range @@ v update);
     optional;
     ltyp = T typ
   }
@@ -337,13 +183,13 @@ let label_metadata ~optional update typ = {
 let register_label_metadata ~optional update scheme name typ =
   begin match scheme.polarity with
   | Positive -> ()
-  | Negative -> Version.breaking_change update scheme.scheme_name
+  | Negative -> Diagnostic_history.breaking_change update scheme.scheme_name
   end;
   if List.mem_assoc name scheme.labels then
-    Version.(error update scheme.scheme_name (Duplicate_key name));
+    Diagnostic_history.(error update scheme.scheme_name (Duplicate_key name));
   let metadata = label_metadata ~optional update typ in
   scheme.!(name) <- metadata;
-  Version.register_event update scheme.scheme_name
+  Diagnostic_history.register_event update scheme.scheme_name
     (Creation {
         name;
         typ=Format.asprintf "%s%a" (if optional then "?" else "") pp_typ typ
@@ -353,7 +199,7 @@ let register_label_metadata ~optional update scheme name typ =
 type _ extension += Version: version extension
 
 let version_ty =
-  let pull _ v = v.Version.major, v.Version.minor in
+  let pull _ v = v.major, v.minor in
   Custom { id = Version; pull; default = Pair (Int,Int) }
 
 
@@ -369,9 +215,9 @@ module type Def = sig
   val scheme: scheme
   val raw_type: raw_type typ
 
-  val deprecate: vl Version.update -> 'a label -> 'a label
-  val delete: vl Version.update -> 'a label -> 'a label
-  val seal: vl Version.update -> unit
+  val deprecate: vl update -> 'a label -> 'a label
+  val delete: vl update -> 'a label -> 'a label
+  val seal: vl update -> unit
 end
 
 module type Record = sig
@@ -381,10 +227,9 @@ module type Record = sig
     with type id := id
      and type definition := id record
      and type 'a label :='a field
-  val new_field:
-    ?opt:bool -> vl Version.update  -> string -> 'a typ -> 'a field
-  val new_field_opt: vl Version.update  -> string -> 'a typ -> 'a field
-  val make_required: vl Version.update -> 'a field -> unit
+  val new_field: ?opt:bool -> vl update  -> string -> 'a typ -> 'a field
+  val new_field_opt: vl update  -> string -> 'a typ -> 'a field
+  val make_required: vl update -> 'a field -> unit
 end
 
 type ('elt,'id) constructor =
@@ -396,13 +241,13 @@ and ('current,'id) constructor_projection =
   | Proj: {
       map: 'current -> 'old;
       old: ('old,'id) constructor;
-      version: Version.t;
+      version: version;
     } -> ('current,'id) constructor_projection
 
 let is_expansion c (Proj p) = c.cname = p.old.cname
 
 let rec select_version:
-  type t id. Version.t -> (t,id) constructor -> t -> id sum =
+  type t id. version -> (t,id) constructor -> t -> id sum =
   fun v c x ->
   match c.projection with
   | None -> Constr { name = c.cname; typ=c.typ; arg=x; approx = None}
@@ -431,24 +276,19 @@ module type Sum = sig
     with type id := id
      and type definition := id sum
      and type 'a label := 'a constructor
-  val app: Version.t option -> 'a constructor -> 'a -> raw_type
+  val app: version option -> 'a constructor -> 'a -> raw_type
 
   val refine:
-    vl Version.update -> 'a constructor -> ('b -> 'a)
+    vl update -> 'a constructor -> ('b -> 'a)
     -> string -> 'b typ -> 'b constructor
-  val new_constr: vl Version.update -> string -> 'a typ -> 'a constructor
-  val new_constr0: vl Version.update -> string -> unit constructor
-  val publish: vl Version.update -> 'a constructor -> 'a constructor
+  val new_constr: vl update -> string -> 'a typ -> 'a constructor
+  val new_constr0: vl update -> string -> unit constructor
+  val publish: vl update -> 'a constructor -> 'a constructor
   val expand:
-    vl Version.update -> 'a constructor -> ('b->'a) -> 'b typ -> 'b constructor
+    vl update -> 'a constructor -> ('b->'a) -> 'b typ -> 'b constructor
 
 end
 
-module type Version_line = sig
-  type id
-  val history: id Version.history
-  val v1: id Version.update
-end
 
 
 module New_local_def() = struct
@@ -458,108 +298,88 @@ module New_local_def() = struct
 end
 
 
-module New_root() = struct
-  type id
-  let history = {
-    Version.current = Version.zeroth;
-    events = Dynarray.create ();
-  }
-
-  let v1 = Version.new_version history Version.first
-end
 
 let (.?()) scheme lbl = List.assoc_opt lbl scheme.labels
 
-module Lv = Version.Lifetime
- let inconsistent_if_not_deprecated u scheme_name key range =
-   match range.Version.Lifetime.deprecation, range.Lv.deletion with
-   | Some _ , None -> ()
-   | None, _ | _, Some _ ->
-       Version.error u scheme_name (Inconsistent_change (range,key))
-
- let inconsistent_if_inactive u scheme_name key range =
-   match range.Lv.deprecation with
-   | None -> ()
-   | Some _ ->  Version.error u scheme_name (Inconsistent_change (range,key))
+module Lv = Diagnostic_history.Lifetime
 
 let (let&?) x f = Option.iter f x
 
 let make_required u f scheme =
   let&? kmd = scheme.?(f.name) in
-  inconsistent_if_inactive u scheme.scheme_name f.name kmd.status;
-  Version.register_event u scheme.scheme_name (Make_required f.name);
+  H.inconsistent_if_inactive u ~scheme:scheme.scheme_name f.name kmd.status;
+  H.register_event u scheme.scheme_name (Make_required f.name);
   scheme.!(f.name) <- { kmd with optional = false }
 
 let register_constructor_expansion u old new_typ scheme =
   let&? kmd = scheme.?(old.cname) in
-  inconsistent_if_inactive u scheme.scheme_name old.cname kmd.status;
+  H.inconsistent_if_inactive u ~scheme:scheme.scheme_name old.cname kmd.status;
   begin match old.projection with
   | None -> ()
   | Some p ->
       if is_expansion old p then
-        Version.error u scheme.scheme_name
-          (Invalid_constructor_expansion old.cname)
+        H.invalid_constructor_expansion u ~scheme:scheme.scheme_name old.cname
   end;
-  Version.register_event u scheme.scheme_name
+  H.register_event u scheme.scheme_name
     (Expansion {name=old.cname;
                 expansion = Format.asprintf "%a" pp_typ new_typ});
-  let status = { kmd.status with expansion = Some (Version.v u) } in
+  let status = { kmd.status with expansion = Some (H.v u) } in
   scheme.!(old.cname) <- { kmd with status; ltyp=T new_typ }
 
 
 let register_constructor_inception u old new_name new_typ scheme =
   let&? kmd = scheme.?(old.cname) in
-  inconsistent_if_inactive u scheme.scheme_name old.cname kmd.status;
-  Version.register_event u scheme.scheme_name
+  H.inconsistent_if_inactive u ~scheme:scheme.scheme_name old.cname kmd.status;
+  H.register_event u scheme.scheme_name
     (Inception {
         base_name=old.cname;
         new_name;
         typ = Format.asprintf "%a" pp_typ new_typ
       }
     );
-  let status = Version.prerange (Version.v u) in
+  let status = H.(prerange @@ v u) in
   let lmd = label_metadata ~optional:false u new_typ in
   scheme.!(new_name) <- { lmd with status }
 
 let register_constructor_publication u name scheme =
   let&? kmd = scheme.?(name) in
-  begin match Version.stage kmd.status with
+  begin match H.stage kmd.status with
   | Inception -> ()
-  | _ -> Version.error u scheme.scheme_name (Invalid_publication name)
+  | _ -> H.error u scheme.scheme_name (Invalid_publication name)
   end;
-  Version.register_event u scheme.scheme_name (Publication name);
-  let status = { kmd.status with publication = Some (Version.v u) } in
+  H.register_event u scheme.scheme_name (Publication name);
+  let status = { kmd.status with publication = Some (H.v u) } in
   scheme.!(name) <- { kmd with status }
 
 
 
 let deprecate_lbl u lbl scheme =
   let&? kmd = scheme.?(lbl) in
-  inconsistent_if_inactive u scheme.scheme_name lbl kmd.status;
-  Version.register_event u scheme.scheme_name (Deprecation lbl);
-  let status = { kmd.status with deprecation = Some (Version.v u) } in
+  H.inconsistent_if_inactive u ~scheme:scheme.scheme_name lbl kmd.status;
+  H.register_event u scheme.scheme_name (Deprecation lbl);
+  let status = { kmd.status with deprecation = Some (H.v u) } in
   scheme.!(lbl) <- { kmd with status }
 
 let delete_lbl u lbl scheme =
   let&? kmd = scheme.?(lbl) in
-  inconsistent_if_not_deprecated u scheme.scheme_name lbl kmd.status;
-  Version.register_event u scheme.scheme_name (Deletion lbl);
-  let status = { kmd.status with deletion = Some (Version.v u) } in
+  H.inconsistent_if_not_deprecated u ~scheme:scheme.scheme_name lbl kmd.status;
+  H.register_event u scheme.scheme_name (Deletion lbl);
+  let status = { kmd.status with deletion = Some (H.v u) } in
   scheme.!(lbl) <- { kmd with status }
 
 let seal update scheme =
-  Version.register_event update scheme.scheme_name Seal
+  H.register_event update scheme.scheme_name Seal
 
 module type Info = sig
   type vl
   val name: string
-  val update: vl Version.update
+  val update: vl update
 end
 
 module Record = struct
-  type 'a bfield = Version.t option -> 'a bound_field option
+  type 'a bfield = version option -> 'a bound_field option
   let field f x v =
-    match Version.stage_at v f.range with
+    match H.stage_at v f.range with
     | Inception | Publication | Expansion | Deprecation -> Some (Field(f,x))
     | Future | Deletion -> None
   let opt_field f x v = match x with
@@ -581,7 +401,7 @@ module Record = struct
 end
 
 
-module New_record(Vl:Version_line)(Info:Info with type vl:=Vl.id)() = struct
+module New_record(Vl:H.S)(Info:Info with type vl:=Vl.id)() = struct
   include New_local_def ()
   type nonrec 'a field = ('a,id) field
   type raw_type = id record
@@ -592,32 +412,32 @@ module New_record(Vl:Version_line)(Info:Info with type vl:=Vl.id)() = struct
   }
   let raw_type = Record scheme
 
-  let () = Version.register_event Info.update Info.name Declaration
+  let () = H.register_event Info.update Info.name Declaration
 
-  let new_field ?(opt=false) (type t) v name (ty:t typ): t field =
-    register_label_metadata ~optional:opt v scheme name ty;
+  let new_field ?(opt=false) (type t) u name (ty:t typ): t field =
+    register_label_metadata ~optional:opt u scheme name ty;
     {
       name;
       typ = ty;
       opt;
       id = Type.Id.make ();
-      range = Version.range (Version.v v)
+      range = H.(range @@ v u)
     }
   let new_field_opt v name ty = new_field ~opt:true v name ty
   let deprecate u f =
     deprecate_lbl u f.name scheme;
-    let range = { f.range with deprecation = Some (Version.v u) } in
+    let range = { f.range with deprecation = Some (H.v u) } in
     { f with range }
   let delete u f =
     delete_lbl u f.name scheme;
-    let range = { f.range with deletion = Some (Version.v u) } in
+    let range = { f.range with deletion = Some (H.v u) } in
     { f with range }
 
   let make_required u f = make_required u f scheme
   let seal u = seal u scheme
 end
 
-module New_sum(Vl:Version_line)(Info:Info with type vl:=Vl.id)() = struct
+module New_sum(Vl:H.S)(Info:Info with type vl:=Vl.id)() = struct
   include New_local_def ()
   type raw_type = id sum
   let scheme = {
@@ -627,7 +447,7 @@ module New_sum(Vl:Version_line)(Info:Info with type vl:=Vl.id)() = struct
   }
   let raw_type = Sum scheme
   type nonrec 'a constructor = ('a,id) constructor
-  let () = Version.register_event Info.update Info.name Declaration
+  let () = H.register_event Info.update Info.name Declaration
   let new_constr u name (ty:'a typ): 'a constructor  =
     register_label_metadata ~optional:false u scheme name ty;
     { cname = name;
@@ -639,12 +459,12 @@ module New_sum(Vl:Version_line)(Info:Info with type vl:=Vl.id)() = struct
 
   let expand u old map new_ty =
     let () = register_constructor_expansion u old new_ty scheme in
-    let projection = Some(Proj {map;old;version=Version.v u}) in
+    let projection = Some(Proj {map;old;version=H.v u}) in
     { old with typ=new_ty; projection }
 
   let refine u old map new_name new_ty =
     let () = register_constructor_inception u old new_name new_ty scheme in
-    let projection = Some(Proj {map;old;version=Version.v u}) in
+    let projection = Some(Proj {map;old;version=H.v u}) in
     { cname=new_name; typ=new_ty; projection }
 
   let publish u c =
@@ -707,7 +527,7 @@ let fields labels r =
   in
   List.filter_map (field @@ Record.fields r) (List.rev labels)
 
-module Metadata_versions = New_root()
+module Metadata_versions = H.Make()
 module Metadata = struct
   let v1 = Metadata_versions.v1
   include New_record(Metadata_versions)(struct
@@ -734,7 +554,7 @@ module Metadata = struct
   let () = seal v1
   let universal_field () =
       {
-        range = Version.range (Version.v v1);
+        range = H.(range @@ v v1);
         name = "metadata";
         opt=false;
         typ = raw_type;
@@ -792,7 +612,7 @@ module Validation = struct
     -> id bound_field Label_map.t -> report_paths
     = fun ~version metadata data ->
     concat_map (fun (k, kmd) ->
-        match Version.stage_at (Some version) kmd.status with
+        match H.stage_at (Some version) kmd.status with
         | Future | Deletion -> none (* those fields will be elided *)
         | Deprecation ->
             deprecated [k]  @^
@@ -843,7 +663,7 @@ module Validation = struct
         match def.?(c.name) with
         | None -> none
         | Some lmd ->
-            begin match Version.stage_at (Some version) lmd.status with
+            begin match H.stage_at (Some version) lmd.status with
             | Inception | Publication | Expansion -> value ~version c.arg c.typ
             | Future | Deletion -> invalid [c.name]
             | Deprecation -> deprecated [c.name] @^ value ~version c.arg c.typ
@@ -857,7 +677,7 @@ module Validation = struct
         | _::_, [] ->Metadata. Validity.deprecated
         | _, _ :: _  -> Metadata.Validity.invalid
       in
-      let v1 = Version.v Metadata.v1 in
+      let v1 = H.v Metadata.v1 in
       let valid = app (Some v1) valid () in
       let metadata =
         let open Record in
@@ -974,7 +794,7 @@ let set (field: _ field) x log =
       let status = match log.scheme.?(field.name) with
         | Some lmd ->
           let v = diagnostic_version version in
-          Version.stage_at (Some v) lmd.status
+          H.stage_at (Some v) lmd.status
         | None -> Lv.Deletion
       in
       match status with
