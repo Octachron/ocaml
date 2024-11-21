@@ -5,6 +5,7 @@
 
 
 open Log
+open Diagnostic
 module H = Diagnostic_history
 
 module V = H.Make()
@@ -40,26 +41,27 @@ module S :
   sig
     type id
     type 'a constructor
-    type scheme = id Log.def
-    type raw_type = id Log.sum
-    type t = id Log.log
+    type scheme = id Diagnostic.t
+    type raw_type = id Diagnostic.sum
     val scheme : scheme
-    val raw_type : id Log.sum Log.typ
-    val deprecate : V.id Log.update -> 'a constructor -> 'a constructor
-    val delete : V.id Log.update -> 'a constructor -> 'a constructor
-    val seal : V.id Log.update -> unit
+    val raw_type : id Diagnostic.sum Diagnostic.typ
+    val deprecate :
+      V.id Diagnostic.update -> 'a constructor -> 'a constructor
+    val delete : V.id Diagnostic.update -> 'a constructor -> 'a constructor
+    val seal : V.id Diagnostic.update -> unit
     val app :
       Diagnostic_history.version option -> 'a constructor -> 'a -> raw_type
     val refine :
-      V.id Log.update ->
-      'a constructor -> ('b -> 'a) -> string -> 'b Log.typ -> 'b constructor
+      V.id Diagnostic.update ->
+      'a constructor ->
+      ('b -> 'a) -> string -> 'b Diagnostic.typ -> 'b constructor
     val new_constr :
-      V.id Log.update -> string -> 'a Log.typ -> 'a constructor
-    val new_constr0 : V.id Log.update -> string -> unit constructor
-    val publish : V.id Log.update -> 'a constructor -> 'a constructor
+      V.id Diagnostic.update -> string -> 'a Diagnostic.typ -> 'a constructor
+    val new_constr0 : V.id Diagnostic.update -> string -> unit constructor
+    val publish : V.id Diagnostic.update -> 'a constructor -> 'a constructor
     val expand :
-      V.id Log.update ->
-      'a constructor -> ('b -> 'a) -> 'b Log.typ -> 'b constructor
+      V.id Diagnostic.update ->
+      'a constructor -> ('b -> 'a) -> 'b Diagnostic.typ -> 'b constructor
   end
 |}]
 
@@ -109,26 +111,27 @@ type r = { maybe : bool; possibly : bool; }
 module Inline_b :
   sig
     type id
-    type nonrec 'a field = ('a, id) Log.field
-    type scheme = id Log.def
-    type raw_type = id Log.record
-    type t = id Log.log
+    type nonrec 'a field = ('a, id) Diagnostic.field
+    type scheme = id Diagnostic.t
+    type raw_type = id Diagnostic.record
     val scheme : scheme
-    val raw_type : id Log.record Log.typ
-    val deprecate : V.id Log.update -> 'a field -> 'a field
-    val delete : V.id Log.update -> 'a field -> 'a field
-    val seal : V.id Log.update -> unit
+    val raw_type : id Diagnostic.record Diagnostic.typ
+    val deprecate : V.id Diagnostic.update -> 'a field -> 'a field
+    val delete : V.id Diagnostic.update -> 'a field -> 'a field
+    val seal : V.id Diagnostic.update -> unit
     val new_field :
-      ?opt:bool -> V.id Log.update -> string -> 'a Log.typ -> 'a field
-    val new_field_opt : V.id Log.update -> string -> 'a Log.typ -> 'a field
-    val make_required : V.id Log.update -> 'a field -> unit
+      ?opt:bool ->
+      V.id Diagnostic.update -> string -> 'a Diagnostic.typ -> 'a field
+    val new_field_opt :
+      V.id Diagnostic.update -> string -> 'a Diagnostic.typ -> 'a field
+    val make_required : V.id Diagnostic.update -> 'a field -> unit
   end
 val ib_contents : unit Inline_b.field = <abstr>
 val maybe : bool Inline_b.field = <abstr>
 val possibly : bool Inline_b.field = <abstr>
-type _ Log.extension += BR : r Log.extension
-val btyp : r Log.typ =
-  Custom {Log.id = BR; pull = <fun>; default = Record <abstr>}
+type _ Diagnostic.extension += BR : r Diagnostic.extension
+val btyp : r Diagnostic.typ =
+  Custom {Diagnostic.id = BR; pull = <fun>; default = Record <abstr>}
 val b : r S.constructor = <abstr>
 |}]
 
@@ -162,9 +165,9 @@ let styp =
   Custom { id = S; pull; default = S.raw_type}
 [%%expect {|
 type s = A | B of r | C of bool
-type _ Log.extension += S : s Log.extension
-val styp : s Log.typ =
-  Custom {Log.id = S; pull = <fun>; default = Sum <abstr>}
+type _ Diagnostic.extension += S : s Diagnostic.extension
+val styp : s Diagnostic.typ =
+  Custom {Diagnostic.id = S; pull = <fun>; default = Sum <abstr>}
 |}]
 
 module R = New_record(V)(struct
@@ -187,19 +190,20 @@ let () = R.seal u2_0
 module R :
   sig
     type id
-    type nonrec 'a field = ('a, id) Log.field
-    type scheme = id Log.def
-    type raw_type = id Log.record
-    type t = id Log.log
+    type nonrec 'a field = ('a, id) Diagnostic.field
+    type scheme = id Diagnostic.t
+    type raw_type = id Diagnostic.record
     val scheme : scheme
-    val raw_type : id Log.record Log.typ
-    val deprecate : V.id Log.update -> 'a field -> 'a field
-    val delete : V.id Log.update -> 'a field -> 'a field
-    val seal : V.id Log.update -> unit
+    val raw_type : id Diagnostic.record Diagnostic.typ
+    val deprecate : V.id Diagnostic.update -> 'a field -> 'a field
+    val delete : V.id Diagnostic.update -> 'a field -> 'a field
+    val seal : V.id Diagnostic.update -> unit
     val new_field :
-      ?opt:bool -> V.id Log.update -> string -> 'a Log.typ -> 'a field
-    val new_field_opt : V.id Log.update -> string -> 'a Log.typ -> 'a field
-    val make_required : V.id Log.update -> 'a field -> unit
+      ?opt:bool ->
+      V.id Diagnostic.update -> string -> 'a Diagnostic.typ -> 'a field
+    val new_field_opt :
+      V.id Diagnostic.update -> string -> 'a Diagnostic.typ -> 'a field
+    val make_required : V.id Diagnostic.update -> 'a field -> unit
   end
 val s : s R.field = <abstr>
 val x : int R.field = <abstr>
@@ -230,7 +234,8 @@ let sexp = Diagnostic_backends.sexp
 let bval = B { possibly=false; maybe=true};;
 let cval = C true
 [%%expect {|
-val test : Diagnostic_backends.t -> ?v:Log.version -> s -> unit = <fun>
+val test :
+  Diagnostic_backends.t -> ?v:Diagnostic_history.version -> s -> unit = <fun>
 val json : Diagnostic_backends.t =
   {Diagnostic_backends.name = "json"; make = <fun>}
 val sexp : Diagnostic_backends.t =

@@ -20,7 +20,7 @@ open Types
 open Toploop
 
 
-type 'a directive = Reports.Toplevel.t -> 'a -> unit
+type 'a directive = Reports.Toplevel.id Log.t -> 'a -> unit
 
 let _error_fmt () =
   if !Sys.interactive then

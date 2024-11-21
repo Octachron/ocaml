@@ -16,7 +16,7 @@
 include Topcommon
 include Topeval
 
-type log = Reports.Toplevel.t
+type log = Reports.Toplevel.id Log.t
 
 type input =
   | Stdin

@@ -608,8 +608,8 @@ let create_log_device ppf =
 let create_log ~default_backend history scheme device =
   let current_version = Diagnostic_history.current_version history in
   let version = match !log_version with
-    | None -> Log.Downward_compatible current_version
-    | Some v -> Log.Exact v
+    | None -> Diagnostic.Downward_compatible current_version
+    | Some v -> Diagnostic.Exact v
   in
   let backend =
     Option.value ~default:default_backend !log_format
@@ -620,10 +620,10 @@ let dump name =
   Option.value ~default:false (Hashtbl.find_opt dump_fields name)
 
 let dump_on_log log field pr x =
-  Log.log_if log field (dump (Log.field_name field)) pr x
+  Log.log_if log field (dump (Diagnostic.field_name field)) pr x
 
 let dump_item_on_log log field fmt =
-  if dump (Log.field_name field) then
+  if dump (Diagnostic.field_name field) then
     Log.itemf field log fmt
   else
     (* the formatter argument is not used *)

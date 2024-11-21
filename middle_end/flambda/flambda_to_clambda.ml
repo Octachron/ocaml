@@ -31,7 +31,7 @@ type t = {
     Set_of_closures_id.t for_one_or_more_units;
   imported_units :
     Simple_value_approx.function_declarations for_one_or_more_units;
-  log : Reports.Debug.t;
+  log : Reports.Debug.id Log.t;
   mutable constants_for_instrumentation :
     Clambda.ustructured_constant Symbol.Map.t;
 }

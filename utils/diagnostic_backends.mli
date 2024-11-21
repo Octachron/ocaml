@@ -17,15 +17,15 @@ open Log
 module Fmt: sig
   type 'a printer = Format.formatter -> 'a -> unit
   type extension_printer =
-    { extension: 'b. 'b extension -> 'b printer option}
+    { extension: 'b. 'b Diagnostic.extension -> 'b printer option}
   val add_extension: extension_printer -> unit
 end
 
 type t = {
   name:string;
   make:
-    'a. ?color:Misc.Color.setting -> version:diagnostic_version
-    -> device:Log.device -> 'a def -> 'a log;
+    'a. ?color:Misc.Color.setting -> version:Diagnostic.diagnostic_version
+    -> device:Log.device -> 'a Diagnostic.t -> 'a log;
 }
 val fmt: t
 val fmt_with_fields:t
@@ -35,5 +35,5 @@ val sexp: t
 
 module Json_schema:sig
   val pp_log: Format.formatter -> 'a log -> unit
-  val pp:  version option -> 'a def -> Format.formatter -> unit
+  val pp:  version option -> 'a Diagnostic.t -> Format.formatter -> unit
 end

@@ -694,7 +694,7 @@ type report = {
 
 module Error_log = struct[@warning "-unused-value-declaration"]
   type lc = t
-  open Log
+  open Diagnostic
   module Vl = Reports.V
   let v1 = Vl.v1
 
@@ -787,20 +787,21 @@ module Error_log = struct[@warning "-unused-value-declaration"]
   let msg_loc = Msg.new_field_opt v1 "loc" Loc.ctyp
   let () = Msg.seal v1
   let msg_typ =
-    let pull v m = Log.Record.(make v [ msg ^= m.txt; msg_loc ^= m.loc ]) in
+    let pull v m =
+      Diagnostic.Record.(make v [ msg ^= m.txt; msg_loc ^= m.loc ]) in
     Custom { id = Msg; pull; default = Record Msg.scheme }
 
   let kind = Reports.Error.new_field v1 "kind"
       (Custom { id = Error_kind; pull; default = Sum Kind.scheme })
 
   let main = Reports.Error.new_field v1 "main" msg_typ
-  let sub = Reports.Error.new_field_opt v1 "sub" (Log.List msg_typ)
+  let sub = Reports.Error.new_field_opt v1 "sub" (Diagnostic.List msg_typ)
   let footnote = Reports.Error.new_field_opt v1 "footnote" doc
 
   let () = Reports.Error.seal v1
 
   let pull v (report:report) =
-    let open Log.Record in
+    let open Diagnostic.Record in
     make v
     [
       kind ^= report.kind;
@@ -1041,7 +1042,8 @@ let default_warning_reporter =
 let warning_reporter = ref default_warning_reporter
 let report_warning loc w = !warning_reporter loc w
 
-let error_extension: type a. a Log.extension -> a printer option = function
+let error_extension: type a. a Diagnostic.extension -> a printer option =
+  function
   | Error_log.Error -> Some print_report
   | Error_log.Msg -> None
   | _ -> None

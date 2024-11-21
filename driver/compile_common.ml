@@ -18,7 +18,7 @@ open Misc
 type info = {
   target: Unit_info.t;
   env : Env.t;
-  debug_log : Reports.Debug.t;
+  debug_log : Reports.Debug.id Log.t;
   tool_name : string;
   native : bool;
 }

@@ -308,7 +308,7 @@ let is_command_like_name s =
 (* The table of toplevel directives.
    Filled by functions from module topdirs. *)
 
-type 'a directive = Reports.Toplevel.t -> 'a -> unit
+type 'a directive = Reports.Toplevel.id Log.t -> 'a -> unit
 
 type directive_fun =
   | Directive_none of unit directive

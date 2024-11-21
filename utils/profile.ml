@@ -190,9 +190,10 @@ let compute_other_category (E table : hierarchy) (total : Measure_diff.t) =
 type row = R of string * (float * display) list * row list
 
 module Profile_report = struct
-  type _ Log.extension += Profile: (string list * row list) Log.extension
+  module D = Diagnostic
+  type _ D.extension += Profile: (string list * row list) D.extension
   let v1 = Reports.V.v1
-  include Log.New_record(Reports.V)(struct
+  include D.New_record(Reports.V)(struct
       let name = "profile"
       let update = v1
     end)()
@@ -203,7 +204,7 @@ module Profile_report = struct
 
   let typ =
     let rec pull_r v (R (n,ms,c)) =
-      let open Log.Record in
+      let open D.Record in
       make v [
               name^=n;
               columns^=List.map fst ms;
@@ -211,8 +212,8 @@ module Profile_report = struct
       ]
     and pull_rows v rows = List.map (pull_r v) rows in
     let pull v (x,y) = x, pull_rows v y in
-    let default = Log.(Pair (List String, List raw_type)) in
-    Log.Custom {id = Profile; pull; default }
+    let default = D.(Pair (List String, List raw_type)) in
+    D.Custom {id = Profile; pull; default }
 end
 let profile =
   Reports.Debug.new_field_opt Reports.V.v1 "profile" Profile_report.typ
@@ -356,7 +357,7 @@ let report columns log =
 
 let () =
   let extension: type a.
-    a Log.extension -> (Format.formatter -> a -> unit) option =
+    a Diagnostic.extension -> (Format.formatter -> a -> unit) option =
     function
     | Profile_report.Profile -> Some (fun ppf (_,rows) -> print ppf rows)
     | _ -> None

@@ -13,13 +13,14 @@
 (*                                                                        *)
 (**************************************************************************)
 
-open Log
+open Diagnostic
+type version = Diagnostic_history.version
 module Fmt = struct
 
   type 'a printer = Format.formatter -> 'a -> unit
   type pr = Format.formatter -> unit
   type extension_printer =
-  { extension: 'b. 'b extension -> 'b printer option}
+  { extension: 'b. 'b Diagnostic.extension -> 'b printer option}
 
   type list_convention = {
     list_open: pr;
@@ -95,13 +96,14 @@ module Fmt = struct
     version:Log.version option
   }
 
-  let rec scrap_custom: type t. version option -> t typ -> t -> typed_val =
+  let rec scrap_custom: type t.
+    version option -> t Diagnostic.typ -> t -> Diagnostic.typed_val =
     fun v t x ->
     match t with
     | Custom r -> scrap_custom v r.default (r.pull v x)
     | t -> V(t,x)
 
-  let rec elt : type a. ?inline:bool -> ctx -> a typ -> a -> pr =
+  let rec elt : type a. ?inline:bool -> ctx -> a Diagnostic.typ -> a -> pr =
     fun ?(inline=false) ctx typ x ppf ->
     match typ with
     | Unit -> Format.pp_print_int ppf 0
@@ -167,7 +169,7 @@ module Fmt = struct
          [ ctx.conv.atom name; arg] ppf
 
   and trim_item: type a.
-    ctx -> key:string -> optional:bool -> a typ -> a -> pr option =
+    ctx -> key:string -> optional:bool -> a Diagnostic.typ -> a -> pr option =
     fun ctx ~key ~optional ty x ->
     if not optional then Some (elt_item ctx ~key ty x) else
       match ty, x with
@@ -185,15 +187,15 @@ module Fmt = struct
             | None -> trim_item ctx ~key ~optional default (pull ctx.version x)
           end
       | _ -> Some (elt_item ctx  ~key ty x)
-  and elt_item: type a. ctx -> key:string -> a typ -> a -> pr =
+  and elt_item: type a. ctx -> key:string -> a Diagnostic.typ -> a -> pr =
     fun ctx ~key ty x ppf -> item ctx.conv ~key (elt ctx ty x) ppf
-  and fields: type p. ctx -> (string list * p record)  -> pr list
+  and fields: type p. ctx -> (string list * p Diagnostic.record)  -> pr list
     = fun ctx (keys,prod) ->
-      let fields = Log.fields keys prod in
+      let fields = Diagnostic.fields keys prod in
       let pp_field (name, optional, V(typ,x)) =
         trim_item ctx ~optional ~key:name typ x in
       List.filter_map pp_field fields
-  and elt_record: type p. ctx -> (string list * p record) -> pr =
+  and elt_record: type p. ctx -> (string list * p Diagnostic.record) -> pr =
     fun ctx x -> record ctx.conv (fields ctx x)
 
 
@@ -281,12 +283,12 @@ end
 
   let with_conv ~structured ~extension conv settings version ppf scheme =
     let ctx = {
-      Fmt.version=(Log.exact_version version);
+      Fmt.version=(Diagnostic.exact_version version);
       conv; ext_printer=extension}
     in
     let record ppf (R(def, r)) =
       let field_names = field_names def in
-      let fs = Log.fields field_names r in
+      let fs = Diagnostic.fields field_names r in
       if List.is_empty fs then () else
         let fields =
           let meta =
@@ -298,7 +300,7 @@ end
     let item ppf (name, V(typ,r)) =
       Fmt.elt_item ctx ~key:name typ r ppf
     in
-    make ~structured ~printer:{record;item} settings version scheme ppf
+    Log.make ~structured ~printer:{record;item} settings version scheme ppf
 
   let structured conv ?color ~version ~device sch =
     with_conv ~structured:true ~extension:Fmt.no_extension conv
@@ -317,8 +319,8 @@ end
 
   type t = {
     name:string;
-    make: 'a. ?color:Misc.Color.setting -> version:diagnostic_version
-      -> device:Log.device -> 'a def -> 'a log;
+    make: 'a. ?color:Misc.Color.setting -> version:Diagnostic.diagnostic_version
+      -> device:Log.device -> 'a Diagnostic.t -> 'a Log.t;
   }
   let fmt = { name="direct"; make = direct }
   let fmt_with_fields = { name="direct_with_fields"; make = direct_with_fields }
@@ -472,7 +474,7 @@ module Json_schema = struct
      ) ppf
 
   let pp_log ppf log =
-    let sch = log_scheme log in
-    pp (log_version log) sch ppf
+    let sch = Log.log_scheme log in
+    pp (Log.log_version log) sch ppf
 
   end

@@ -37,7 +37,6 @@ let args =
 let formatter = function
   | None -> Format.std_formatter
   | Some s -> Format.formatter_of_out_channel (Out_channel.open_bin s)
-open Log
 open Reports
 let version () =
   match !version with
@@ -52,7 +51,7 @@ let schema v ppf =
   function
   | None -> ()
   | Some "meta" ->
-    Format.fprintf ppf "%t@." (JSchema.pp v Log.Metadata.scheme)
+    Format.fprintf ppf "%t@." (JSchema.pp v Diagnostic.Metadata.scheme)
   | Some "config" ->
     Format.fprintf ppf "%t@." (JSchema.pp v Config.scheme)
   | Some "compiler" ->
@@ -166,7 +165,7 @@ let history ppf =
       "@[<v 2>Metadata:@,%a@;<0 -2>\
       Config:@,%a@;<0 -2>\
        Main:@,%a@]%!"
-      Pp.history Metadata_versions.history
+      Pp.history Diagnostic.Metadata_versions.history
       Pp.history Config_versions.history
       Pp.history V.history
 

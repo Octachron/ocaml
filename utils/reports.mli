@@ -17,25 +17,25 @@
     emitted by the compiler and toplevel
 *)
 
-
+module D := Diagnostic
 module V: Diagnostic_history.S
-module type Record = Log.Record with type vl := V.id
-module type Sum = Log.Sum with type vl := V.id
+module type Record = D.Record with type vl := V.id
+module type Sum = D.Sum with type vl := V.id
 
 type doc = Format_doc.doc
 module Structured_text: sig
   module Format_tag: Sum
-  type _ Log.extension += Doc: Format_doc.Doc.t Log.extension
+  type _ D.extension += Doc: Format_doc.Doc.t D.extension
 
   val register_tag:
     Obj.Extension_constructor.t
-    -> (Log.version option -> Format.stag -> Format_tag.id Log.sum)
+    -> (Log.version option -> Format.stag -> Format_tag.id D.sum)
     -> unit
   val register_tag0:
     V.id Log.update -> Obj.Extension_constructor.t
     -> unit
 
-  val typ: doc Log.typ
+  val typ: doc D.typ
 end
 
 module Debug: sig
@@ -63,7 +63,7 @@ end
 
 module Compiler: sig
   include Record
-  val debug: Debug.id Log.record field
+  val debug: Debug.id D.record field
 end
 module Error: Record
 
@@ -71,7 +71,7 @@ module Toplevel: sig
   include Record
   val output: doc field
   val backtrace: doc field
-  val compiler_log: Compiler.id Log.record field
+  val compiler_log: Compiler.id D.record field
   val errors: doc list field
   val trace: doc list field
 end
@@ -79,9 +79,9 @@ end
 (** Access to configuration values *)
 module Config_versions: Diagnostic_history.S
 module Config: sig
-  include Log.Record with type vl := Config_versions.id
+  include D.Record with type vl := Config_versions.id
 
-  val print_config : t -> unit
+  val print_config : id Log.t -> unit
   val config_var : string -> string option
   (** the configuration value of a variable, if it exists *)
 

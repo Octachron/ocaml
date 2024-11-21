@@ -13,12 +13,12 @@
 (*                                                                        *)
 (**************************************************************************)
 
-open Log
+open Diagnostic
 module V = Diagnostic_history.Make()
 let v1 = V.v1
 
-module type Record = Log.Record with type vl := V.id
-module type Sum = Log.Sum with type vl := V.id
+module type Record = Record with type vl := V.id
+module type Sum = Sum with type vl := V.id
 
 type doc = Format_doc.t
 module Structured_text = struct
@@ -60,7 +60,8 @@ module Structured_text = struct
     let string_tag = new_constr v1 "String_tag" String
 
     type _ extension += Format_tag: Format.stag extension
-    type format_tag_serializer = version option -> Format.stag -> raw_type
+    type format_tag_serializer =
+      Diagnostic_history.version option -> Format.stag -> raw_type
     let map: (Obj.Extension_constructor.t, format_tag_serializer) Hashtbl.t =
       Hashtbl.create 5
     let register_tag ext conv = Hashtbl.replace map ext conv
@@ -237,11 +238,11 @@ end
 module Config_versions = Diagnostic_history.Make()
 module Config = struct
   let v1 = Config_versions.v1
-  include Log.New_record(Config_versions)(struct
+  include Diagnostic.New_record(Config_versions)(struct
     let name = "config"
     let update = v1
     end)()
-  open Log
+  open Diagnostic
   let version = new_field v1 "version" String
   let standard_library_default =  new_field v1 "standard_library_default" String
   let standard_library = new_field v1 "standard_library" String
@@ -378,12 +379,12 @@ let config_var x =
   let () = log_variables log in
   match Log.dynamic_get x log with
   | None -> None
-  | Some (Log.V (ty,v)) ->
+  | Some (Diagnostic.V (ty,v)) ->
       let s = match ty with
-        | Log.String -> (v:string)
-        | Log.Int -> Int.to_string v
-        | Log.Bool -> string_of_bool v
-        | Log.Unit -> "()"
+        | Diagnostic.String -> (v:string)
+        | Diagnostic.Int -> Int.to_string v
+        | Diagnostic.Bool -> string_of_bool v
+        | Diagnostic.Unit -> "()"
         | _ -> assert false
       in
       Some s

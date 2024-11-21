@@ -264,7 +264,7 @@ val create_log_device: Format.formatter -> Log.device
 val create_log:
   default_backend:Diagnostic_backends.t
   -> 'v Diagnostic_history.t
-  -> 'a Log.def
+  -> 'a Diagnostic.t
   -> Log.device
   -> 'a Log.t
 

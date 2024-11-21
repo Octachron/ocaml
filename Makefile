@@ -71,6 +71,7 @@ utils_SOURCES = $(addprefix utils/, \
   local_store.mli local_store.ml \
   load_path.mli load_path.ml \
   diagnostic_history.mli diagnostic_history.ml \
+  diagnostic.mli diagnostic.ml \
   log.mli log.ml \
   reports.mli reports.ml \
   diagnostic_backends.mli diagnostic_backends.ml \
@@ -2214,6 +2215,7 @@ ocamlprof_SOURCES = \
   local_store.mli local_store.ml \
   load_path.mli load_path.ml \
   diagnostic_history.mli diagnostic_history.ml \
+  diagnostic.mli diagnostic.ml \
   log.mli log.ml \
   reports.mli reports.ml \
   diagnostic_backends.mli diagnostic_backends.ml \
@@ -2240,6 +2242,7 @@ ocamlcp_ocamloptp_SOURCES = \
   format_doc.mli format_doc.ml \
   misc.mli misc.ml \
   diagnostic_history.mli diagnostic_history.ml \
+  diagnostic.ml diagnostic.mli \
   log.mli log.ml \
   reports.mli reports.ml \
   diagnostic_backends.mli diagnostic_backends.ml \
@@ -2287,6 +2290,7 @@ ocamlmktop_SOURCES = \
   local_store.mli local_store.ml \
   load_path.mli load_path.ml \
   diagnostic_history.mli diagnostic_history.ml \
+  diagnostic.mli diagnostic.ml \
   log.mli log.ml \
   reports.mli reports.ml \
   diagnostic_backends.mli diagnostic_backends.ml \
