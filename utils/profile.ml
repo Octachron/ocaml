@@ -204,7 +204,6 @@ module Profile_report = struct
 
   let typ =
     let rec pull_r v (R (n,ms,c)) =
-      let open D.Record_lit in
       make v [
               name^=n;
               columns^=List.map fst ms;

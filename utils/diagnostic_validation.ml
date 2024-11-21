@@ -17,6 +17,7 @@
 module Label_map = Misc.Stdlib.String.Map
 module H = Diagnostic_history
 module D = Diagnostic
+module R = D.Record_introspection
 
 type version =
   | Downward_compatible of H.version
@@ -25,7 +26,7 @@ let reference_version (Exact v | Downward_compatible v) = v
 let exact_version = function
   | Exact v -> Some v
   | Downward_compatible _ -> None
-let downward_compatible = function
+let is_downward_compatible = function
   | Downward_compatible _ -> true
   | _ -> false
 
@@ -107,10 +108,10 @@ and fields: type id.
         | Deprecation ->
             deprecated [k]  @^
             field  ~version ~optional:(is_optional kmd) k
-              (D.Record.dynamic_get r k)
+              (R.dynamic_get r k)
         | Inception | Publication | Expansion ->
             field  ~version ~optional:(is_optional kmd) k
-              (D.Record.dynamic_get r k)
+              (R.dynamic_get r k)
       ) metadata
 and field:
   version:version -> optional:bool -> string -> typed_val option
@@ -163,26 +164,26 @@ and value: type a. version:version -> a -> a typ -> report_paths =
         )
 
 let diagnostic ~version:v sch st =
+  let open Metadata in
   let version = reference_version v in
   let r = record ~version sch st in
   let valid = match r.deprecated, r.invalid with
-    | [], [] -> Metadata.Validity.full
-    | _::_, [] ->Metadata. Validity.deprecated
-    | _, _ :: _  -> Metadata.Validity.invalid
+    | [], [] -> Validity.full
+    | _::_, [] -> Validity.deprecated
+    | _, _ :: _  -> Validity.invalid
   in
   let v1 = H.v Metadata.v1 in
   let valid = Metadata.Validity.app (Some v1) valid () in
   let metadata =
-    let open Record_lit in
     make (Some v1) [
       Metadata.version ^= version;
-      Metadata.downward_compatible ^= downward_compatible v;
+      Metadata.downward_compatible ^= is_downward_compatible v;
       Metadata.valid ^= valid;
       Metadata.invalid_paths ^= r.invalid;
       Metadata.deprecated_paths ^= r.deprecated;
     ]
   in
-  Record.set st None
+  R.set st None
     ~field:(Diagnostic.universal_metafield ())
     metadata;
   r

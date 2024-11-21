@@ -16,6 +16,7 @@
 
  (** The definition of a representation scheme for a type *)
 type 'a t
+type 'a diagnostic = 'a t
 
 type 'a update = 'a Diagnostic_history.update
 type version = Diagnostic_history.version
@@ -26,6 +27,7 @@ type ('id,'a) field
 
 type !'id sum
 type !'a record
+val empty: unit -> 'a record
 
 type empty = Empty_tag
 
@@ -51,16 +53,6 @@ type 'a typ =
       default: 'a typ
     } -> 'b typ
 
-(** {2:diagnostic_record Dynamic record }*)
-
-module Record_lit: sig
-  type 'a bfield
-  val (^=): ('a,'b) field -> 'a -> 'b bfield
-  val (^=?): ('a,'b) field -> 'a option -> 'b bfield
-  val make: Diagnostic_history.version option -> 'a bfield list -> 'a record
-end
-
-
 (** {2:diagnostic_definition Definitions of new diagnostic types }*)
 module type Def = sig
   type vl
@@ -68,10 +60,10 @@ module type Def = sig
   type 'a label
   type definition
 
-  type scheme = id t
+  type t = id diagnostic
   type raw_type = definition
 
-  val scheme: scheme
+  val scheme: t
   val raw_type: definition typ
 
   val deprecate: vl update -> 'a label -> 'a label
@@ -84,11 +76,16 @@ module type Record = sig
   type nonrec 'a field = ('a,id) field
   include Def
     with type id := id
-     and type definition := id record
+     and type definition = id record
      and type 'a label := 'a field
   val new_field: ?opt:bool -> vl update  -> string -> 'a typ -> 'a field
   val new_field_opt: vl update  -> string -> 'a typ -> 'a field
   val make_required: vl update -> 'a field -> unit
+  type record_fragment
+  val (^=): 'a field -> 'a -> record_fragment
+  val (^=?): 'a field -> 'a option -> record_fragment
+  val make:
+    Diagnostic_history.version option -> record_fragment list -> definition
 end
 
 module type Sum = sig
@@ -141,7 +138,7 @@ type label_metadata = {
   status:Diagnostic_history.Lifetime.t
 }
 
-module Record: sig
+module Record_introspection: sig
   val all_fields: 'id record -> 'id bound_field Seq.t
   val get: 'r record -> ('ty,'r) field -> 'ty option
   val dynamic_get: 'r record -> string -> typed_val option

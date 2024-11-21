@@ -41,9 +41,9 @@ module S :
   sig
     type id
     type 'a constructor
-    type scheme = id Diagnostic.t
+    type t = id Diagnostic.diagnostic
     type raw_type = id Diagnostic.sum
-    val scheme : scheme
+    val scheme : t
     val raw_type : id Diagnostic.sum Diagnostic.typ
     val deprecate :
       V.id Diagnostic.update -> 'a constructor -> 'a constructor
@@ -94,7 +94,7 @@ let () = S.seal u1_1
 type _ extension += BR: r extension
 let btyp =
   let pull v x =
-    let open Record_lit in
+    let open Inline_b in
     make v [
       ib_contents ^= ();
       maybe ^= x.maybe;
@@ -112,10 +112,11 @@ module Inline_b :
   sig
     type id
     type nonrec 'a field = ('a, id) Diagnostic.field
-    type scheme = id Diagnostic.t
-    type raw_type = id Diagnostic.record
-    val scheme : scheme
-    val raw_type : id Diagnostic.record Diagnostic.typ
+    type definition = id Diagnostic.record
+    type t = id Diagnostic.diagnostic
+    type raw_type = definition
+    val scheme : t
+    val raw_type : definition Diagnostic.typ
     val deprecate : V.id Diagnostic.update -> 'a field -> 'a field
     val delete : V.id Diagnostic.update -> 'a field -> 'a field
     val seal : V.id Diagnostic.update -> unit
@@ -125,6 +126,11 @@ module Inline_b :
     val new_field_opt :
       V.id Diagnostic.update -> string -> 'a Diagnostic.typ -> 'a field
     val make_required : V.id Diagnostic.update -> 'a field -> unit
+    type record_fragment
+    val ( ^= ) : 'a field -> 'a -> record_fragment
+    val ( ^=? ) : 'a field -> 'a option -> record_fragment
+    val make :
+      Diagnostic_history.version option -> record_fragment list -> definition
   end
 val ib_contents : unit Inline_b.field = <abstr>
 val maybe : bool Inline_b.field = <abstr>
@@ -191,10 +197,11 @@ module R :
   sig
     type id
     type nonrec 'a field = ('a, id) Diagnostic.field
-    type scheme = id Diagnostic.t
-    type raw_type = id Diagnostic.record
-    val scheme : scheme
-    val raw_type : id Diagnostic.record Diagnostic.typ
+    type definition = id Diagnostic.record
+    type t = id Diagnostic.diagnostic
+    type raw_type = definition
+    val scheme : t
+    val raw_type : definition Diagnostic.typ
     val deprecate : V.id Diagnostic.update -> 'a field -> 'a field
     val delete : V.id Diagnostic.update -> 'a field -> 'a field
     val seal : V.id Diagnostic.update -> unit
@@ -204,6 +211,11 @@ module R :
     val new_field_opt :
       V.id Diagnostic.update -> string -> 'a Diagnostic.typ -> 'a field
     val make_required : V.id Diagnostic.update -> 'a field -> unit
+    type record_fragment
+    val ( ^= ) : 'a field -> 'a -> record_fragment
+    val ( ^=? ) : 'a field -> 'a option -> record_fragment
+    val make :
+      Diagnostic_history.version option -> record_fragment list -> definition
   end
 val s : s R.field = <abstr>
 val x : int R.field = <abstr>

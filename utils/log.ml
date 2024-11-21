@@ -18,6 +18,7 @@ module Label_map = Misc.Stdlib.String.Map
 
 module H = Diagnostic_history
 module D = Diagnostic
+module R = D.Record_introspection
 module V = Diagnostic_validation
 
 type ('id,'a) field = ('id,'a) Diagnostic.field
@@ -81,9 +82,8 @@ type 'a t = 'a log
 
 let make ~structured ~printer settings version scheme out =
   let mode =
-    let version = Diagnostic_validation.exact_version version in
     if structured then
-      Store {data=Diagnostic.Record_lit.make version []; out= Some out}
+      Store {data=Diagnostic.empty (); out= Some out}
     else Direct out
   in
   {
@@ -108,10 +108,10 @@ let generic_detach label_scheme ~set ~lift ~extract log
         Direct out
     | Store {data=st; out=st_out} ->
         let data =
-          match Option.bind (D.Record.get st field) extract with
+          match Option.bind (R.get st field) extract with
           | Some data -> data
           | None ->
-              let data = D.Record_lit.make None [] in
+              let data = D.empty () in
               set st (V.exact_version log.version) ~field (lift data); data
         in
         let out = match out with
@@ -132,10 +132,10 @@ let generic_detach label_scheme ~set ~lift ~extract log
 let some x = Some x
 let detach log field =
   generic_detach D.record_scheme
-    ~set:D.Record.set ~lift:Fun.id ~extract:some log field
+    ~set:R.set ~lift:Fun.id ~extract:some log field
 let detach_item log field =
   generic_detach D.record_list_scheme
-    ~set:D.Record.cons
+    ~set:R.cons
     ~lift:Fun.id
     ~extract:(Fun.const None)
     log field
@@ -161,7 +161,7 @@ end
 let set (field: _ D.field) x log =
   let version = log.version in
   match log.mode with
-  | Store st -> D.Record.set st.data (V.exact_version version) ~field x
+  | Store st -> R.set st.data (V.exact_version version) ~field x
   | Direct d ->
       let status = match D.field_info log.scheme field with
         | Some lmd ->
@@ -183,17 +183,17 @@ let set (field: _ D.field) x log =
 let cons field x log =
   match log.mode with
   | Direct _-> set field [x] log
-  | Store st -> D.Record.cons st.data (V.exact_version log.version) ~field x
+  | Store st -> R.cons st.data (V.exact_version log.version) ~field x
 
 let (.%[]<-) log field x = set field x log
 
 let get field log = match log.mode with
   | Direct _ -> None
-  | Store st -> D.Record.get st.data field
+  | Store st -> R.get st.data field
 
 let dynamic_get field log = match log.mode with
   | Direct _ -> None
-  | Store st -> D.Record.dynamic_get st.data field
+  | Store st -> R.dynamic_get st.data field
 
 let f field log fmt = Format.kasprintf (fun s -> log.%[field] <- s) fmt
 let itemf field log fmt = Format.kasprintf (fun s -> cons field s log) fmt
@@ -210,7 +210,7 @@ let flush: type a. a log -> unit = fun log ->
           let ppf = !(out.ppf) in
           log.printer.record ppf (R(log.scheme, st.data))
         ) st.out;
-        D.Record.reset st.data
+        R.reset st.data
   end;
   Label_map.iter (fun _ -> Fmt.flush) log.redirections
 
@@ -234,7 +234,7 @@ let replay source dest =
   | Store st ->
       Seq.iter
         (fun (D.F(field,x)) -> dest.%[field] <- x )
-        (D.Record.all_fields st.data)
+        (R.all_fields st.data)
 
 (** {1:log_publication }*)
 
@@ -245,7 +245,7 @@ let tmp scheme =
   version=(Downward_compatible {major=0;minor=0});
   scheme;
   printer = { record = (fun _ _ -> ()); item = (fun _ _ -> ()) };
-  mode = Store { out=None; data=D.Record_lit.make None [] }
+  mode = Store { out=None; data=D.empty () }
 }
 
 

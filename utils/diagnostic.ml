@@ -66,6 +66,8 @@ and 'a t = {
 }
 and 'a record = 'a bound_field Label_map.t ref
 
+type 'a diagnostic = 'a t
+
 type typed_record = R: 'a t * 'a record -> typed_record
 and typed_val = V: 'a typ * 'a -> typed_val
 
@@ -73,6 +75,7 @@ let version_range field = field.range
 let field_name f = f.name
 let field_type field = field.typ
 let is_optional r = r.optional
+let empty () = ref Label_map.empty
 
 let destruct c f =
   let rec expand (Constr c) =
@@ -163,10 +166,10 @@ module type Def = sig
   type vl
   type 'a label
   type definition
-  type scheme = id t
+  type t = id diagnostic
   type raw_type = definition
 
-  val scheme: scheme
+  val scheme: t
   val raw_type: raw_type typ
 
   val deprecate: vl update -> 'a label -> 'a label
@@ -179,11 +182,16 @@ module type Record = sig
   type nonrec 'a field = ('a,id) field
   include Def
     with type id := id
-     and type definition := id record
+     and type definition = id record
      and type 'a label :='a field
   val new_field: ?opt:bool -> vl update  -> string -> 'a typ -> 'a field
   val new_field_opt: vl update  -> string -> 'a typ -> 'a field
   val make_required: vl update -> 'a field -> unit
+  type record_fragment
+  val (^=): 'a field -> 'a -> record_fragment
+  val (^=?): 'a field -> 'a option -> record_fragment
+  val make:
+    Diagnostic_history.version option -> record_fragment list -> definition
 end
 
 type ('elt,'id) constructor =
@@ -246,7 +254,7 @@ end
 
 module New_local_def() = struct
   type id
-  type scheme = id t
+  type t = id diagnostic
 end
 
 let (.?()) scheme lbl = List.assoc_opt lbl scheme.labels
@@ -326,7 +334,7 @@ module type Info = sig
   val update: vl update
 end
 
-module Record_lit = struct
+module Record_construction = struct
   type 'a bfield = version option -> 'a bound_field option
   let field f x v =
     match H.stage_at v f.range with
@@ -350,8 +358,8 @@ module Record_lit = struct
     ref fields
 end
 
-module Record = struct
-  open Record_lit
+module Record_introspection = struct
+  open Record_construction
   let fields x = !x
   let all_fields x = Seq.map snd @@ Label_map.to_seq (fields x)
 
@@ -391,9 +399,9 @@ module Record = struct
    let reset f = f := Label_map.empty
 end
 
-
 module New_record(Vl:H.S)(Info:Info with type vl:=Vl.id)() = struct
   include New_local_def ()
+  type definition = id record
   type nonrec 'a field = ('a,id) field
   type raw_type = id record
   let scheme = {
@@ -426,6 +434,10 @@ module New_record(Vl:H.S)(Info:Info with type vl:=Vl.id)() = struct
 
   let make_required u f = make_required u f scheme
   let seal u = seal u scheme
+  type record_fragment = id Record_construction.bfield
+  let make = Record_construction.make
+  let (^=) = Record_construction.(^=)
+  let (^=?) = Record_construction.(^=?)
 end
 
 module New_sum(Vl:H.S)(Info:Info with type vl:=Vl.id)() = struct
@@ -473,7 +485,7 @@ let fields labels r =
     |> Label_map.find_opt label
     |> Option.map (fun (F (k,v)) -> k.name, k.opt, V(k.typ,v))
   in
-  List.filter_map (field @@ Record.fields r) (List.rev labels)
+  List.filter_map (field @@ Record_introspection.fields r) (List.rev labels)
 
 module Metadata_versions = H.Make()
 module Metadata = New_record(Metadata_versions)(struct
