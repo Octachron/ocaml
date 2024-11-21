@@ -240,7 +240,6 @@ utils/log.cmi : \
     utils/misc.cmi \
     utils/format_doc.cmi \
     utils/diagnostic_validation.cmi \
-    utils/diagnostic_history.cmi \
     utils/diagnostic.cmi
 utils/misc.cmo : \
     utils/format_doc.cmi \

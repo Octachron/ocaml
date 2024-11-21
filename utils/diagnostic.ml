@@ -240,7 +240,6 @@ module type Sum = sig
   val publish: vl update -> 'a constructor -> 'a constructor
   val expand:
     vl update -> 'a constructor -> ('b->'a) -> 'b typ -> 'b constructor
-
 end
 
 
@@ -327,7 +326,7 @@ module type Info = sig
   val update: vl update
 end
 
-module Record = struct
+module Record_lit = struct
   type 'a bfield = version option -> 'a bound_field option
   let field f x v =
     match H.stage_at v f.range with
@@ -349,6 +348,10 @@ module Record = struct
       ) Label_map.empty fields
     in
     ref fields
+end
+
+module Record = struct
+  open Record_lit
   let fields x = !x
   let all_fields x = Seq.map snd @@ Label_map.to_seq (fields x)
 

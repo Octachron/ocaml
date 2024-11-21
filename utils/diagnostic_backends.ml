@@ -93,7 +93,7 @@ module Fmt = struct
   type ctx = {
     conv:conv;
     ext_printer:extension_printer;
-    version:Log.version option
+    version:Diagnostic.version option
   }
 
   let rec scrap_custom: type t.

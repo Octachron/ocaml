@@ -173,7 +173,7 @@ let diagnostic ~version:v sch st =
   let v1 = H.v Metadata.v1 in
   let valid = Metadata.Validity.app (Some v1) valid () in
   let metadata =
-    let open Record in
+    let open Record_lit in
     make (Some v1) [
       Metadata.version ^= version;
       Metadata.downward_compatible ^= downward_compatible v;

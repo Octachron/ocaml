@@ -767,7 +767,7 @@ module Error_log = struct[@warning "-unused-value-declaration"]
     let ctyp =
       let pull v l =
         let l = loc_summary ~strict:true l in
-        let open Record in
+        let open Record_lit in
         make v [
           characters ^=? l.characters;
           file ^=? l.file;
@@ -788,7 +788,7 @@ module Error_log = struct[@warning "-unused-value-declaration"]
   let () = Msg.seal v1
   let msg_typ =
     let pull v m =
-      Diagnostic.Record.(make v [ msg ^= m.txt; msg_loc ^= m.loc ]) in
+      Diagnostic.Record_lit.(make v [ msg ^= m.txt; msg_loc ^= m.loc ]) in
     Custom { id = Msg; pull; default = Record Msg.scheme }
 
   let kind = Reports.Error.new_field v1 "kind"
@@ -801,7 +801,7 @@ module Error_log = struct[@warning "-unused-value-declaration"]
   let () = Reports.Error.seal v1
 
   let pull v (report:report) =
-    let open Diagnostic.Record in
+    let open Diagnostic.Record_lit in
     make v
     [
       kind ^= report.kind;

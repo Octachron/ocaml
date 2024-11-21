@@ -51,36 +51,17 @@ type 'a typ =
       default: 'a typ
     } -> 'b typ
 
-val field_name: _ field -> string
-val field_type: ('ty,_) field -> 'ty typ
-val version_range: _ field -> Diagnostic_history.Lifetime.t
+(** {2:diagnostic_record Dynamic record }*)
 
-val record_scheme: 'a record typ -> 'a t
-val record_list_scheme: 'a record list typ -> 'a t
+module Record_lit: sig
+  type 'a bfield
+  val (^=): ('a,'b) field -> 'a -> 'b bfield
+  val (^=?): ('a,'b) field -> 'a option -> 'b bfield
+  val make: Diagnostic_history.version option -> 'a bfield list -> 'a record
+end
 
-(** {2 Instrospection } *)
 
-type any_typ = T: 'a typ -> any_typ
-type typed_val = V: 'a typ * 'a -> typed_val
-type typed_record = R: 'a t * 'a record -> typed_record
-type 'id bound_field = F: ('ty,'id) field * 'ty -> 'id bound_field
-type label_metadata = {
-  ltyp: any_typ;
-  optional: bool;
-  status:Diagnostic_history.Lifetime.t
-}
-
-val label_metadata: optional:bool -> 'v update -> 't typ -> label_metadata
-val destruct: 'a sum -> ((string * typed_val) list -> 'b) -> 'b
-val field_infos: 'a t -> (string * label_metadata) list
-val field_names: 'a t -> string list
-
-val scheme_name: 'a t -> string
-val fields: string list -> 'a record -> (string * bool * typed_val) List.t
-val is_optional: label_metadata -> bool
-val field_info: 'id t -> (_,'id) field -> label_metadata option
-val field_dyninfo: _ t -> string -> label_metadata option
-
+(** {2:diagnostic_definition Definitions of new diagnostic types }*)
 module type Def = sig
   type vl
   type id
@@ -127,7 +108,6 @@ module type Sum = sig
   val publish: vl update -> 'a constructor -> 'a constructor
   val expand:
     vl update -> 'a constructor -> ('b->'a) -> 'b typ -> 'b constructor
-
 end
 
 module type Info = sig
@@ -141,12 +121,28 @@ module New_record (Vl:Diagnostic_history.S):
 module New_sum (Vl:Diagnostic_history.S):
   (Info with type vl:=Vl.id) -> () -> (Sum with type vl := Vl.id)
 
+
+(** {2 Instrospection } *)
+
+val field_name: _ field -> string
+val field_type: ('ty,_) field -> 'ty typ
+val version_range: _ field -> Diagnostic_history.Lifetime.t
+
+val record_scheme: 'a record typ -> 'a t
+val record_list_scheme: 'a record list typ -> 'a t
+
+type typed_val = V: 'a typ * 'a -> typed_val
+type 'id bound_field = F: ('ty,'id) field * 'ty -> 'id bound_field
+type any_typ = T: 'a typ -> any_typ
+type typed_record = R: 'a t * 'a record -> typed_record
+type label_metadata = {
+  ltyp: any_typ;
+  optional: bool;
+  status:Diagnostic_history.Lifetime.t
+}
+
 module Record: sig
-  type 'a bfield
-  val (^=): ('a,'b) field -> 'a -> 'b bfield
-  val (^=?): ('a,'b) field -> 'a option -> 'b bfield
   val all_fields: 'id record -> 'id bound_field Seq.t
-  val make: Diagnostic_history.version option -> 'a bfield list -> 'a record
   val get: 'r record -> ('ty,'r) field -> 'ty option
   val dynamic_get: 'r record -> string -> typed_val option
   val set: 'r record -> version option -> field:('ty,'r) field -> 'ty -> unit
@@ -154,6 +150,17 @@ module Record: sig
     'r record -> version option -> field:('ty list, 'r) field -> 'ty -> unit
   val reset: 'r record -> unit
 end
+
+val label_metadata: optional:bool -> 'v update -> 't typ -> label_metadata
+val destruct: 'a sum -> ((string * typed_val) list -> 'b) -> 'b
+val field_infos: 'a t -> (string * label_metadata) list
+val field_names: 'a t -> string list
+
+val scheme_name: 'a t -> string
+val fields: string list -> 'a record -> (string * bool * typed_val) List.t
+val is_optional: label_metadata -> bool
+val field_info: 'id t -> (_,'id) field -> label_metadata option
+val field_dyninfo: _ t -> string -> label_metadata option
 
 module Metadata_versions: Diagnostic_history.S
 module Metadata: Record with type vl := Metadata_versions.id

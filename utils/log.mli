@@ -24,12 +24,7 @@ type 'id t = 'id log
 type ('id,'a) field = ('id,'a) Diagnostic.field
 (** A field of type ['a] for the a ['id log]. *)
 
-type version = Diagnostic_history.version = { major:int; minor:int }
-type 'a update = 'a Diagnostic_history.update
-
-
-
-
+(** Lower-level device for log *)
 type device
 val make_device: ?on_close:(unit->unit) -> Format.formatter ref -> device
 val out_channel_device: Out_channel.t -> device
@@ -37,17 +32,20 @@ val ppf: device -> Format.formatter
 val err: device
 val std: device
 
+(** Backend printers *)
 type printer = {
   record: Format.formatter -> Diagnostic.typed_record -> unit;
   item: Format.formatter -> string * Diagnostic.typed_val -> unit;
 }
 
-val log_version: _ log -> version option
+val log_version: _ log -> Diagnostic.version option
 val log_scheme: 'id log -> 'id Diagnostic.t
 
 val make:
   structured:bool -> printer:printer -> Misc.Color.setting option ->
   Diagnostic_validation.version -> 'a Diagnostic.t -> device -> 'a log
+
+val tmp: 'a Diagnostic.t -> 'a log
 
 (** {1:log_publication Log } *)
 
@@ -55,8 +53,7 @@ val make:
 val flush: 'id log -> unit
 val separate: 'id log -> unit
 val close: 'id log -> unit
-
-val tmp: 'a Diagnostic.t -> 'a log
+val redirect: 'id log -> ('a,'id) field -> device -> unit
 
 val set: ('a,'b) field  -> 'a -> 'b log -> unit
 val (.%[]<-): 'b log -> ('a,'b) field -> 'a -> unit
@@ -65,7 +62,7 @@ val cons: ('a list, 'b) field -> 'a -> 'b log -> unit
 val get: ('a,'b) field  -> 'b log -> 'a option
 val dynamic_get: string  -> 'b log -> Diagnostic.typed_val option
 
-val redirect: 'id log -> ('a,'id) field -> device -> unit
+
 val replay: 'a log -> 'a log -> unit
 
 val detach: 'id log -> ('id2 Diagnostic.record, 'id) field -> 'id2 log

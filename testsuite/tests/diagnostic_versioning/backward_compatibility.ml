@@ -94,7 +94,7 @@ let () = S.seal u1_1
 type _ extension += BR: r extension
 let btyp =
   let pull v x =
-    let open Record in
+    let open Record_lit in
     make v [
       ib_contents ^= ();
       maybe ^= x.maybe;

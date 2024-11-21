@@ -213,8 +213,8 @@ val error_style_reader : Misc.Error_style.setting env_reader
 
 val log_format: Diagnostic_backends.t option ref
 val log_format_reader: Diagnostic_backends.t env_reader
-val log_version: Log.version option ref
-val log_version_reader: Log.version env_reader
+val log_version: Diagnostic.version option ref
+val log_version_reader: Diagnostic.version env_reader
 val log_file: string option ref
 val log_file_reader: string env_reader
 

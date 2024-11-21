@@ -29,10 +29,10 @@ module Structured_text: sig
 
   val register_tag:
     Obj.Extension_constructor.t
-    -> (Log.version option -> Format.stag -> Format_tag.id D.sum)
+    -> (Diagnostic.version option -> Format.stag -> Format_tag.id D.sum)
     -> unit
   val register_tag0:
-    V.id Log.update -> Obj.Extension_constructor.t
+    V.id Diagnostic.update -> Obj.Extension_constructor.t
     -> unit
 
   val typ: doc D.typ

@@ -22,7 +22,6 @@ module V = Diagnostic_validation
 
 type ('id,'a) field = ('id,'a) Diagnostic.field
 type version = Diagnostic_history.version = { major:int; minor:int }
-type 'a update = 'a Diagnostic_history.update
 
 type device =
   {
@@ -84,7 +83,7 @@ let make ~structured ~printer settings version scheme out =
   let mode =
     let version = Diagnostic_validation.exact_version version in
     if structured then
-      Store {data=Diagnostic.Record.make version []; out= Some out}
+      Store {data=Diagnostic.Record_lit.make version []; out= Some out}
     else Direct out
   in
   {
@@ -112,7 +111,7 @@ let generic_detach label_scheme ~set ~lift ~extract log
           match Option.bind (D.Record.get st field) extract with
           | Some data -> data
           | None ->
-              let data = D.Record.make None [] in
+              let data = D.Record_lit.make None [] in
               set st (V.exact_version log.version) ~field (lift data); data
         in
         let out = match out with
@@ -246,7 +245,7 @@ let tmp scheme =
   version=(Downward_compatible {major=0;minor=0});
   scheme;
   printer = { record = (fun _ _ -> ()); item = (fun _ _ -> ()) };
-  mode = Store { out=None; data=D.Record.make None [] }
+  mode = Store { out=None; data=D.Record_lit.make None [] }
 }
 
 
