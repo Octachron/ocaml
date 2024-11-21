@@ -47,9 +47,7 @@ val log_scheme: 'id log -> 'id Diagnostic.t
 
 val make:
   structured:bool -> printer:printer -> Misc.Color.setting option ->
-  Diagnostic.diagnostic_version -> 'a Diagnostic.t -> device -> 'a log
-
-
+  Diagnostic_validation.version -> 'a Diagnostic.t -> device -> 'a log
 
 (** {1:log_publication Log } *)
 

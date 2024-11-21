@@ -283,7 +283,7 @@ end
 
   let with_conv ~structured ~extension conv settings version ppf scheme =
     let ctx = {
-      Fmt.version=(Diagnostic.exact_version version);
+      Fmt.version=(Diagnostic_validation.exact_version version);
       conv; ext_printer=extension}
     in
     let record ppf (R(def, r)) =
@@ -319,7 +319,7 @@ end
 
   type t = {
     name:string;
-    make: 'a. ?color:Misc.Color.setting -> version:Diagnostic.diagnostic_version
+    make: 'a. ?color:Misc.Color.setting -> version:Diagnostic_validation.version
       -> device:Log.device -> 'a Diagnostic.t -> 'a Log.t;
   }
   let fmt = { name="direct"; make = direct }

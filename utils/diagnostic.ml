@@ -158,13 +158,6 @@ let register_label_metadata ~optional update scheme name typ =
       };
     )
 
-type _ extension += Version: version extension
-
-let version_ty =
-  let pull _ v = v.major, v.minor in
-  Custom { id = Version; pull; default = Pair (Int,Int) }
-
-
 module type Def = sig
   type id
   type vl
@@ -259,6 +252,7 @@ end
 
 let (.?()) scheme lbl = List.assoc_opt lbl scheme.labels
 let field_info sch f = sch.?(f.name)
+let field_dyninfo sch name = sch.?(name)
 
 let (let&?) x f = Option.iter f x
 
@@ -479,178 +473,18 @@ let fields labels r =
   List.filter_map (field @@ Record.fields r) (List.rev labels)
 
 module Metadata_versions = H.Make()
-module Metadata = struct
-  let v1 = Metadata_versions.v1
-  include New_record(Metadata_versions)(struct
-      let name = "metadata"
-      let update = v1
-    end)()
-  let version = new_field v1 "version" version_ty
-  let downward_compatible = new_field v1 "downward_compatible" Bool
-  module Validity = struct
-    include New_sum(Metadata_versions)(struct
-        let name = "validity"
-        let update = v1
-        end
-      )()
-      let full = new_constr0 v1 "Full"
-      let deprecated = new_constr0 v1 "Deprecated"
-      let invalid = new_constr0 v1 "Invalid"
-      let () = seal v1
-  end
-  let valid: Validity.raw_type field = new_field v1 "valid" Validity.raw_type
-  let path = List String
-  let invalid_paths = new_field ~opt:true v1 "invalid_paths" (List path)
-  let deprecated_paths = new_field_opt v1 "deprecated_paths" (List path)
-  let () = seal v1
-  let universal_field () =
-      {
-        range = H.(range @@ v v1);
-        name = "metadata";
-        opt=false;
-        typ = raw_type;
-        id = Type.Id.make ()
-      }
-  let metakey =
-    "metadata",
-    label_metadata ~optional:false v1 raw_type
-end
-let metakey = Metadata.metakey
-
-type diagnostic_version =
-  | Downward_compatible of version
-  | Exact of version
-let diagnostic_version (Exact v | Downward_compatible v) = v
-let exact_version = function
-  | Exact v -> Some v
-  | Downward_compatible _ -> None
-let downward_compatible = function
-  | Downward_compatible _ -> true
-  | _ -> false
-
-module Validation = struct
-
-  type path = string list
-  type report_paths = { deprecated: path list; invalid: path list }
-  let (@^) h l = {
-    deprecated = h.deprecated @ l.deprecated;
-    invalid = h.invalid @ l.invalid
+module Metadata = New_record(Metadata_versions)(struct
+    let name = "metadata"
+    let update = Metadata_versions.v1
+  end)()
+let universal_metafield () =
+  {
+    range = H.(range @@ v Metadata_versions.v1);
+    name = "metadata";
+    opt=false;
+    typ = Metadata.raw_type;
+    id = Type.Id.make ()
   }
-  let none =  { invalid = []; deprecated=[]}
-  let invalid x = { invalid = [x]; deprecated = [] }
-  let deprecated x = { deprecated = [x]; invalid = [] }
-  let qualify name l = {
-    deprecated = List.map (List.cons name) l.deprecated;
-    invalid = List.map (List.cons name) l.invalid;
-  }
-  let concat_map f l = List.fold_left (fun acc x -> f x @^ acc) none l
-
-  let rec possibly_invalid: type a. a typ -> bool = function
-    | Unit -> false
-    | Int -> false
-    | String -> false
-    | Bool -> false
-    | Float -> false
-    | Pair (x,y) -> possibly_invalid x || possibly_invalid y
-    | Triple (x,y,z) ->
-        possibly_invalid x || possibly_invalid y || possibly_invalid z
-    | Quadruple (x,y,z,w) ->
-        possibly_invalid x
-        || possibly_invalid y
-        || possibly_invalid z
-        || possibly_invalid w
-    | List elt -> possibly_invalid elt
-    | Custom r -> possibly_invalid r.default
-    | Sum _ -> true
-    | Record _ -> true
-
-  let rec record: type id.
-    version:version -> id t -> id record -> report_paths =
-    fun ~version sch st -> fields ~version sch.labels (Record.fields st)
-  and fields: type id.
-    version:version -> (Label_map.key * label_metadata) list
-    -> id bound_field Label_map.t -> report_paths
-    = fun ~version metadata data ->
-    concat_map (fun (k, kmd) ->
-        match H.stage_at (Some version) kmd.status with
-        | Future | Deletion -> none (* those fields will be elided *)
-        | Deprecation ->
-            deprecated [k]  @^
-            field  ~version ~optional:(is_optional kmd) k
-              (Label_map.find_opt k data)
-        | Inception | Publication | Expansion ->
-            field  ~version ~optional:(is_optional kmd) k
-              (Label_map.find_opt k data)
-      ) metadata
-  and field: type a.
-    version:version -> optional:bool -> string -> a bound_field option
-    -> report_paths = fun ~version ~optional name k ->
-    match optional, k with
-    | true, None -> none
-    | false, None -> invalid [name]
-    | _, Some (F (k,v)) ->
-        qualify name (value ~version v k.typ)
-  and value: type a. version:version -> a -> a typ -> report_paths =
-    fun ~version v typ ->
-    match typ with
-    | Record m -> record ~version m v
-    | Int -> none
-    | Bool -> none
-    | String -> none
-    | Float -> none
-    | Custom _ -> none
-    | Unit -> none
-    | List elt ->
-        if possibly_invalid elt then
-          concat_map (fun v -> value ~version v elt) v
-        else none
-    | Pair (x,y) ->
-        let vx, vy = v in
-        value ~version vx x @^ value ~version vy y
-    | Triple (x,y,z) ->
-        let vx, vy, vz = v in
-        value ~version vx x
-        @^ value ~version vy y
-        @^ value ~version vz z
-    | Quadruple (x,y,z,w) ->
-        let vx, vy, vz, vw = v in
-        value ~version vx x
-        @^ value ~version vy y
-        @^ value ~version vz z
-        @^ value ~version vw w
-    | Sum def ->
-        let Constr c = v in
-        match def.?(c.name) with
-        | None -> none
-        | Some lmd ->
-            begin match H.stage_at (Some version) lmd.status with
-            | Inception | Publication | Expansion -> value ~version c.arg c.typ
-            | Future | Deletion -> invalid [c.name]
-            | Deprecation -> deprecated [c.name] @^ value ~version c.arg c.typ
-            end
-
-  let diagnostic ~version:v sch st =
-    let version = diagnostic_version v in
-    let r = record ~version sch st in
-      let valid = match r.deprecated, r.invalid with
-        | [], [] -> Metadata.Validity.full
-        | _::_, [] ->Metadata. Validity.deprecated
-        | _, _ :: _  -> Metadata.Validity.invalid
-      in
-      let v1 = H.v Metadata.v1 in
-      let valid = app (Some v1) valid () in
-      let metadata =
-        let open Record in
-        make (Some v1) [
-          Metadata.version ^= version;
-          Metadata.downward_compatible ^= downward_compatible v;
-          Metadata.valid ^= valid;
-          Metadata.invalid_paths ^= r.invalid;
-          Metadata.deprecated_paths ^= r.deprecated;
-        ]
-      in
-      Record.set st None
-        ~field:(Metadata.universal_field ())
-        metadata;
-      r
-end
+let metakey =
+  "metadata",
+  label_metadata ~optional:false Metadata_versions.v1 Metadata.raw_type

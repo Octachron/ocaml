@@ -13,27 +13,16 @@
 (*                                                                        *)
 (**************************************************************************)
 
-open Log
-module Fmt: sig
-  type 'a printer = Format.formatter -> 'a -> unit
-  type extension_printer =
-    { extension: 'b. 'b Diagnostic.extension -> 'b printer option}
-  val add_extension: extension_printer -> unit
-end
+type version =
+  | Downward_compatible of Diagnostic_history.version
+  | Exact of Diagnostic_history.version
 
-type t = {
-  name:string;
-  make:
-    'a. ?color:Misc.Color.setting -> version:Diagnostic_validation.version
-    -> device:Log.device -> 'a Diagnostic.t -> 'a log;
-}
-val fmt: t
-val fmt_with_fields:t
-val json: t
-val sexp: t
+val reference_version: version -> Diagnostic_history.version
+val exact_version: version -> Diagnostic_history.version option
 
+type path = string list
+type report_paths = { deprecated: path list; invalid: path list }
 
-module Json_schema:sig
-  val pp_log: Format.formatter -> 'a log -> unit
-  val pp:  version option -> 'a Diagnostic.t -> Format.formatter -> unit
-end
+(** Metada module *)
+val diagnostic:
+  version:version -> 'a Diagnostic.t -> 'a Diagnostic.record -> report_paths

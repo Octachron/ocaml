@@ -70,6 +70,7 @@ type label_metadata = {
   status:Diagnostic_history.Lifetime.t
 }
 
+val label_metadata: optional:bool -> 'v update -> 't typ -> label_metadata
 val destruct: 'a sum -> ((string * typed_val) list -> 'b) -> 'b
 val field_infos: 'a t -> (string * label_metadata) list
 val field_names: 'a t -> string list
@@ -78,8 +79,7 @@ val scheme_name: 'a t -> string
 val fields: string list -> 'a record -> (string * bool * typed_val) List.t
 val is_optional: label_metadata -> bool
 val field_info: 'id t -> (_,'id) field -> label_metadata option
-
-val metakey: string * label_metadata
+val field_dyninfo: _ t -> string -> label_metadata option
 
 module type Def = sig
   type vl
@@ -155,20 +155,7 @@ module Record: sig
   val reset: 'r record -> unit
 end
 
-(** Metada module *)
 module Metadata_versions: Diagnostic_history.S
 module Metadata: Record with type vl := Metadata_versions.id
-
-type diagnostic_version =
-  | Downward_compatible of Diagnostic_history.version
-  | Exact of Diagnostic_history.version
-
-val diagnostic_version: diagnostic_version -> Diagnostic_history.version
-val exact_version: diagnostic_version -> Diagnostic_history.version option
-
-module Validation: sig
-  type path = string list
-  type report_paths = { deprecated: path list; invalid: path list }
-  val diagnostic:
-    version:diagnostic_version -> 'a t -> 'a record -> report_paths
-end
+val universal_metafield: unit -> (Metadata.id record, 'id) field
+val metakey: string * label_metadata

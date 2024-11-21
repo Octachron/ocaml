@@ -34,6 +34,7 @@ utils/clflags.cmo : \
     utils/numbers.cmi \
     utils/misc.cmi \
     utils/log.cmi \
+    utils/diagnostic_validation.cmi \
     utils/diagnostic_history.cmi \
     utils/diagnostic_backends.cmi \
     utils/diagnostic.cmi \
@@ -46,6 +47,7 @@ utils/clflags.cmx : \
     utils/numbers.cmx \
     utils/misc.cmx \
     utils/log.cmx \
+    utils/diagnostic_validation.cmx \
     utils/diagnostic_history.cmx \
     utils/diagnostic_backends.cmx \
     utils/diagnostic.cmx \
@@ -108,6 +110,7 @@ utils/diagnostic_backends.cmo : \
     utils/misc.cmi \
     utils/log.cmi \
     utils/format_doc.cmi \
+    utils/diagnostic_validation.cmi \
     utils/diagnostic_history.cmi \
     utils/diagnostic.cmi \
     utils/diagnostic_backends.cmi
@@ -116,18 +119,33 @@ utils/diagnostic_backends.cmx : \
     utils/misc.cmx \
     utils/log.cmx \
     utils/format_doc.cmx \
+    utils/diagnostic_validation.cmx \
     utils/diagnostic_history.cmx \
     utils/diagnostic.cmx \
     utils/diagnostic_backends.cmi
 utils/diagnostic_backends.cmi : \
     utils/misc.cmi \
     utils/log.cmi \
+    utils/diagnostic_validation.cmi \
     utils/diagnostic.cmi
 utils/diagnostic_history.cmo : \
     utils/diagnostic_history.cmi
 utils/diagnostic_history.cmx : \
     utils/diagnostic_history.cmi
 utils/diagnostic_history.cmi :
+utils/diagnostic_validation.cmo : \
+    utils/misc.cmi \
+    utils/diagnostic_history.cmi \
+    utils/diagnostic.cmi \
+    utils/diagnostic_validation.cmi
+utils/diagnostic_validation.cmx : \
+    utils/misc.cmx \
+    utils/diagnostic_history.cmx \
+    utils/diagnostic.cmx \
+    utils/diagnostic_validation.cmi
+utils/diagnostic_validation.cmi : \
+    utils/diagnostic_history.cmi \
+    utils/diagnostic.cmi
 utils/diffing.cmo : \
     utils/misc.cmi \
     utils/format_doc.cmi \
@@ -207,18 +225,21 @@ utils/local_store.cmi :
 utils/log.cmo : \
     utils/misc.cmi \
     utils/format_doc.cmi \
+    utils/diagnostic_validation.cmi \
     utils/diagnostic_history.cmi \
     utils/diagnostic.cmi \
     utils/log.cmi
 utils/log.cmx : \
     utils/misc.cmx \
     utils/format_doc.cmx \
+    utils/diagnostic_validation.cmx \
     utils/diagnostic_history.cmx \
     utils/diagnostic.cmx \
     utils/log.cmi
 utils/log.cmi : \
     utils/misc.cmi \
     utils/format_doc.cmi \
+    utils/diagnostic_validation.cmi \
     utils/diagnostic_history.cmi \
     utils/diagnostic.cmi
 utils/misc.cmo : \
@@ -7817,6 +7838,7 @@ tools/ocamltex.cmo : \
     parsing/lexer.cmi \
     utils/format_doc.cmi \
     utils/diagnostic_backends.cmi \
+    utils/diagnostic.cmi \
     driver/compmisc.cmi \
     driver/compenv.cmi \
     utils/clflags.cmi \
@@ -7838,6 +7860,7 @@ tools/ocamltex.cmx : \
     parsing/lexer.cmx \
     utils/format_doc.cmx \
     utils/diagnostic_backends.cmx \
+    utils/diagnostic.cmx \
     driver/compmisc.cmx \
     driver/compenv.cmx \
     utils/clflags.cmx \

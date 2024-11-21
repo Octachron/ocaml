@@ -216,8 +216,8 @@ val x : int R.field = <abstr>
 
 let test backend ?v sval =
   let version = match v with
-    | None -> Downward_compatible v2_0
-    | Some x -> Exact x
+    | None -> Diagnostic_validation.Downward_compatible v2_0
+    | Some x -> Diagnostic_validation.Exact x
   in
   let log =
     let open Diagnostic_backends in

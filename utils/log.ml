@@ -18,6 +18,7 @@ module Label_map = Misc.Stdlib.String.Map
 
 module H = Diagnostic_history
 module D = Diagnostic
+module V = Diagnostic_validation
 
 type ('id,'a) field = ('id,'a) Diagnostic.field
 type version = Diagnostic_history.version = { major:int; minor:int }
@@ -58,7 +59,7 @@ type 'a mode =
 type 'a log =
   {
       mutable redirections: device Label_map.t;
-      version: Diagnostic.diagnostic_version;
+      version: Diagnostic_validation.version;
       scheme: 'a Diagnostic.t;
       settings: Misc.Color.setting option;
       mode: 'a mode;
@@ -69,7 +70,7 @@ type 'a log =
 
 
 let log_scheme log = log.scheme
-let log_version log = Diagnostic.exact_version log.version
+let log_version log = Diagnostic_validation.exact_version log.version
 
 type 'a t = 'a log
 
@@ -81,7 +82,7 @@ type 'a t = 'a log
 
 let make ~structured ~printer settings version scheme out =
   let mode =
-    let version = Diagnostic.exact_version version in
+    let version = Diagnostic_validation.exact_version version in
     if structured then
       Store {data=Diagnostic.Record.make version []; out= Some out}
     else Direct out
@@ -112,7 +113,7 @@ let generic_detach label_scheme ~set ~lift ~extract log
           | Some data -> data
           | None ->
               let data = D.Record.make None [] in
-              set st (D.exact_version log.version) ~field (lift data); data
+              set st (V.exact_version log.version) ~field (lift data); data
         in
         let out = match out with
           | Some _ -> out
@@ -161,11 +162,11 @@ end
 let set (field: _ D.field) x log =
   let version = log.version in
   match log.mode with
-  | Store st -> D.Record.set st.data (D.exact_version version) ~field x
+  | Store st -> D.Record.set st.data (V.exact_version version) ~field x
   | Direct d ->
       let status = match D.field_info log.scheme field with
         | Some lmd ->
-          let v = D.diagnostic_version version in
+          let v = V.reference_version version in
           H.stage_at (Some v) lmd.status
         | None -> Diagnostic_history.Lifetime.Deletion
       in
@@ -183,7 +184,7 @@ let set (field: _ D.field) x log =
 let cons field x log =
   match log.mode with
   | Direct _-> set field [x] log
-  | Store st -> D.Record.cons st.data (D.exact_version log.version) ~field x
+  | Store st -> D.Record.cons st.data (V.exact_version log.version) ~field x
 
 let (.%[]<-) log field x = set field x log
 
@@ -205,7 +206,7 @@ let flush: type a. a log -> unit = fun log ->
   begin match log.mode with
   | Direct d -> Fmt.flush d
   | Store st ->
-      let _ = D.Validation.diagnostic ~version:log.version log.scheme st.data in
+      let _ = V.diagnostic ~version:log.version log.scheme st.data in
       Option.iter (fun out ->
           let ppf = !(out.ppf) in
           log.printer.record ppf (R(log.scheme, st.data))
