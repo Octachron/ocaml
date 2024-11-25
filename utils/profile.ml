@@ -192,8 +192,8 @@ type row = R of string * (float * display) list * row list
 module Profile_report = struct
   module D = Diagnostic
   type _ D.extension += Profile: (string list * row list) D.extension
-  let v1 = Reports.V.v1
-  include D.New_record(Reports.V)(struct
+  let v1 = Compiler_diagnostic.V.v1
+  include D.New_record(Compiler_diagnostic.V)(struct
       let name = "profile"
       let update = v1
     end)()
@@ -215,8 +215,8 @@ module Profile_report = struct
     D.Custom {id = Profile; pull; default }
 end
 let profile =
-  Reports.Debug.new_field_opt Reports.V.v1 "profile" Profile_report.typ
-let () = Reports.(Debug.seal V.v1)
+  Compiler_diagnostic.(Debug.new_field_opt V.v1 "profile" Profile_report.typ)
+let () = Compiler_diagnostic.(Debug.seal V.v1)
 
 let rec rows_of_hierarchy ~nesting make_row name measure_diff hierarchy env =
   let rows =

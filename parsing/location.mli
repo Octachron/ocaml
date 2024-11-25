@@ -171,7 +171,6 @@ val show_filename: string -> string
 val print_filename: formatter -> string -> unit
 val print_loc: formatter -> t -> unit
 val print_locs: formatter -> t list -> unit
-val separate_new_message: Reports.Toplevel.id Log.t -> unit
 
 
 module Doc: sig
@@ -240,7 +239,7 @@ val pp_report: report_printer -> formatter -> report -> unit
 val print_report: formatter -> report -> unit
 (** Display an error or warning report. *)
 
-val log_report: Reports.Compiler.id Log.t -> report -> unit
+val log_report: Compiler_diagnostic.id Log.t -> report -> unit
 
 val report_printer: (unit -> report_printer) ref
 (** Hook for redefining the printer of reports.
@@ -269,22 +268,22 @@ val default_warning_reporter: t -> Warnings.t -> report option
 
 (** {2 Printing warnings} *)
 
-module Error_log: sig
+module Error_diagnostic: sig
   type _ Diagnostic.extension +=
     | Error_kind: report_kind Diagnostic.extension
     | Error: report Diagnostic.extension
     | Location: t Diagnostic.extension
     | Msg: Format_doc.t loc Diagnostic.extension
-  val warnings: report list Reports.Compiler.field
-  module Kind: Reports.Sum
-  module Msg: Reports.Record
-
+  val warnings: report list Compiler_diagnostic.field
+  module Kind: Compiler_diagnostic.Sum
+  module Msg: Compiler_diagnostic.Record
 end
 
 val formatter_for_warnings : formatter ref
-val current_log: Reports.Compiler.id Log.t ref
+val current_log: Compiler_diagnostic.id Log.t ref
+val separate_new_message: 'a Log.t -> unit
 
-val log_warning: t -> Reports.Compiler.id Log.t -> Warnings.t -> unit
+val log_warning: t -> Compiler_diagnostic.id Log.t -> Warnings.t -> unit
 (** Prints a warning. This is simply the composition of [report_warning] and
    [print_report]. *)
 
@@ -308,7 +307,7 @@ val default_alert_reporter: t -> Warnings.alert -> report option
 
 (** {2 Printing alerts} *)
 
-val log_alert: t -> Reports.Compiler.id Log.t -> Warnings.alert -> unit
+val log_alert: t -> Compiler_diagnostic.id Log.t -> Warnings.alert -> unit
 (** Prints an alert. This is simply the composition of [report_alert] and
    [print_report]. *)
 
@@ -371,12 +370,12 @@ exception Already_displayed_error
 val raise_errorf: ?loc:t -> ?sub:msg list -> ?footnote:delayed_msg ->
   ('a, Format_doc.formatter, unit, 'b) format4 -> 'a
 
-val log_exception: Reports.Compiler.id Log.t -> exn -> unit
+val log_exception: Compiler_diagnostic.id Log.t -> exn -> unit
 (** Reraise the exception if it is unknown or log it. *)
 
 val log_on_device:
-  prev:Reports.Compiler.id Log.t option
-  -> Log.device -> Reports.Compiler.id Log.t
+  prev:Compiler_diagnostic.id Log.t option
+  -> Log.device -> Compiler_diagnostic.id Log.t
 
 (** Store log events while waiting for log configuration*)
-val temporary_log: unit -> Reports.Compiler.id Log.t
+val temporary_log: unit -> Compiler_diagnostic.id Log.t

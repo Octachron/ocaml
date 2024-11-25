@@ -74,8 +74,9 @@ utils_SOURCES = $(addprefix utils/, \
   diagnostic.mli diagnostic.ml \
   diagnostic_validation.mli diagnostic_validation.ml \
   log.mli log.ml \
-  reports.mli reports.ml \
+  compiler_diagnostic.mli compiler_diagnostic.ml \
   diagnostic_backends.mli diagnostic_backends.ml \
+  config_diagnostic.mli config_diagnostic.ml \
   clflags.mli clflags.ml \
   profile.mli profile.ml \
   terminfo.mli terminfo.ml \
@@ -91,7 +92,8 @@ utils_SOURCES = $(addprefix utils/, \
   lazy_backtrack.mli lazy_backtrack.ml \
   diffing.mli diffing.ml \
   diffing_with_keys.mli diffing_with_keys.ml \
-  compression.mli compression.ml)
+  compression.mli compression.ml \
+)
 
 parsing_SOURCES = $(addprefix parsing/, \
   location.mli location.ml \
@@ -381,6 +383,7 @@ ocamloptcomp_SOURCES = $(ocamlmiddleend_SOURCES) $(asmcomp_SOURCES)
 
 ocamltoplevel_SOURCES = $(addprefix toplevel/, \
   genprintval.mli genprintval.ml \
+  toplevel_diagnostic.mli toplevel_diagnostic.ml \
   topcommon.mli topcommon.ml \
   native/tophooks.mli native/tophooks.ml \
   byte/topeval.mli byte/topeval.ml \
@@ -2219,8 +2222,9 @@ ocamlprof_SOURCES = \
   diagnostic.mli diagnostic.ml \
   diagnostic_validation.mli diagnostic_validation.ml \
   log.mli log.ml \
-  reports.mli reports.ml \
+  compiler_diagnostic.mli compiler_diagnostic.ml \
   diagnostic_backends.mli diagnostic_backends.ml \
+  config_diagnostic.mli config_diagnostic.ml \
   clflags.mli clflags.ml \
   terminfo.mli terminfo.ml \
   warnings.mli warnings.ml \
@@ -2247,7 +2251,7 @@ ocamlcp_ocamloptp_SOURCES = \
   diagnostic.mli diagnostic.ml \
   diagnostic_validation.mli diagnostic_validation.ml \
   log.mli log.ml \
-  reports.mli reports.ml \
+  compiler_diagnostic.mli compiler_diagnostic.ml \
   diagnostic_backends.mli diagnostic_backends.ml \
   profile.mli profile.ml \
   warnings.mli warnings.ml \
@@ -2256,6 +2260,7 @@ ocamlcp_ocamloptp_SOURCES = \
   arg_helper.mli arg_helper.ml \
   local_store.mli local_store.ml \
   load_path.mli load_path.ml \
+  config_diagnostic.mli config_diagnostic.ml \
   clflags.mli clflags.ml \
   terminfo.mli terminfo.ml \
   location.mli location.ml \
@@ -2296,8 +2301,9 @@ ocamlmktop_SOURCES = \
   diagnostic.mli diagnostic.ml \
   diagnostic_validation.mli diagnostic_validation.ml \
   log.mli log.ml \
-  reports.mli reports.ml \
+  compiler_diagnostic.mli compiler_diagnostic.ml \
   diagnostic_backends.mli diagnostic_backends.ml \
+  config_diagnostic.mli config_diagnostic.ml \
   clflags.mli clflags.ml \
   profile.mli profile.ml \
   ccomp.mli ccomp.ml \
@@ -2337,7 +2343,7 @@ ocamlobjinfo_SOURCES = tools/objinfo.mli tools/objinfo.ml
 # Display info on the compilerlog
 
 ocamldiaginfo_LIBRARIES = \
-  $(addprefix compilerlibs/,ocamlcommon)
+  $(addprefix compilerlibs/,ocamlcommon ocamltoplevel)
 ocamldiaginfo_SOURCES = tools/diaginfo.mli tools/diaginfo.ml
 
 # Scan object files for required primitives

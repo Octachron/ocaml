@@ -13,10 +13,6 @@
 (*                                                                        *)
 (**************************************************************************)
 
-(** The {!Reports} module provides definition for the structured reports
-    emitted by the compiler and toplevel
-*)
-
 module D := Diagnostic
 module V: Diagnostic_history.S
 module type Record = D.Record with type vl := V.id
@@ -61,34 +57,9 @@ module Debug: sig
   val cmm_invariant: string field
 end
 
-module Compiler: sig
-  include Record
-  val debug: Debug.id D.record field
-end
 module Error: Record
 
-module Toplevel: sig
-  include Record
-  val output: doc field
-  val backtrace: doc field
-  val compiler_log: Compiler.id D.record field
-  val errors: doc list field
-  val trace: doc list field
-end
-
-(** Access to configuration values *)
-module Config_versions: Diagnostic_history.S
-module Config: sig
-  include D.Record with type vl := Config_versions.id
-
-  val print_config : id Log.t -> unit
-  val config_var : string -> string option
-  (** the configuration value of a variable, if it exists *)
-
-  (** {1 Displaying configuration variables} *)
-
-  val show_config_variable_and_exit : string -> unit
-  (** Display the value of the given configuration variable,
-      then exit the program with code 0. *)
-
-end
+include Record
+val debug: Debug.id D.record field
+val doc: Format_doc.t Diagnostic.typ
+val ldoc: Format_doc.t list Diagnostic.typ

@@ -22,7 +22,7 @@ type 'id t = 'id log
  (** A structured log with tag ['id]. *)
 
 type ('id,'a) field = ('id,'a) Diagnostic.field
-(** A field of type ['a] for the a ['id log]. *)
+(** A field of type ['a] for an ['id log]. *)
 
 (** Lower-level device for log *)
 type device
@@ -62,11 +62,12 @@ val cons: ('a list, 'b) field -> 'a -> 'b log -> unit
 val get: ('a,'b) field  -> 'b log -> 'a option
 val dynamic_get: string  -> 'b log -> Diagnostic.typed_val option
 
-
 val replay: 'a log -> 'a log -> unit
 
 val detach: 'id log -> ('id2 Diagnostic.record, 'id) field -> 'id2 log
 val detach_item: 'id log -> ('id2 Diagnostic.record list, 'id) field -> 'id2 log
+
+(** {1 Printing functions }*)
 
 val f : (string,'a) field -> 'a log -> ('b, Format.formatter, unit) format -> 'b
   (** [fmt field log ppf] records the output of [ppf] as

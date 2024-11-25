@@ -41,7 +41,7 @@ let cmm_invariants log fd_cmm =
 
 let liveness phrase = Liveness.fundecl phrase; phrase
 
-let log_key = Reports.Debug.mach
+let log_key = Compiler_diagnostic.Debug.mach
 
 let dump_if log flag message phrase =
   if Clflags.dump flag then
@@ -52,7 +52,7 @@ let pass_dump_if log flag message phrase =
 
 let pass_dump_linear_if log flag message phrase =
   if dump flag then
-    Log.itemf Reports.Debug.linear log "*** %s@.%a@."
+    Log.itemf Compiler_diagnostic.Debug.linear log "*** %s@.%a@."
       message Printlinear.fundecl phrase;
   phrase
 
@@ -189,7 +189,8 @@ let compile_phrases ~log ps =
     match ps with
     | [] -> ()
     | p :: ps ->
-       Clflags.dump_item_on_log log Reports.Debug.cmm "%a@." Printcmm.phrase p;
+       Clflags.dump_item_on_log log Compiler_diagnostic.Debug.cmm "%a@."
+         Printcmm.phrase p;
        match p with
        | Cfunction fd ->
           compile_fundecl ~log ~funcnames fd;
@@ -269,7 +270,7 @@ let end_gen_implementation ?toplevel ~log
 type middle_end =
      backend:(module Backend_intf.S)
   -> prefixname:string
-  -> log:Reports.Debug.t
+  -> log:Compiler_diagnostic.Debug.id Log.t
   -> Lambda.program
   -> Clambda.with_constants
 

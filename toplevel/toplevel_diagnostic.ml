@@ -2,9 +2,9 @@
 (*                                                                        *)
 (*                                 OCaml                                  *)
 (*                                                                        *)
-(*             Xavier Leroy, projet Cristal, INRIA Rocquencourt           *)
+(*             Florian Angeletti, projet Cambium, Inria Paris             *)
 (*                                                                        *)
-(*   Copyright 1996 Institut National de Recherche en Informatique et     *)
+(*   Copyright 2024 Institut National de Recherche en Informatique et     *)
 (*     en Automatique.                                                    *)
 (*                                                                        *)
 (*   All rights reserved.  This file is distributed under the terms of    *)
@@ -12,10 +12,19 @@
 (*   special exception on linking described in the file LICENSE.          *)
 (*                                                                        *)
 (**************************************************************************)
+open Diagnostic
+open Compiler_diagnostic
+include New_record(V)
+    (struct
+      let name = "toplevel"
+      let update = V.v1
+    end)
+    ()
+let output = new_field_opt V.v1 "output" doc
+let backtrace = new_field_opt V.v1 "backtrace" doc
+let compiler = new_field_opt V.v1 "compiler" Compiler_diagnostic.raw_type
+let errors = new_field_opt V.v1 "errors" ldoc
+let trace = new_field_opt V.v1 "trace" ldoc
+let () = seal V.v1
 
-val lambda_to_clambda
-   : backend:(module Backend_intf.S)
-  -> prefixname:string
-  -> log:Compiler_diagnostic.Debug.id Log.t
-  -> Lambda.program
-  -> Clambda.with_constants
+let separate_new_message = Location.separate_new_message

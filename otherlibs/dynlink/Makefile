@@ -86,8 +86,9 @@ COMPILERLIBS_SOURCES=\
   utils/diagnostic.ml \
   utils/diagnostic_validation.ml \
   utils/log.ml \
-  utils/reports.ml \
+  utils/compiler_diagnostic.ml \
   utils/diagnostic_backends.ml \
+  utils/config_diagnostic.ml \
   utils/clflags.ml \
   utils/profile.ml \
   utils/consistbl.ml \

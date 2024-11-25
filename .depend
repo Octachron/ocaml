@@ -29,7 +29,6 @@ utils/ccomp.cmx : \
     utils/ccomp.cmi
 utils/ccomp.cmi :
 utils/clflags.cmo : \
-    utils/reports.cmi \
     utils/profile.cmi \
     utils/numbers.cmi \
     utils/misc.cmi \
@@ -38,11 +37,11 @@ utils/clflags.cmo : \
     utils/diagnostic_history.cmi \
     utils/diagnostic_backends.cmi \
     utils/diagnostic.cmi \
+    utils/config_diagnostic.cmi \
     utils/config.cmi \
     utils/arg_helper.cmi \
     utils/clflags.cmi
 utils/clflags.cmx : \
-    utils/reports.cmx \
     utils/profile.cmx \
     utils/numbers.cmx \
     utils/misc.cmx \
@@ -51,6 +50,7 @@ utils/clflags.cmx : \
     utils/diagnostic_history.cmx \
     utils/diagnostic_backends.cmx \
     utils/diagnostic.cmx \
+    utils/config_diagnostic.cmx \
     utils/config.cmx \
     utils/arg_helper.cmx \
     utils/clflags.cmi
@@ -60,6 +60,22 @@ utils/clflags.cmi : \
     utils/log.cmi \
     utils/diagnostic_history.cmi \
     utils/diagnostic_backends.cmi \
+    utils/diagnostic.cmi
+utils/compiler_diagnostic.cmo : \
+    utils/misc.cmi \
+    utils/format_doc.cmi \
+    utils/diagnostic_history.cmi \
+    utils/diagnostic.cmi \
+    utils/compiler_diagnostic.cmi
+utils/compiler_diagnostic.cmx : \
+    utils/misc.cmx \
+    utils/format_doc.cmx \
+    utils/diagnostic_history.cmx \
+    utils/diagnostic.cmx \
+    utils/compiler_diagnostic.cmi
+utils/compiler_diagnostic.cmi : \
+    utils/format_doc.cmi \
+    utils/diagnostic_history.cmi \
     utils/diagnostic.cmi
 utils/compression.cmo : \
     utils/compression.cmi
@@ -82,6 +98,22 @@ utils/config_boot.cmo : \
 utils/config_boot.cmx : \
     utils/config_boot.cmi
 utils/config_boot.cmi :
+utils/config_diagnostic.cmo : \
+    utils/log.cmi \
+    utils/diagnostic_history.cmi \
+    utils/diagnostic.cmi \
+    utils/config.cmi \
+    utils/config_diagnostic.cmi
+utils/config_diagnostic.cmx : \
+    utils/log.cmx \
+    utils/diagnostic_history.cmx \
+    utils/diagnostic.cmx \
+    utils/config.cmx \
+    utils/config_diagnostic.cmi
+utils/config_diagnostic.cmi : \
+    utils/log.cmi \
+    utils/diagnostic_history.cmi \
+    utils/diagnostic.cmi
 utils/config_main.cmo : \
     utils/config_main.cmi
 utils/config_main.cmx : \
@@ -106,22 +138,22 @@ utils/diagnostic.cmx : \
 utils/diagnostic.cmi : \
     utils/diagnostic_history.cmi
 utils/diagnostic_backends.cmo : \
-    utils/reports.cmi \
     utils/misc.cmi \
     utils/log.cmi \
     utils/format_doc.cmi \
     utils/diagnostic_validation.cmi \
     utils/diagnostic_history.cmi \
     utils/diagnostic.cmi \
+    utils/compiler_diagnostic.cmi \
     utils/diagnostic_backends.cmi
 utils/diagnostic_backends.cmx : \
-    utils/reports.cmx \
     utils/misc.cmx \
     utils/log.cmx \
     utils/format_doc.cmx \
     utils/diagnostic_validation.cmx \
     utils/diagnostic_history.cmx \
     utils/diagnostic.cmx \
+    utils/compiler_diagnostic.cmx \
     utils/diagnostic_backends.cmi
 utils/diagnostic_backends.cmi : \
     utils/misc.cmi \
@@ -265,43 +297,22 @@ utils/numbers.cmx : \
 utils/numbers.cmi : \
     utils/identifiable.cmi
 utils/profile.cmo : \
-    utils/reports.cmi \
     utils/misc.cmi \
     utils/log.cmi \
     utils/diagnostic_backends.cmi \
     utils/diagnostic.cmi \
+    utils/compiler_diagnostic.cmi \
     utils/profile.cmi
 utils/profile.cmx : \
-    utils/reports.cmx \
     utils/misc.cmx \
     utils/log.cmx \
     utils/diagnostic_backends.cmx \
     utils/diagnostic.cmx \
+    utils/compiler_diagnostic.cmx \
     utils/profile.cmi
 utils/profile.cmi : \
-    utils/reports.cmi \
-    utils/log.cmi
-utils/reports.cmo : \
-    utils/misc.cmi \
     utils/log.cmi \
-    utils/format_doc.cmi \
-    utils/diagnostic_history.cmi \
-    utils/diagnostic.cmi \
-    utils/config.cmi \
-    utils/reports.cmi
-utils/reports.cmx : \
-    utils/misc.cmx \
-    utils/log.cmx \
-    utils/format_doc.cmx \
-    utils/diagnostic_history.cmx \
-    utils/diagnostic.cmx \
-    utils/config.cmx \
-    utils/reports.cmi
-utils/reports.cmi : \
-    utils/log.cmi \
-    utils/format_doc.cmi \
-    utils/diagnostic_history.cmi \
-    utils/diagnostic.cmi
+    utils/compiler_diagnostic.cmi
 utils/strongly_connected_components.cmo : \
     utils/numbers.cmi \
     utils/misc.cmi \
@@ -537,33 +548,33 @@ parsing/lexer.cmi : \
 parsing/location.cmo : \
     utils/warnings.cmi \
     utils/terminfo.cmi \
-    utils/reports.cmi \
     utils/misc.cmi \
     utils/log.cmi \
     utils/format_doc.cmi \
     utils/diagnostic_backends.cmi \
     utils/diagnostic.cmi \
+    utils/compiler_diagnostic.cmi \
     utils/clflags.cmi \
     utils/build_path_prefix_map.cmi \
     parsing/location.cmi
 parsing/location.cmx : \
     utils/warnings.cmx \
     utils/terminfo.cmx \
-    utils/reports.cmx \
     utils/misc.cmx \
     utils/log.cmx \
     utils/format_doc.cmx \
     utils/diagnostic_backends.cmx \
     utils/diagnostic.cmx \
+    utils/compiler_diagnostic.cmx \
     utils/clflags.cmx \
     utils/build_path_prefix_map.cmx \
     parsing/location.cmi
 parsing/location.cmi : \
     utils/warnings.cmi \
-    utils/reports.cmi \
     utils/log.cmi \
     utils/format_doc.cmi \
-    utils/diagnostic.cmi
+    utils/diagnostic.cmi \
+    utils/compiler_diagnostic.cmi
 parsing/longident.cmo : \
     utils/misc.cmi \
     parsing/longident.cmi
@@ -2380,7 +2391,6 @@ bytecomp/bytepackager.cmo : \
     bytecomp/symtable.cmi \
     typing/subst.cmi \
     lambda/simplif.cmi \
-    utils/reports.cmi \
     lambda/printlambda.cmi \
     typing/path.cmi \
     utils/misc.cmi \
@@ -2393,6 +2403,7 @@ bytecomp/bytepackager.cmo : \
     bytecomp/emitcode.cmi \
     utils/config.cmi \
     utils/compression.cmi \
+    utils/compiler_diagnostic.cmi \
     file_formats/cmo_format.cmi \
     utils/clflags.cmi \
     bytecomp/bytelink.cmi \
@@ -2405,7 +2416,6 @@ bytecomp/bytepackager.cmx : \
     bytecomp/symtable.cmx \
     typing/subst.cmx \
     lambda/simplif.cmx \
-    utils/reports.cmx \
     lambda/printlambda.cmx \
     typing/path.cmx \
     utils/misc.cmx \
@@ -2418,16 +2428,17 @@ bytecomp/bytepackager.cmx : \
     bytecomp/emitcode.cmx \
     utils/config.cmx \
     utils/compression.cmx \
+    utils/compiler_diagnostic.cmx \
     file_formats/cmo_format.cmi \
     utils/clflags.cmx \
     bytecomp/bytelink.cmx \
     bytecomp/bytegen.cmx \
     bytecomp/bytepackager.cmi
 bytecomp/bytepackager.cmi : \
-    utils/reports.cmi \
     utils/log.cmi \
     utils/format_doc.cmi \
     typing/env.cmi \
+    utils/compiler_diagnostic.cmi \
     file_formats/cmo_format.cmi
 bytecomp/bytesections.cmo : \
     utils/config.cmi \
@@ -2648,7 +2659,6 @@ asmcomp/asmgen.cmo : \
     asmcomp/spill.cmi \
     asmcomp/selection.cmi \
     asmcomp/scheduling.cmi \
-    utils/reports.cmi \
     asmcomp/reload.cmi \
     asmcomp/reg.cmi \
     utils/profile.cmi \
@@ -2676,6 +2686,7 @@ asmcomp/asmgen.cmo : \
     asmcomp/emit.cmi \
     asmcomp/deadcode.cmi \
     utils/config.cmi \
+    utils/compiler_diagnostic.cmi \
     middle_end/compilenv.cmi \
     asmcomp/comballoc.cmi \
     asmcomp/coloring.cmi \
@@ -2695,7 +2706,6 @@ asmcomp/asmgen.cmx : \
     asmcomp/spill.cmx \
     asmcomp/selection.cmx \
     asmcomp/scheduling.cmx \
-    utils/reports.cmx \
     asmcomp/reload.cmx \
     asmcomp/reg.cmx \
     utils/profile.cmx \
@@ -2723,6 +2733,7 @@ asmcomp/asmgen.cmx : \
     asmcomp/emit.cmx \
     asmcomp/deadcode.cmx \
     utils/config.cmx \
+    utils/compiler_diagnostic.cmx \
     middle_end/compilenv.cmx \
     asmcomp/comballoc.cmx \
     asmcomp/coloring.cmx \
@@ -2737,10 +2748,11 @@ asmcomp/asmgen.cmx : \
     asmcomp/asmgen.cmi
 asmcomp/asmgen.cmi : \
     parsing/unit_info.cmi \
-    utils/reports.cmi \
+    utils/log.cmi \
     lambda/lambda.cmi \
     utils/format_doc.cmi \
     asmcomp/emitaux.cmi \
+    utils/compiler_diagnostic.cmi \
     asmcomp/cmm.cmi \
     middle_end/clambda.cmi \
     middle_end/backend_intf.cmi
@@ -2820,10 +2832,11 @@ asmcomp/asmlink.cmx : \
     asmcomp/asmgen.cmx \
     asmcomp/asmlink.cmi
 asmcomp/asmlink.cmi : \
-    utils/reports.cmi \
     utils/misc.cmi \
+    utils/log.cmi \
     utils/linkdeps.cmi \
     utils/format_doc.cmi \
+    utils/compiler_diagnostic.cmi \
     file_formats/cmx_format.cmi
 asmcomp/asmpackager.cmo : \
     parsing/unit_info.cmi \
@@ -2878,9 +2891,10 @@ asmcomp/asmpackager.cmx : \
     asmcomp/asmgen.cmx \
     asmcomp/asmpackager.cmi
 asmcomp/asmpackager.cmi : \
-    utils/reports.cmi \
+    utils/log.cmi \
     utils/format_doc.cmi \
     typing/env.cmi \
+    utils/compiler_diagnostic.cmi \
     middle_end/backend_intf.cmi
 asmcomp/branch_relaxation.cmo : \
     utils/misc.cmi \
@@ -2982,19 +2996,20 @@ asmcomp/cmm_helpers.cmi : \
     middle_end/clambda.cmi \
     parsing/asttypes.cmi
 asmcomp/cmm_invariants.cmo : \
-    utils/reports.cmi \
     utils/numbers.cmi \
     utils/log.cmi \
+    utils/compiler_diagnostic.cmi \
     asmcomp/cmm.cmi \
     asmcomp/cmm_invariants.cmi
 asmcomp/cmm_invariants.cmx : \
-    utils/reports.cmx \
     utils/numbers.cmx \
     utils/log.cmx \
+    utils/compiler_diagnostic.cmx \
     asmcomp/cmm.cmx \
     asmcomp/cmm_invariants.cmi
 asmcomp/cmm_invariants.cmi : \
-    utils/reports.cmi \
+    utils/log.cmi \
+    utils/compiler_diagnostic.cmi \
     asmcomp/cmm.cmi
 asmcomp/cmmgen.cmo : \
     asmcomp/thread_sanitizer.cmi \
@@ -4567,33 +4582,33 @@ middle_end/closure/closure.cmi : \
     middle_end/clambda.cmi \
     middle_end/backend_intf.cmi
 middle_end/closure/closure_middle_end.cmo : \
-    utils/reports.cmi \
     middle_end/printclambda.cmi \
     typing/path.cmi \
     utils/log.cmi \
     lambda/lambda.cmi \
     typing/ident.cmi \
+    utils/compiler_diagnostic.cmi \
     middle_end/compilenv.cmi \
     middle_end/closure/closure.cmi \
     utils/clflags.cmi \
     middle_end/clambda.cmi \
     middle_end/closure/closure_middle_end.cmi
 middle_end/closure/closure_middle_end.cmx : \
-    utils/reports.cmx \
     middle_end/printclambda.cmx \
     typing/path.cmx \
     utils/log.cmx \
     lambda/lambda.cmx \
     typing/ident.cmx \
+    utils/compiler_diagnostic.cmx \
     middle_end/compilenv.cmx \
     middle_end/closure/closure.cmx \
     utils/clflags.cmx \
     middle_end/clambda.cmx \
     middle_end/closure/closure_middle_end.cmi
 middle_end/closure/closure_middle_end.cmi : \
-    utils/reports.cmi \
     utils/log.cmi \
     lambda/lambda.cmi \
+    utils/compiler_diagnostic.cmi \
     middle_end/clambda.cmi \
     middle_end/backend_intf.cmi
 middle_end/flambda/alias_analysis.cmo : \
@@ -4637,7 +4652,6 @@ middle_end/flambda/allocated_const.cmx : \
 middle_end/flambda/allocated_const.cmi :
 middle_end/flambda/augment_specialised_args.cmo : \
     middle_end/variable.cmi \
-    utils/reports.cmi \
     middle_end/flambda/projection.cmi \
     middle_end/flambda/pass_wrapper.cmi \
     middle_end/flambda/parameter.cmi \
@@ -4650,6 +4664,7 @@ middle_end/flambda/augment_specialised_args.cmo : \
     middle_end/flambda/flambda_utils.cmi \
     middle_end/flambda/flambda.cmi \
     lambda/debuginfo.cmi \
+    utils/compiler_diagnostic.cmi \
     middle_end/flambda/base_types/closure_origin.cmi \
     middle_end/flambda/base_types/closure_id.cmi \
     utils/clflags.cmi \
@@ -4657,7 +4672,6 @@ middle_end/flambda/augment_specialised_args.cmo : \
     middle_end/flambda/augment_specialised_args.cmi
 middle_end/flambda/augment_specialised_args.cmx : \
     middle_end/variable.cmx \
-    utils/reports.cmx \
     middle_end/flambda/projection.cmx \
     middle_end/flambda/pass_wrapper.cmx \
     middle_end/flambda/parameter.cmx \
@@ -4670,6 +4684,7 @@ middle_end/flambda/augment_specialised_args.cmx : \
     middle_end/flambda/flambda_utils.cmx \
     middle_end/flambda/flambda.cmx \
     lambda/debuginfo.cmx \
+    utils/compiler_diagnostic.cmx \
     middle_end/flambda/base_types/closure_origin.cmx \
     middle_end/flambda/base_types/closure_id.cmx \
     utils/clflags.cmx \
@@ -4677,11 +4692,11 @@ middle_end/flambda/augment_specialised_args.cmx : \
     middle_end/flambda/augment_specialised_args.cmi
 middle_end/flambda/augment_specialised_args.cmi : \
     middle_end/variable.cmi \
-    utils/reports.cmi \
     middle_end/flambda/projection.cmi \
     middle_end/flambda/inlining_cost.cmi \
     middle_end/flambda/inline_and_simplify_aux.cmi \
-    middle_end/flambda/flambda.cmi
+    middle_end/flambda/flambda.cmi \
+    utils/compiler_diagnostic.cmi
 middle_end/flambda/build_export_info.cmo : \
     middle_end/variable.cmi \
     middle_end/flambda/base_types/var_within_closure.cmi \
@@ -5112,7 +5127,6 @@ middle_end/flambda/flambda_middle_end.cmo : \
     middle_end/flambda/un_anf.cmi \
     middle_end/symbol.cmi \
     middle_end/flambda/share_constants.cmi \
-    utils/reports.cmi \
     middle_end/flambda/remove_unused_program_constructs.cmi \
     middle_end/flambda/remove_unused_closure_vars.cmi \
     middle_end/flambda/ref_to_variables.cmi \
@@ -5135,6 +5149,7 @@ middle_end/flambda/flambda_middle_end.cmo : \
     middle_end/flambda/flambda_invariants.cmi \
     middle_end/flambda/flambda.cmi \
     lambda/debuginfo.cmi \
+    utils/compiler_diagnostic.cmi \
     middle_end/compilenv.cmi \
     middle_end/flambda/base_types/closure_id.cmi \
     middle_end/flambda/closure_conversion.cmi \
@@ -5149,7 +5164,6 @@ middle_end/flambda/flambda_middle_end.cmx : \
     middle_end/flambda/un_anf.cmx \
     middle_end/symbol.cmx \
     middle_end/flambda/share_constants.cmx \
-    utils/reports.cmx \
     middle_end/flambda/remove_unused_program_constructs.cmx \
     middle_end/flambda/remove_unused_closure_vars.cmx \
     middle_end/flambda/ref_to_variables.cmx \
@@ -5172,6 +5186,7 @@ middle_end/flambda/flambda_middle_end.cmx : \
     middle_end/flambda/flambda_invariants.cmx \
     middle_end/flambda/flambda.cmx \
     lambda/debuginfo.cmx \
+    utils/compiler_diagnostic.cmx \
     middle_end/compilenv.cmx \
     middle_end/flambda/base_types/closure_id.cmx \
     middle_end/flambda/closure_conversion.cmx \
@@ -5181,9 +5196,9 @@ middle_end/flambda/flambda_middle_end.cmx : \
     middle_end/backend_intf.cmi \
     middle_end/flambda/flambda_middle_end.cmi
 middle_end/flambda/flambda_middle_end.cmi : \
-    utils/reports.cmi \
     utils/log.cmi \
     lambda/lambda.cmi \
+    utils/compiler_diagnostic.cmi \
     middle_end/clambda.cmi \
     middle_end/backend_intf.cmi
 middle_end/flambda/flambda_to_clambda.cmo : \
@@ -5195,7 +5210,6 @@ middle_end/flambda/flambda_to_clambda.cmo : \
     middle_end/flambda/base_types/static_exception.cmi \
     middle_end/flambda/simple_value_approx.cmi \
     middle_end/flambda/base_types/set_of_closures_id.cmi \
-    utils/reports.cmi \
     typing/primitive.cmi \
     middle_end/flambda/parameter.cmi \
     utils/numbers.cmi \
@@ -5209,6 +5223,7 @@ middle_end/flambda/flambda_to_clambda.cmo : \
     middle_end/flambda/flambda.cmi \
     middle_end/flambda/export_info.cmi \
     lambda/debuginfo.cmi \
+    utils/compiler_diagnostic.cmi \
     middle_end/compilenv.cmi \
     middle_end/compilation_unit.cmi \
     middle_end/flambda/closure_offsets.cmi \
@@ -5227,7 +5242,6 @@ middle_end/flambda/flambda_to_clambda.cmx : \
     middle_end/flambda/base_types/static_exception.cmx \
     middle_end/flambda/simple_value_approx.cmx \
     middle_end/flambda/base_types/set_of_closures_id.cmx \
-    utils/reports.cmx \
     typing/primitive.cmx \
     middle_end/flambda/parameter.cmx \
     utils/numbers.cmx \
@@ -5241,6 +5255,7 @@ middle_end/flambda/flambda_to_clambda.cmx : \
     middle_end/flambda/flambda.cmx \
     middle_end/flambda/export_info.cmx \
     lambda/debuginfo.cmx \
+    utils/compiler_diagnostic.cmx \
     middle_end/compilenv.cmx \
     middle_end/compilation_unit.cmx \
     middle_end/flambda/closure_offsets.cmx \
@@ -5252,10 +5267,10 @@ middle_end/flambda/flambda_to_clambda.cmx : \
     middle_end/flambda/flambda_to_clambda.cmi
 middle_end/flambda/flambda_to_clambda.cmi : \
     middle_end/symbol.cmi \
-    utils/reports.cmi \
     utils/log.cmi \
     middle_end/flambda/flambda.cmi \
     middle_end/flambda/export_info.cmi \
+    utils/compiler_diagnostic.cmi \
     middle_end/clambda.cmi
 middle_end/flambda/flambda_utils.cmo : \
     middle_end/variable.cmi \
@@ -5533,10 +5548,10 @@ middle_end/flambda/inline_and_simplify.cmx : \
     middle_end/flambda/inline_and_simplify.cmi
 middle_end/flambda/inline_and_simplify.cmi : \
     middle_end/variable.cmi \
-    utils/reports.cmi \
     utils/log.cmi \
     middle_end/flambda/inline_and_simplify_aux.cmi \
     middle_end/flambda/flambda.cmi \
+    utils/compiler_diagnostic.cmi \
     middle_end/backend_intf.cmi
 middle_end/flambda/inline_and_simplify_aux.cmo : \
     middle_end/variable.cmi \
@@ -5545,7 +5560,6 @@ middle_end/flambda/inline_and_simplify_aux.cmo : \
     middle_end/flambda/base_types/static_exception.cmi \
     middle_end/flambda/simple_value_approx.cmi \
     middle_end/flambda/base_types/set_of_closures_origin.cmi \
-    utils/reports.cmi \
     middle_end/flambda/projection.cmi \
     middle_end/flambda/parameter.cmi \
     middle_end/flambda/base_types/mutable_variable.cmi \
@@ -5558,6 +5572,7 @@ middle_end/flambda/inline_and_simplify_aux.cmo : \
     middle_end/flambda/flambda_utils.cmi \
     middle_end/flambda/flambda.cmi \
     lambda/debuginfo.cmi \
+    utils/compiler_diagnostic.cmi \
     middle_end/compilation_unit.cmi \
     middle_end/flambda/base_types/closure_origin.cmi \
     middle_end/flambda/base_types/closure_id.cmi \
@@ -5571,7 +5586,6 @@ middle_end/flambda/inline_and_simplify_aux.cmx : \
     middle_end/flambda/base_types/static_exception.cmx \
     middle_end/flambda/simple_value_approx.cmx \
     middle_end/flambda/base_types/set_of_closures_origin.cmx \
-    utils/reports.cmx \
     middle_end/flambda/projection.cmx \
     middle_end/flambda/parameter.cmx \
     middle_end/flambda/base_types/mutable_variable.cmx \
@@ -5584,6 +5598,7 @@ middle_end/flambda/inline_and_simplify_aux.cmx : \
     middle_end/flambda/flambda_utils.cmx \
     middle_end/flambda/flambda.cmx \
     lambda/debuginfo.cmx \
+    utils/compiler_diagnostic.cmx \
     middle_end/compilation_unit.cmx \
     middle_end/flambda/base_types/closure_origin.cmx \
     middle_end/flambda/base_types/closure_id.cmx \
@@ -5596,7 +5611,6 @@ middle_end/flambda/inline_and_simplify_aux.cmi : \
     middle_end/flambda/base_types/static_exception.cmi \
     middle_end/flambda/simple_value_approx.cmi \
     middle_end/flambda/base_types/set_of_closures_origin.cmi \
-    utils/reports.cmi \
     middle_end/flambda/projection.cmi \
     middle_end/flambda/base_types/mutable_variable.cmi \
     utils/log.cmi \
@@ -5605,6 +5619,7 @@ middle_end/flambda/inline_and_simplify_aux.cmi : \
     middle_end/flambda/freshening.cmi \
     middle_end/flambda/flambda.cmi \
     lambda/debuginfo.cmi \
+    utils/compiler_diagnostic.cmi \
     middle_end/flambda/base_types/closure_origin.cmi \
     middle_end/flambda/base_types/closure_id.cmi \
     middle_end/backend_intf.cmi
@@ -5901,8 +5916,8 @@ middle_end/flambda/pass_wrapper.cmx : \
     utils/clflags.cmx \
     middle_end/flambda/pass_wrapper.cmi
 middle_end/flambda/pass_wrapper.cmi : \
-    utils/reports.cmi \
-    utils/log.cmi
+    utils/log.cmi \
+    utils/compiler_diagnostic.cmi
 middle_end/flambda/projection.cmo : \
     middle_end/variable.cmi \
     middle_end/flambda/base_types/var_within_closure.cmi \
@@ -5946,26 +5961,26 @@ middle_end/flambda/ref_to_variables.cmi : \
     middle_end/flambda/flambda.cmi
 middle_end/flambda/remove_free_vars_equal_to_args.cmo : \
     middle_end/variable.cmi \
-    utils/reports.cmi \
     middle_end/flambda/pass_wrapper.cmi \
     middle_end/flambda/parameter.cmi \
     utils/int_replace_polymorphic_compare.cmi \
     middle_end/flambda/flambda_utils.cmi \
     middle_end/flambda/flambda.cmi \
+    utils/compiler_diagnostic.cmi \
     middle_end/flambda/remove_free_vars_equal_to_args.cmi
 middle_end/flambda/remove_free_vars_equal_to_args.cmx : \
     middle_end/variable.cmx \
-    utils/reports.cmx \
     middle_end/flambda/pass_wrapper.cmx \
     middle_end/flambda/parameter.cmx \
     utils/int_replace_polymorphic_compare.cmx \
     middle_end/flambda/flambda_utils.cmx \
     middle_end/flambda/flambda.cmx \
+    utils/compiler_diagnostic.cmx \
     middle_end/flambda/remove_free_vars_equal_to_args.cmi
 middle_end/flambda/remove_free_vars_equal_to_args.cmi : \
-    utils/reports.cmi \
     utils/log.cmi \
-    middle_end/flambda/flambda.cmi
+    middle_end/flambda/flambda.cmi \
+    utils/compiler_diagnostic.cmi
 middle_end/flambda/remove_unused_arguments.cmo : \
     middle_end/variable.cmi \
     middle_end/flambda/projection.cmi \
@@ -6237,11 +6252,11 @@ middle_end/flambda/traverse_for_exported_symbols.cmi : \
 middle_end/flambda/un_anf.cmo : \
     middle_end/symbol.cmi \
     middle_end/semantics_of_primitives.cmi \
-    utils/reports.cmi \
     middle_end/printclambda.cmi \
     utils/misc.cmi \
     lambda/lambda.cmi \
     lambda/debuginfo.cmi \
+    utils/compiler_diagnostic.cmi \
     utils/clflags.cmi \
     middle_end/clambda_primitives.cmi \
     middle_end/clambda.cmi \
@@ -6251,11 +6266,11 @@ middle_end/flambda/un_anf.cmo : \
 middle_end/flambda/un_anf.cmx : \
     middle_end/symbol.cmx \
     middle_end/semantics_of_primitives.cmx \
-    utils/reports.cmx \
     middle_end/printclambda.cmx \
     utils/misc.cmx \
     lambda/lambda.cmx \
     lambda/debuginfo.cmx \
+    utils/compiler_diagnostic.cmx \
     utils/clflags.cmx \
     middle_end/clambda_primitives.cmx \
     middle_end/clambda.cmx \
@@ -6264,31 +6279,31 @@ middle_end/flambda/un_anf.cmx : \
     middle_end/flambda/un_anf.cmi
 middle_end/flambda/un_anf.cmi : \
     middle_end/symbol.cmi \
-    utils/reports.cmi \
     utils/log.cmi \
+    utils/compiler_diagnostic.cmi \
     middle_end/clambda.cmi
 middle_end/flambda/unbox_closures.cmo : \
     middle_end/variable.cmi \
-    utils/reports.cmi \
     utils/int_replace_polymorphic_compare.cmi \
     middle_end/flambda/inlining_cost.cmi \
     middle_end/flambda/inline_and_simplify_aux.cmi \
     middle_end/flambda/flambda_utils.cmi \
     middle_end/flambda/flambda_iterators.cmi \
     middle_end/flambda/flambda.cmi \
+    utils/compiler_diagnostic.cmi \
     middle_end/flambda/base_types/closure_id.cmi \
     utils/clflags.cmi \
     middle_end/flambda/augment_specialised_args.cmi \
     middle_end/flambda/unbox_closures.cmi
 middle_end/flambda/unbox_closures.cmx : \
     middle_end/variable.cmx \
-    utils/reports.cmx \
     utils/int_replace_polymorphic_compare.cmx \
     middle_end/flambda/inlining_cost.cmx \
     middle_end/flambda/inline_and_simplify_aux.cmx \
     middle_end/flambda/flambda_utils.cmx \
     middle_end/flambda/flambda_iterators.cmx \
     middle_end/flambda/flambda.cmx \
+    utils/compiler_diagnostic.cmx \
     middle_end/flambda/base_types/closure_id.cmx \
     utils/clflags.cmx \
     middle_end/flambda/augment_specialised_args.cmx \
@@ -6300,7 +6315,6 @@ middle_end/flambda/unbox_closures.cmi : \
     middle_end/flambda/flambda.cmi
 middle_end/flambda/unbox_free_vars_of_closures.cmo : \
     middle_end/variable.cmi \
-    utils/reports.cmi \
     middle_end/flambda/projection.cmi \
     middle_end/flambda/pass_wrapper.cmi \
     utils/misc.cmi \
@@ -6312,11 +6326,11 @@ middle_end/flambda/unbox_free_vars_of_closures.cmo : \
     middle_end/flambda/flambda_iterators.cmi \
     middle_end/flambda/flambda.cmi \
     middle_end/flambda/extract_projections.cmi \
+    utils/compiler_diagnostic.cmi \
     utils/clflags.cmi \
     middle_end/flambda/unbox_free_vars_of_closures.cmi
 middle_end/flambda/unbox_free_vars_of_closures.cmx : \
     middle_end/variable.cmx \
-    utils/reports.cmx \
     middle_end/flambda/projection.cmx \
     middle_end/flambda/pass_wrapper.cmx \
     utils/misc.cmx \
@@ -6328,6 +6342,7 @@ middle_end/flambda/unbox_free_vars_of_closures.cmx : \
     middle_end/flambda/flambda_iterators.cmx \
     middle_end/flambda/flambda.cmx \
     middle_end/flambda/extract_projections.cmx \
+    utils/compiler_diagnostic.cmx \
     utils/clflags.cmx \
     middle_end/flambda/unbox_free_vars_of_closures.cmi
 middle_end/flambda/unbox_free_vars_of_closures.cmi : \
@@ -6336,25 +6351,25 @@ middle_end/flambda/unbox_free_vars_of_closures.cmi : \
     middle_end/flambda/flambda.cmi
 middle_end/flambda/unbox_specialised_args.cmo : \
     middle_end/variable.cmi \
-    utils/reports.cmi \
     middle_end/flambda/projection.cmi \
     middle_end/flambda/invariant_params.cmi \
     utils/int_replace_polymorphic_compare.cmi \
     middle_end/flambda/inline_and_simplify_aux.cmi \
     middle_end/flambda/flambda.cmi \
     middle_end/flambda/extract_projections.cmi \
+    utils/compiler_diagnostic.cmi \
     utils/clflags.cmi \
     middle_end/flambda/augment_specialised_args.cmi \
     middle_end/flambda/unbox_specialised_args.cmi
 middle_end/flambda/unbox_specialised_args.cmx : \
     middle_end/variable.cmx \
-    utils/reports.cmx \
     middle_end/flambda/projection.cmx \
     middle_end/flambda/invariant_params.cmx \
     utils/int_replace_polymorphic_compare.cmx \
     middle_end/flambda/inline_and_simplify_aux.cmx \
     middle_end/flambda/flambda.cmx \
     middle_end/flambda/extract_projections.cmx \
+    utils/compiler_diagnostic.cmx \
     utils/clflags.cmx \
     middle_end/flambda/augment_specialised_args.cmx \
     middle_end/flambda/unbox_specialised_args.cmi
@@ -6518,21 +6533,21 @@ driver/compenv.cmx : \
     utils/ccomp.cmx \
     driver/compenv.cmi
 driver/compenv.cmi : \
-    utils/reports.cmi \
     utils/log.cmi \
+    utils/compiler_diagnostic.cmi \
     utils/clflags.cmi
 driver/compile.cmo : \
     parsing/unit_info.cmi \
     typing/typedtree.cmi \
     lambda/translmod.cmi \
     lambda/simplif.cmi \
-    utils/reports.cmi \
     utils/profile.cmi \
     lambda/printlambda.cmi \
     bytecomp/printinstr.cmi \
     utils/misc.cmi \
     lambda/lambda.cmi \
     bytecomp/emitcode.cmi \
+    utils/compiler_diagnostic.cmi \
     driver/compile_common.cmi \
     utils/clflags.cmi \
     bytecomp/bytegen.cmi \
@@ -6542,23 +6557,23 @@ driver/compile.cmx : \
     typing/typedtree.cmx \
     lambda/translmod.cmx \
     lambda/simplif.cmx \
-    utils/reports.cmx \
     utils/profile.cmx \
     lambda/printlambda.cmx \
     bytecomp/printinstr.cmx \
     utils/misc.cmx \
     lambda/lambda.cmx \
     bytecomp/emitcode.cmx \
+    utils/compiler_diagnostic.cmx \
     driver/compile_common.cmx \
     utils/clflags.cmx \
     bytecomp/bytegen.cmx \
     driver/compile.cmi
 driver/compile.cmi : \
     typing/typedtree.cmi \
-    utils/reports.cmi \
     utils/log.cmi \
     bytecomp/instruct.cmi \
     typing/ident.cmi \
+    utils/compiler_diagnostic.cmi \
     driver/compile_common.cmi \
     utils/clflags.cmi
 driver/compile_common.cmo : \
@@ -6568,7 +6583,6 @@ driver/compile_common.cmo : \
     typing/typedtree.cmi \
     typing/typecore.cmi \
     typing/shape.cmi \
-    utils/reports.cmi \
     utils/profile.cmi \
     typing/printtyped.cmi \
     typing/printtyp.cmi \
@@ -6580,6 +6594,7 @@ driver/compile_common.cmo : \
     typing/includemod.cmi \
     typing/env.cmi \
     driver/compmisc.cmi \
+    utils/compiler_diagnostic.cmi \
     utils/clflags.cmi \
     parsing/builtin_attributes.cmi \
     driver/compile_common.cmi
@@ -6590,7 +6605,6 @@ driver/compile_common.cmx : \
     typing/typedtree.cmx \
     typing/typecore.cmx \
     typing/shape.cmx \
-    utils/reports.cmx \
     utils/profile.cmx \
     typing/printtyped.cmx \
     typing/printtyp.cmx \
@@ -6602,22 +6616,22 @@ driver/compile_common.cmx : \
     typing/includemod.cmx \
     typing/env.cmx \
     driver/compmisc.cmx \
+    utils/compiler_diagnostic.cmx \
     utils/clflags.cmx \
     parsing/builtin_attributes.cmx \
     driver/compile_common.cmi
 driver/compile_common.cmi : \
     parsing/unit_info.cmi \
     typing/typedtree.cmi \
-    utils/reports.cmi \
     parsing/parsetree.cmi \
     utils/misc.cmi \
     utils/log.cmi \
-    typing/env.cmi
+    typing/env.cmi \
+    utils/compiler_diagnostic.cmi
 driver/compmisc.cmo : \
     utils/warnings.cmi \
     typing/types.cmi \
     typing/typemod.cmi \
-    utils/reports.cmi \
     utils/misc.cmi \
     utils/log.cmi \
     parsing/location.cmi \
@@ -6625,6 +6639,7 @@ driver/compmisc.cmo : \
     typing/ident.cmi \
     typing/env.cmi \
     utils/config.cmi \
+    utils/compiler_diagnostic.cmi \
     driver/compenv.cmi \
     utils/clflags.cmi \
     driver/compmisc.cmi
@@ -6632,7 +6647,6 @@ driver/compmisc.cmx : \
     utils/warnings.cmx \
     typing/types.cmx \
     typing/typemod.cmx \
-    utils/reports.cmx \
     utils/misc.cmx \
     utils/log.cmx \
     parsing/location.cmx \
@@ -6640,14 +6654,15 @@ driver/compmisc.cmx : \
     typing/ident.cmx \
     typing/env.cmx \
     utils/config.cmx \
+    utils/compiler_diagnostic.cmx \
     driver/compenv.cmx \
     utils/clflags.cmx \
     driver/compmisc.cmi
 driver/compmisc.cmi : \
-    utils/reports.cmi \
     utils/log.cmi \
     utils/load_path.cmi \
     typing/env.cmi \
+    utils/compiler_diagnostic.cmi \
     utils/clflags.cmi
 driver/main.cmo : \
     driver/maindriver.cmi \
@@ -6658,20 +6673,20 @@ driver/main.cmx : \
 driver/main.cmi :
 driver/main_args.cmo : \
     utils/warnings.cmi \
-    utils/reports.cmi \
     utils/profile.cmi \
     utils/misc.cmi \
     parsing/location.cmi \
+    utils/config_diagnostic.cmi \
     utils/config.cmi \
     driver/compenv.cmi \
     utils/clflags.cmi \
     driver/main_args.cmi
 driver/main_args.cmx : \
     utils/warnings.cmx \
-    utils/reports.cmx \
     utils/profile.cmx \
     utils/misc.cmx \
     parsing/location.cmx \
+    utils/config_diagnostic.cmx \
     utils/config.cmx \
     driver/compenv.cmx \
     utils/clflags.cmx \
@@ -6746,13 +6761,13 @@ driver/optcompile.cmo : \
     typing/typedtree.cmi \
     lambda/translmod.cmi \
     lambda/simplif.cmi \
-    utils/reports.cmi \
     utils/profile.cmi \
     lambda/printlambda.cmi \
     utils/misc.cmi \
     lambda/lambda.cmi \
     middle_end/flambda/flambda_middle_end.cmi \
     utils/config.cmi \
+    utils/compiler_diagnostic.cmi \
     middle_end/compilenv.cmi \
     driver/compile_common.cmi \
     middle_end/closure/closure_middle_end.cmi \
@@ -6764,13 +6779,13 @@ driver/optcompile.cmx : \
     typing/typedtree.cmx \
     lambda/translmod.cmx \
     lambda/simplif.cmx \
-    utils/reports.cmx \
     utils/profile.cmx \
     lambda/printlambda.cmx \
     utils/misc.cmx \
     lambda/lambda.cmx \
     middle_end/flambda/flambda_middle_end.cmx \
     utils/config.cmx \
+    utils/compiler_diagnostic.cmx \
     middle_end/compilenv.cmx \
     driver/compile_common.cmx \
     middle_end/closure/closure_middle_end.cmx \
@@ -6779,7 +6794,8 @@ driver/optcompile.cmx : \
     driver/optcompile.cmi
 driver/optcompile.cmi : \
     typing/typedtree.cmi \
-    utils/reports.cmi \
+    utils/log.cmi \
+    utils/compiler_diagnostic.cmi \
     driver/compile_common.cmi \
     utils/clflags.cmi \
     middle_end/backend_intf.cmi
@@ -6925,8 +6941,8 @@ toplevel/genprintval.cmi : \
 toplevel/topcommon.cmo : \
     parsing/unit_info.cmi \
     typing/typedtree.cmi \
+    toplevel/toplevel_diagnostic.cmi \
     bytecomp/symtable.cmi \
-    utils/reports.cmi \
     parsing/printast.cmi \
     typing/predef.cmi \
     parsing/pprintast.cmi \
@@ -6950,6 +6966,7 @@ toplevel/topcommon.cmo : \
     utils/diagnostic_backends.cmi \
     utils/config.cmi \
     driver/compmisc.cmi \
+    utils/compiler_diagnostic.cmi \
     driver/compenv.cmi \
     file_formats/cmo_format.cmi \
     utils/clflags.cmi \
@@ -6959,8 +6976,8 @@ toplevel/topcommon.cmo : \
 toplevel/topcommon.cmx : \
     parsing/unit_info.cmx \
     typing/typedtree.cmx \
+    toplevel/toplevel_diagnostic.cmx \
     bytecomp/symtable.cmx \
-    utils/reports.cmx \
     parsing/printast.cmx \
     typing/predef.cmx \
     parsing/pprintast.cmx \
@@ -6984,6 +7001,7 @@ toplevel/topcommon.cmx : \
     utils/diagnostic_backends.cmx \
     utils/config.cmx \
     driver/compmisc.cmx \
+    utils/compiler_diagnostic.cmx \
     driver/compenv.cmx \
     file_formats/cmo_format.cmi \
     utils/clflags.cmx \
@@ -6994,7 +7012,7 @@ toplevel/topcommon.cmi : \
     utils/warnings.cmi \
     typing/types.cmi \
     typing/typedtree.cmi \
-    utils/reports.cmi \
+    toplevel/toplevel_diagnostic.cmi \
     typing/path.cmi \
     parsing/parsetree.cmi \
     typing/outcometree.cmi \
@@ -7006,14 +7024,15 @@ toplevel/topcommon.cmi : \
     typing/ident.cmi \
     toplevel/genprintval.cmi \
     utils/format_doc.cmi \
-    typing/env.cmi
+    typing/env.cmi \
+    utils/compiler_diagnostic.cmi
 toplevel/topdirs.cmo : \
     utils/warnings.cmi \
     typing/types.cmi \
     toplevel/topprinters.cmi \
     toplevel/toploop.cmi \
+    toplevel/toplevel_diagnostic.cmi \
     toplevel/topeval.cmi \
-    utils/reports.cmi \
     typing/printtyp.cmi \
     typing/predef.cmi \
     typing/path.cmi \
@@ -7040,8 +7059,8 @@ toplevel/topdirs.cmx : \
     typing/types.cmx \
     toplevel/topprinters.cmx \
     toplevel/toploop.cmx \
+    toplevel/toplevel_diagnostic.cmx \
     toplevel/topeval.cmi \
-    utils/reports.cmx \
     typing/printtyp.cmx \
     typing/predef.cmx \
     typing/path.cmx \
@@ -7064,20 +7083,35 @@ toplevel/topdirs.cmx : \
     parsing/ast_helper.cmx \
     toplevel/topdirs.cmi
 toplevel/topdirs.cmi : \
-    utils/reports.cmi \
+    toplevel/toplevel_diagnostic.cmi \
     parsing/longident.cmi \
     utils/log.cmi
 toplevel/topeval.cmi : \
+    toplevel/toplevel_diagnostic.cmi \
     toplevel/topcommon.cmi \
-    utils/reports.cmi \
     parsing/parsetree.cmi \
     utils/log.cmi
+toplevel/toplevel_diagnostic.cmo : \
+    parsing/location.cmi \
+    utils/diagnostic.cmi \
+    utils/compiler_diagnostic.cmi \
+    toplevel/toplevel_diagnostic.cmi
+toplevel/toplevel_diagnostic.cmx : \
+    parsing/location.cmx \
+    utils/diagnostic.cmx \
+    utils/compiler_diagnostic.cmx \
+    toplevel/toplevel_diagnostic.cmi
+toplevel/toplevel_diagnostic.cmi : \
+    utils/log.cmi \
+    utils/format_doc.cmi \
+    utils/diagnostic.cmi \
+    utils/compiler_diagnostic.cmi
 toplevel/toploop.cmo : \
     utils/warnings.cmi \
     typing/typetexp.cmi \
+    toplevel/toplevel_diagnostic.cmi \
     toplevel/topeval.cmi \
     toplevel/topcommon.cmi \
-    utils/reports.cmi \
     utils/misc.cmi \
     utils/log.cmi \
     parsing/location.cmi \
@@ -7094,9 +7128,9 @@ toplevel/toploop.cmo : \
 toplevel/toploop.cmx : \
     utils/warnings.cmx \
     typing/typetexp.cmx \
+    toplevel/toplevel_diagnostic.cmx \
     toplevel/topeval.cmi \
     toplevel/topcommon.cmx \
-    utils/reports.cmx \
     utils/misc.cmx \
     utils/log.cmx \
     parsing/location.cmx \
@@ -7113,7 +7147,7 @@ toplevel/toploop.cmx : \
 toplevel/toploop.cmi : \
     utils/warnings.cmi \
     typing/types.cmi \
-    utils/reports.cmi \
+    toplevel/toplevel_diagnostic.cmi \
     typing/path.cmi \
     parsing/parsetree.cmi \
     typing/outcometree.cmi \
@@ -7123,7 +7157,8 @@ toplevel/toploop.cmi : \
     parsing/location.cmi \
     utils/load_path.cmi \
     utils/format_doc.cmi \
-    typing/env.cmi
+    typing/env.cmi \
+    utils/compiler_diagnostic.cmi
 toplevel/topmain.cmi :
 toplevel/topprinters.cmo : \
     typing/types.cmi \
@@ -7152,7 +7187,7 @@ toplevel/topstart.cmx : \
 toplevel/topstart.cmi :
 toplevel/trace.cmi : \
     typing/types.cmi \
-    utils/reports.cmi \
+    toplevel/toplevel_diagnostic.cmi \
     typing/path.cmi \
     parsing/longident.cmi \
     utils/log.cmi \
@@ -7164,12 +7199,12 @@ toplevel/byte/topeval.cmo : \
     typing/typedtree.cmi \
     typing/typecore.cmi \
     lambda/translmod.cmi \
+    toplevel/toplevel_diagnostic.cmi \
     toplevel/topcommon.cmi \
     bytecomp/symtable.cmi \
     lambda/simplif.cmi \
     typing/shape_reduce.cmi \
     typing/shape.cmi \
-    utils/reports.cmi \
     typing/printtyped.cmi \
     typing/printtyp.cmi \
     lambda/printlambda.cmi \
@@ -7190,6 +7225,7 @@ toplevel/byte/topeval.cmo : \
     bytecomp/dll.cmi \
     utils/config.cmi \
     driver/compmisc.cmi \
+    utils/compiler_diagnostic.cmi \
     file_formats/cmo_format.cmi \
     utils/clflags.cmi \
     bytecomp/bytegen.cmi \
@@ -7201,12 +7237,12 @@ toplevel/byte/topeval.cmx : \
     typing/typedtree.cmx \
     typing/typecore.cmx \
     lambda/translmod.cmx \
+    toplevel/toplevel_diagnostic.cmx \
     toplevel/topcommon.cmx \
     bytecomp/symtable.cmx \
     lambda/simplif.cmx \
     typing/shape_reduce.cmx \
     typing/shape.cmx \
-    utils/reports.cmx \
     typing/printtyped.cmx \
     typing/printtyp.cmx \
     lambda/printlambda.cmx \
@@ -7227,22 +7263,23 @@ toplevel/byte/topeval.cmx : \
     bytecomp/dll.cmx \
     utils/config.cmx \
     driver/compmisc.cmx \
+    utils/compiler_diagnostic.cmx \
     file_formats/cmo_format.cmi \
     utils/clflags.cmx \
     bytecomp/bytegen.cmx \
     toplevel/byte/topeval.cmi
 toplevel/byte/topeval.cmi : \
+    toplevel/toplevel_diagnostic.cmi \
     toplevel/topcommon.cmi \
-    utils/reports.cmi \
     parsing/parsetree.cmi \
     utils/log.cmi
 toplevel/byte/topmain.cmo : \
     typing/types.cmi \
     toplevel/byte/trace.cmi \
     toplevel/toploop.cmi \
+    toplevel/toplevel_diagnostic.cmi \
     toplevel/topdirs.cmi \
     toplevel/topcommon.cmi \
-    utils/reports.cmi \
     typing/printtyp.cmi \
     typing/path.cmi \
     driver/main_args.cmi \
@@ -7258,9 +7295,9 @@ toplevel/byte/topmain.cmx : \
     typing/types.cmx \
     toplevel/byte/trace.cmx \
     toplevel/toploop.cmx \
+    toplevel/toplevel_diagnostic.cmx \
     toplevel/topdirs.cmx \
     toplevel/topcommon.cmx \
-    utils/reports.cmx \
     typing/printtyp.cmx \
     typing/path.cmx \
     driver/main_args.cmx \
@@ -7275,9 +7312,9 @@ toplevel/byte/topmain.cmx : \
 toplevel/byte/topmain.cmi :
 toplevel/byte/trace.cmo : \
     typing/types.cmi \
+    toplevel/toplevel_diagnostic.cmi \
     toplevel/byte/topeval.cmi \
     toplevel/topcommon.cmi \
-    utils/reports.cmi \
     typing/printtyp.cmi \
     typing/predef.cmi \
     typing/path.cmi \
@@ -7291,9 +7328,9 @@ toplevel/byte/trace.cmo : \
     toplevel/byte/trace.cmi
 toplevel/byte/trace.cmx : \
     typing/types.cmx \
+    toplevel/toplevel_diagnostic.cmx \
     toplevel/byte/topeval.cmx \
     toplevel/topcommon.cmx \
-    utils/reports.cmx \
     typing/printtyp.cmx \
     typing/predef.cmx \
     typing/path.cmx \
@@ -7307,7 +7344,7 @@ toplevel/byte/trace.cmx : \
     toplevel/byte/trace.cmi
 toplevel/byte/trace.cmi : \
     typing/types.cmi \
-    utils/reports.cmi \
+    toplevel/toplevel_diagnostic.cmi \
     typing/path.cmi \
     parsing/longident.cmi \
     utils/log.cmi \
@@ -7319,12 +7356,12 @@ toplevel/native/topeval.cmo : \
     typing/typedtree.cmi \
     typing/typecore.cmi \
     lambda/translmod.cmi \
+    toplevel/toplevel_diagnostic.cmi \
     toplevel/native/tophooks.cmi \
     toplevel/topcommon.cmi \
     lambda/simplif.cmi \
     typing/shape_reduce.cmi \
     typing/shape.cmi \
-    utils/reports.cmi \
     typing/printtyped.cmi \
     typing/printtyp.cmi \
     lambda/printlambda.cmi \
@@ -7342,6 +7379,7 @@ toplevel/native/topeval.cmo : \
     otherlibs/dynlink/dynlink.cmi \
     utils/config.cmi \
     driver/compmisc.cmi \
+    utils/compiler_diagnostic.cmi \
     middle_end/compilenv.cmi \
     utils/clflags.cmi \
     asmcomp/asmlink.cmi \
@@ -7353,12 +7391,12 @@ toplevel/native/topeval.cmx : \
     typing/typedtree.cmx \
     typing/typecore.cmx \
     lambda/translmod.cmx \
+    toplevel/toplevel_diagnostic.cmx \
     toplevel/native/tophooks.cmx \
     toplevel/topcommon.cmx \
     lambda/simplif.cmx \
     typing/shape_reduce.cmx \
     typing/shape.cmx \
-    utils/reports.cmx \
     typing/printtyped.cmx \
     typing/printtyp.cmx \
     lambda/printlambda.cmx \
@@ -7376,25 +7414,27 @@ toplevel/native/topeval.cmx : \
     otherlibs/dynlink/dynlink.cmi \
     utils/config.cmx \
     driver/compmisc.cmx \
+    utils/compiler_diagnostic.cmx \
     middle_end/compilenv.cmx \
     utils/clflags.cmx \
     asmcomp/asmlink.cmx \
     toplevel/native/topeval.cmi
 toplevel/native/topeval.cmi : \
+    toplevel/toplevel_diagnostic.cmi \
     toplevel/topcommon.cmi \
-    utils/reports.cmi \
     parsing/parsetree.cmi \
     utils/log.cmi
 toplevel/native/tophooks.cmo : \
     toplevel/topcommon.cmi \
-    utils/reports.cmi \
     asmcomp/proc.cmi \
     utils/misc.cmi \
+    utils/log.cmi \
     lambda/lambda.cmi \
     middle_end/flambda/import_approx.cmi \
     middle_end/flambda/flambda_middle_end.cmi \
     otherlibs/dynlink/dynlink.cmi \
     utils/config.cmi \
+    utils/compiler_diagnostic.cmi \
     middle_end/compilenv.cmi \
     middle_end/closure/closure_middle_end.cmi \
     utils/clflags.cmi \
@@ -7405,14 +7445,15 @@ toplevel/native/tophooks.cmo : \
     toplevel/native/tophooks.cmi
 toplevel/native/tophooks.cmx : \
     toplevel/topcommon.cmx \
-    utils/reports.cmx \
     asmcomp/proc.cmx \
     utils/misc.cmx \
+    utils/log.cmx \
     lambda/lambda.cmx \
     middle_end/flambda/import_approx.cmx \
     middle_end/flambda/flambda_middle_end.cmx \
     otherlibs/dynlink/dynlink.cmi \
     utils/config.cmx \
+    utils/compiler_diagnostic.cmx \
     middle_end/compilenv.cmx \
     middle_end/closure/closure_middle_end.cmx \
     utils/clflags.cmx \
@@ -7423,8 +7464,9 @@ toplevel/native/tophooks.cmx : \
     toplevel/native/tophooks.cmi
 toplevel/native/tophooks.cmi : \
     toplevel/topcommon.cmi \
-    utils/reports.cmi \
-    lambda/lambda.cmi
+    utils/log.cmi \
+    lambda/lambda.cmi \
+    utils/compiler_diagnostic.cmi
 toplevel/native/topmain.cmo : \
     toplevel/toploop.cmi \
     toplevel/topcommon.cmi \
@@ -7454,7 +7496,7 @@ toplevel/native/trace.cmx : \
     toplevel/native/trace.cmi
 toplevel/native/trace.cmi : \
     typing/types.cmi \
-    utils/reports.cmi \
+    toplevel/toplevel_diagnostic.cmi \
     typing/path.cmi \
     parsing/longident.cmi \
     utils/log.cmi \
@@ -7593,20 +7635,22 @@ tools/cvt_emit.cmx : \
     tools/cvt_emit.cmi
 tools/cvt_emit.cmi :
 tools/diaginfo.cmo : \
-    utils/reports.cmi \
+    toplevel/toplevel_diagnostic.cmi \
     parsing/location.cmi \
     utils/diagnostic_history.cmi \
     utils/diagnostic_backends.cmi \
     utils/diagnostic.cmi \
-    utils/config.cmi \
+    utils/config_diagnostic.cmi \
+    utils/compiler_diagnostic.cmi \
     tools/diaginfo.cmi
 tools/diaginfo.cmx : \
-    utils/reports.cmx \
+    toplevel/toplevel_diagnostic.cmx \
     parsing/location.cmx \
     utils/diagnostic_history.cmx \
     utils/diagnostic_backends.cmx \
     utils/diagnostic.cmx \
-    utils/config.cmx \
+    utils/config_diagnostic.cmx \
+    utils/compiler_diagnostic.cmx \
     tools/diaginfo.cmi
 tools/diaginfo.cmi :
 tools/dumpobj.cmo : \
@@ -10094,7 +10138,6 @@ testsuite/lib/testing.cmx : \
     testsuite/lib/testing.cmi
 testsuite/lib/testing.cmi :
 testsuite/tools/codegen_main.cmo : \
-    utils/reports.cmi \
     utils/profile.cmi \
     testsuite/tools/parsecmmaux.cmi \
     testsuite/tools/parsecmm.cmi \
@@ -10103,12 +10146,12 @@ testsuite/tools/codegen_main.cmo : \
     testsuite/tools/lexcmm.cmi \
     asmcomp/emitaux.cmi \
     asmcomp/emit.cmi \
+    utils/compiler_diagnostic.cmi \
     middle_end/compilenv.cmi \
     utils/clflags.cmi \
     asmcomp/asmgen.cmi \
     testsuite/tools/codegen_main.cmi
 testsuite/tools/codegen_main.cmx : \
-    utils/reports.cmx \
     utils/profile.cmx \
     testsuite/tools/parsecmmaux.cmx \
     testsuite/tools/parsecmm.cmx \
@@ -10117,6 +10160,7 @@ testsuite/tools/codegen_main.cmx : \
     testsuite/tools/lexcmm.cmx \
     asmcomp/emitaux.cmx \
     asmcomp/emit.cmx \
+    utils/compiler_diagnostic.cmx \
     middle_end/compilenv.cmx \
     utils/clflags.cmx \
     asmcomp/asmgen.cmx \
@@ -10125,8 +10169,8 @@ testsuite/tools/codegen_main.cmi :
 testsuite/tools/expect.cmo : \
     utils/warnings.cmi \
     toplevel/toploop.cmi \
+    toplevel/toplevel_diagnostic.cmi \
     toplevel/topcommon.cmi \
-    utils/reports.cmi \
     parsing/printast.cmi \
     parsing/pprintast.cmi \
     parsing/parsetree.cmi \
@@ -10137,6 +10181,7 @@ testsuite/tools/expect.cmo : \
     parsing/location.cmi \
     utils/load_path.cmi \
     driver/compmisc.cmi \
+    utils/compiler_diagnostic.cmi \
     driver/compenv.cmi \
     utils/clflags.cmi \
     typing/btype.cmi \
@@ -10146,8 +10191,8 @@ testsuite/tools/expect.cmo : \
 testsuite/tools/expect.cmx : \
     utils/warnings.cmx \
     toplevel/toploop.cmx \
+    toplevel/toplevel_diagnostic.cmx \
     toplevel/topcommon.cmx \
-    utils/reports.cmx \
     parsing/printast.cmx \
     parsing/pprintast.cmx \
     parsing/parsetree.cmi \
@@ -10158,6 +10203,7 @@ testsuite/tools/expect.cmx : \
     parsing/location.cmx \
     utils/load_path.cmx \
     driver/compmisc.cmx \
+    utils/compiler_diagnostic.cmx \
     driver/compenv.cmx \
     utils/clflags.cmx \
     typing/btype.cmx \

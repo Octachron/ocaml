@@ -30,7 +30,7 @@ let (|>>) (x, y) f = (x, f y)
 
 let dump_if i field printer x =
   Clflags.dump_on_log i.debug_log field printer x; x
-module D = Reports.Debug
+module D = Compiler_diagnostic.Debug
 
 (** Native compilation backend for .ml files. *)
 

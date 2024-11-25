@@ -15,7 +15,7 @@
 
 (* The toplevel directives. *)
 
-type 'a directive = Reports.Toplevel.id Log.t -> 'a -> unit
+type 'a directive = Toplevel_diagnostic.id Log.t -> 'a -> unit
 
 val dir_quit : unit directive
 val dir_directory : string directive
@@ -44,4 +44,4 @@ val section_options : string
 val section_undocumented : string
 
 (* Here for backwards compatibility, use [Toploop.load_file]. *)
-val[@deprecated] load_file : Reports.Toplevel.id Log.t -> string -> bool
+val[@deprecated] load_file : Toplevel_diagnostic.id Log.t -> string -> bool

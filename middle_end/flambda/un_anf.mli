@@ -18,6 +18,6 @@
     work correctly. *)
 val apply
    : what:Symbol.t
-  -> log:Reports.Debug.id Log.t
+  -> log:Compiler_diagnostic.Debug.id Log.t
   -> Clambda.ulambda
   -> Clambda.ulambda

@@ -692,10 +692,11 @@ type report = {
   footnote: Fmt.t option;
 }
 
-module Error_log = struct[@warning "-unused-value-declaration"]
+module Error_diagnostic = struct[@warning "-unused-value-declaration"]
   type lc = t
   open Diagnostic
-  module Vl = Reports.V
+  module Error = Compiler_diagnostic.Error
+  module Vl = Compiler_diagnostic.V
   let v1 = Vl.v1
 
   module Kind = New_sum(Vl)(struct let name="error_kind" let update = v1 end)()
@@ -779,7 +780,7 @@ module Error_log = struct[@warning "-unused-value-declaration"]
       }
   end
 
-  let doc = Reports.Structured_text.typ
+  let doc = Compiler_diagnostic.doc
 
   module Msg = New_record(Vl)(struct let name="error_msg" let update=v1 end)()
   let msg = Msg.new_field v1 "msg" doc
@@ -790,17 +791,17 @@ module Error_log = struct[@warning "-unused-value-declaration"]
       Msg.(make v [ msg ^= m.txt; msg_loc ^= m.loc ]) in
     Custom { id = Msg; pull; default = Record Msg.scheme }
 
-  let kind = Reports.Error.new_field v1 "kind"
+  let kind = Error.new_field v1 "kind"
       (Custom { id = Error_kind; pull; default = Sum Kind.scheme })
 
-  let main = Reports.Error.new_field v1 "main" msg_typ
-  let sub = Reports.Error.new_field_opt v1 "sub" (Diagnostic.List msg_typ)
-  let footnote = Reports.Error.new_field_opt v1 "footnote" doc
+  let main = Error.new_field v1 "main" msg_typ
+  let sub = Error.new_field_opt v1 "sub" (Diagnostic.List msg_typ)
+  let footnote = Error.new_field_opt v1 "footnote" doc
 
-  let () = Reports.Error.seal v1
+  let () = Error.seal v1
 
   let pull v (report:report) =
-    let open Reports.Error in
+    let open Error in
     make v
     [
       kind ^= report.kind;
@@ -808,11 +809,12 @@ module Error_log = struct[@warning "-unused-value-declaration"]
       sub ^= report.sub;
       footnote ^=? report.footnote
     ]
-  let report_typ = Custom { id = Error; pull; default = Reports.Error.raw_type }
-  let key = Reports.Compiler.new_field_opt v1 "error" report_typ
-  let warnings = Reports.Compiler.new_field_opt v1 "warnings" (List report_typ)
-  let alerts = Reports.Compiler.new_field_opt v1 "alerts" (List report_typ)
-  let () = Reports.Compiler.seal v1
+  let report_typ = Custom { id = Error; pull; default = Error.raw_type }
+  let key = Compiler_diagnostic.new_field_opt v1 "error" report_typ
+  let warnings =
+    Compiler_diagnostic.new_field_opt v1 "warnings" (List report_typ)
+  let alerts = Compiler_diagnostic.new_field_opt v1 "alerts" (List report_typ)
+  let () = Compiler_diagnostic.seal v1
 
 end
 
@@ -985,7 +987,7 @@ let print_report ppf report =
   let printer = !report_printer () in
   pp_report printer ppf report
 
-let log_report log report = log.Log.%[Error_log.key] <- report
+let log_report log report = log.Log.%[Error_diagnostic.key] <- report
 
 (******************************************************************************)
 (* Reporting errors *)
@@ -1043,8 +1045,8 @@ let report_warning loc w = !warning_reporter loc w
 
 let error_extension: type a. a Diagnostic.extension -> a printer option =
   function
-  | Error_log.Error -> Some print_report
-  | Error_log.Msg -> None
+  | Error_diagnostic.Error -> Some print_report
+  | Error_diagnostic.Msg -> None
   | _ -> None
 
 let () =
@@ -1057,17 +1059,17 @@ let create_log device =
   let default_backend = Diagnostic_backends.fmt in
   let log =
     Clflags.create_log ~default_backend
-      Reports.V.history Reports.Compiler.scheme device
+      Compiler_diagnostic.V.history Compiler_diagnostic.scheme device
   in
   if !formatter_for_warnings != Format.err_formatter then
-    Log.redirect log Error_log.warnings
+    Log.redirect log Error_diagnostic.warnings
       (Log.make_device formatter_for_warnings);
   log
 
 let current_log = ref (create_log @@ Log.make_device formatter_for_warnings)
 
 
-let temporary_log () = Log.tmp Reports.Compiler.scheme
+let temporary_log () = Log.tmp Compiler_diagnostic.scheme
 
 let log_on_device ~prev device =
   let log = create_log device in
@@ -1078,7 +1080,7 @@ let log_on_device ~prev device =
 let log_warning loc log w =
   match report_warning loc w with
   | None -> ()
-  | Some report -> Log.( cons Error_log.warnings report log )
+  | Some report -> Log.( cons Error_diagnostic.warnings report log )
 
 let prerr_warning loc w = log_warning loc !current_log w
 
@@ -1096,7 +1098,7 @@ let report_alert loc w = !alert_reporter loc w
 let log_alert loc log w =
   match report_alert loc w with
   | None -> ()
-  | Some report -> Log.( log.%[Error_log.alerts] <- [report] )
+  | Some report -> Log.( log.%[Error_diagnostic.alerts] <- [report] )
 
 let prerr_alert loc w = log_alert loc !current_log w
 
@@ -1180,7 +1182,7 @@ let report_exception log exn =
     match error_of_exn exn with
     | None -> reraise exn
     | Some `Already_displayed -> ()
-    | Some (`Ok err) -> log.Log.%[Error_log.key] <- err
+    | Some (`Ok err) -> log.Log.%[Error_diagnostic.key] <- err
     | exception exn when n > 0 -> loop (n-1) exn
   in
   loop 5 exn

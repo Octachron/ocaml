@@ -36,7 +36,7 @@ val set_paths :
   ?auto_include:Load_path.auto_include_callback -> ?dir:string -> unit -> unit
 
 (* The interactive toplevel loop *)
-type log = Reports.Toplevel.id Log.t
+type log = Toplevel_diagnostic.id Log.t
 
 val loop : log -> unit
 
@@ -93,7 +93,7 @@ val execute_phrase : bool -> log -> Parsetree.toplevel_phrase -> bool
            First bool says whether the values and types of the results
            should be printed. Uncaught exceptions are always printed. *)
 val preprocess_phrase :
-  Reports.Debug.id Log.t -> Parsetree.toplevel_phrase ->
+  Compiler_diagnostic.Debug.id Log.t -> Parsetree.toplevel_phrase ->
   Parsetree.toplevel_phrase
         (* Preprocess the given toplevel phrase using regular and ppx
            preprocessors. Return the updated phrase. *)
@@ -144,7 +144,8 @@ val parse_toplevel_phrase : (Lexing.lexbuf -> Parsetree.toplevel_phrase) ref
 val parse_use_file : (Lexing.lexbuf -> Parsetree.toplevel_phrase list) ref
 val print_location : formatter -> Location.t -> unit
 val print_error : formatter -> Location.error -> unit
-val log_warning : Location.t -> Reports.Compiler.id Log.t -> Warnings.t -> unit
+val log_warning :
+  Location.t -> Compiler_diagnostic.id Log.t -> Warnings.t -> unit
 val input_name : string ref
 
 
@@ -209,6 +210,6 @@ val preload_objects : string list ref
 (** List of compilation units to be loaded before entering the interactive
     loop. *)
 
-val prepare : Reports.Toplevel.id Log.t -> ?input:input -> unit -> bool
+val prepare : Toplevel_diagnostic.id Log.t -> ?input:input -> unit -> bool
 (** Setup the load paths and initial toplevel environment and load compilation
     units in {!preload_objects}. *)

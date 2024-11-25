@@ -96,7 +96,8 @@ let load log phrase_name program =
 
 type lookup_fn = string -> Obj.t option
 type load_fn =
-  Reports.Debug.t -> string -> Lambda.program -> Topcommon.evaluation_outcome
+  Compiler_diagnostic.Debug.id Log.t -> string -> Lambda.program ->
+  Topcommon.evaluation_outcome
 type assembler = {mutable lookup: lookup_fn; mutable load: load_fn}
 
 let fns = {lookup; load}

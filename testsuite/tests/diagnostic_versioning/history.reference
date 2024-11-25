@@ -180,7 +180,7 @@ Main:
       Declaration
       New label output, ?l structured_text
       New label backtrace, ?l structured_text
-      New label compiler_log, ?compiler
+      New label compiler, ?compiler
       New label errors, ?l l structured_text
       New label trace, ?l l structured_text
       Seal

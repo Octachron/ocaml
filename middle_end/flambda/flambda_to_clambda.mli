@@ -36,6 +36,6 @@ type result = {
     tables are also built.
 *)
 val convert
-   : log:Reports.Debug.id Log.t
+   : log:Compiler_diagnostic.Debug.id Log.t
   -> Flambda.program * Export_info.transient
   -> result

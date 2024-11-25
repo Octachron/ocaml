@@ -43,7 +43,7 @@
 {
   "metadata" :
     { "version" : [1, 0], "downward_compatible" : true, "valid" : "Full"},
-  "compiler_log" :
+  "compiler" :
     {
       "error" :
         {

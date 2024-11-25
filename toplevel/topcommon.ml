@@ -204,8 +204,10 @@ let preprocess_phrase debug phr =
         Ptop_def str
     | phr -> phr
   in
-  Clflags.dump_on_log debug Reports.Debug.parsetree Printast.top_phrase phr;
-  Clflags.dump_on_log debug Reports.Debug.source Pprintast.top_phrase phr;
+  Clflags.dump_on_log debug Compiler_diagnostic.Debug.parsetree
+    Printast.top_phrase phr;
+  Clflags.dump_on_log debug Compiler_diagnostic.Debug.source
+    Pprintast.top_phrase phr;
   phr
 
 (* Phrase buffer that stores the last toplevel phrase (see
@@ -308,7 +310,7 @@ let is_command_like_name s =
 (* The table of toplevel directives.
    Filled by functions from module topdirs. *)
 
-type 'a directive = Reports.Toplevel.id Log.t -> 'a -> unit
+type 'a directive = Toplevel_diagnostic.id Log.t -> 'a -> unit
 
 type directive_fun =
   | Directive_none of unit directive
@@ -344,7 +346,7 @@ module Style = Misc.Style
 let inline_code = Style.inline_code
 
 let try_run_directive log dir_name pdir_arg =
-  let log_error fmt = Log.itemd Reports.Toplevel.errors log fmt in
+  let log_error fmt = Log.itemd Toplevel_diagnostic.errors log fmt in
   begin match get_directive dir_name with
   | None ->
       let directives = all_directive_names () in
@@ -403,11 +405,11 @@ let try_run_directive log dir_name pdir_arg =
   end
 
 let compiler_log log =
-  let clog = Log.detach log Reports.Toplevel.compiler_log in
+  let clog = Log.detach log Toplevel_diagnostic.compiler in
   Location.current_log := clog;
   if !Location.formatter_for_warnings != Format.err_formatter then
     begin
-      Log.redirect clog Location.Error_log.warnings
+      Log.redirect clog Location.Error_diagnostic.warnings
         (Log.make_device Location.formatter_for_warnings);
     end;
   clog
@@ -416,14 +418,14 @@ let log_on_device device =
   let log =
     Clflags.create_log
       ~default_backend:Diagnostic_backends.fmt
-      Reports.V.history
-      Reports.Toplevel.scheme
+      Compiler_diagnostic.V.history
+      Toplevel_diagnostic.scheme
       device
   in
   let _ = compiler_log log in
   log
 
-let debug_log log = Log.detach (compiler_log log) Reports.Compiler.debug
+let debug_log log = Log.detach (compiler_log log) Compiler_diagnostic.debug
 
 
 (* Overriding exception printers with toplevel-specific ones *)

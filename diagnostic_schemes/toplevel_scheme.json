@@ -314,7 +314,7 @@
               "items" : { "$ref" : "#/$defs/structured_text"}
             }
         },
-      "compiler_log" : { "$ref" : "#/$defs/compiler"},
+      "compiler" : { "$ref" : "#/$defs/compiler"},
       "backtrace" :
         { "type" : "array", "items" : { "$ref" : "#/$defs/structured_text"}},
       "output" :

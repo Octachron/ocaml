@@ -635,9 +635,9 @@ let show_config_and_exit () =
   let log =
     create_log
       ~default_backend:Diagnostic_backends.fmt_with_fields
-      Reports.Config_versions.history
-      Reports.Config.scheme
+      Config_diagnostic.Versions.history
+      Config_diagnostic.scheme
       device
   in
-  Reports.Config.print_config log;
+  Config_diagnostic.print log;
   exit 0

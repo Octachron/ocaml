@@ -169,7 +169,7 @@ module Toplevel = struct
 
   let error_extension: type a.
     a Diagnostic.extension -> (Format.formatter -> a -> unit) option = function
-    | Location.Error_log.Error -> Some pp_report
+    | Location.Error_diagnostic.Error -> Some pp_report
     | _ -> None
 
   let () = Diagnostic_backends.Fmt.add_extension { extension = error_extension }

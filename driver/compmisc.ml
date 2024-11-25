@@ -124,8 +124,8 @@ let dump_file ~file_prefix =
 
 let with_debug_log ~file_prefix log f =
   match dump_file ~file_prefix with
-  | None -> f (Log.detach log Reports.Compiler.debug)
+  | None -> f (Log.detach log Compiler_diagnostic.debug)
   | Some device ->
-      Log.redirect log Reports.Compiler.debug device;
-      let dlog = Log.detach log Reports.Compiler.debug in
+      Log.redirect log Compiler_diagnostic.debug device;
+      let dlog = Log.detach log Compiler_diagnostic.debug in
       Fun.protect ~finally:(fun () -> Log.close dlog) (fun () -> f dlog)

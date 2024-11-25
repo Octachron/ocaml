@@ -66,7 +66,8 @@ let lambda_to_flambda ~log ~prefixname ~backend ~size
          let (+-+) flam (name, pass) =
            incr pass_number;
            if Clflags.dump "flambda_verbose" then begin
-             let log fmt = Log.itemf Reports.Debug.flambda log fmt in
+             let log fmt =
+               Log.itemf Compiler_diagnostic.Debug.flambda log fmt in
              log  "@.PASS: %s@." name;
              log "Before pass %d, round %d:@ %a@."
                !pass_number !round_number Flambda.print_program flam;
@@ -88,7 +89,7 @@ let lambda_to_flambda ~log ~prefixname ~backend ~size
            in
            if Clflags.dump "rawflambda"
            then
-             Log.itemf Reports.Debug.raw_flambda log
+             Log.itemf Compiler_diagnostic.Debug.raw_flambda log
                "After closure conversion:@ %a@."
                Flambda.print_program flam;
            check flam;
@@ -188,7 +189,7 @@ let lambda_to_flambda ~log ~prefixname ~backend ~size
                     "[@unrolled] attribute was not used on this function \
                      application (the optimizer did not know what function \
                      was being applied)"));
-           Clflags.dump_item_on_log log Reports.Debug.flambda
+           Clflags.dump_item_on_log log Compiler_diagnostic.Debug.flambda
              "End of middle end:@ %a@."
              Flambda.print_program flam;
            check flam;
@@ -202,7 +203,7 @@ let flambda_raw_clambda_dump_if log
         structured_constants; exported = _; } as input) =
   if Clflags.dump "rawclambda" then
     begin
-      let log fmt = Log.itemf Reports.Debug.raw_clambda log fmt in
+      let log fmt = Log.itemf Compiler_diagnostic.Debug.raw_clambda log fmt in
       log "@.clambda (before Un_anf):@.";
       log "%a" Printclambda.clambda ulambda;
       Symbol.Map.iter (fun sym cst ->
@@ -211,7 +212,7 @@ let flambda_raw_clambda_dump_if log
             Printclambda.structured_constant cst)
         structured_constants
     end;
-  Clflags.dump_item_on_log log Reports.Debug.cmm "@.cmm:@.";
+  Clflags.dump_item_on_log log Compiler_diagnostic.Debug.cmm "@.cmm:@.";
   input
 
 let lambda_to_clambda ~backend ~prefixname ~log

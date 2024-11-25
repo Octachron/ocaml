@@ -16,11 +16,12 @@
 (** Native compilation for .ml and .mli files. *)
 
 val interface:
-  log:Reports.Compiler.t -> source_file:string -> output_prefix:string -> unit
+  log:Compiler_diagnostic.id Log.t -> source_file:string ->
+  output_prefix:string -> unit
 
 val implementation:
    backend:(module Backend_intf.S)
-   -> log:Reports.Compiler.t
+   -> log:Compiler_diagnostic.id Log.t
    -> start_from:Clflags.Compiler_pass.t
    -> source_file:string -> output_prefix:string -> unit
 

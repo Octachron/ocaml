@@ -37,7 +37,8 @@ let args =
 let formatter = function
   | None -> Format.std_formatter
   | Some s -> Format.formatter_of_out_channel (Out_channel.open_bin s)
-open Reports
+open Compiler_diagnostic
+module Errd = Location.Error_diagnostic
 let version () =
   match !version with
   | None -> Some (Diagnostic_history.current_version V.history)
@@ -53,17 +54,17 @@ let schema v ppf =
   | Some "meta" ->
     Format.fprintf ppf "%t@." (JSchema.pp v Diagnostic.Metadata.scheme)
   | Some "config" ->
-    Format.fprintf ppf "%t@." (JSchema.pp v Config.scheme)
+    Format.fprintf ppf "%t@." (JSchema.pp v Config_diagnostic.scheme)
   | Some "compiler" ->
-    Format.fprintf ppf "%t@." (JSchema.pp v Compiler.scheme)
+    Format.fprintf ppf "%t@." (JSchema.pp v scheme)
   | Some "toplevel" ->
-    Format.fprintf ppf "%t@." (JSchema.pp v Toplevel.scheme)
+    Format.fprintf ppf "%t@." (JSchema.pp v Toplevel_diagnostic.scheme)
   | Some "error" ->
     Format.fprintf ppf "%t@." (JSchema.pp v Error.scheme)
   | Some "kind" ->
-    Format.fprintf ppf "%t@." (JSchema.pp v Location.Error_log.Kind.scheme)
+    Format.fprintf ppf "%t@." (JSchema.pp v Errd.Kind.scheme)
   | Some "msg" ->
-    Format.fprintf ppf "%t@." (JSchema.pp v Location.Error_log.Msg.scheme)
+    Format.fprintf ppf "%t@." (JSchema.pp v Errd.Msg.scheme)
   | _ -> ()
 
 
@@ -166,7 +167,7 @@ let history ppf =
       Config:@,%a@;<0 -2>\
        Main:@,%a@]%!"
       Pp.history Diagnostic.Metadata_versions.history
-      Pp.history Config_versions.history
+      Pp.history Config_diagnostic.Versions.history
       Pp.history V.history
 
 let () =

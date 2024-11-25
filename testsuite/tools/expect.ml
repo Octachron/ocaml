@@ -162,8 +162,8 @@ let exec_phrase log phrase =
     Clflags.dump_on_log (Topcommon.debug_log log) kind pr x
   in
   Location.reset ();
-  log_if Reports.Debug.parsetree Printast.top_phrase phrase;
-  log_if Reports.Debug.source Pprintast.top_phrase phrase;
+  log_if Compiler_diagnostic.Debug.parsetree Printast.top_phrase phrase;
+  log_if Compiler_diagnostic.Debug.source Pprintast.top_phrase phrase;
   Toploop.execute_phrase true log phrase
 
 let parse_contents ~fname contents =
@@ -228,7 +228,7 @@ let eval_expect_file _fname ~file_contents =
       | None -> phrases
       | Some lnum -> shift_lines (1 - lnum) phrases
     in
-    let () = Log.itemd Reports.Toplevel.trace log "" in
+    let () = Log.itemd Toplevel_diagnostic.trace log "" in
     let _ : bool =
       List.fold_left phrases ~init:true ~f:(fun acc phrase ->
         acc &&

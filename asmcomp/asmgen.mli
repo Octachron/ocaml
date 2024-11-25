@@ -19,7 +19,7 @@
 type middle_end =
      backend:(module Backend_intf.S)
   -> prefixname:string
-  -> log:Reports.Debug.t
+  -> log:Compiler_diagnostic.Debug.id Log.t
   -> Lambda.program
   -> Clambda.with_constants
 
@@ -29,7 +29,7 @@ val compile_implementation
   -> backend:(module Backend_intf.S)
   -> prefixname:string
   -> middle_end:middle_end
-  -> log:Reports.Debug.t
+  -> log:Compiler_diagnostic.Debug.id Log.t
   -> Lambda.program
   -> unit
 
@@ -37,7 +37,7 @@ val compile_implementation_linear :
     Unit_info.t -> unit
 
 val compile_phrase :
-    log:Reports.Debug.t -> Cmm.phrase -> unit
+    log:Compiler_diagnostic.Debug.id Log.t -> Cmm.phrase -> unit
 
 type error =
   | Assembler_error of string

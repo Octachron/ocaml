@@ -2,9 +2,9 @@
 (*                                                                        *)
 (*                                 OCaml                                  *)
 (*                                                                        *)
-(*             Xavier Leroy, projet Cristal, INRIA Rocquencourt           *)
+(*             Florian Angeletti, projet Cambium, Inria Paris             *)
 (*                                                                        *)
-(*   Copyright 1996 Institut National de Recherche en Informatique et     *)
+(*   Copyright 2024 Institut National de Recherche en Informatique et     *)
 (*     en Automatique.                                                    *)
 (*                                                                        *)
 (*   All rights reserved.  This file is distributed under the terms of    *)
@@ -13,9 +13,12 @@
 (*                                                                        *)
 (**************************************************************************)
 
-val lambda_to_clambda
-   : backend:(module Backend_intf.S)
-  -> prefixname:string
-  -> log:Compiler_diagnostic.Debug.id Log.t
-  -> Lambda.program
-  -> Clambda.with_constants
+include Compiler_diagnostic.Record
+
+val output: Format_doc.doc field
+val backtrace: Format_doc.doc field
+val compiler: Compiler_diagnostic.id Diagnostic.record field
+val errors: Format_doc.doc list field
+val trace: Format_doc.doc list field
+
+val separate_new_message: id Log.t -> unit
