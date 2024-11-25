@@ -243,132 +243,94 @@ module Config = struct
     let update = v1
     end)()
   open Diagnostic
-  let version = new_field v1 "version" String
-  let standard_library_default =  new_field v1 "standard_library_default" String
-  let standard_library = new_field v1 "standard_library" String
-  let ccomp_type = new_field v1 "ccomp_type" String
-  let c_compiler = new_field v1 "c_compiler" String
-  let ocamlc_cflags = new_field v1 "ocamlc_cflags" String
-  let ocamlc_cppflags = new_field v1 "ocamlc_cppflags" String
-  let ocamlopt_cflags = new_field v1 "ocamlopt_cflags" String
-  let ocamlopt_cppflags = new_field v1 "ocamlopt_cppflags" String
-  let bytecomp_c_compiler = new_field v1 "bytecomp_c_compiler" String
-  let native_c_compiler = new_field v1 "native_c_compiler" String
-  let bytecomp_c_libraries = new_field v1 "bytecomp_c_libraries" String
-  let native_c_libraries = new_field v1 "native_c_libraries" String
-  let native_ldflags = new_field v1 "native_ldflags" String
-  let native_pack_linker = new_field v1 "native_pack_linker" String
-  let native_compiler = new_field v1 "native_compiler" Bool
-  let architecture = new_field v1 "architecture" String
-  let model = new_field v1 "model" String
-  let int_size = new_field v1 "int_size" Int
-  let word_size = new_field v1 "word_size" Int
-  let system = new_field v1 "system" String
-  let asm = new_field v1 "asm" String
-  let asm_cfi_supported = new_field v1 "asm_cfi_supported" Bool
-  let with_frame_pointers = new_field v1 "with_frame_pointers" Bool
-  let ext_exe = new_field v1 "ext_exe" String
-  let ext_obj = new_field v1 "ext_obj" String
-  let ext_asm = new_field v1 "ext_asm" String
-  let ext_lib = new_field v1 "ext_lib" String
-  let ext_dll = new_field v1 "ext_dll" String
-  let os_type = new_field v1 "os_type" String
-  let default_executable_name = new_field v1 "default_executable_name" String
-  let systhread_supported = new_field v1 "systhread_supported" Bool
-  let host = new_field v1 "host" String
-  let target = new_field v1 "target" String
-  let flambda = new_field v1 "flambda" Bool
-  let safe_string = new_field v1 "safe_string" Bool
-  let default_safe_string = new_field v1 "default_safe_string" Bool
-  let flat_float_array = new_field v1 "flat_float_array" Bool
-  let function_sections = new_field v1 "function_sections" Bool
-  let afl_instrument = new_field v1 "afl_instrument" Bool
-  let tsan = new_field v1 "tsan" Bool
-  let windows_unicode = new_field v1 "windows_unicode" Bool
-  let supports_shared_libraries = new_field v1 "supports_shared_libraries" Bool
-  let native_dynlink = new_field v1 "native_dynlink" Bool
-  let naked_pointers = new_field v1 "naked_pointers" Bool
+  let set_config = Dynarray.create 32
+  let new_field name typ config =
+    let f = new_field v1 name typ in
+    Dynarray.add_last set_config (fun log -> log.%[f] <- config);
+    f
+  open Config
 
-  let exec_magic_number = new_field v1 "exec_magic_number" String
-  let cmi_magic_number = new_field v1 "cmi_magic_number" String
-  let cmo_magic_number = new_field v1 "cmo_magic_number" String
-  let cma_magic_number = new_field v1 "cma_magic_number" String
-  let cmx_magic_number = new_field v1 "cmx_magic_number" String
-  let cmxa_magic_number = new_field v1 "cmxa_magic_number" String
-  let ast_impl_magic_number = new_field v1 "ast_impl_magic_number" String
-  let ast_intf_magic_number = new_field v1 "ast_intf_magic_number" String
-  let cmxs_magic_number = new_field v1 "cmxs_magic_number" String
-  let cmt_magic_number = new_field v1 "cmt_magic_number" String
-  let linear_magic_number = new_field v1 "linear_magic_number" String
-
-
-let log_variables log =
-  let open Log in
-  log.%[version] <- Config.version;
-  log.%[standard_library_default] <- Config.standard_library_default;
-  log.%[standard_library] <- Config.standard_library;
-  log.%[ccomp_type] <- Config.ccomp_type;
-  log.%[c_compiler] <- Config.c_compiler;
-  log.%[ocamlc_cflags] <- Config.ocamlc_cflags;
-  log.%[ocamlc_cppflags] <- Config.ocamlc_cppflags;
-  log.%[ocamlopt_cflags] <- Config.ocamlc_cflags;
-  log.%[ocamlopt_cppflags] <- Config.ocamlc_cppflags;
+  let version = new_field "version" String version
+  let standard_library_default =
+    new_field "standard_library_default" String standard_library_default
+  let standard_library = new_field v1 "standard_library" String standard_library
+  let ccomp_type = new_field v1 "ccomp_type" String ccomp_typ
+  let c_compiler = new_field v1 "c_compiler" String c_compiler
+  let ocamlc_cflags = new_field v1 "ocamlc_cflags" String ocamlc_cglags
+  let ocamlc_cppflags = new_field v1 "ocamlc_cppflags" String ocamlc_cppflags
+  let ocamlopt_cflags = new_field v1 "ocamlopt_cflags" String ocamlc_cflags
+  let ocamlopt_cppflags =
+    new_field v1 "ocamlopt_cppflags" String ocamlc_cppflags
 (* bytecomp_c_compiler and native_c_compiler have been supported for a
    long time and are retained for backwards compatibility.
    For programs that don't need compatibility with older OCaml releases
    the recommended approach is to use the constituent variables
    c_compiler, ocamlc_cflags, ocamlc_cppflags etc., directly.
 *)
-  log.%[bytecomp_c_compiler] <-
-   Config.(c_compiler ^ " " ^ ocamlc_cflags ^ " " ^ ocamlc_cppflags);
-  log.%[native_c_compiler] <-
-    Config.(c_compiler ^ " " ^ ocamlc_cflags ^ " " ^ ocamlc_cppflags);
-  log.%[bytecomp_c_libraries] <- Config.bytecomp_c_libraries;
-  log.%[native_c_libraries] <- Config.native_c_libraries;
-  log.%[native_ldflags] <- Config.native_ldflags;
-  log.%[native_pack_linker] <- Config.native_pack_linker;
-  log.%[native_compiler] <- Config.native_compiler;
-  log.%[architecture] <- Config.architecture;
-  log.%[model] <- Config.model;
-  log.%[int_size] <- Sys.int_size;
-  log.%[word_size] <- Sys.word_size;
-  log.%[system] <- Config.system;
-  log.%[asm] <- Config.asm;
-  log.%[asm_cfi_supported] <- Config.asm_cfi_supported;
-  log.%[with_frame_pointers] <- Config.with_frame_pointers;
-  log.%[ext_exe] <- Config.ext_exe;
-  log.%[ext_obj] <- Config.ext_obj;
-  log.%[ext_asm] <- Config.ext_asm;
-  log.%[ext_lib] <- Config.ext_lib;
-  log.%[ext_dll] <- Config.ext_dll;
-  log.%[os_type] <- Sys.os_type;
-  log.%[default_executable_name] <- Config.default_executable_name;
-  log.%[systhread_supported] <- Config.systhread_supported;
-  log.%[host] <- Config.host;
-  log.%[target] <- Config.target;
-  log.%[flambda] <- Config.flambda;
-  log.%[safe_string] <- Config.safe_string;
-  log.%[default_safe_string] <- Config.default_safe_string;
-  log.%[flat_float_array] <- Config.flat_float_array;
-  log.%[function_sections] <- Config.function_sections;
-  log.%[afl_instrument] <- Config.afl_instrument;
-  log.%[tsan] <- Config.tsan;
-  log.%[windows_unicode] <- Config.windows_unicode;
-  log.%[supports_shared_libraries] <- Config.supports_shared_libraries;
-  log.%[native_dynlink] <- Config.native_dynlink;
-  log.%[naked_pointers] <- Config.naked_pointers;
+  let old_c_compiler =
+    String.concat " " [c_compiler; ocamlc_clfags; ocamlc_cppflags]
+  let bytecomp_c_compiler = new_field"bytecomp_c_compiler" String old_c_compiler
+  let native_c_compiler = new_field "native_c_compiler" String old_c_compiler
+  let bytecomp_c_libraries =
+    new_field "bytecomp_c_libraries" String bytecomp_c_libraries
+  let native_c_libraries =
+    new_field "native_c_libraries" String native_c_libraries
+  let native_ldflags = new_field "native_ldflags" String native_ldflags
+  let native_pack_linker =
+    new_field "native_pack_linker" String native_pack_linker
+  let native_compiler = new_field "native_compiler" Bool native_compiler
+  let architecture = new_field "architecture" String architecture
+  let model = new_field "model" String model
+  let int_size = new_field "int_size" Int int_size
+  let word_size = new_field "word_size" Int word_size
+  let system = new_field "system" String system
+  let asm = new_field "asm" String asm
+  let asm_cfi_supported = new_field "asm_cfi_supported" Bool asm_cfi_supported
+  let with_frame_pointers =
+    new_field "with_frame_pointers" Bool with_frame_pointer
+  let ext_exe = new_field "ext_exe" String ext_exe
+  let ext_obj = new_field "ext_obj" String ext_obj
+  let ext_asm = new_field "ext_asm" String ext_asm
+  let ext_lib = new_field "ext_lib" String ext_lib
+  let ext_dll = new_field "ext_dll" String ext_dll
+  let os_type = new_field "os_type" String os_type
+  let default_executable_name =
+    new_field "default_executable_name" String default_executable_name
+  let systhread_supported =
+    new_field "systhread_supported" Bool systhread_supported
+  let host = new_field "host" String host
+  let target = new_field "target" String target
+  let flambda = new_field "flambda" Bool flambda
+  let safe_string = new_field "safe_string" Bool safe_string
+  let default_safe_string =
+    new_field "default_safe_string" Bool default_safe_string
+  let flat_float_array = new_field "flat_float_array" Bool flat_float_array
+  let function_sections = new_field "function_sections" Bool function_sections
+  let afl_instrument = new_field "afl_instrument" Bool afl_instrument
+  let tsan = new_field "tsan" Bool tsan
+  let windows_unicode = new_field "windows_unicode" Bool windows_unicode
+  let supports_shared_libraries =
+    new_field "supports_shared_libraries" Bool supports_shared_libraries
+  let native_dynlink = new_field "native_dynlink" Bool native_dynlink
+  let naked_pointers = new_field "naked_pointers" Bool naked_pointers
 
-  log.%[exec_magic_number] <- Config.exec_magic_number;
-  log.%[cmi_magic_number] <- Config.cmi_magic_number;
-  log.%[cmo_magic_number] <- Config.cmo_magic_number;
-  log.%[cma_magic_number] <- Config.cma_magic_number;
-  log.%[cmx_magic_number] <- Config.cmx_magic_number;
-  log.%[cmxa_magic_number] <- Config.cmxa_magic_number;
-  log.%[ast_impl_magic_number] <- Config.ast_impl_magic_number;
-  log.%[ast_intf_magic_number] <- Config.ast_intf_magic_number;
-  log.%[cmxs_magic_number] <- Config.cmxs_magic_number;
-  log.%[cmt_magic_number] <- Config.cmt_magic_number;
-  log.%[linear_magic_number] <- Config.linear_magic_number
+  let exec_magic_number = new_field "exec_magic_number" String exec_magic_number
+  let cmi_magic_number = new_field "cmi_magic_number" String cmi_magic_number
+  let cmo_magic_number = new_field "cmo_magic_number" String cmo_magic_number
+  let cma_magic_number = new_field "cma_magic_number" String cma_magic_number
+  let cmx_magic_number = new_field "cmx_magic_number" String cmx_magic_number
+  let cmxa_magic_number = new_field "cmxa_magic_number" String cmxa_magic_number
+  let ast_impl_magic_number =
+    new_field "ast_impl_magic_number" String ast_impl_magic_number
+  let ast_intf_magic_number =
+    new_field "ast_intf_magic_number" String ast_intf_magic_number
+  let cmxs_magic_number = new_field "cmxs_magic_number" String cmxs_magic_number
+  let cmt_magic_number = new_field "cmt_magic_number" String cmt_magic_number
+  let linear_magic_number =
+    new_field "linear_magic_number" String linear_magic_number
+
+let log_variables log =
+  Dynarray.iter (fun f -> f log) set_config
 
 let print_config log =
   log_variables log;
