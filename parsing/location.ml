@@ -1071,7 +1071,7 @@ let current_log = ref (create_log @@ Log.Device.make formatter_for_warnings)
 
 let temporary_log () = Log.tmp Compiler_diagnostic.scheme
 
-let log_on_device ~prev device =
+let log_on_device ?prev device =
   let log = create_log device in
   current_log := log;
   Option.iter (fun prev -> Log.replay prev log) prev;

@@ -20,7 +20,7 @@ module Options = Main_args.Make_bytecomp_options (Main_args.Default.Main)
 
 let main_log rlog ppf =
   let device = Clflags.create_log_device ppf in
-  let log = Location.log_on_device ~prev:(Some !rlog) device in
+  let log = Location.log_on_device ~prev:!rlog device in
   rlog := log;
   log
 

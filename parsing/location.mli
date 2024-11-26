@@ -374,7 +374,7 @@ val log_exception: Compiler_diagnostic.id Log.t -> exn -> unit
 (** Reraise the exception if it is unknown or log it. *)
 
 val log_on_device:
-  prev:Compiler_diagnostic.id Log.t option
+  ?prev:Compiler_diagnostic.id Log.t
   -> Log.Device.t -> Compiler_diagnostic.id Log.t
 
 (** Store log events while waiting for log configuration*)

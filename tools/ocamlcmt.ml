@@ -201,7 +201,7 @@ let main () =
     main ()
   with x ->
     Printf.eprintf "Exception in main ()\n%!";
-    let log = Location.log_on_device ~prev:None Log.Device.err in
+    let log = Location.log_on_device Log.Device.err in
     Location.log_exception log x;
     Format.fprintf Format.err_formatter "@.";
     exit 2

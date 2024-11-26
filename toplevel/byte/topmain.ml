@@ -207,7 +207,7 @@ let main () =
   Compenv.parse_arguments ~current argv file_argument program;
   Compenv.readenv log Before_link;
   Compmisc.read_clflags_from_env ();
-  let tlog = Location.log_on_device ~prev:(Some log) setup_dev in
+  let tlog = Location.log_on_device ~prev:log setup_dev in
   Log.flush tlog;
   let log = Topcommon.log_on_device Log.Device.std in
   if not (Toploop.prepare log ()) then raise (Compenv.Exit_with_status 2);

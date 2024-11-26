@@ -369,7 +369,7 @@ let () =
     Printf.eprintf "expect: no input file\n";
     exit 2
   with exn ->
-    let log = Location.log_on_device ~prev:None Log.Device.err in
+    let log = Location.log_on_device Log.Device.err in
     Location.log_exception  log exn;
     Log.flush log;
     exit 2
