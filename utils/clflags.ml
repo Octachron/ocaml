@@ -598,12 +598,12 @@ let print_arguments program =
 let create_log_device ppf =
   match !
           log_file with
-  | None -> Log.make_device (ref ppf)
+  | None -> Log.Device.make (ref ppf)
   | Some f ->
       let out = Out_channel.open_text f in
       let on_close () = Out_channel.close out in
       let ppf = Format.formatter_of_out_channel out in
-      Log.make_device ~on_close (ref ppf)
+      Log.Device.make ~on_close (ref ppf)
 
 let create_log ~default_backend history scheme device =
   let current_version = Diagnostic_history.current_version history in

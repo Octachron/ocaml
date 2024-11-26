@@ -25,7 +25,7 @@ type t = {
   name:string;
   make:
     'a. ?color:Misc.Color.setting -> version:Diagnostic_validation.version
-    -> device:Log.device -> 'a Diagnostic.t -> 'a log;
+    -> device:Log.Device.t -> 'a Diagnostic.t -> 'a log;
 }
 val fmt: t
 val fmt_with_fields:t

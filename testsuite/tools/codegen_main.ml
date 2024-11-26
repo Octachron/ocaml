@@ -28,7 +28,7 @@ let compile_file filename =
   let lb = Lexing.from_channel ic in
   lb.Lexing.lex_curr_p <- Lexing.{ lb.lex_curr_p with pos_fname = filename };
   let compiler_log =
-    Location.log_on_device ~prev:None Log.std in
+    Location.log_on_device ~prev:None Log.Device.std in
   let log = Log.detach compiler_log Compiler_diagnostic.debug in
   try
     while true do

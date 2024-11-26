@@ -12,7 +12,7 @@ let diff =
   | _ -> "diff -u"
 
 
-let log = Location.log_on_device ~prev:None Log.std
+let log = Location.log_on_device ~prev:None Log.Device.std
 
 let report_err exn =
   Location.log_exception log exn

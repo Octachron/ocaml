@@ -114,13 +114,13 @@ let dump_file ~file_prefix =
   match !Clflags.dump_dir, !Clflags.dump_into_file with
   | None, false -> None
   | None, true ->
-      Some (Log.out_channel_device (open_out (file_prefix ^ ".dump")))
+      Some (Log.Device.out_channel (open_out (file_prefix ^ ".dump")))
   | Some d, _ ->
       let () = make_directory Filename.(dirname @@ concat d @@ file_prefix) in
       let _, ch =
         Filename.open_temp_file ~temp_dir:d (file_prefix ^ ".")  ".dump"
       in
-      Some (Log.out_channel_device ch)
+      Some (Log.Device.out_channel ch)
 
 let with_debug_log ~file_prefix log f =
   match dump_file ~file_prefix with

@@ -123,7 +123,7 @@ module Sig_analyser = Odoc_sig.Analyser (Odoc_comments.Basic_info_retriever)
 (** Handle an error. *)
 
 let process_error exn =
-  let log = Location.log_on_device ~prev:None Log.err in
+  let log = Location.log_on_device ~prev:None Log.Device.err in
   try Location.log_exception log exn
   with exn ->
     fprintf Format.err_formatter

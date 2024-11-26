@@ -320,7 +320,7 @@ end
   type t = {
     name:string;
     make: 'a. ?color:Misc.Color.setting -> version:Diagnostic_validation.version
-      -> device:Log.device -> 'a Diagnostic.t -> 'a Log.t;
+      -> device:Log.Device.t -> 'a Diagnostic.t -> 'a Log.t;
   }
   let fmt = { name="direct"; make = direct }
   let fmt_with_fields = { name="direct_with_fields"; make = direct_with_fields }

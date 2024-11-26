@@ -410,7 +410,7 @@ let compiler_log log =
   if !Location.formatter_for_warnings != Format.err_formatter then
     begin
       Log.redirect clog Location.Error_diagnostic.warnings
-        (Log.make_device Location.formatter_for_warnings);
+        (Log.Device.make Location.formatter_for_warnings);
     end;
   clog
 

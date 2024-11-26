@@ -1063,10 +1063,10 @@ let create_log device =
   in
   if !formatter_for_warnings != Format.err_formatter then
     Log.redirect log Error_diagnostic.warnings
-      (Log.make_device formatter_for_warnings);
+      (Log.Device.make formatter_for_warnings);
   log
 
-let current_log = ref (create_log @@ Log.make_device formatter_for_warnings)
+let current_log = ref (create_log @@ Log.Device.make formatter_for_warnings)
 
 
 let temporary_log () = Log.tmp Compiler_diagnostic.scheme

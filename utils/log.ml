@@ -24,26 +24,52 @@ module V = Diagnostic_validation
 type ('id,'a) field = ('id,'a) Diagnostic.field
 type version = Diagnostic_history.version = { major:int; minor:int }
 
-type device =
-  {
-    initialized: bool ref;
-    ppf: Format.formatter ref;
-    on_close: unit -> unit;
-  }
+module Device = struct
+  type t =
+    {
+      initialized: bool ref;
+      ppf: Format.formatter ref;
+      on_close: unit -> unit;
+    }
 
-let make_device ?(on_close=ignore) ppf =
-  { initialized=ref false; ppf; on_close}
-let err = make_device (ref Format.err_formatter)
-let std = make_device (ref Format.std_formatter)
-let ppf d = !(d.ppf)
+  let make ?(on_close=ignore) ppf =
+    { initialized=ref false; ppf; on_close}
+  let err = make (ref Format.err_formatter)
+  let std = make (ref Format.std_formatter)
 
-let out_channel_device out =
-  let on_close () =
-    Out_channel.flush out;
-    Out_channel.close out
-  in
-  let ppf = Format.formatter_of_out_channel out in
-  make_device ~on_close (ref ppf)
+  let out_channel out =
+    let on_close () =
+      Out_channel.flush out;
+      Out_channel.close out
+    in
+    let ppf = Format.formatter_of_out_channel out in
+    make ~on_close (ref ppf)
+
+  let init_if_needed color out =
+    if not !(out.initialized) then begin
+      out.initialized := true;
+      let ppf = !(out.ppf) in
+      let color = Misc.Style.enable_color color in
+      Misc.Style.set_tag_handling ~color ppf;
+      Format.fprintf ppf "@[<v>"
+    end
+
+  let flush c =
+    Format.fprintf !(c.ppf) "%!"
+
+  let separate c = Format.pp_print_newline !(c.ppf) ()
+
+  let close0 c = c.on_close ()
+  let close_stream c =
+    if not !(c.initialized) then ()
+    else (Format.fprintf !(c.ppf) "@,@]%!"; c.initialized := false);
+    c.on_close ()
+
+  let ppf settings out =
+    init_if_needed settings out;
+    !(out.ppf)
+end
+
 
 type printer = {
   record: Format.formatter -> Diagnostic.typed_record -> unit;
@@ -51,11 +77,11 @@ type printer = {
 }
 
 type 'a mode =
-  | Streaming of device
-  | Delayed of {store:'a Diagnostic.record; output:device option}
+  | Streaming of Device.t
+  | Delayed of {store:'a Diagnostic.record; output:Device.t option}
 
 type redirections = {
-  mutable map: (device option * redirections) Label_map.t
+  mutable map: (Device.t option * redirections) Label_map.t
 }
 let empty_redirections () = { map = Label_map.empty }
 
@@ -169,24 +195,6 @@ let detach_item log field =
     ~extract:(Fun.const None)
     log field
 
-module Fmt = struct
-   let init color ppf =
-    let color = Misc.Style.enable_color color in
-    Misc.Style.set_tag_handling ~color !ppf;
-    Format.fprintf !ppf "@[<v>"
-
-  let flush c =
-    Format.fprintf !(c.ppf) "%!"
-
-  let separate c = Format.pp_print_newline !(c.ppf) ()
-
-  let close c =
-    if not !(c.initialized) then ()
-    else (Format.fprintf !(c.ppf) "@,@]%!"; c.initialized := false);
-    c.on_close ()
-end
-
-(** *)
 let set (field: _ D.field) x log =
   let version = log.version in
   match log.mode with
@@ -203,9 +211,7 @@ let set (field: _ D.field) x log =
       | Inception | Publication | Expansion | Deprecation ->
           let r = device_redirection (D.field_name field) log.redirections in
           let out = Option.value ~default:output r in
-          let ppf = !(out.ppf) in
-          if not !(output.initialized) then
-            (Fmt.init log.settings out.ppf ; output.initialized := true);
+          let ppf = Device.ppf log.settings out in
           Format.fprintf ppf "@[<v>%a@,@]%!"
             log.printer.item (D.field_name field, D.V(D.field_type field,x))
 
@@ -233,27 +239,26 @@ let itemd field log fmt = Format_doc.kdoc_printf (fun s -> cons field s log) fmt
 let flush: type a. a log -> unit = fun log ->
   begin match log.mode with
   | Delayed { output=None; store } -> R.reset store
-  | Streaming output -> Fmt.flush output
+  | Streaming output -> Device.flush output
   | Delayed { output=Some output; store } ->
       let _ = V.diagnostic ~version:log.version log.scheme store in
-      let ppf = !(output.ppf) in
+      let ppf = Device.ppf log.settings output in
       log.printer.record ppf (R(log.scheme, store));
       R.reset store
   end;
-  iter_redirection Fmt.flush log.redirections
+  iter_redirection Device.flush log.redirections
 
 let separate log = match log.mode with
-  | Streaming d -> Fmt.separate d
+  | Streaming d -> Device.separate d
   | _ -> ()
 
 let close: type a. a log -> unit = fun log ->
-  let close_device x = x.on_close () in
   match log.mode with
   | Streaming d ->
-      Fmt.close d; iter_redirection Fmt.close log.redirections
+      Device.close_stream d; iter_redirection Device.close0 log.redirections
   | Delayed { output; _ } ->
-      Option.iter close_device output;
-      iter_redirection close_device log.redirections
+      Option.iter Device.close0 output;
+      iter_redirection Device.close0 log.redirections
 
 let close log = flush log; close log
 

@@ -148,7 +148,7 @@ let expand_position pos len =
 
 let input_argument name =
   let filename = Toploop.filename_of_input name in
-  let device = Log.err in
+  let device = Log.Device.err in
   let log = Topcommon.log_on_device device in
   let clog = Topcommon.compiler_log log in
   if Filename.check_suffix filename ".cmo"
@@ -193,7 +193,7 @@ module Options = Main_args.Make_bytetop_options (struct
 end)
 
 let main () =
-  let setup_dev = Log.err in
+  let setup_dev = Log.Device.err in
   let log = Location.temporary_log () in
   let program = "ocaml" in
   let display_deprecated_script_alert =
@@ -209,7 +209,7 @@ let main () =
   Compmisc.read_clflags_from_env ();
   let tlog = Location.log_on_device ~prev:(Some log) setup_dev in
   Log.flush tlog;
-  let log = Topcommon.log_on_device Log.std in
+  let log = Topcommon.log_on_device Log.Device.std in
   if not (Toploop.prepare log ()) then raise (Compenv.Exit_with_status 2);
   Compmisc.init_path ();
   Toploop.loop log

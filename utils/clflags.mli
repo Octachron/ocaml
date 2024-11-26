@@ -259,13 +259,13 @@ val reset_arguments : unit -> unit
 
 (** create a logger *)
 
-val create_log_device: Format.formatter -> Log.device
+val create_log_device: Format.formatter -> Log.Device.t
 
 val create_log:
   default_backend:Diagnostic_backends.t
   -> 'v Diagnostic_history.t
   -> 'a Diagnostic.t
-  -> Log.device
+  -> Log.Device.t
   -> 'a Log.t
 
 val dump: string -> bool

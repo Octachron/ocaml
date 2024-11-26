@@ -52,7 +52,7 @@ val record_backtrace : unit -> unit
 
 (*Log creation *)
 
-val log_on_device: Log.device -> Toplevel_diagnostic.id Log.t
+val log_on_device: Log.Device.t -> Toplevel_diagnostic.id Log.t
 val compiler_log: Toplevel_diagnostic.id Log.t -> Compiler_diagnostic.id Log.t
 val debug_log:
   Toplevel_diagnostic.id Log.t -> Compiler_diagnostic.Debug.id Log.t

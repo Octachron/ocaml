@@ -233,7 +233,7 @@ let test backend ?v sval =
   in
   let log =
     let open Diagnostic_backends in
-    backend.make ~version ~device:Log.std R.scheme
+    backend.make ~version ~device:Log.Device.std R.scheme
   in
   log.%[s] <- sval;
   log.%[x] <- 0;

@@ -19,18 +19,19 @@
 
 type !'id log
 type 'id t = 'id log
- (** A structured log with tag ['id]. *)
+ (** A log for the structured diagnostic with tag ['id]. *)
 
 type ('id,'a) field = ('id,'a) Diagnostic.field
 (** A field of type ['a] for an ['id log]. *)
 
 (** Lower-level device for log *)
-type device
-val make_device: ?on_close:(unit->unit) -> Format.formatter ref -> device
-val out_channel_device: Out_channel.t -> device
-val ppf: device -> Format.formatter
-val err: device
-val std: device
+module Device: sig
+  type t
+  val make: ?on_close:(unit->unit) -> Format.formatter ref -> t
+  val out_channel: Out_channel.t -> t
+  val err: t
+  val std: t
+end
 
 (** Backend printers *)
 type printer = {
@@ -43,7 +44,7 @@ val log_scheme: 'id log -> 'id Diagnostic.t
 
 val make:
   streaming:bool -> printer:printer -> Misc.Color.setting option ->
-  Diagnostic_validation.version -> 'a Diagnostic.t -> device -> 'a log
+  Diagnostic_validation.version -> 'a Diagnostic.t -> Device.t -> 'a log
 
 val tmp: 'a Diagnostic.t -> 'a log
 
@@ -53,7 +54,7 @@ val tmp: 'a Diagnostic.t -> 'a log
 val flush: 'id log -> unit
 val separate: 'id log -> unit
 val close: 'id log -> unit
-val redirect: 'id log -> ('a,'id) field -> device -> unit
+val redirect: 'id log -> ('a,'id) field -> Device.t -> unit
 
 val set: ('a,'b) field  -> 'a -> 'b log -> unit
 val (.%[]<-): 'b log -> ('a,'b) field -> 'a -> unit

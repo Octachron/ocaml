@@ -220,7 +220,7 @@ let eval_expect_file _fname ~file_contents =
   in
   let buf = Buffer.create 1024 in
   let ppf = Format.formatter_of_buffer buf in
-  let dev = Log.make_device (ref ppf) in
+  let dev = Log.Device.make (ref ppf) in
   let log = Topcommon.log_on_device dev in
   let exec_phrases phrases =
     let phrases =
@@ -369,7 +369,7 @@ let () =
     Printf.eprintf "expect: no input file\n";
     exit 2
   with exn ->
-    let log = Location.log_on_device ~prev:None Log.err in
+    let log = Location.log_on_device ~prev:None Log.Device.err in
     Location.log_exception  log exn;
     Log.flush log;
     exit 2
