@@ -281,7 +281,7 @@ module Fmt = struct
 
 end
 
-  let with_conv ~structured ~extension conv settings version ppf scheme =
+  let with_conv ~streaming ~extension conv settings version ppf scheme =
     let ctx = {
       Fmt.version=(Diagnostic_validation.exact_version version);
       conv; ext_printer=extension}
@@ -300,20 +300,20 @@ end
     let item ppf (name, V(typ,r)) =
       Fmt.elt_item ctx ~key:name typ r ppf
     in
-    Log.make ~structured ~printer:{record;item} settings version scheme ppf
+    Log.make ~streaming ~printer:{record;item} settings version scheme ppf
 
   let structured conv ?color ~version ~device sch =
-    with_conv ~structured:true ~extension:Fmt.no_extension conv
+    with_conv ~streaming:false ~extension:Fmt.no_extension conv
       color version device sch
   let sexp ?color ~version ~device sch =
     structured Fmt.sexp ?color ~version ~device sch
   let json ?color ~version ~device sch =
     structured Fmt.json ?color ~version ~device sch
   let direct ?color ~version ~device sch =
-    with_conv ~structured:false ~extension:(!Fmt.extensions)
+    with_conv ~streaming:true ~extension:(!Fmt.extensions)
       Fmt.direct color version device sch
   let direct_with_fields ?color ~version ~device sch =
-    with_conv ~structured:false ~extension:(!Fmt.extensions)
+    with_conv ~streaming:true ~extension:(!Fmt.extensions)
       Fmt.direct_with_fields color version device sch
 
 

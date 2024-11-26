@@ -45,16 +45,14 @@ let out_channel_device out =
   let ppf = Format.formatter_of_out_channel out in
   make_device ~on_close (ref ppf)
 
-
-
 type printer = {
   record: Format.formatter -> Diagnostic.typed_record -> unit;
   item: Format.formatter -> string * Diagnostic.typed_val -> unit
 }
 
 type 'a mode =
-  | Direct of device
-  | Store of {data:'a Diagnostic.record; out:device option}
+  | Streaming of device
+  | Delayed of {store:'a Diagnostic.record; output:device option}
 
 type redirections = {
   mutable map: (device option * redirections) Label_map.t
@@ -87,6 +85,10 @@ type 'a log =
       printer:printer;
   }
 
+let log_store log = match log.mode with
+  | Delayed r -> Some r.store
+  | Streaming _ -> None
+
 let log_scheme log = log.scheme
 let log_version log = Diagnostic_validation.exact_version log.version
 
@@ -95,12 +97,12 @@ type 'a t = 'a log
 
 (** {1:log_scheme_versionning  Current version of the log } *)
 
+let delayed_mode output = Delayed { store=Diagnostic.empty (); output }
 
-let make ~structured ~printer settings version scheme out =
+let make ~streaming ~printer settings version scheme output =
   let mode =
-    if structured then
-      Store {data=Diagnostic.empty (); out= Some out}
-    else Direct out
+    if streaming then Streaming output
+    else delayed_mode (Some output)
   in
   {
     redirections = empty_redirections ();
@@ -111,6 +113,16 @@ let make ~structured ~printer settings version scheme out =
     scheme;
   }
 
+let tmp scheme =
+  {
+  settings = None;
+  redirections = empty_redirections ();
+  version=(Downward_compatible {major=0;minor=0});
+  scheme;
+  printer = { record = (fun _ _ -> ()); item = (fun _ _ -> ()) };
+  mode = delayed_mode None;
+}
+
 let redirect log field device  =
   let r = log.redirections in
   let new_redirection = Some device, empty_redirections () in
@@ -120,21 +132,21 @@ let generic_detach label_scheme ~set ~lift ~extract log
     (field: _ Diagnostic.field) =
   let out, redirections = redirection (D.field_name field) log.redirections in
   let mode = match log.mode with
-    | Direct d ->
-        let out = Option.value ~default:d out in
-        Direct out
-    | Store {data=st; out=st_out} ->
-        let data =
-          match Option.bind (R.get st field) extract with
-          | Some data -> data
-          | None ->
-              let data = D.empty () in
-              set st (V.exact_version log.version) ~field (lift data); data
+    | Streaming parent -> Streaming (Option.value ~default:parent out)
+    | Delayed { store; output } ->
+        let output = match out, output with
+          | Some _ as out, _ -> out
+          | None, out -> out
         in
-        let out = match out with
-          | Some _ -> out
-          | _ -> st_out
-        in Store { data; out }
+        let store =
+          match Option.bind (R.get store field) extract with
+          | Some store -> store
+          | None ->
+              let field_store = D.empty () in
+              set store (V.exact_version log.version) ~field (lift field_store);
+              field_store
+        in
+        Delayed { store; output }
   in
   let child =
     { scheme=label_scheme (D.field_type field);
@@ -178,39 +190,39 @@ end
 let set (field: _ D.field) x log =
   let version = log.version in
   match log.mode with
-  | Store st -> R.set st.data (V.exact_version version) ~field x
-  | Direct d ->
+  | Delayed {store; _} -> R.set store (V.exact_version version) ~field x
+  | Streaming output ->
       let status = match D.field_info log.scheme field with
         | Some lmd ->
-          let v = V.reference_version version in
-          H.stage_at (Some v) lmd.status
+            let v = V.reference_version version in
+            H.stage_at (Some v) lmd.status
         | None -> Diagnostic_history.Lifetime.Deletion
       in
       match status with
       | Deletion | Future -> ()
       | Inception | Publication | Expansion | Deprecation ->
           let r = device_redirection (D.field_name field) log.redirections in
-          let out = Option.value ~default:d r in
+          let out = Option.value ~default:output r in
           let ppf = !(out.ppf) in
-          if not !(d.initialized) then
-            (Fmt.init log.settings out.ppf ; d.initialized := true);
+          if not !(output.initialized) then
+            (Fmt.init log.settings out.ppf ; output.initialized := true);
           Format.fprintf ppf "@[<v>%a@,@]%!"
             log.printer.item (D.field_name field, D.V(D.field_type field,x))
 
 let cons field x log =
   match log.mode with
-  | Direct _-> set field [x] log
-  | Store st -> R.cons st.data (V.exact_version log.version) ~field x
+  | Streaming _ -> set field [x] log
+  | Delayed {store;_} -> R.cons store (V.exact_version log.version) ~field x
 
 let (.%[]<-) log field x = set field x log
 
-let get field log = match log.mode with
-  | Direct _ -> None
-  | Store st -> R.get st.data field
+let get field log = match log_store log with
+  | None -> None
+  | Some store -> R.get store field
 
-let dynamic_get field log = match log.mode with
-  | Direct _ -> None
-  | Store st -> R.dynamic_get st.data field
+let dynamic_get field log = match log_store log with
+  | None -> None
+  | Some store -> R.dynamic_get store field
 
 let f field log fmt = Format.kasprintf (fun s -> log.%[field] <- s) fmt
 let itemf field log fmt = Format.kasprintf (fun s -> cons field s log) fmt
@@ -220,53 +232,40 @@ let itemd field log fmt = Format_doc.kdoc_printf (fun s -> cons field s log) fmt
 
 let flush: type a. a log -> unit = fun log ->
   begin match log.mode with
-  | Direct d -> Fmt.flush d
-  | Store st ->
-      let _ = V.diagnostic ~version:log.version log.scheme st.data in
-      Option.iter (fun out ->
-          let ppf = !(out.ppf) in
-          log.printer.record ppf (R(log.scheme, st.data))
-        ) st.out;
-        R.reset st.data
+  | Delayed { output=None; store } -> R.reset store
+  | Streaming output -> Fmt.flush output
+  | Delayed { output=Some output; store } ->
+      let _ = V.diagnostic ~version:log.version log.scheme store in
+      let ppf = !(output.ppf) in
+      log.printer.record ppf (R(log.scheme, store));
+      R.reset store
   end;
   iter_redirection Fmt.flush log.redirections
 
 let separate log = match log.mode with
-  | Direct d -> Fmt.separate d
+  | Streaming d -> Fmt.separate d
   | _ -> ()
 
 let close: type a. a log -> unit = fun log ->
+  let close_device x = x.on_close () in
   match log.mode with
-  | Direct d ->
+  | Streaming d ->
       Fmt.close d; iter_redirection Fmt.close log.redirections
-  | Store { out;_ } ->
-      let close x = x.on_close () in
-      Option.iter close out;
-      iter_redirection close log.redirections
-
+  | Delayed { output; _ } ->
+      Option.iter close_device output;
+      iter_redirection close_device log.redirections
 
 let close log = flush log; close log
 
 let replay source dest =
-  match source.mode with
-  | Direct _ -> ()
-  | Store st ->
+  match log_store source with
+  | None -> ()
+  | Some store ->
       Seq.iter
         (fun (D.F(field,x)) -> dest.%[field] <- x )
-        (R.all_fields st.data)
+        (R.all_fields store)
 
 (** {1:log_publication }*)
-
-let tmp scheme =
-  {
-  settings = None;
-  redirections = { map = Label_map.empty };
-  version=(Downward_compatible {major=0;minor=0});
-  scheme;
-  printer = { record = (fun _ _ -> ()); item = (fun _ _ -> ()) };
-  mode = Store { out=None; data=D.empty () }
-}
-
 
 
 let log_if dlog field flag printer x =

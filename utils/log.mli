@@ -42,7 +42,7 @@ val log_version: _ log -> Diagnostic.version option
 val log_scheme: 'id log -> 'id Diagnostic.t
 
 val make:
-  structured:bool -> printer:printer -> Misc.Color.setting option ->
+  streaming:bool -> printer:printer -> Misc.Color.setting option ->
   Diagnostic_validation.version -> 'a Diagnostic.t -> device -> 'a log
 
 val tmp: 'a Diagnostic.t -> 'a log
