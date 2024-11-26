@@ -56,9 +56,30 @@ type 'a mode =
   | Direct of device
   | Store of {data:'a Diagnostic.record; out:device option}
 
+type redirections = {
+  mutable map: (device option * redirections) Label_map.t
+}
+let empty_redirections () = { map = Label_map.empty }
+
+let redirection key r =
+  match Label_map.find_opt key r.map with
+  | None ->
+      let child = empty_redirections () in
+      r.map <- Label_map.add key (None,child) r.map;
+      None, child
+  | Some(d,x) -> d, x
+
+let device_redirection key r =
+  match Label_map.find_opt key r.map with
+  | None -> None
+  | Some(d,_) -> d
+
+let iter_redirection f r =
+  Label_map.iter (fun _ (x,_) -> Option.iter f x) r.map
+
 type 'a log =
   {
-      mutable redirections: device Label_map.t;
+      redirections: redirections;
       version: Diagnostic_validation.version;
       scheme: 'a Diagnostic.t;
       settings: Misc.Color.setting option;
@@ -82,7 +103,7 @@ let make ~structured ~printer settings version scheme out =
     else Direct out
   in
   {
-    redirections = Label_map.empty;
+    redirections = empty_redirections ();
     settings;
     version;
     printer;
@@ -91,12 +112,13 @@ let make ~structured ~printer settings version scheme out =
   }
 
 let redirect log field device  =
-  log.redirections <-
-    Label_map.add (Diagnostic.field_name field) device log.redirections
+  let r = log.redirections in
+  let new_redirection = Some device, empty_redirections () in
+  r.map <-Label_map.add (Diagnostic.field_name field) new_redirection r.map
 
 let generic_detach label_scheme ~set ~lift ~extract log
     (field: _ Diagnostic.field) =
-  let out = Label_map.find_opt (D.field_name field) log.redirections in
+  let out, redirections = redirection (D.field_name field) log.redirections in
   let mode = match log.mode with
     | Direct d ->
         let out = Option.value ~default:d out in
@@ -120,7 +142,7 @@ let generic_detach label_scheme ~set ~lift ~extract log
       printer=log.printer;
       version = log.version;
       settings = log.settings;
-      redirections = Label_map.empty;
+      redirections;
     } in
   child
 
@@ -167,7 +189,7 @@ let set (field: _ D.field) x log =
       match status with
       | Deletion | Future -> ()
       | Inception | Publication | Expansion | Deprecation ->
-          let r = Label_map.find_opt (D.field_name field) log.redirections in
+          let r = device_redirection (D.field_name field) log.redirections in
           let out = Option.value ~default:d r in
           let ppf = !(out.ppf) in
           if not !(d.initialized) then
@@ -207,7 +229,7 @@ let flush: type a. a log -> unit = fun log ->
         ) st.out;
         R.reset st.data
   end;
-  Label_map.iter (fun _ -> Fmt.flush) log.redirections
+  iter_redirection Fmt.flush log.redirections
 
 let separate log = match log.mode with
   | Direct d -> Fmt.separate d
@@ -216,10 +238,11 @@ let separate log = match log.mode with
 let close: type a. a log -> unit = fun log ->
   match log.mode with
   | Direct d ->
-      Fmt.close d; Label_map.iter (fun _ -> Fmt.close) log.redirections
+      Fmt.close d; iter_redirection Fmt.close log.redirections
   | Store { out;_ } ->
-      Option.iter (fun x -> x.on_close ()) out;
-      Label_map.iter (fun _ x -> x.on_close()) log.redirections
+      let close x = x.on_close () in
+      Option.iter close out;
+      iter_redirection close log.redirections
 
 
 let close log = flush log; close log
@@ -237,7 +260,7 @@ let replay source dest =
 let tmp scheme =
   {
   settings = None;
-  redirections = Label_map.empty;
+  redirections = { map = Label_map.empty };
   version=(Downward_compatible {major=0;minor=0});
   scheme;
   printer = { record = (fun _ _ -> ()); item = (fun _ _ -> ()) };
