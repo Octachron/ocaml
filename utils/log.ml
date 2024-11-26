@@ -66,15 +66,10 @@ type 'a log =
       printer:printer;
   }
 
-
-
-
 let log_scheme log = log.scheme
 let log_version log = Diagnostic_validation.exact_version log.version
 
 type 'a t = 'a log
-
-
 
 
 (** {1:log_scheme_versionning  Current version of the log } *)
@@ -219,12 +214,13 @@ let separate log = match log.mode with
   | _ -> ()
 
 let close: type a. a log -> unit = fun log ->
-  begin match log.mode with
-  | Direct d -> Fmt.close d
-  | Store { out = Some out } -> out.on_close ()
-  | Store _ -> ()
-  end;
-  Label_map.iter (fun _ -> Fmt.close) log.redirections
+  match log.mode with
+  | Direct d ->
+      Fmt.close d; Label_map.iter (fun _ -> Fmt.close) log.redirections
+  | Store { out;_ } ->
+      Option.iter (fun x -> x.on_close ()) out;
+      Label_map.iter (fun _ x -> x.on_close()) log.redirections
+
 
 let close log = flush log; close log
 
