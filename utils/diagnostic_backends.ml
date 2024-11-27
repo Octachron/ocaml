@@ -389,7 +389,7 @@ module Json_schema = struct
     match v with
     | None -> Some (item ~key (obj [typ ty]))
     | Some _ as v ->
-        let stage = Diagnostic_history.stage_at v status in
+        let stage = Diagnostic_history.Lifetime.stage_at v status in
         match stage with
         | Future | Deletion -> None
         | _ ->

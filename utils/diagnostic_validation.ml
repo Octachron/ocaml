@@ -103,7 +103,7 @@ and fields: type id.
   -> id record -> report_paths
   = fun ~version metadata r ->
     concat_map (fun (k, kmd) ->
-        match H.stage_at (Some version) kmd.status with
+        match H.Lifetime.stage_at (Some version) kmd.status with
         | Future | Deletion -> none (* those fields will be elided *)
         | Deprecation ->
             deprecated [k]  @^
@@ -156,7 +156,7 @@ and value: type a. version:version -> a -> a typ -> report_paths =
               match D.field_dyninfo def name with
               | None -> none
               | Some lmd ->
-                  begin match H.stage_at (Some version) lmd.status with
+                  begin match H.Lifetime.stage_at (Some version) lmd.status with
                   | Inception | Publication | Expansion -> value ~version arg ty
                   | Future | Deletion -> invalid [name]
                   | Deprecation -> deprecated [name] @^ value ~version arg ty

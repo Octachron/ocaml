@@ -93,7 +93,7 @@ module Pp = struct
 
 
   let status ppf range =
-    match stage range with
+    match Lifetime.stage range with
     | Lifetime.Inception -> fprintf ppf "refined"
     | Lifetime.Publication -> fprintf ppf "created"
     | Lifetime.Expansion -> fprintf ppf "expanded"

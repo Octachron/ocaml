@@ -16,7 +16,6 @@
 module Label_map = Misc.Stdlib.String.Map
 module H = Diagnostic_history
 
-type empty = Empty_tag
 type polarity = Positive | Negative
 type _ extension = ..
 
@@ -75,7 +74,6 @@ let version_range field = field.range
 let field_name f = f.name
 let field_type field = field.typ
 let is_optional r = r.optional
-let empty () = ref Label_map.empty
 
 let destruct c f =
   let rec expand (Constr c) =
@@ -140,7 +138,7 @@ and with_parens: type a. Format.formatter -> a typ -> unit = fun ppf elt ->
   if parens_needed then Format.fprintf ppf "(%a)" pp_typ elt else pp_typ ppf elt
 
 let label_metadata ~optional update typ = {
-    status = Diagnostic_history.(range @@ v update);
+    status = H.(Lifetime.make @@ v update);
     optional;
     ltyp = T typ
   }
@@ -188,10 +186,10 @@ module type Record = sig
   val new_field_opt: vl update  -> string -> 'a typ -> 'a field
   val make_required: vl update -> 'a field -> unit
   type record_fragment
-  val (^=): 'a field -> 'a -> record_fragment
-  val (^=?): 'a field -> 'a option -> record_fragment
   val make:
     Diagnostic_history.version option -> record_fragment list -> definition
+  val (^=): 'a field -> 'a -> record_fragment
+  val (^=?): 'a field -> 'a option -> record_fragment
 end
 
 type ('elt,'id) constructor =
@@ -239,15 +237,15 @@ module type Sum = sig
      and type definition := id sum
      and type 'a label := 'a constructor
   val app: version option -> 'a constructor -> 'a -> raw_type
+  val new_constr: vl update -> string -> 'a typ -> 'a constructor
+  val new_constr0: vl update -> string -> unit constructor
 
   val refine:
     vl update -> 'a constructor -> ('b -> 'a)
     -> string -> 'b typ -> 'b constructor
-  val new_constr: vl update -> string -> 'a typ -> 'a constructor
-  val new_constr0: vl update -> string -> unit constructor
-  val publish: vl update -> 'a constructor -> 'a constructor
   val expand:
     vl update -> 'a constructor -> ('b->'a) -> 'b typ -> 'b constructor
+  val publish: vl update -> 'a constructor -> 'a constructor
 end
 
 
@@ -295,13 +293,13 @@ let register_constructor_inception u old new_name new_typ scheme =
         typ = Format.asprintf "%a" pp_typ new_typ
       }
     );
-  let status = H.(prerange @@ v u) in
+  let status = H.(Lifetime.make ~published:false @@ v u) in
   let lmd = label_metadata ~optional:false u new_typ in
   scheme.!(new_name) <- { lmd with status }
 
 let register_constructor_publication u name scheme =
   let&? kmd = scheme.?(name) in
-  begin match H.stage kmd.status with
+  begin match H.Lifetime.stage kmd.status with
   | Inception -> ()
   | _ -> H.error u scheme.scheme_name (Invalid_publication name)
   end;
@@ -337,7 +335,7 @@ end
 module Record_construction = struct
   type 'a bfield = version option -> 'a bound_field option
   let field f x v =
-    match H.stage_at v f.range with
+    match H.Lifetime.stage_at v f.range with
     | Inception | Publication | Expansion | Deprecation -> Some (F(f,x))
     | Future | Deletion -> None
   let opt_field f x v = match x with
@@ -360,6 +358,7 @@ end
 
 module Record_introspection = struct
   open Record_construction
+  let empty () = ref Label_map.empty
   let fields x = !x
   let all_fields x = Seq.map snd @@ Label_map.to_seq (fields x)
 
@@ -420,7 +419,7 @@ module New_record(Vl:H.S)(Info:Info with type vl:=Vl.id)() = struct
       typ = ty;
       opt;
       id = Type.Id.make ();
-      range = H.(range @@ v u)
+      range = H.(Lifetime.make @@ v u)
     }
   let new_field_opt v name ty = new_field ~opt:true v name ty
   let deprecate u f =
@@ -494,7 +493,7 @@ module Metadata = New_record(Metadata_versions)(struct
   end)()
 let universal_metafield () =
   {
-    range = H.(range @@ v Metadata_versions.v1);
+    range = H.(Lifetime.make @@ v Metadata_versions.v1);
     name = "metadata";
     opt=false;
     typ = Metadata.raw_type;

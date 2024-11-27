@@ -69,38 +69,36 @@ module Lifetime = struct
       | None -> last_change r (prev p)
       | Some _ -> p
 
-  let rec stage v current r =
+  let rec stage_after v current r =
     if current = Deletion then current else
       match after r (next current) with
       | None -> current
       | Some (p,v1) ->
           if v < v1 then current
           else if v = v1 then p
-          else stage v (next p) r
+          else stage_after v (next p) r
+
+  let stage_at v r =
+    match v, after r Inception with
+    | Some _, None -> assert false
+    | None, _ -> Publication
+    | Some v, Some (p,v1) ->
+        if v < v1 then Future
+        else if v = v1 then p
+        else stage_after v p r
+  let stage r = last_change r Deletion
+
+
+  let make ?deprecation ?deletion ?expansion ?(published=true) inception =
+    let inception = Some inception in
+    let inception, publication =
+      if published then None, inception else inception, None
+    in
+    { inception; publication; expansion; deprecation; deletion }
 end
 
 
-let stage r = Lifetime.(last_change r Deletion)
 
-let stage_at v r =
-  let open Lifetime in
-  match v, after r Inception with
-  | Some _, None -> assert false
-  | None, _ -> Publication
-  | Some v, Some (p,v1) ->
-      if v < v1 then Future
-      else if v = v1 then p
-      else Lifetime.stage v p r
-
-let range ?deprecation ?deletion ?expansion publication ={
-  Lifetime.inception = None; publication=Some publication;
-  expansion; deprecation; deletion
-}
-
-let prerange ?deprecation ?deletion ?expansion ?publication r = {
-  Lifetime.inception=Some r; publication;
-  expansion; deprecation; deletion
-}
 
 
 type error =

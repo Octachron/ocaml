@@ -33,17 +33,16 @@ type _ extension = ..
 
 (** Basic type representation *)
 type 'a typ =
-  (** Primitive type *)
-  | Unit: unit typ
+  | Unit: unit typ   (** Primitive types *)
   | Bool: bool typ
   | Int: int typ
   | Float: float typ
   | String: string typ
-  (** Combinators *)
-  | List: 'a typ -> 'a list typ
+
+  | List: 'a typ -> 'a list typ (** Combinators *)
+  | Pair: 'a typ * 'b typ -> ('a * 'b) typ
   (** Specialize {2,3,4}-tuples to avoid defining tuples as heterogeneous
       lists*)
-  | Pair: 'a typ * 'b typ -> ('a * 'b) typ
   | Triple: 'a typ * 'b typ * 'c typ -> ('a * 'b * 'c) typ
   | Quadruple: 'a typ * 'b typ * 'c typ * 'd typ ->
       ('a * 'b * 'c * 'd) typ
@@ -204,6 +203,7 @@ type label_metadata = {
 }
 
 module Record_introspection: sig
+  val empty: unit -> 'id record
   val all_fields: 'id record -> 'id bound_field Seq.t
   val get: 'r record -> ('ty,'r) field -> 'ty option
   val dynamic_get: 'r record -> string -> typed_val option

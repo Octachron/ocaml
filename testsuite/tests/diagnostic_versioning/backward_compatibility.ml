@@ -51,17 +51,17 @@ module S :
     val seal : V.id Diagnostic.update -> unit
     val app :
       Diagnostic_history.version option -> 'a constructor -> 'a -> raw_type
+    val new_constr :
+      V.id Diagnostic.update -> string -> 'a Diagnostic.typ -> 'a constructor
+    val new_constr0 : V.id Diagnostic.update -> string -> unit constructor
     val refine :
       V.id Diagnostic.update ->
       'a constructor ->
       ('b -> 'a) -> string -> 'b Diagnostic.typ -> 'b constructor
-    val new_constr :
-      V.id Diagnostic.update -> string -> 'a Diagnostic.typ -> 'a constructor
-    val new_constr0 : V.id Diagnostic.update -> string -> unit constructor
-    val publish : V.id Diagnostic.update -> 'a constructor -> 'a constructor
     val expand :
       V.id Diagnostic.update ->
       'a constructor -> ('b -> 'a) -> 'b Diagnostic.typ -> 'b constructor
+    val publish : V.id Diagnostic.update -> 'a constructor -> 'a constructor
   end
 |}]
 
@@ -127,10 +127,10 @@ module Inline_b :
       V.id Diagnostic.update -> string -> 'a Diagnostic.typ -> 'a field
     val make_required : V.id Diagnostic.update -> 'a field -> unit
     type record_fragment
+    val make :
+      Diagnostic.version option -> record_fragment list -> definition
     val ( ^= ) : 'a field -> 'a -> record_fragment
     val ( ^=? ) : 'a field -> 'a option -> record_fragment
-    val make :
-      Diagnostic_history.version option -> record_fragment list -> definition
   end
 val ib_contents : unit Inline_b.field = <abstr>
 val maybe : bool Inline_b.field = <abstr>
@@ -212,10 +212,10 @@ module R :
       V.id Diagnostic.update -> string -> 'a Diagnostic.typ -> 'a field
     val make_required : V.id Diagnostic.update -> 'a field -> unit
     type record_fragment
+    val make :
+      Diagnostic.version option -> record_fragment list -> definition
     val ( ^= ) : 'a field -> 'a -> record_fragment
     val ( ^=? ) : 'a field -> 'a option -> record_fragment
-    val make :
-      Diagnostic_history.version option -> record_fragment list -> definition
   end
 val s : s R.field = <abstr>
 val x : int R.field = <abstr>
@@ -268,9 +268,9 @@ val rx : Diagnostic_history.Lifetime.t =
 
 
 let xst =
-  H.stage_at (Some v1_0) (version_range x),
-  H.stage_at (Some v1_1) (version_range x),
-  H.stage_at (Some v2_0) (version_range x)
+  H.Lifetime.stage_at (Some v1_0) (version_range x),
+  H.Lifetime.stage_at (Some v1_1) (version_range x),
+  H.Lifetime.stage_at (Some v2_0) (version_range x)
 [%%expect {|
 val xst : H.Lifetime.point * H.Lifetime.point * H.Lifetime.point =
   (H.Lifetime.Publication, H.Lifetime.Deprecation, H.Lifetime.Deletion)

@@ -123,7 +123,7 @@ type 'a t = 'a log
 
 (** {1:log_scheme_versionning  Current version of the log } *)
 
-let delayed_mode output = Delayed { store=Diagnostic.empty (); output }
+let delayed_mode output = Delayed { store=R.empty (); output }
 
 let make ~streaming ~printer settings version scheme output =
   let mode =
@@ -168,7 +168,7 @@ let generic_detach label_scheme ~set ~lift ~extract log
           match Option.bind (R.get store field) extract with
           | Some store -> store
           | None ->
-              let field_store = D.empty () in
+              let field_store = R.empty () in
               set store (V.exact_version log.version) ~field (lift field_store);
               field_store
         in
@@ -203,8 +203,8 @@ let set (field: _ D.field) x log =
       let status = match D.field_info log.scheme field with
         | Some lmd ->
             let v = V.reference_version version in
-            H.stage_at (Some v) lmd.status
-        | None -> Diagnostic_history.Lifetime.Deletion
+            H.Lifetime.stage_at (Some v) lmd.status
+        | None -> H.Lifetime.Deletion
       in
       match status with
       | Deletion | Future -> ()
