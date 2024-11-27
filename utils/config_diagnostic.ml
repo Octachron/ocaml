@@ -104,7 +104,7 @@ let print log =
 let var x =
   let log = Log.tmp scheme in
   let () = log_variables log in
-  match Log.dynamic_get x log with
+  match Log.dynamic_get log x with
   | None -> None
   | Some (Diagnostic.V (ty,v)) ->
       let s = match ty with

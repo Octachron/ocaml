@@ -195,7 +195,7 @@ let detach_item log field =
     ~extract:(Fun.const None)
     log field
 
-let set (field: _ D.field) x log =
+let set log (field: _ D.field) x =
   let version = log.version in
   match log.mode with
   | Delayed {store; _} -> R.set store (V.exact_version version) ~field x
@@ -215,26 +215,26 @@ let set (field: _ D.field) x log =
           Format.fprintf ppf "@[<v>%a@,@]%!"
             log.printer.item (D.field_name field, D.V(D.field_type field,x))
 
-let cons field x log =
+let cons log field x =
   match log.mode with
-  | Streaming _ -> set field [x] log
+  | Streaming _ -> set log field [x]
   | Delayed {store;_} -> R.cons store (V.exact_version log.version) ~field x
 
-let (.%[]<-) log field x = set field x log
+let (.%[]<-) log field x = set log field x
 
-let get field log = match log_store log with
+let get log field = match log_store log with
   | None -> None
   | Some store -> R.get store field
 
-let dynamic_get field log = match log_store log with
+let dynamic_get log field = match log_store log with
   | None -> None
   | Some store -> R.dynamic_get store field
 
 let f field log fmt = Format.kasprintf (fun s -> log.%[field] <- s) fmt
-let itemf field log fmt = Format.kasprintf (fun s -> cons field s log) fmt
+let itemf field log fmt = Format.kasprintf (cons log field) fmt
 
-let d field log fmt = Format_doc.kdoc_printf (fun s -> log.%[field] <- s) fmt
-let itemd field log fmt = Format_doc.kdoc_printf (fun s -> cons field s log) fmt
+let d field log fmt = Format_doc.kdoc_printf (set log field) fmt
+let itemd field log fmt = Format_doc.kdoc_printf (cons log field) fmt
 
 let flush: type a. a log -> unit = fun log ->
   begin match log.mode with
@@ -262,7 +262,7 @@ let close: type a. a log -> unit = fun log ->
 
 let close log = flush log; close log
 
-let replay source dest =
+let replay ~source ~dest =
   match log_store source with
   | None -> ()
   | Some store ->

@@ -325,7 +325,7 @@ let remove_installed_printer path =
         Printtyp.path path
     in Error report
 
-let log_error log report = Log.cons Toplevel_diagnostic.errors report log
+let log_error log report = Log.cons log Toplevel_diagnostic.errors report
 
 let dir_install_printer log lid =
   match find_printer lid with

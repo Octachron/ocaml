@@ -1074,13 +1074,13 @@ let temporary_log () = Log.tmp Compiler_diagnostic.scheme
 let log_on_device ?prev device =
   let log = create_log device in
   current_log := log;
-  Option.iter (fun prev -> Log.replay prev log) prev;
+  Option.iter (fun prev -> Log.replay ~source:prev ~dest:log) prev;
   log
 
 let log_warning loc log w =
-  match report_warning loc w with
-  | None -> ()
-  | Some report -> Log.( cons Error_diagnostic.warnings report log )
+  Option.iter
+    (Log.cons log Error_diagnostic.warnings)
+    (report_warning loc w)
 
 let prerr_warning loc w = log_warning loc !current_log w
 
