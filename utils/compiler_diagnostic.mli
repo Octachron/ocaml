@@ -14,26 +14,35 @@
 (**************************************************************************)
 
 module D := Diagnostic
+
+(** Compiler diagnostic version line *)
 module V: Diagnostic_history.S
 module type Record = D.Record with type vl := V.id
 module type Sum = D.Sum with type vl := V.id
 
 type doc = Format_doc.doc
+
 module Structured_text: sig
   module Format_tag: Sum
   type _ D.extension += Doc: Format_doc.Doc.t D.extension
 
+  (** [register_tag0 stag] add a new constructor of arity [0] to [Format_tag]
+      for a [Format.stag] constructor. *)
+  val register_tag0:
+    V.id Diagnostic.update -> Obj.Extension_constructor.t
+    -> unit
+
+    (** [register_tag tag conv] registers a translation function for a
+      [Format.stag] argument to a pre-existing [Format_tag] variant. *)
   val register_tag:
     Obj.Extension_constructor.t
     -> (Diagnostic.version option -> Format.stag -> Format_tag.id D.sum)
-    -> unit
-  val register_tag0:
-    V.id Diagnostic.update -> Obj.Extension_constructor.t
     -> unit
 
   val typ: doc D.typ
 end
 
+(** Debugging output enabled with [-d...] flags (e.g [-dsource]) *)
 module Debug: sig
   include Record
   val source: string field
@@ -57,6 +66,7 @@ module Debug: sig
   val cmm_invariant: string field
 end
 
+(** Error report record, the related fields are defined in {!Location} *)
 module Error: Record
 
 include Record
