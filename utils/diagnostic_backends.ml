@@ -15,12 +15,11 @@
 
 open Diagnostic
 type version = Diagnostic_history.version
-module Fmt = struct
 
-  type 'a printer = Format.formatter -> 'a -> unit
-  type pr = Format.formatter -> unit
-  type extension_printer =
-  { extension: 'b. 'b Diagnostic.extension -> 'b printer option}
+type 'a printer = Format.formatter -> 'a -> unit
+type pr = Format.formatter -> unit
+
+module Pp = struct
 
   type list_convention = {
     list_open: pr;
@@ -81,7 +80,6 @@ module Fmt = struct
     Format.pp_print_list ~pp_sep (fun ppf pr -> pr ppf) ppf prs;
     if not inline then conv.list.list_close ppf
 
-
   let record conv fields ppf =
     if List.is_empty fields then () else begin
       conv.assoc.assoc_open ppf;
@@ -90,8 +88,96 @@ module Fmt = struct
       conv.assoc.assoc_close ppf
     end
 
+
+  let direct = {
+    atom = (fun _s -> ignore);
+    string = Format.pp_print_string;
+    list = {
+      list_open = ignore;
+      list_close = ignore ;
+      sep = Format.dprintf "@ ";
+    };
+    assoc = {
+      assoc_open = Format.dprintf "@[<v>";
+      assoc_close = Format.dprintf "@]";
+      open_with_label = ignore;
+      label_sep = ignore;
+      sep = (fun ppf () -> Format.fprintf ppf "@,");
+      close_with_label = ignore;
+    }
+  }
+
+  let direct_with_fields =
+    let assoc =
+      { direct.assoc with label_sep = Format.dprintf ": " }
+    in
+    { direct with atom = Format.dprintf "%s"; assoc  }
+
+  let sexp =
+    let list_open = Format.dprintf "@[<hov 1>("
+    and list_close = Format.dprintf "@,)@]"
+    and sep = Format.dprintf "@ " in
+    {
+      atom = (fun s ppf -> Format.pp_print_string ppf s);
+      string = escape_string;
+      list = {list_open; list_close; sep };
+      assoc = {
+        assoc_open = list_open;
+        assoc_close = list_close;
+        open_with_label = Format.dprintf "@[<hov 1>(";
+        sep = (fun ppf () -> sep ppf);
+        label_sep = sep;
+        close_with_label = Format.dprintf "@;<0 -1>)@]";
+      }
+    }
+
+  let json =
+    {
+      string = escape_string;
+      atom = (fun s ppf -> escape_string ppf s);
+      list = {
+        list_open=Format.dprintf "@[<b 2>[";
+        list_close = Format.dprintf "]@]";
+        sep = Format.dprintf ",@ ";
+      };
+      assoc = {
+        assoc_open = Format.dprintf "@[<hv 2>{@ ";
+        assoc_close = Format.dprintf "@;<0 -2>}@]";
+        open_with_label = Format.dprintf "@[<b 2>";
+        label_sep = Format.dprintf "@ :@ ";
+        sep = (fun ppf () -> Format.fprintf ppf ",@ ");
+        close_with_label = Format.dprintf "@]";
+      }
+    }
+
+
+end
+
+module Fmt = struct
+
+  type extension_printer =
+    { extension: 'b. 'b Diagnostic.extension -> 'b printer option}
+
+  let no_extension = { extension = fun _ -> None }
+  let doc_printer (type a): a extension -> a printer option =
+    function
+    | Compiler_diagnostic.Structured_text.Doc -> Some Format_doc.Doc.format
+    | _ -> None
+  let doc_extension = { extension = doc_printer  }
+  let chain_extensions x y =
+    let chain ext =
+      match x.extension ext with
+      | None -> y.extension ext
+      |  Some _ as p -> p
+    in
+    { extension = chain }
+
+  let extensions = ref doc_extension
+  let add_extension x =
+    extensions := chain_extensions x !extensions
+
   type ctx = {
-    conv:conv;
+    conv:Pp.conv;
     ext_printer:extension_printer;
     version:Diagnostic.version option
   }
@@ -103,6 +189,7 @@ module Fmt = struct
     | Custom r -> scrap_custom v r.default (r.pull v x)
     | t -> V(t,x)
 
+  open Pp
   let rec elt : type a. ?inline:bool -> ctx -> a Diagnostic.typ -> a -> pr =
     fun ?(inline=false) ctx typ x ppf ->
     match typ with
@@ -198,87 +285,6 @@ module Fmt = struct
   and elt_record: type p. ctx -> (string list * p Diagnostic.record) -> pr =
     fun ctx x -> record ctx.conv (fields ctx x)
 
-
-  let direct = {
-    atom = (fun _s -> ignore);
-    string = Format.pp_print_string;
-    list = {
-      list_open = ignore;
-      list_close = ignore ;
-      sep = Format.dprintf "@ ";
-    };
-    assoc = {
-      assoc_open = Format.dprintf "@[<v>";
-      assoc_close = Format.dprintf "@]";
-      open_with_label = ignore;
-      label_sep = ignore;
-      sep = (fun ppf () -> Format.fprintf ppf "@,");
-      close_with_label = ignore;
-    }
-  }
-
-  let direct_with_fields =
-    let assoc =
-      { direct.assoc with label_sep = Format.dprintf ": " }
-    in
-    { direct with atom = Format.dprintf "%s"; assoc  }
-
-  let sexp =
-    let list_open = Format.dprintf "@[<hov 1>("
-    and list_close = Format.dprintf "@,)@]"
-    and sep = Format.dprintf "@ " in
-    {
-      atom = (fun s ppf -> Format.pp_print_string ppf s);
-      string = escape_string;
-      list = {list_open; list_close; sep };
-      assoc = {
-        assoc_open = list_open;
-        assoc_close = list_close;
-        open_with_label = Format.dprintf "@[<hov 1>(";
-        sep = (fun ppf () -> sep ppf);
-        label_sep = sep;
-        close_with_label = Format.dprintf "@;<0 -1>)@]";
-      }
-    }
-
-  let json =
-    {
-      string = escape_string;
-      atom = (fun s ppf -> escape_string ppf s);
-      list = {
-        list_open=Format.dprintf "@[<b 2>[";
-        list_close = Format.dprintf "]@]";
-        sep = Format.dprintf ",@ ";
-      };
-      assoc = {
-        assoc_open = Format.dprintf "@[<hv 2>{@ ";
-        assoc_close = Format.dprintf "@;<0 -2>}@]";
-        open_with_label = Format.dprintf "@[<b 2>";
-        label_sep = Format.dprintf "@ :@ ";
-        sep = (fun ppf () -> Format.fprintf ppf ",@ ");
-        close_with_label = Format.dprintf "@]";
-      }
-    }
-
-
-  let no_extension = { extension = fun _ -> None }
-  let doc_printer (type a): a extension -> a printer option =
-    function
-    | Compiler_diagnostic.Structured_text.Doc -> Some Format_doc.Doc.format
-    | _ -> None
-  let doc_extension = { extension = doc_printer  }
-  let chain_extensions x y =
-    let chain ext =
-      match x.extension ext with
-      | None -> y.extension ext
-      |  Some _ as p -> p
-    in
-    { extension = chain }
-
-  let extensions = ref doc_extension
-  let add_extension x =
-    extensions := chain_extensions x !extensions
-
 end
 
   let with_conv ~streaming ~extension conv settings version ppf scheme =
@@ -295,7 +301,7 @@ end
             Fmt.fields ctx (["metadata"],r) in
           meta @ Fmt.fields ctx (field_names,r)
         in
-        Format.fprintf ppf "%t@." (Fmt.record ctx.conv fields)
+        Format.fprintf ppf "%t@." (Pp.record ctx.conv fields)
     in
     let item ppf (name, V(typ,r)) =
       Fmt.elt_item ctx ~key:name typ r ppf
@@ -306,15 +312,15 @@ end
     with_conv ~streaming:false ~extension:Fmt.no_extension conv
       color version device sch
   let sexp ?color ~version ~device sch =
-    structured Fmt.sexp ?color ~version ~device sch
+    structured Pp.sexp ?color ~version ~device sch
   let json ?color ~version ~device sch =
-    structured Fmt.json ?color ~version ~device sch
+    structured Pp.json ?color ~version ~device sch
   let direct ?color ~version ~device sch =
     with_conv ~streaming:true ~extension:(!Fmt.extensions)
-      Fmt.direct color version device sch
+      Pp.direct color version device sch
   let direct_with_fields ?color ~version ~device sch =
     with_conv ~streaming:true ~extension:(!Fmt.extensions)
-      Fmt.direct_with_fields color version device sch
+      Pp.direct_with_fields color version device sch
 
 
   type t = {
@@ -326,155 +332,3 @@ end
   let fmt_with_fields = { name="direct_with_fields"; make = direct_with_fields }
   let sexp = { name="sexp" ; make = sexp }
   let json = { name = "json"; make = json }
-
-
-module Json_schema = struct
-  open Fmt
-  let string s ppf = Format.fprintf ppf "%S" s
-  let bool = Fmt.bool json
-  let item = Fmt.item json
-  let header name  =
-      [
-        (item ~key:"$schema" @@
-         string "https://json-schema.org/draft/2020-12/schema");
-        (item ~key:"$id" @@ string @@
-         Format.asprintf "https://github.com/ocaml/schema/%s.schema.json"
-           name);
-      ]
-
-  let tfield  x = item ~key:"type" (string x)
-  let obj prs = record json prs
-  let array prs = list json prs
-
-  let sref x =
-    item ~key:"$ref" @@ Format.dprintf {|"#/$defs/%s"|} (scheme_name x)
-
-  let rec typ: type a b. a typ -> Format.formatter -> unit = function
-    | Int -> tfield {|integer|}
-    | Bool -> tfield {|boolean|}
-    | Unit -> tfield {|int|}
-    | String -> tfield {|string|}
-    | Float -> tfield "number"
-    | List e ->
-        Format.dprintf "%t,@ %t"
-          (tfield  {|array|})
-          (item ~key:"items" @@ obj [typ e] )
-    | Pair (x,y) -> tuple_typ [typ x; typ y]
-    | Triple (x,y,z) -> tuple_typ [typ x; typ y; typ z]
-    | Quadruple (x,y,z,w) -> tuple_typ [typ x;typ y; typ z; typ w]
-    | Sum x -> sref x
-    | Record x -> sref x
-    | Custom x -> typ x.default
-  and tuple_typ = fun l ->
-    Format.dprintf "%t,@ %t"
-      (tfield  {|array|})
-      (item ~key:"prefixItems" @@ array @@
-       List.map (fun x -> obj [x]) l
-      )
-
-  let const name = item ~key:"const" @@ string name
-  let sum x =
-    let constructor (name, kty) =
-      match kty.ltyp with
-      | T Unit -> obj [const name]
-      | T (Pair(x,y)) -> obj [tuple_typ [const name; typ x; typ y]]
-      | T (Triple(x,y,z)) -> obj [tuple_typ [const name; typ x; typ y; typ z]]
-      | T (Quadruple(x,y,z,w)) ->
-          obj [tuple_typ [const name; typ x; typ y; typ z; typ w]]
-      | T ty -> obj [tuple_typ [const name; typ ty]]
-    in
-    obj [ item ~key:"oneOf" (array (List.map constructor (field_infos x))) ]
-
-  let field v (key, {status; ltyp=T ty; _ }) =
-    match v with
-    | None -> Some (item ~key (obj [typ ty]))
-    | Some _ as v ->
-        let stage = Diagnostic_history.Lifetime.stage_at v status in
-        match stage with
-        | Future | Deletion -> None
-        | _ ->
-              let typ = typ ty in
-              let fields =
-                match stage with
-                | Deprecation ->
-                    let deprecated = item ~key:"deprecated" (bool true) in
-                    [typ; deprecated]
-                | _ -> [typ]
-              in
-              Some (item ~key (obj fields))
-
-  let fields v x = List.filter_map (field v) x
-
-  let required_fields x =
-    List.filter_map
-      (fun (k, kinfo) -> if is_optional kinfo then None else Some(string k))
-      x
-
-  let obj_typ = item ~key:"type" (string "object")
-
-  let schema_field =
-    item ~key:"schema" @@ obj [obj_typ]
-
-  let record_fields v x =
-    [
-      obj_typ;
-      item ~key:"properties" @@ obj (fields v x);
-      item ~key:"required" @@ array (required_fields x)
-    ]
-
-  let simple_record x = obj (record_fields None x)
-
-  module String_map = Misc.Stdlib.String.Map
-  let union map a = List.fold_left (fun m add -> add m) map a
-  let rec refs: type a.
-    a typ -> ((Format.formatter -> unit) String_map.t as 'r) -> 'r  =
-    fun ty map -> match ty with
-      | Sum x ->
-          let name = scheme_name x in
-          if String_map.mem name map then map
-          else
-            let map = String_map.add (scheme_name x) (sum x) map in
-            subrefs (field_infos x) map
-      | Record x ->
-          let name = scheme_name x in
-          if String_map.mem name map then map
-          else
-            let fields = field_infos x in
-            let map = String_map.add name (simple_record fields) map in
-            subrefs fields map
-      | Int -> map
-      | Bool -> map
-      | String -> map
-      | Unit -> map
-      | Float -> map
-      | List elt -> refs elt map
-      | Pair (x,y) -> union map [refs x; refs y]
-      | Triple (x,y,z) -> union map [refs x; refs y; refs z]
-      | Quadruple (x,y,z,w) -> union map [refs x; refs y; refs z; refs w]
-      | Custom t -> refs t.default map
-  and subrefs: type a.
-    (string * label_metadata) list ->
-    ((Format.formatter -> unit) String_map.t as 'm) -> 'm
-    = fun keys map ->
-      union map @@
-      List.map (fun (_, { ltyp = T t; _}) -> refs t) keys
-
-   let pp v sch ppf =
-     let keys = metakey :: field_infos sch in
-     let defs = match String_map.bindings (subrefs keys String_map.empty) with
-       | [] -> []
-       | defs ->
-           let prs = List.map (fun (key,pr) -> item ~key pr) defs in
-           [item ~key:"$defs" @@ obj prs]
-     in
-     obj (
-       header (scheme_name sch)
-       @ defs
-       @ schema_field :: record_fields v keys
-     ) ppf
-
-  let pp_log ppf log =
-    let sch = Log.log_scheme log in
-    pp (Log.log_version log) sch ppf
-
-  end

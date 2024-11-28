@@ -24,7 +24,155 @@ let log_schemas = [
   "compiler";
   "toplevel"; "error"; "kind"; "msg"; ]
 
-module JSchema = Diagnostic_backends.Json_schema
+module JSchema = struct
+  module Pp = Diagnostic_backends.Pp
+  open Diagnostic
+  open Pp
+  let string s ppf = Format.fprintf ppf "%S" s
+  let bool = Pp.bool json
+  let item = Pp.item json
+  let header name  =
+      [
+        (item ~key:"$schema" @@
+         string "https://json-schema.org/draft/2020-12/schema");
+        (item ~key:"$id" @@ string @@
+         Format.asprintf "https://github.com/ocaml/schema/%s.schema.json"
+           name);
+      ]
+
+  let tfield  x = item ~key:"type" (string x)
+  let obj prs = record json prs
+  let array prs = list json prs
+
+  let sref x =
+    item ~key:"$ref" @@ Format.dprintf {|"#/$defs/%s"|} (scheme_name x)
+
+  let rec typ: type a b. a typ -> Format.formatter -> unit = function
+    | Int -> tfield {|integer|}
+    | Bool -> tfield {|boolean|}
+    | Unit -> tfield {|int|}
+    | String -> tfield {|string|}
+    | Float -> tfield "number"
+    | List e ->
+        Format.dprintf "%t,@ %t"
+          (tfield  {|array|})
+          (item ~key:"items" @@ obj [typ e] )
+    | Pair (x,y) -> tuple_typ [typ x; typ y]
+    | Triple (x,y,z) -> tuple_typ [typ x; typ y; typ z]
+    | Quadruple (x,y,z,w) -> tuple_typ [typ x;typ y; typ z; typ w]
+    | Sum x -> sref x
+    | Record x -> sref x
+    | Custom x -> typ x.default
+  and tuple_typ = fun l ->
+    Format.dprintf "%t,@ %t"
+      (tfield  {|array|})
+      (item ~key:"prefixItems" @@ array @@
+       List.map (fun x -> obj [x]) l
+      )
+
+  let const name = item ~key:"const" @@ string name
+  let sum x =
+    let constructor (name, kty) =
+      match kty.ltyp with
+      | T Unit -> obj [const name]
+      | T (Pair(x,y)) -> obj [tuple_typ [const name; typ x; typ y]]
+      | T (Triple(x,y,z)) -> obj [tuple_typ [const name; typ x; typ y; typ z]]
+      | T (Quadruple(x,y,z,w)) ->
+          obj [tuple_typ [const name; typ x; typ y; typ z; typ w]]
+      | T ty -> obj [tuple_typ [const name; typ ty]]
+    in
+    obj [ item ~key:"oneOf" (array (List.map constructor (field_infos x))) ]
+
+  let field v (key, {status; ltyp=T ty; _ }) =
+    match v with
+    | None -> Some (item ~key (obj [typ ty]))
+    | Some _ as v ->
+        let stage = Diagnostic_history.Lifetime.stage_at v status in
+        match stage with
+        | Future | Deletion -> None
+        | _ ->
+              let typ = typ ty in
+              let fields =
+                match stage with
+                | Deprecation ->
+                    let deprecated = item ~key:"deprecated" (bool true) in
+                    [typ; deprecated]
+                | _ -> [typ]
+              in
+              Some (item ~key (obj fields))
+
+  let fields v x = List.filter_map (field v) x
+
+  let required_fields x =
+    List.filter_map
+      (fun (k, kinfo) -> if is_optional kinfo then None else Some(string k))
+      x
+
+  let obj_typ = item ~key:"type" (string "object")
+
+  let schema_field =
+    item ~key:"schema" @@ obj [obj_typ]
+
+  let record_fields v x =
+    [
+      obj_typ;
+      item ~key:"properties" @@ obj (fields v x);
+      item ~key:"required" @@ array (required_fields x)
+    ]
+
+  let simple_record x = obj (record_fields None x)
+
+  module String_map = Misc.Stdlib.String.Map
+  let union map a = List.fold_left (fun m add -> add m) map a
+  let rec refs: type a.
+    a typ -> ((Format.formatter -> unit) String_map.t as 'r) -> 'r  =
+    fun ty map -> match ty with
+      | Sum x ->
+          let name = scheme_name x in
+          if String_map.mem name map then map
+          else
+            let map = String_map.add (scheme_name x) (sum x) map in
+            subrefs (field_infos x) map
+      | Record x ->
+          let name = scheme_name x in
+          if String_map.mem name map then map
+          else
+            let fields = field_infos x in
+            let map = String_map.add name (simple_record fields) map in
+            subrefs fields map
+      | Int -> map
+      | Bool -> map
+      | String -> map
+      | Unit -> map
+      | Float -> map
+      | List elt -> refs elt map
+      | Pair (x,y) -> union map [refs x; refs y]
+      | Triple (x,y,z) -> union map [refs x; refs y; refs z]
+      | Quadruple (x,y,z,w) -> union map [refs x; refs y; refs z; refs w]
+      | Custom t -> refs t.default map
+  and subrefs: type a.
+    (string * label_metadata) list ->
+    ((Format.formatter -> unit) String_map.t as 'm) -> 'm
+    = fun keys map ->
+      union map @@
+      List.map (fun (_, { ltyp = T t; _}) -> refs t) keys
+
+   let pp v sch ppf =
+     let keys = metakey :: field_infos sch in
+     let defs = match String_map.bindings (subrefs keys String_map.empty) with
+       | [] -> []
+       | defs ->
+           let prs = List.map (fun (key,pr) -> item ~key pr) defs in
+           [item ~key:"$defs" @@ obj prs]
+     in
+     obj (
+       header (scheme_name sch)
+       @ defs
+       @ schema_field :: record_fields v keys
+     ) ppf
+
+  end
+
 
 let args =
   [ "-json-schema", Arg.Symbol (log_schemas, fun x -> json_schema := Some x),

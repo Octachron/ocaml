@@ -14,8 +14,24 @@
 (**************************************************************************)
 
 open Log
+
+type 'a printer = Format.formatter -> 'a -> unit
+type pr = Format.formatter -> unit
+
+module Pp: sig
+  type conv
+  val json: conv
+  val sexp: conv
+
+(*   val int: conv -> int printer *)
+  val bool: conv -> bool -> pr
+  val item: conv -> key:string -> pr -> pr
+  val list: conv -> pr list -> pr
+  val tuple: inline:bool -> conv -> pr list -> pr
+  val record: conv -> pr list -> pr
+end
+
 module Fmt: sig
-  type 'a printer = Format.formatter -> 'a -> unit
   type extension_printer =
     { extension: 'b. 'b Diagnostic.extension -> 'b printer option}
   val add_extension: extension_printer -> unit
@@ -31,10 +47,3 @@ val fmt: t
 val fmt_with_fields:t
 val json: t
 val sexp: t
-
-
-module Json_schema:sig
-  val pp_log: Format.formatter -> 'a log -> unit
-  val pp:
-    Diagnostic.version option -> 'a Diagnostic.t -> Format.formatter -> unit
-end
