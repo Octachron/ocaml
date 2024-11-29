@@ -153,10 +153,10 @@ module Pp = struct
 
 end
 
-module Fmt = struct
-
   type extension_printer =
     { extension: 'b. 'b Diagnostic.extension -> 'b printer option}
+
+module Fmt = struct
 
   let no_extension = { extension = fun _ -> None }
   let doc_printer (type a): a extension -> a printer option =
@@ -330,5 +330,6 @@ end
   }
   let fmt = { name="direct"; make = direct }
   let fmt_with_fields = { name="direct_with_fields"; make = direct_with_fields }
+  let add_extension = Fmt.add_extension
   let sexp = { name="sexp" ; make = sexp }
   let json = { name = "json"; make = json }

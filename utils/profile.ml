@@ -361,7 +361,7 @@ let () =
     | Profile_report.Profile -> Some (fun ppf (_,rows) -> print ppf rows)
     | _ -> None
   in
-  Diagnostic_backends.Fmt.add_extension { extension }
+  Diagnostic_backends.add_extension { extension }
 
 
 let column_names = List.map fst column_mapping

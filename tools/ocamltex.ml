@@ -172,7 +172,7 @@ module Toplevel = struct
     | Location.Error_diagnostic.Error -> Some pp_report
     | _ -> None
 
-  let () = Diagnostic_backends.Fmt.add_extension { extension = error_extension }
+  let () = Diagnostic_backends.add_extension { extension = error_extension }
 
   let fatal ic oc fmt =
     Format.kfprintf

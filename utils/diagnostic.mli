@@ -29,6 +29,8 @@ type ('id,'a) field
 type !'id sum
 type !'a record
 
+(** Extensions identify specific custom types in order to let log backends
+    implement ad-hoc printing functions for those types.*)
 type _ extension = ..
 
 (** Basic type representation *)
@@ -41,7 +43,7 @@ type 'a typ =
 
   | List: 'a typ -> 'a list typ (** Combinators *)
   | Pair: 'a typ * 'b typ -> ('a * 'b) typ
-  (** Specialize {2,3,4}-tuples to avoid defining tuples as heterogeneous
+  (** Specialize (2,3,4)-tuples to avoid defining tuples as heterogeneous
       lists*)
   | Triple: 'a typ * 'b typ * 'c typ -> ('a * 'b * 'c) typ
   | Quadruple: 'a typ * 'b typ * 'c typ * 'd typ ->

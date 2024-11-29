@@ -1050,7 +1050,7 @@ let error_extension: type a. a Diagnostic.extension -> a printer option =
   | _ -> None
 
 let () =
-  Diagnostic_backends.Fmt.add_extension { extension = error_extension }
+  Diagnostic_backends.add_extension { extension = error_extension }
 
 
 let formatter_for_warnings = ref Format.err_formatter
