@@ -74,6 +74,7 @@ Config:
       New label cmxs_magic_number, s
       New label cmt_magic_number, s
       New label linear_magic_number, s
+      Seal
 Main:
   v1.0
     box_type
@@ -160,6 +161,7 @@ Main:
       New label name, s
       New label columns, ?l f
       New label children, ?l profile
+      Seal
     structured_text
       Declaration
       New label Text, s

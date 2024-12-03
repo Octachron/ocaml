@@ -92,7 +92,8 @@ let () =
   cvar "ast_intf_magic_number" String ast_intf_magic_number;
   cvar "cmxs_magic_number" String cmxs_magic_number;
   cvar "cmt_magic_number" String cmt_magic_number;
-  cvar "linear_magic_number" String linear_magic_number
+  cvar "linear_magic_number" String linear_magic_number;
+  seal v1
 
 let log_variables log =
   Dynarray.iter (fun f -> f log) set_config

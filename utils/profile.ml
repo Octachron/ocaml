@@ -201,6 +201,7 @@ module Profile_report = struct
   let name = new_field v1 "name" String
   let columns = new_field_opt v1 "columns" (List Float)
   let children = new_field_opt v1 "children" (List raw_type)
+  let () = seal v1
 
   let typ =
     let rec pull_r v (R (n,ms,c)) =
