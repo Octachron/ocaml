@@ -70,8 +70,11 @@ module JSchema = struct
        List.map (fun x -> obj [x]) l
       )
 
+  let desc_field d = item ~key:"description" @@ string d
+
+  let one_of l = item ~key:"oneOf" (array l)
   let const name = item ~key:"const" @@ string name
-  let sum x =
+  let sum ~desc x =
     let constructor (name, kty) =
       match kty.ltyp with
       | T Unit -> obj [const name]
@@ -81,7 +84,10 @@ module JSchema = struct
           obj [tuple_typ [const name; typ x; typ y; typ z; typ w]]
       | T ty -> obj [tuple_typ [const name; typ ty]]
     in
-    obj [ item ~key:"oneOf" (array (List.map constructor (field_infos x))) ]
+    obj [
+      desc_field desc;
+      one_of (List.map constructor (field_infos x))
+    ]
 
   let field v (key, {status; ltyp=T ty; _ }) =
     match v with
@@ -113,14 +119,14 @@ module JSchema = struct
   let schema_field =
     item ~key:"schema" @@ obj [obj_typ]
 
-  let record_fields v x =
-    [
-      obj_typ;
+  let record_fields ~desc v x =
+    [ obj_typ;
+      desc_field desc;
       item ~key:"properties" @@ obj (fields v x);
       item ~key:"required" @@ array (required_fields x)
     ]
 
-  let simple_record x = obj (record_fields None x)
+  let simple_record ~desc x = obj (record_fields ~desc None x)
 
   module String_map = Misc.Stdlib.String.Map
   let union map a = List.fold_left (fun m add -> add m) map a
@@ -129,16 +135,20 @@ module JSchema = struct
     fun ty map -> match ty with
       | Sum x ->
           let name = scheme_name x in
+          let desc = scheme_description x in
           if String_map.mem name map then map
           else
-            let map = String_map.add (scheme_name x) (sum x) map in
+            let map = String_map.add name (sum ~desc x) map in
             subrefs (field_infos x) map
       | Record x ->
           let name = scheme_name x in
           if String_map.mem name map then map
           else
+            let desc= scheme_description x in
             let fields = field_infos x in
-            let map = String_map.add name (simple_record fields) map in
+            let map =
+              String_map.add name
+                (simple_record ~desc fields) map in
             subrefs fields map
       | Int -> map
       | Bool -> map
@@ -168,7 +178,7 @@ module JSchema = struct
      obj (
        header (scheme_name sch)
        @ defs
-       @ schema_field :: record_fields v keys
+       @ schema_field :: record_fields ~desc:(scheme_description sch) v keys
      ) ppf
 
   end

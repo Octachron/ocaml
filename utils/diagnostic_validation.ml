@@ -47,6 +47,13 @@ module Metadata = struct
     include New_sum(Metadata_versions)(struct
         let name = "validity"
         let update = v1
+        let description =
+          "Status of the current diagnostic: \
+             - Full: fully valid
+             - Deprecated: some of the contents is deprecated according to the \
+               current scheme
+             - Invalid: invalid data\
+          "
         end
       )()
       let full = new_constr0 v1 "Full"

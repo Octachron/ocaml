@@ -27,6 +27,7 @@ module Structured_text = struct
     include New_sum(V)
         (struct
           let name = "box_type"
+          let description = "Format box kind (h,v,hv, b, hov)"
           let update = v1
         end
         )()
@@ -52,6 +53,7 @@ module Structured_text = struct
     include New_sum(V)
         (struct
           let name = "format_tag"
+          let description = "Format semantic tag"
           let update = v1
         end
         )()
@@ -107,6 +109,9 @@ module Structured_text = struct
   include New_sum(V)
     (struct
       let name = "structured_text"
+      let description =
+        "Structured text, using Format_doc.t as a serialization format for \
+         Format printers."
       let update = v1
     end)
     ()
@@ -169,6 +174,7 @@ module Debug = struct
   include New_record(V)
       (struct
         let name = "debug"
+        let description = "Debugging output for compiler developers"
         let update = v1
       end)
       ()
@@ -202,6 +208,7 @@ module Error =
   New_record(V)
     (struct
       let name = "error_report"
+      let description = "Error and warning reports"
       let update = v1
     end)
     ()
@@ -209,6 +216,7 @@ module Error =
 include New_record(V)
     (struct
       let name = "compiler"
+      let description = "Compiler diagnostic for the OCaml compiler"
       let update = v1
     end)
     ()

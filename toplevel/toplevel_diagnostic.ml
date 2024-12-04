@@ -17,6 +17,7 @@ open Compiler_diagnostic
 include New_record(V)
     (struct
       let name = "toplevel"
+      let description = "OCaml Toplevel diagnostic"
       let update = V.v1
     end)
     ()

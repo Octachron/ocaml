@@ -6,6 +6,7 @@
       "metadata" :
         {
           "type" : "object",
+          "description" : "Diagnostic metadata",
           "properties" :
             {
               "deprecated_paths" :
@@ -33,6 +34,8 @@
         },
       "validity" :
         {
+          "description" :
+            "Status of the current diagnostic: - Full: fully valid\n             - Deprecated: some of the contents is deprecated according to the current scheme\n             - Invalid: invalid data",
           "oneOf" :
             [{ "const" : "Invalid"}, { "const" : "Deprecated"},
               { "const" : "Full"}]
@@ -40,6 +43,8 @@
     },
   "schema" : { "type" : "object"},
   "type" : "object",
+  "description" :
+    "The set of compiler options selected at configuration time",
   "properties" :
     {
       "metadata" : { "$ref" : "#/$defs/metadata"},

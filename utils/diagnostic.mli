@@ -176,6 +176,7 @@ end
 module type Info = sig
   type vl
   val name: string
+  val description: string
   val update: vl update
 end
 
@@ -221,6 +222,8 @@ val field_infos: 'a t -> (string * label_metadata) list
 val field_names: 'a t -> string list
 
 val scheme_name: 'a t -> string
+val scheme_description: 'a t -> string
+
 val fields: string list -> 'a record -> (string * bool * typed_val) List.t
 val is_optional: label_metadata -> bool
 val field_info: 'id t -> (_,'id) field -> label_metadata option

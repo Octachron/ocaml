@@ -5,6 +5,7 @@
     {
       "box_type" :
         {
+          "description" : "Format box kind (h,v,hv, b, hov)",
           "oneOf" :
             [{ "const" : "B"}, { "const" : "HoV"}, { "const" : "HV"},
               { "const" : "V"}, { "const" : "H"}]
@@ -12,6 +13,7 @@
       "compiler" :
         {
           "type" : "object",
+          "description" : "Compiler diagnostic for the OCaml compiler",
           "properties" :
             {
               "alerts" :
@@ -32,6 +34,7 @@
       "debug" :
         {
           "type" : "object",
+          "description" : "Debugging output for compiler developers",
           "properties" :
             {
               "profile" :
@@ -74,6 +77,7 @@
         },
       "error_kind" :
         {
+          "description" : "Kind of reports (error,warning,alert)",
           "oneOf" :
             [{
                "type" : "array",
@@ -101,6 +105,7 @@
       "error_msg" :
         {
           "type" : "object",
+          "description" : "Error message bundled with an optional location",
           "properties" :
             {
               "loc" : { "$ref" : "#/$defs/loc"},
@@ -115,6 +120,7 @@
       "error_report" :
         {
           "type" : "object",
+          "description" : "Error and warning reports",
           "properties" :
             {
               "footnote" :
@@ -134,6 +140,7 @@
         },
       "format_tag" :
         {
+          "description" : "Format semantic tag",
           "oneOf" :
             [{ "const" : "Preservation"}, { "const" : "Modification"},
               { "const" : "Insertion"}, { "const" : "Deletion"},
@@ -154,6 +161,7 @@
       "loc" :
         {
           "type" : "object",
+          "description" : "Source location information",
           "properties" :
             {
               "characters" :
@@ -171,6 +179,7 @@
       "metadata" :
         {
           "type" : "object",
+          "description" : "Diagnostic metadata",
           "properties" :
             {
               "deprecated_paths" :
@@ -199,6 +208,8 @@
       "profile" :
         {
           "type" : "object",
+          "description" :
+            "Profiling information for the compilation pipeline",
           "properties" :
             {
               "children" :
@@ -210,6 +221,8 @@
         },
       "structured_text" :
         {
+          "description" :
+            "Structured text, using Format_doc.t as a serialization format for Format printers.",
           "oneOf" :
             [{
                "type" : "array",
@@ -286,6 +299,8 @@
         },
       "validity" :
         {
+          "description" :
+            "Status of the current diagnostic: - Full: fully valid\n             - Deprecated: some of the contents is deprecated according to the current scheme\n             - Invalid: invalid data",
           "oneOf" :
             [{ "const" : "Invalid"}, { "const" : "Deprecated"},
               { "const" : "Full"}]
@@ -293,6 +308,7 @@
     },
   "schema" : { "type" : "object"},
   "type" : "object",
+  "description" : "OCaml Toplevel diagnostic",
   "properties" :
     {
       "metadata" : { "$ref" : "#/$defs/metadata"},

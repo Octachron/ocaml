@@ -18,6 +18,8 @@ module Versions = Diagnostic_history.Make()
 let v1 = Versions.v1
 include Diagnostic.New_record(Versions)(struct
     let name = "config"
+    let description =
+      "The set of compiler options selected at configuration time"
     let update = v1
   end)()
 open Diagnostic

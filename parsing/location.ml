@@ -699,7 +699,11 @@ module Error_diagnostic = struct[@warning "-unused-value-declaration"]
   module Vl = Compiler_diagnostic.V
   let v1 = Vl.v1
 
-  module Kind = New_sum(Vl)(struct let name="error_kind" let update = v1 end)()
+  module Kind = New_sum(Vl)(struct
+      let name="error_kind"
+      let description = "Kind of reports (error,warning,alert)"
+      let update = v1 end)
+      ()
 
   let report_error = Kind.new_constr0 v1 "Report_error"
   let report_alert = Kind.new_constr v1  "Report_alert"  String
@@ -759,7 +763,11 @@ module Error_diagnostic = struct[@warning "-unused-value-declaration"]
 
 
   module Loc = struct
-    include New_record(Vl)(struct let name = "loc" let update = v1 end)()
+    include New_record(Vl)(struct
+        let name = "loc"
+        let description = "Source location information"
+        let update = v1
+      end)()
     let file = new_field_opt v1 "file" String
     let start_line = new_field_opt v1 "start_line" Int
     let end_line = new_field_opt v1 "stop_line" Int
@@ -782,7 +790,11 @@ module Error_diagnostic = struct[@warning "-unused-value-declaration"]
 
   let doc = Compiler_diagnostic.doc
 
-  module Msg = New_record(Vl)(struct let name="error_msg" let update=v1 end)()
+  module Msg = New_record(Vl)(struct
+      let name="error_msg"
+      let description = "Error message bundled with an optional location"
+      let update=v1
+    end)()
   let msg = Msg.new_field v1 "msg" doc
   let msg_loc = Msg.new_field_opt v1 "loc" Loc.ctyp
   let () = Msg.seal v1

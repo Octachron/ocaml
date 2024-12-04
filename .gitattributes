@@ -83,6 +83,9 @@ Makefile*                typo.makefile-whitespace=may
 
 asmcomp/*/emit.mlp       typo.tab=may typo.long-line=may
 
+# Json schema may contain long line
+diagnostic_schemes/*.json typo.very-long-line=may
+
 # The build-aux directory contains bundled files so do not check it
 build-aux                typo.prune
 

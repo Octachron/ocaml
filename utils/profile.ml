@@ -195,6 +195,7 @@ module Profile_report = struct
   let v1 = Compiler_diagnostic.V.v1
   include D.New_record(Compiler_diagnostic.V)(struct
       let name = "profile"
+      let description = "Profiling information for the compilation pipeline"
       let update = v1
     end)()
 

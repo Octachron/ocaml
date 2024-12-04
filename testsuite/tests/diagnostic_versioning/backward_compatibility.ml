@@ -34,6 +34,7 @@ val u2_0 : V.id H.update = <abstr>
 
 module S = New_sum(V)(struct
     let name = "test_record"
+    let description = "A sum type"
     let update = u1
   end)()
 [%%expect {|
@@ -85,6 +86,7 @@ type r = {
 }
 module Inline_b = New_record(V)(struct
   let name = "inline_b"
+  let description = "A record under a constructor"
   let update = u1_1
 end) ()
 let ib_contents = Inline_b.new_field u1_1 "content" Unit
@@ -178,6 +180,7 @@ val styp : s Diagnostic.typ =
 
 module R = New_record(V)(struct
     let name = "test_record"
+    let description = "Main record"
     let update = u1
   end)()
 
