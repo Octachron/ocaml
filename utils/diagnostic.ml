@@ -77,13 +77,13 @@ let field_type field = field.typ
 let is_optional r = r.optional
 
 let destruct c f =
-  let rec expand (Constr c) =
-    let head = c.name, V (c.typ,c.arg) in
+  let rec expand nexts (Constr c) =
+    let nexts = (c.name, V (c.typ,c.arg)) :: nexts in
       match c.approx with
-      | None -> [head]
-      | Some t -> head :: expand t
+      | None -> Array.of_list nexts
+      | Some t -> expand nexts t
   in
-  f (expand c)
+  f (expand [] c)
 let scheme_name x = x.name
 let scheme_description x = x.description
 let field_infos d = d.labels

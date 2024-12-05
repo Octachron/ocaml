@@ -439,11 +439,12 @@ let () = test json cval
   "metadata" :
     { "version" : [2, 0], "downward_compatible" : true, "valid" : "Full"},
   "s" :
-    ["C",
+    ["B",
       {
-        "approx" :
-          ["B", { "content" : 0, "maybe" : true, "possibly" : false}],
-        "contents" : true
+        "next" : ["C", true],
+        "content" : 0,
+        "maybe" : true,
+        "possibly" : false
       }],
   "x" : 0,
   "y" : false,

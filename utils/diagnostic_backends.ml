@@ -225,30 +225,30 @@ module Fmt = struct
         | None -> elt ctx default (pull ctx.version x) ppf
       end
     | List e -> list ctx.conv (List.map (elt ~inline:false ctx e) x) ppf
-    | Sum _ -> destruct x (fun l -> sum ctx l ppf)
+    | Sum _ -> destruct x (fun cstrs -> sum ctx 0 cstrs ppf)
     | Record m -> elt_record ctx (field_names m,x) ppf
-  and sum ctx nested_c ppf = match nested_c with
-  | [] -> ()
-  | [name,V(typ,x)] ->
-     begin match typ with
-     | Unit -> ctx.conv.atom name ppf
-     | _ ->
-       tuple ~inline:false ctx.conv
-       [ ctx.conv.atom name; elt ~inline:true ctx typ x ]
-       ppf
-     end
-  | (name, V(typ,x) as head) :: ((name',_) :: r as rest) ->
-      if name = name' then
-        sum ctx (head::r) ppf
-      else
-      let approx = item ctx.conv ~key:"approx" (sum ctx rest) in
+  and sum ctx pos nested_c ppf =
+    let name, V(typ,x) = nested_c.(pos) in
+    if pos = Array.length nested_c - 1 then
+      begin match typ with
+      | Unit -> ctx.conv.atom name ppf
+      | _ ->
+          tuple ~inline:false ctx.conv
+            [ ctx.conv.atom name; elt ~inline:true ctx typ x ]
+            ppf
+      end
+   else
+     let next_name, _ = nested_c.(pos+1) in
+     if name = next_name then sum ctx (pos+1) nested_c ppf
+     else
+      let next = item ctx.conv ~key:"next" (sum ctx (pos+1) nested_c) in
       let arg =
         match scrap_custom ctx.version typ x with
         | V(Record r,x) ->
-            let fields = approx :: fields ctx (field_names r,x) in
+            let fields = next :: fields ctx (field_names r,x) in
             record ctx.conv fields
         | _ -> record ctx.conv [
-            approx;
+            next;
             elt_item ctx ~key:"contents" typ x
           ]
       in

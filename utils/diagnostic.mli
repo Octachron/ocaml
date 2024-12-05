@@ -217,7 +217,7 @@ module Record_introspection: sig
 end
 
 val label_metadata: optional:bool -> 'v update -> 't typ -> label_metadata
-val destruct: 'a sum -> ((string * typed_val) list -> 'b) -> 'b
+val destruct: 'a sum -> ((string * typed_val) Array.t -> 'b) -> 'b
 val field_infos: 'a t -> (string * label_metadata) list
 val field_names: 'a t -> string list
 

@@ -157,17 +157,16 @@ and value: type a. version:version -> a -> a typ -> report_paths =
       @^ value ~version vz z
       @^ value ~version vw w
   | Sum def ->
-      D.destruct v (function
-          | [] -> assert false
-          | (name,V(ty,arg)) :: _ ->
-              match D.field_dyninfo def name with
-              | None -> none
-              | Some lmd ->
-                  begin match H.Lifetime.stage_at (Some version) lmd.status with
-                  | Inception | Publication | Expansion -> value ~version arg ty
-                  | Future | Deletion -> invalid [name]
-                  | Deprecation -> deprecated [name] @^ value ~version arg ty
-                  end
+      D.destruct v (fun approx ->
+          let name, V(ty,arg) = approx.(Array.length approx - 1) in
+          match D.field_dyninfo def name with
+          | None -> none
+          | Some lmd ->
+              begin match H.Lifetime.stage_at (Some version) lmd.status with
+              | Inception | Publication | Expansion -> value ~version arg ty
+              | Future | Deletion -> invalid [name]
+              | Deprecation -> deprecated [name] @^ value ~version arg ty
+              end
         )
 
 let diagnostic ~version:v sch st =
