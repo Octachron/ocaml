@@ -58,28 +58,81 @@
         {
           "description" : "Kind of reports (error,warning,alert)",
           "oneOf" :
-            [{
-               "type" : "array",
-               "prefixItems" :
-                 [{ "const" : "Report_warning_as_error"},
-                   { "type" : "string"}]
-             },
-              {
-                "type" : "array",
-                "prefixItems" :
-                  [{ "const" : "Report_warning"}, { "type" : "string"}]
-              },
-              {
-                "type" : "array",
-                "prefixItems" :
-                  [{ "const" : "Report_alert_as_error"},
-                    { "type" : "string"}]
-              },
-              {
-                "type" : "array",
-                "prefixItems" :
-                  [{ "const" : "Report_alert"}, { "type" : "string"}]
-              }, { "const" : "Report_error"}]
+            ["oneOf" :
+               [{
+                  "type" : "array",
+                  "prefixItems" :
+                    [{ "const" : "Report_warning_as_error"},
+                      { "type" : "string"}]
+                },
+                 {
+                   "type" : "array",
+                   "prefixItems" :
+                     [{ "const" : "Report_warning_as_error"},
+                       {
+                         {
+                           "contents" : "type" : "array",
+                             "prefixItems" : [{ "type" : "string"}],
+                           "next" : "type" : "object"
+                         }
+                       }]
+                 }],
+              "oneOf" :
+                [{
+                   "type" : "array",
+                   "prefixItems" :
+                     [{ "const" : "Report_warning"}, { "type" : "string"}]
+                 },
+                  {
+                    "type" : "array",
+                    "prefixItems" :
+                      [{ "const" : "Report_warning"},
+                        {
+                          {
+                            "contents" : "type" : "array",
+                              "prefixItems" : [{ "type" : "string"}],
+                            "next" : "type" : "object"
+                          }
+                        }]
+                  }],
+              "oneOf" :
+                [{
+                   "type" : "array",
+                   "prefixItems" :
+                     [{ "const" : "Report_alert_as_error"},
+                       { "type" : "string"}]
+                 },
+                  {
+                    "type" : "array",
+                    "prefixItems" :
+                      [{ "const" : "Report_alert_as_error"},
+                        {
+                          {
+                            "contents" : "type" : "array",
+                              "prefixItems" : [{ "type" : "string"}],
+                            "next" : "type" : "object"
+                          }
+                        }]
+                  }],
+              "oneOf" :
+                [{
+                   "type" : "array",
+                   "prefixItems" :
+                     [{ "const" : "Report_alert"}, { "type" : "string"}]
+                 },
+                  {
+                    "type" : "array",
+                    "prefixItems" :
+                      [{ "const" : "Report_alert"},
+                        {
+                          {
+                            "contents" : "type" : "array",
+                              "prefixItems" : [{ "type" : "string"}],
+                            "next" : "type" : "object"
+                          }
+                        }]
+                  }],
+              { "const" : "Report_error"}]
         },
       "error_msg" :
         {
@@ -126,16 +179,42 @@
               { "const" : "Hint"}, { "const" : "Inline_code"},
               { "const" : "Loc"}, { "const" : "Warning"},
               { "const" : "Error"},
-              {
-                "type" : "array",
-                "prefixItems" :
-                  [{ "const" : "String_tag"}, { "type" : "string"}]
-              },
-              {
-                "type" : "array",
-                "prefixItems" :
-                  [{ "const" : "<Unknown>"}, { "type" : "string"}]
-              }]
+              "oneOf" :
+                [{
+                   "type" : "array",
+                   "prefixItems" :
+                     [{ "const" : "String_tag"}, { "type" : "string"}]
+                 },
+                  {
+                    "type" : "array",
+                    "prefixItems" :
+                      [{ "const" : "String_tag"},
+                        {
+                          {
+                            "contents" : "type" : "array",
+                              "prefixItems" : [{ "type" : "string"}],
+                            "next" : "type" : "object"
+                          }
+                        }]
+                  }],
+              "oneOf" :
+                [{
+                   "type" : "array",
+                   "prefixItems" :
+                     [{ "const" : "<Unknown>"}, { "type" : "string"}]
+                 },
+                  {
+                    "type" : "array",
+                    "prefixItems" :
+                      [{ "const" : "<Unknown>"},
+                        {
+                          {
+                            "contents" : "type" : "array",
+                              "prefixItems" : [{ "type" : "string"}],
+                            "next" : "type" : "object"
+                          }
+                        }]
+                  }]]
         },
       "loc" :
         {
@@ -203,78 +282,237 @@
           "description" :
             "Structured text, using Format_doc.t as a serialization format for Format printers.",
           "oneOf" :
-            [{
-               "type" : "array",
-               "prefixItems" :
-                 [{ "const" : "Tbox"},
-                   {
-                     "type" : "array",
-                     "items" : { "$ref" : "#/$defs/structured_text"}
-                   }]
-             },
-              {
-                "type" : "array",
-                "prefixItems" :
-                  [{ "const" : "Tag"}, { "$ref" : "#/$defs/format_tag"},
-                    {
-                      "type" : "array",
-                      "items" : { "$ref" : "#/$defs/structured_text"}
-                    }]
-              },
-              {
-                "type" : "array",
-                "prefixItems" :
-                  [{ "const" : "Box"}, { "$ref" : "#/$defs/box_type"},
-                    { "type" : "integer"},
-                    {
-                      "type" : "array",
-                      "items" : { "$ref" : "#/$defs/structured_text"}
-                    }]
-              },
-              {
-                "type" : "array",
-                "prefixItems" :
-                  [{ "const" : "With_size"}, { "type" : "integer"},
-                    { "$ref" : "#/$defs/structured_text"}]
-              }, { "const" : "<deprecated>"}, { "const" : "If_newline"},
+            ["oneOf" :
+               [{
+                  "type" : "array",
+                  "prefixItems" :
+                    [{ "const" : "Tbox"},
+                      {
+                        "type" : "array",
+                        "items" : { "$ref" : "#/$defs/structured_text"}
+                      }]
+                },
+                 {
+                   "type" : "array",
+                   "prefixItems" :
+                     [{ "const" : "Tbox"},
+                       {
+                         {
+                           "contents" : "type" : "array",
+                             "prefixItems" :
+                               [{
+                                  "type" : "array",
+                                  "items" :
+                                    { "$ref" : "#/$defs/structured_text"}
+                                }],
+                           "next" : "type" : "object"
+                         }
+                       }]
+                 }],
+              "oneOf" :
+                [{
+                   "type" : "array",
+                   "prefixItems" :
+                     [{ "const" : "Tag"}, { "$ref" : "#/$defs/format_tag"},
+                       {
+                         "type" : "array",
+                         "items" : { "$ref" : "#/$defs/structured_text"}
+                       }]
+                 },
+                  {
+                    "type" : "array",
+                    "prefixItems" :
+                      [{ "const" : "Tag"},
+                        {
+                          {
+                            "contents" : "type" : "array",
+                              "prefixItems" :
+                                [{ "$ref" : "#/$defs/format_tag"},
+                                  {
+                                    "type" : "array",
+                                    "items" :
+                                      { "$ref" : "#/$defs/structured_text"}
+                                  }],
+                            "next" : "type" : "object"
+                          }
+                        }]
+                  }],
+              "oneOf" :
+                [{
+                   "type" : "array",
+                   "prefixItems" :
+                     [{ "const" : "Box"}, { "$ref" : "#/$defs/box_type"},
+                       { "type" : "integer"},
+                       {
+                         "type" : "array",
+                         "items" : { "$ref" : "#/$defs/structured_text"}
+                       }]
+                 },
+                  {
+                    "type" : "array",
+                    "prefixItems" :
+                      [{ "const" : "Box"},
+                        {
+                          {
+                            "contents" : "type" : "array",
+                              "prefixItems" :
+                                [{ "$ref" : "#/$defs/box_type"},
+                                  { "type" : "integer"},
+                                  {
+                                    "type" : "array",
+                                    "items" :
+                                      { "$ref" : "#/$defs/structured_text"}
+                                  }],
+                            "next" : "type" : "object"
+                          }
+                        }]
+                  }],
+              "oneOf" :
+                [{
+                   "type" : "array",
+                   "prefixItems" :
+                     [{ "const" : "With_size"}, { "type" : "integer"},
+                       { "$ref" : "#/$defs/structured_text"}]
+                 },
+                  {
+                    "type" : "array",
+                    "prefixItems" :
+                      [{ "const" : "With_size"},
+                        {
+                          {
+                            "contents" : "type" : "array",
+                              "prefixItems" :
+                                [{ "type" : "integer"},
+                                  { "$ref" : "#/$defs/structured_text"}],
+                            "next" : "type" : "object"
+                          }
+                        }]
+                  }],
+              { "const" : "<deprecated>"}, { "const" : "If_newline"},
               { "const" : "Newline"},
-              {
-                "type" : "array",
-                "prefixItems" : [{ "const" : "Flush"}, { "type" : "boolean"}]
-              },
-              {
-                "type" : "array",
-                "prefixItems" :
-                  [{ "const" : "Break"},
-                    {
-                      "type" : "array",
-                      "prefixItems" :
-                        [{ "type" : "string"}, { "type" : "integer"},
-                          { "type" : "string"}]
-                    },
-                    {
-                      "type" : "array",
-                      "prefixItems" :
-                        [{ "type" : "string"}, { "type" : "integer"},
-                          { "type" : "string"}]
-                    }]
-              },
-              {
-                "type" : "array",
-                "prefixItems" :
-                  [{ "const" : "Simple_break"}, { "type" : "integer"},
-                    { "type" : "integer"}]
-              }, { "const" : "Set_tab"},
-              {
-                "type" : "array",
-                "prefixItems" :
-                  [{ "const" : "Tab_break"}, { "type" : "integer"},
-                    { "type" : "integer"}]
-              },
-              {
-                "type" : "array",
-                "prefixItems" : [{ "const" : "Text"}, { "type" : "string"}]
-              }]
+              "oneOf" :
+                [{
+                   "type" : "array",
+                   "prefixItems" :
+                     [{ "const" : "Flush"}, { "type" : "boolean"}]
+                 },
+                  {
+                    "type" : "array",
+                    "prefixItems" :
+                      [{ "const" : "Flush"},
+                        {
+                          {
+                            "contents" : "type" : "array",
+                              "prefixItems" : [{ "type" : "boolean"}],
+                            "next" : "type" : "object"
+                          }
+                        }]
+                  }],
+              "oneOf" :
+                [{
+                   "type" : "array",
+                   "prefixItems" :
+                     [{ "const" : "Break"},
+                       {
+                         "type" : "array",
+                         "prefixItems" :
+                           [{ "type" : "string"}, { "type" : "integer"},
+                             { "type" : "string"}]
+                       },
+                       {
+                         "type" : "array",
+                         "prefixItems" :
+                           [{ "type" : "string"}, { "type" : "integer"},
+                             { "type" : "string"}]
+                       }]
+                 },
+                  {
+                    "type" : "array",
+                    "prefixItems" :
+                      [{ "const" : "Break"},
+                        {
+                          {
+                            "contents" : "type" : "array",
+                              "prefixItems" :
+                                [{
+                                   "type" : "array",
+                                   "prefixItems" :
+                                     [{ "type" : "string"},
+                                       { "type" : "integer"},
+                                       { "type" : "string"}]
+                                 },
+                                  {
+                                    "type" : "array",
+                                    "prefixItems" :
+                                      [{ "type" : "string"},
+                                        { "type" : "integer"},
+                                        { "type" : "string"}]
+                                  }],
+                            "next" : "type" : "object"
+                          }
+                        }]
+                  }],
+              "oneOf" :
+                [{
+                   "type" : "array",
+                   "prefixItems" :
+                     [{ "const" : "Simple_break"}, { "type" : "integer"},
+                       { "type" : "integer"}]
+                 },
+                  {
+                    "type" : "array",
+                    "prefixItems" :
+                      [{ "const" : "Simple_break"},
+                        {
+                          {
+                            "contents" : "type" : "array",
+                              "prefixItems" :
+                                [{ "type" : "integer"},
+                                  { "type" : "integer"}],
+                            "next" : "type" : "object"
+                          }
+                        }]
+                  }],
+              { "const" : "Set_tab"},
+              "oneOf" :
+                [{
+                   "type" : "array",
+                   "prefixItems" :
+                     [{ "const" : "Tab_break"}, { "type" : "integer"},
+                       { "type" : "integer"}]
+                 },
+                  {
+                    "type" : "array",
+                    "prefixItems" :
+                      [{ "const" : "Tab_break"},
+                        {
+                          {
+                            "contents" : "type" : "array",
+                              "prefixItems" :
+                                [{ "type" : "integer"},
+                                  { "type" : "integer"}],
+                            "next" : "type" : "object"
+                          }
+                        }]
+                  }],
+              "oneOf" :
+                [{
+                   "type" : "array",
+                   "prefixItems" :
+                     [{ "const" : "Text"}, { "type" : "string"}]
+                 },
+                  {
+                    "type" : "array",
+                    "prefixItems" :
+                      [{ "const" : "Text"},
+                        {
+                          {
+                            "contents" : "type" : "array",
+                              "prefixItems" : [{ "type" : "string"}],
+                            "next" : "type" : "object"
+                          }
+                        }]
+                  }]]
         },
       "validity" :
         {

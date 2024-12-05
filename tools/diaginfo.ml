@@ -70,19 +70,30 @@ module JSchema = struct
        List.map (fun x -> obj [x]) l
       )
 
+  let any_typ = tfield {|object|}
+
   let desc_field d = item ~key:"description" @@ string d
 
   let one_of l = item ~key:"oneOf" (array l)
   let const name = item ~key:"const" @@ string name
   let sum ~desc x =
+    let brule name core =
+      let name = const name in
+      let contents = item ~key:"contents" (tuple_typ core) in
+      let next = item ~key:"next" any_typ in
+      one_of [
+        obj [tuple_typ (name::core)];
+        obj [tuple_typ [name; obj [contents; next]]]
+      ]
+    in
     let constructor (name, kty) =
       match kty.ltyp with
       | T Unit -> obj [const name]
-      | T (Pair(x,y)) -> obj [tuple_typ [const name; typ x; typ y]]
-      | T (Triple(x,y,z)) -> obj [tuple_typ [const name; typ x; typ y; typ z]]
+      | T (Pair(x,y)) -> brule name [typ x; typ y]
+      | T (Triple(x,y,z)) -> brule name [typ x; typ y; typ z]
       | T (Quadruple(x,y,z,w)) ->
-          obj [tuple_typ [const name; typ x; typ y; typ z; typ w]]
-      | T ty -> obj [tuple_typ [const name; typ ty]]
+          brule name [typ x; typ y; typ z; typ w]
+      | T ty -> brule name [typ ty]
     in
     obj [
       desc_field desc;
