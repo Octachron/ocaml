@@ -66,8 +66,20 @@ let add_required t by (name : string) =
    with Not_found -> ());
   update t.missing_compunits name add
 
-let add t ~filename ~compunit ~provides ~requires =
+let add t ~filename ~compunit ~omitted_pack ~provides ~requires =
   List.iter (add_required t {compunit; filename}) requires;
+  let provides = match omitted_pack with
+    | None -> provides
+    | Some p ->
+        let remove_prefix m =
+          let len = String.length m in
+          let plen = String.length p in
+          if String.starts_with ~prefix:p m && len > plen && m.[plen] = '$' then
+            String.sub m (plen+1) (len - plen - 1)
+          else m
+        in
+        List.map remove_prefix provides
+  in
   List.iter (fun p ->
     Hashtbl.remove t.missing_compunits p;
     let l = Option.value ~default:[]

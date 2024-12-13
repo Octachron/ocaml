@@ -27,9 +27,11 @@ val create : complete:bool -> t
 
 val add : t
   -> filename:filename -> compunit:compunit
+  -> omitted_pack:compunit option
   -> provides:compunit list -> requires:compunit list -> unit
 (** [add t ~filename ~compunit ~provides ~requires] registers the
     compilation unit [compunit] found in [filename] to [t].
+    - [omitted_pack] is a pack omitted when linking an executable
     - [provides] are units and sub-units provided by [compunit]
     - [requires] are units required by [compunit]
 

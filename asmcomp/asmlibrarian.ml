@@ -68,6 +68,7 @@ let create_archive file_list lib_name =
          (fun (filename, (unit, _crc)) ->
             Linkdeps.add ldeps
               ~filename ~compunit:unit.ui_name
+              ~omitted_pack:None
               ~provides:unit.ui_defines
               ~requires:(List.map fst unit.ui_imports_cmx))
          (List.rev units);

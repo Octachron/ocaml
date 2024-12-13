@@ -112,7 +112,7 @@ let linkdeps_unit ldeps ~filename compunit =
   let requires = required compunit in
   let provides = provided compunit in
   let Compunit compunit = compunit.cu_name in
-  Linkdeps.add ldeps ~filename ~compunit ~requires ~provides
+  Linkdeps.add ldeps ~filename ~omitted_pack:None ~compunit ~requires ~provides
 
 let scan_file ldeps obj_name tolink =
   let file_name =
