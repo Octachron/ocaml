@@ -47,6 +47,13 @@ module JSchema = struct
   let sref x =
     item ~key:"$ref" @@ Format.dprintf {|"#/$defs/%s"|} (scheme_name x)
 
+  let tuple l =
+    Format.dprintf "%t,@ %t"
+      (tfield  {|array|})
+      (item ~key:"prefixItems" @@ array l)
+
+  let tuple_typ l = tuple (List.map (fun x -> obj [x]) l)
+
   let rec typ: type a b. a typ -> Format.formatter -> unit = function
     | Int -> tfield {|integer|}
     | Bool -> tfield {|boolean|}
@@ -63,28 +70,35 @@ module JSchema = struct
     | Sum x -> sref x
     | Record x -> sref x
     | Custom x -> typ x.default
-  and tuple_typ = fun l ->
-    Format.dprintf "%t,@ %t"
-      (tfield  {|array|})
-      (item ~key:"prefixItems" @@ array @@
-       List.map (fun x -> obj [x]) l
-      )
 
   let any_typ = tfield {|object|}
 
   let desc_field d = item ~key:"description" @@ string d
+
+  let obj_typ = item ~key:"type" (string "object")
+  let record_type desc fields required =
+    [ obj_typ;
+      desc;
+      item ~key:"properties" @@ obj fields;
+      item ~key:"required" @@ array required
+    ]
 
   let one_of l = item ~key:"oneOf" (array l)
   let const name = item ~key:"const" @@ string name
   let sum ~desc x =
     let brule name core =
       let name = const name in
-      let contents = item ~key:"contents" (tuple_typ core) in
-      let next = item ~key:"next" any_typ in
-      one_of [
+      let forward_record =
+        let kcontents = "contents" in
+        let contents = item ~key:kcontents (obj [tuple_typ core]) in
+        let next = item ~key:"next" (obj [any_typ]) in
+        let desc = desc_field "expanded record for forward compatibility" in
+        record_type desc [contents; next] [string kcontents]
+      in
+      obj [one_of [
         obj [tuple_typ (name::core)];
-        obj [tuple_typ [name; obj [contents; next]]]
-      ]
+        obj [tuple [obj [name]; obj forward_record]]
+      ]]
     in
     let constructor (name, kty) =
       match kty.ltyp with
@@ -125,17 +139,11 @@ module JSchema = struct
       (fun (k, kinfo) -> if is_optional kinfo then None else Some(string k))
       x
 
-  let obj_typ = item ~key:"type" (string "object")
-
   let schema_field =
     item ~key:"schema" @@ obj [obj_typ]
 
   let record_fields ~desc v x =
-    [ obj_typ;
-      desc_field desc;
-      item ~key:"properties" @@ obj (fields v x);
-      item ~key:"required" @@ array (required_fields x)
-    ]
+    record_type (desc_field desc) (fields v x) (required_fields x)
 
   let simple_record ~desc x = obj (record_fields ~desc None x)
 
