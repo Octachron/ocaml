@@ -14,23 +14,65 @@
 (**************************************************************************)
 
 open Diagnostic_history
-let json_schema = ref None
+let json_schema_to_print = ref None
 let history = ref false
 let output = ref None
 let version = ref None
+let adt_schema_to_print = ref None
 let log_schemas = [
   "meta";
   "config";
   "compiler";
   "toplevel"; "error"; "kind"; "msg"; ]
 
-module JSchema = struct
-  module Pp = Diagnostic_backends.Pp
+module String_map = Misc.Stdlib.String.Map
+
+
+(** Collect sum and record definitions from a scheme *)
+module Defs = struct
   open Diagnostic
+  let union map a = List.fold_left (fun m add -> add m) map a
+  let rec refs: type a.
+    a typ -> (any_typ String_map.t as 'r) -> 'r  =
+    fun ty map -> match ty with
+      | Sum x ->
+          let name = scheme_name x in
+          if String_map.mem name map then map
+          else
+            let map = String_map.add name (T ty) map in
+            subrefs (field_infos x) map
+      | Record x ->
+          let name = scheme_name x in
+          if String_map.mem name map then map
+          else
+            let map = String_map.add name (T ty) map in
+            subrefs (field_infos x) map
+      | Int -> map
+      | Bool -> map
+      | String -> map
+      | Unit -> map
+      | Float -> map
+      | List elt -> refs elt map
+      | Pair (x,y) -> union map [refs x; refs y]
+      | Triple (x,y,z) -> union map [refs x; refs y; refs z]
+      | Quadruple (x,y,z,w) -> union map [refs x; refs y; refs z; refs w]
+      | Custom t -> refs t.default map
+  and subrefs: type a.
+    (string * label_metadata) list -> (any_typ String_map.t as 'm) -> 'm
+    = fun keys map ->
+      union map @@
+      List.map (fun (_, { ltyp = T t; _}) -> refs t) keys
+end
+
+module JSchema = struct
+  open Diagnostic
+  module Pp = Diagnostic_backends.Pp
   open Pp
   let string s ppf = Format.fprintf ppf "%S" s
   let bool = Pp.bool json
   let item = Pp.item json
+
+
   let header name  =
       [
         (item ~key:"$schema" @@
@@ -147,52 +189,23 @@ module JSchema = struct
 
   let simple_record ~desc x = obj (record_fields ~desc None x)
 
-  module String_map = Misc.Stdlib.String.Map
-  let union map a = List.fold_left (fun m add -> add m) map a
-  let rec refs: type a.
-    a typ -> ((Format.formatter -> unit) String_map.t as 'r) -> 'r  =
-    fun ty map -> match ty with
-      | Sum x ->
-          let name = scheme_name x in
-          let desc = scheme_description x in
-          if String_map.mem name map then map
-          else
-            let map = String_map.add name (sum ~desc x) map in
-            subrefs (field_infos x) map
-      | Record x ->
-          let name = scheme_name x in
-          if String_map.mem name map then map
-          else
-            let desc= scheme_description x in
-            let fields = field_infos x in
-            let map =
-              String_map.add name
-                (simple_record ~desc fields) map in
-            subrefs fields map
-      | Int -> map
-      | Bool -> map
-      | String -> map
-      | Unit -> map
-      | Float -> map
-      | List elt -> refs elt map
-      | Pair (x,y) -> union map [refs x; refs y]
-      | Triple (x,y,z) -> union map [refs x; refs y; refs z]
-      | Quadruple (x,y,z,w) -> union map [refs x; refs y; refs z; refs w]
-      | Custom t -> refs t.default map
-  and subrefs: type a.
-    (string * label_metadata) list ->
-    ((Format.formatter -> unit) String_map.t as 'm) -> 'm
-    = fun keys map ->
-      union map @@
-      List.map (fun (_, { ltyp = T t; _}) -> refs t) keys
+  let def_printer = function
+      | T (Sum x) -> sum ~desc:(scheme_description x) x
+      | T (Record x) ->
+        simple_record ~desc:(scheme_description x) (field_infos x)
+      | _ -> ignore
 
    let pp v sch ppf =
      let keys = metakey :: field_infos sch in
-     let defs = match String_map.bindings (subrefs keys String_map.empty) with
-       | [] -> []
-       | defs ->
-           let prs = List.map (fun (key,pr) -> item ~key pr) defs in
-           [item ~key:"$defs" @@ obj prs]
+     let refs = Defs.subrefs keys String_map.empty in
+     let defs =
+       if String_map.is_empty refs then []
+       else
+         let refs = String_map.bindings refs in
+         let prs =
+           List.map (fun (key,ty) -> item ~key (def_printer ty)) refs
+         in
+         [item ~key:"$defs" @@ obj prs]
      in
      obj (
        header (scheme_name sch)
@@ -202,10 +215,80 @@ module JSchema = struct
 
   end
 
+module Annotated_adt = struct
+
+  open Diagnostic
+  let time ppf () = Format.fprintf ppf "@ *@ "
+  let tuple ~parentheses components ppf =
+    let pr = Format.pp_print_list ~pp_sep:time (|>) in
+    if parentheses then Format.fprintf ppf "@[(%a)@]" pr components
+    else Format.fprintf ppf "@[%a@]" pr components
+
+  let string s ppf = Format.pp_print_string ppf s
+
+  let rec typ: type a b.
+    parentheses:bool -> a typ -> Format.formatter -> unit =
+    fun ~parentheses x ->
+    let t x = typ ~parentheses:true x in
+    let tuple = tuple ~parentheses in
+    match x with
+    | Int -> string "int"
+    | Bool ->  string "bool"
+    | Unit -> string "int"
+    | String -> string "string"
+    | Float -> string "number"
+    | List e ->
+        Format.dprintf "%t array" (typ ~parentheses  e)
+    | Pair (x,y) -> tuple [t x; t y]
+    | Triple (x,y,z) -> tuple [t x; t y; t z]
+    | Quadruple (x,y,z,w) -> tuple [t x;t y; t z; t w]
+    | Sum x -> string (scheme_name x)
+    | Record x -> string (scheme_name x)
+    | Custom x -> typ ~parentheses x.default
+
+  let sum x ppf =
+    let constructor ppf (name, kty) =
+      match kty.ltyp with
+      | T Unit -> Format.fprintf ppf "@ | %s" name
+      | T t ->
+        Format.fprintf ppf "@ @[<2>| %s of@ %t@]"
+          name (typ ~parentheses:false t)
+    in
+    List.iter (constructor ppf) (field_infos x)
+
+  let record x ppf =
+    let field ppf (name, { ltyp=T ty; _ }) =
+      Format.fprintf ppf "@ @[<2>%s:@ %t;@]" name (typ ~parentheses:false ty)
+    in
+    Format.fprintf ppf "{";
+    List.iter (field ppf) (field_infos x);
+    Format.fprintf ppf "@ }"
+
+  let def (T x) = match x with
+    | Sum x -> sum x
+    | Record x -> record x
+    | _ -> ignore
+
+   let pp _v sch ppf =
+     let keys = field_infos sch in
+     let pp_def ppf (name, ty) =
+       Format.fprintf ppf "@[<hv 2>type %s = %t@]" name (def ty)
+    in
+    let subdefs = Defs.subrefs keys String_map.empty in
+    let pp_sep ppf () = Format.fprintf ppf "@,@," in
+    let typ = T (Record sch) in
+    Format.fprintf ppf "@[<v>%a@,@,@ %a@]@."
+      pp_def (scheme_name sch, typ)
+      Format.(pp_print_seq ~pp_sep pp_def) (String_map.to_seq subdefs)
+end
 
 let args =
-  [ "-json-schema", Arg.Symbol (log_schemas, fun x -> json_schema := Some x),
-    " print all known json_schema";
+  [ "-json-schema",
+     Arg.Symbol (log_schemas, fun x -> json_schema_to_print := Some x),
+    " print all known schema in json schema format";
+    "-adt-schema",
+    Arg.Symbol (log_schemas, fun x -> adt_schema_to_print := Some x),
+    " print all known schema in annotated ADT schema format";
     "-history", Arg.Set history, " print log format history";
     "-version", Arg.String (fun x -> version := Some x), " schema version";
     "-o", Arg.String (fun x -> output := Some x), " output file"
@@ -225,7 +308,7 @@ let version () =
       with
       | Some _ as v -> v
       | None -> Some (Diagnostic_history.current_version V.history)
-let schema v ppf =
+let json_schema v ppf =
   function
   | None -> ()
   | Some "meta" ->
@@ -242,6 +325,26 @@ let schema v ppf =
     Format.fprintf ppf "%t@." (JSchema.pp v Errd.Kind.scheme)
   | Some "msg" ->
     Format.fprintf ppf "%t@." (JSchema.pp v Errd.Msg.scheme)
+  | _ -> ()
+
+
+
+let adt _v ppf = function
+  | None -> ()
+  | Some "meta" ->
+    Format.fprintf ppf "%t@." (Annotated_adt.pp v Diagnostic.Metadata.scheme)
+  | Some "config" ->
+    Format.fprintf ppf "%t@." (Annotated_adt.pp v Config_diagnostic.scheme)
+  | Some "compiler" ->
+    Format.fprintf ppf "%t@." (Annotated_adt.pp v scheme)
+  | Some "toplevel" ->
+    Format.fprintf ppf "%t@." (Annotated_adt.pp v Toplevel_diagnostic.scheme)
+  | Some "error" ->
+    Format.fprintf ppf "%t@." (Annotated_adt.pp v Error.scheme)
+  | Some "kind" ->
+    Format.fprintf ppf "%t@." (Annotated_adt.pp v Errd.Kind.scheme)
+  | Some "msg" ->
+    Format.fprintf ppf "%t@." (Annotated_adt.pp v Errd.Msg.scheme)
   | _ -> ()
 
 
@@ -351,5 +454,6 @@ let () =
   Arg.parse args ignore "print log information";
   let ppf = formatter !output in
   let version = version () in
-  schema version ppf !json_schema;
+  json_schema version ppf !json_schema_to_print;
+  adt version ppf !adt_schema_to_print;
   history ppf
