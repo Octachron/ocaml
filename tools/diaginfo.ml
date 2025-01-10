@@ -236,7 +236,7 @@ module Annotated_adt = struct
     | Bool ->  string "bool"
     | Unit -> string "int"
     | String -> string "string"
-    | Float -> string "number"
+    | Float -> string "float"
     | List e ->
         Format.dprintf "%t array" (typ ~parentheses  e)
     | Pair (x,y) -> tuple [t x; t y]
