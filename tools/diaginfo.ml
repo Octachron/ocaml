@@ -246,23 +246,84 @@ module Annotated_adt = struct
     | Record x -> string (scheme_name x)
     | Custom x -> typ ~parentheses x.default
 
-  let sum x ppf =
-    let constructor ppf (name, kty) =
-      match kty.ltyp with
-      | T Unit -> Format.fprintf ppf "@ | %s" name
-      | T t ->
-        Format.fprintf ppf "@ @[<2>| %s of@ %t@]"
-          name (typ ~parentheses:false t)
+  let break_if_not_empty ppf = function
+    | [] -> ()
+    | _ -> Format.pp_print_space ppf ()
+
+  let pp_stage lifetime_phases ppf x =
+    let pp_phase ppf (name,v) =
+        Format.fprintf ppf "[@@%s %d.%d]" name v.major v.minor
     in
-    List.iter (constructor ppf) (field_infos x)
+    let group (name,proj) = Option.map (fun v -> name, v ) (proj x) in
+    let phases = List.filter_map group lifetime_phases in
+    break_if_not_empty ppf phases;
+    Format.pp_print_list ~pp_sep:Format.pp_print_cut pp_phase ppf phases
+
+  let factorize_stage l (name,proj as p) = match l with
+    | [] -> Either.Right p
+    | (_,a) :: q ->
+        match proj a.status with
+        | None -> Either.Right p
+        | Some f as sf ->
+            if List.for_all (fun (_,x) -> sf = proj x.status) q then
+              Either.Left (name, f)
+            else Either.Right p
+
+  let split_stages stages l =
+    List.partition_map (factorize_stage l) stages
+
+  let pp_common_stage ppf l =
+    let pp_stage ppf (name,v) =
+      Format.fprintf ppf "[@@@@%s %d.%d]" name v.major v.minor
+    in
+    Format.pp_print_list pp_stage ~pp_sep:Format.pp_print_cut ppf l
+
+  let lifetime_phases =
+    let open Lifetime in
+    [ "preview", (fun x -> x.inception);
+      "since", (fun x -> x.publication);
+      "expanded", (fun x -> x.expansion);
+      "deprecated", (fun x -> x.deprecation);
+      "deleted", (fun x -> x.deletion);
+    ]
+
+  let sum x ppf =
+    let constructor stages ppf (name, kty) =
+      match kty.ltyp with
+      | T Unit ->
+          Format.fprintf ppf "@ | %s%a" name (pp_stage stages) kty.status
+      | T t ->
+        Format.fprintf ppf "@ @[<2>| %s of@ %t%a@]"
+          name (typ ~parentheses:false t)
+          (pp_stage stages) kty.status
+    in
+    let fields = field_infos x in
+    let common, specific = split_stages lifetime_phases fields in
+    List.iter (constructor specific ppf) (field_infos x);
+    Format.fprintf ppf "@]%a%a@]"
+    break_if_not_empty common
+    pp_common_stage common
+
 
   let record x ppf =
-    let field ppf (name, { ltyp=T ty; _ }) =
-      Format.fprintf ppf "@ @[<2>%s:@ %t;@]" name (typ ~parentheses:false ty)
+    let pp_opt all_opt ppf opt =
+      if not all_opt && opt then Format.fprintf ppf "[@@optional]" else () in
+    let field all_opt phases ppf (name, { ltyp=T ty; optional; status }) =
+      Format.fprintf ppf "@ @[<2>%s:@ %t%a%a;@]"
+        name (typ ~parentheses:false ty)
+        (pp_opt all_opt) optional
+        (pp_stage phases) status
     in
+    let fields = field_infos x in
+    let all_opt = List.for_all (fun (_,x) -> x.optional) fields in
+    let common, specific = split_stages lifetime_phases fields in
     Format.fprintf ppf "{";
-    List.iter (field ppf) (field_infos x);
-    Format.fprintf ppf "@ }"
+    List.iter (field all_opt specific ppf) fields;
+    Format.fprintf ppf "@;<1 -2>}@]";
+    if all_opt then Format.fprintf ppf " [@@@@optional]@,"
+    else Format.fprintf ppf " ";
+    Format.fprintf ppf "@]%a" pp_common_stage common
+
 
   let def (T x) = match x with
     | Sum x -> sum x
@@ -271,7 +332,7 @@ module Annotated_adt = struct
 
    let pp _v ppf (T typ) =
      let pp_def ppf (name, ty) =
-       Format.fprintf ppf "@[<hv 2>type %s = %t@]" name (def ty)
+       Format.fprintf ppf "@[@[<hv 2>type %s = %t" name (def ty)
     in
     let subdefs = Defs.refs typ String_map.empty in
     let pp_sep ppf () = Format.fprintf ppf "@,@," in
