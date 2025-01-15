@@ -14,11 +14,51 @@
 (**************************************************************************)
 
 open Diagnostic_history
-let json_schema_to_print = ref None
-let history = ref false
-let output = ref None
-let version = ref None
-let adt_schema_to_print = ref None
+module V = Compiler_diagnostic.V
+
+module Options = struct
+  type schema_format = Json | Adt
+  type schema_name = All | One of string
+  let name = ref None
+  let parse_name = function
+    | "*" -> name := (Some All)
+    | s -> name := Some (One s)
+
+  let format = ref None
+  let format_list = ["json"; "adt"]
+  let parse_format = function
+    | "json" -> format := Some Json
+    | "adt" -> format := Some Adt
+    | _ -> failwith "Unknown schema format"
+
+  let filename_template = ref None
+  let parse_file_template s =
+    match Scanf.format_from_string s "%s" with
+    | x -> filename_template := Some (fun s -> Format.asprintf x s)
+    | exception Scanf.Scan_failure _ -> filename_template := Some (fun _ -> s)
+
+  let output_template = ref None
+  let parse_template s =
+    match Scanf.format_from_string s "%a" with
+    | x ->
+        output_template :=
+          Some (fun ppf printer arg -> Format.fprintf ppf x printer arg)
+    | exception Scanf.Scan_failure _ ->
+        failwith (Format.asprintf "Invalid format template: \"%s\"" s)
+
+  let version = ref None
+  let parse_version () =
+    match !version with
+    | None -> Some (Diagnostic_history.current_version V.history)
+    | Some v ->
+        match Scanf.sscanf_opt v "%d.%d"
+                (fun major minor -> {Diagnostic_history.major;minor})
+        with
+        | Some _ as v -> v
+        | None -> Some (Diagnostic_history.current_version V.history)
+
+  let history = ref false
+end
 
 module String_map = Misc.Stdlib.String.Map
 
@@ -326,47 +366,48 @@ module Annotated_adt = struct
 
 
   let def (T x) = match x with
-    | Sum x -> sum x
-    | Record x -> record x
-    | _ -> ignore
+    | Sum x -> Some (scheme_name x, sum x)
+    | Record x -> Some (scheme_name x, record x)
+    | _ -> None
 
-   let pp _v ppf (T typ) =
-     let pp_def ppf (name, ty) =
-       Format.fprintf ppf "@[@[<hv 2>type %s = %t" name (def ty)
-    in
+  let pp_def ppf ty =
+    Option.iter (fun (name,pr) ->
+        Format.fprintf ppf "@[@[<hv 2>type %s = %t" name pr
+      ) (def ty)
+
+   let _pp_with_deps _v ppf (T typ) =
     let subdefs = Defs.refs typ String_map.empty in
     let pp_sep ppf () = Format.fprintf ppf "@,@," in
     Format.fprintf ppf "@[<v>%a@]@."
-      Format.(pp_print_seq ~pp_sep pp_def) (String_map.to_seq subdefs)
+      Format.(pp_print_seq ~pp_sep pp_def)
+      (Seq.map snd @@ String_map.to_seq subdefs)
 end
 
-let args = Arg.align
-  [ "-json-schema",
-     Arg.String (fun x -> json_schema_to_print := Some x),
-    "<name> print the schema <name> in json schema format";
-    "-adt-schema",
-    Arg.String (fun x -> adt_schema_to_print := Some x),
-    "<name> print the schema <name> as an annotated ADT definition";
+let args =
+  let open Options in
+  Arg.align
+  [ "-schema-format", Arg.Symbol (format_list, parse_format),
+    "<name> print the schema <name> in <name> format";
+    "-schema", Arg.String parse_name,
+    "<name> print the schema <name>, if <name>=* print all known schema";
     "-history", Arg.Set history, " print log format history";
     "-version", Arg.String (fun x -> version := Some x),
     "<version> schema version";
-    "-o", Arg.String (fun x -> output := Some x), "<filename> output file"
+    "-o", Arg.String parse_file_template,
+    "<template> template name for output files";
+    "-template", Arg.String parse_template, "<template> output %a-template"
   ]
 
-let formatter = function
-  | None -> Format.std_formatter
-  | Some s -> Format.formatter_of_out_channel (Out_channel.open_bin s)
+let with_formatter name f =
+  match !Options.filename_template with
+  | None -> f Format.std_formatter
+  | Some file ->
+      Out_channel.with_open_bin (file name) (fun out ->
+          f (Format.formatter_of_out_channel out)
+        )
+
 open Compiler_diagnostic
 
-let version () =
-  match !version with
-  | None -> Some (Diagnostic_history.current_version V.history)
-  | Some v ->
-      match Scanf.sscanf_opt v "%d.%d"
-              (fun major minor -> {Diagnostic_history.major;minor})
-      with
-      | Some _ as v -> v
-      | None -> Some (Diagnostic_history.current_version V.history)
 
 module Pp = struct
   open Format
@@ -460,15 +501,17 @@ module Pp = struct
     if not (List.is_empty err) then exit 2
 end
 
-let history ppf =
-  if !history then
-    Format.fprintf ppf
+let history () =
+  if !Options.history then
+    with_formatter "history"
+    (Format.dprintf
       "@[<v 2>Metadata:@,%a@;<0 -2>\
       Config:@,%a@;<0 -2>\
        Main:@,%a@]%!"
       Pp.history Diagnostic.Metadata_versions.history
       Pp.history Config_diagnostic.Versions.history
       Pp.history V.history
+    )
 
 let schemas =
   String_map.empty
@@ -478,18 +521,27 @@ let schemas =
   |> Defs.refs (Record Toplevel_diagnostic.scheme)
 
 
-let pp_schema printer ppf = function
-  | None -> ()
-  | Some name ->
-      match String_map.find_opt name schemas with
-      | None -> Format.fprintf  ppf "Unknown schema name: %s@." name
-      | Some s -> Format.fprintf ppf "%a@." printer s
+let pp_schema version name =
+  match !Options.format, String_map.find_opt name schemas with
+  | _, None ->  Format.eprintf "Unknown schema name: %s@." name
+  | None, Some _ -> ()
+  | Some pr, Some sch ->
+      let printer = match pr with
+        | Options.Json -> JSchema.pp_type version
+        | Options.Adt -> Annotated_adt.pp_def
+      in
+      with_formatter name (fun ppf ->
+      match !Options.output_template with
+      | None -> Format.fprintf ppf "%a@." printer sch
+      | Some template -> template ppf printer sch
+        )
 
 let () =
   Arg.parse args ignore "print log information";
-
-  let ppf = formatter !output in
-  let version = version () in
-  pp_schema (JSchema.pp_type version) ppf !json_schema_to_print;
-  pp_schema (Annotated_adt.pp version) ppf !adt_schema_to_print;
-  history ppf
+  let version = Options.parse_version () in
+  history ();
+  match !Options.name with
+  | None -> ()
+  | Some (Options.All) ->
+      String_map.iter (fun name _ -> pp_schema version name) schemas
+  | Some (Options.One x) -> pp_schema version x
