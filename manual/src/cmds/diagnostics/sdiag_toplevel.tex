@@ -2,12 +2,13 @@
 \begin{caml}
 \begin{camlinput}
 type toplevel = {
-  trace: structured_text array array;
-  errors: structured_text array array;
-  compiler: compiler;
-  backtrace: structured_text array;
-  output: structured_text array;
-} [@@optional][@@since 1.0]
+  metadata: metadata;
+  trace: structured_text array array[@optional];
+  errors: structured_text array array[@optional];
+  compiler: compiler[@optional];
+  backtrace: structured_text array[@optional];
+  output: structured_text array[@optional];
+} [@@since 1.0]
 \end{camlinput}
 \end{caml}
 \end{camlexample}

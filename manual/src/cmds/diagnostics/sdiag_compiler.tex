@@ -2,11 +2,12 @@
 \begin{caml}
 \begin{camlinput}
 type compiler = {
-  alerts: error_report array;
-  warnings: error_report array;
-  error: error_report;
-  debug: debug;
-} [@@optional][@@since 1.0]
+  metadata: metadata;
+  alerts: error_report array[@optional];
+  warnings: error_report array[@optional];
+  error: error_report[@optional];
+  debug: debug[@optional];
+} [@@since 1.0]
 \end{camlinput}
 \end{caml}
 \end{camlexample}

@@ -20,6 +20,7 @@ module Options = struct
   type schema_format = Json | Adt
   type schema_name = All | One of string
   let name = ref None
+  let with_deps = ref true
   let parse_name = function
     | "*" -> name := (Some All)
     | s -> name := Some (One s)
@@ -61,14 +62,15 @@ module Options = struct
 end
 
 module String_map = Misc.Stdlib.String.Map
+module String_set = Misc.Stdlib.String.Set
+
 
 
 (** Collect sum and record definitions from a scheme *)
 module Defs = struct
   open Diagnostic
   let union map a = List.fold_left (fun m add -> add m) map a
-  let rec refs: type a.
-    a typ -> (any_typ String_map.t as 'r) -> 'r  =
+  let rec add_refs: type a. a typ -> _ -> _  =
     fun ty map -> match ty with
       | Sum x ->
           let name = scheme_name x in
@@ -87,16 +89,18 @@ module Defs = struct
       | String -> map
       | Unit -> map
       | Float -> map
-      | List elt -> refs elt map
-      | Pair (x,y) -> union map [refs x; refs y]
-      | Triple (x,y,z) -> union map [refs x; refs y; refs z]
-      | Quadruple (x,y,z,w) -> union map [refs x; refs y; refs z; refs w]
-      | Custom t -> refs t.default map
-  and subrefs: type a.
-    (string * label_metadata) list -> (any_typ String_map.t as 'm) -> 'm
-    = fun keys map ->
+      | List elt -> add_refs elt map
+      | Pair (x,y) -> union map [add_refs x; add_refs y]
+      | Triple (x,y,z) -> union map [add_refs x; add_refs y; add_refs z]
+      | Quadruple (x,y,z,w) ->
+          union map [add_refs x; add_refs y; add_refs z; add_refs w]
+      | Custom t -> add_refs t.default map
+  and subrefs keys map =
       union map @@
-      List.map (fun (_, { ltyp = T t; _}) -> refs t) keys
+      List.map (fun (_, { ltyp = T t; _}) -> add_refs t) keys
+
+  let refs typ = add_refs typ String_map.empty
+
 end
 
 module JSchema = struct
@@ -230,17 +234,20 @@ module JSchema = struct
         simple_record ~desc:(scheme_description x) (field_infos x)
       | _ -> ignore
 
-   let pp v sch ppf =
-     let keys = metakey :: field_infos sch in
-     let refs = Defs.subrefs keys String_map.empty in
+   let pp v ~with_deps ~roots sch ppf =
+     let keys = field_infos sch in
+     let root = String_set.mem (scheme_name sch) roots in
+     let keys = if root then metakey :: keys else keys in
      let defs =
-       if String_map.is_empty refs then []
-       else
-         let refs = String_map.bindings refs in
-         let prs =
-           List.map (fun (key,ty) -> item ~key (def_printer ty)) refs
-         in
-         [item ~key:"$defs" @@ obj prs]
+       if not with_deps then [] else
+         let refs = Defs.subrefs keys String_map.empty in
+         if String_map.is_empty refs then []
+         else
+           let refs = String_map.bindings refs in
+           let prs =
+             List.map (fun (key,ty) -> item ~key (def_printer ty)) refs
+           in
+           [item ~key:"$defs" @@ obj prs]
      in
      obj (
        header (scheme_name sch)
@@ -248,9 +255,9 @@ module JSchema = struct
        @ schema_field :: record_fields ~desc:(scheme_description sch) v keys
      ) ppf
 
-   let pp_type v ppf = function
-     | T (Sum sch) -> pp v sch ppf
-     | T (Record sch) -> pp v sch ppf
+   let pp_type v ~with_deps ~roots ppf ty = match ty with
+     | T (Sum sch) -> pp ~with_deps ~roots v sch ppf
+     | T (Record sch) -> pp ~with_deps ~roots v sch ppf
      | _ -> ()
 
   end
@@ -345,7 +352,7 @@ module Annotated_adt = struct
     pp_common_stage common
 
 
-  let record x ppf =
+  let record ~root x ppf =
     let pp_opt all_opt ppf opt =
       if not all_opt && opt then Format.fprintf ppf "[@@optional]" else () in
     let field all_opt phases ppf (name, { ltyp=T ty; optional; status }) =
@@ -355,6 +362,7 @@ module Annotated_adt = struct
         (pp_stage phases) status
     in
     let fields = field_infos x in
+    let fields = if root then metakey :: fields else fields in
     let all_opt = List.for_all (fun (_,x) -> x.optional) fields in
     let common, specific = split_stages lifetime_phases fields in
     Format.fprintf ppf " {";
@@ -365,23 +373,30 @@ module Annotated_adt = struct
     Format.fprintf ppf "@]%a" pp_common_stage common
 
 
-  let def (T x) = match x with
+  let def roots (T x) = match x with
     | Sum x -> Some (scheme_name x, sum x)
-    | Record x -> Some (scheme_name x, record x)
+    | Record x ->
+        let name = scheme_name x in
+        let root = String_set.mem name roots in
+        Some (name, record ~root x)
     | _ -> None
 
-  let pp_def ppf ty =
+  let pp_def roots ppf ty =
     Option.iter (fun (name,pr) ->
         Format.fprintf ppf "@[@[<hv 2>type %s =%t" name pr
-      ) (def ty)
+      ) (def roots ty)
 
-   let _pp_with_deps _v ppf (T typ) =
-    let subdefs = Defs.refs typ String_map.empty in
-    let pp_sep ppf () = Format.fprintf ppf "@,@," in
-    Format.fprintf ppf "@[<v>%a@]@."
-      Format.(pp_print_seq ~pp_sep pp_def)
-      (Seq.map snd @@ String_map.to_seq subdefs)
-end
+  let pp _v ~with_deps ~roots ppf (T ty as rty) =
+    let pp_def = pp_def roots in
+    if not with_deps then
+      Format.fprintf ppf "%a" pp_def rty
+    else
+      let defs = Defs.refs ty in
+      let pp_sep ppf () = Format.fprintf ppf "@,@," in
+      Format.fprintf ppf "@[<v>%a@]"
+        Format.(pp_print_seq ~pp_sep pp_def)
+        (Seq.map snd @@ String_map.to_seq defs)
+ end
 
 let args =
   let open Options in
@@ -395,7 +410,9 @@ let args =
     "<version> schema version";
     "-o", Arg.String parse_file_template,
     "<template> template name for output files";
-    "-template", Arg.String parse_template, "<template> output %a-template"
+    "-template", Arg.String parse_template, "<template> output %a-template";
+    "-with-deps", Arg.Bool ( (:=) with_deps),
+    "<bool> include dependencies in the printed schema"
   ]
 
 let with_formatter name f =
@@ -403,7 +420,9 @@ let with_formatter name f =
   | None -> f Format.std_formatter
   | Some file ->
       Out_channel.with_open_bin (file name) (fun out ->
-          f (Format.formatter_of_out_channel out)
+          let ppf = Format.formatter_of_out_channel out in
+          f ppf;
+          Format.pp_print_flush ppf ()
         )
 
 open Compiler_diagnostic
@@ -515,10 +534,17 @@ let history () =
 
 let schemas =
   String_map.empty
-  |> Defs.refs (Record Diagnostic.Metadata.scheme)
-  |> Defs.refs (Record Config_diagnostic.scheme)
-  |> Defs.refs (Record Compiler_diagnostic.scheme)
-  |> Defs.refs (Record Toplevel_diagnostic.scheme)
+  |> Defs.add_refs (Record Diagnostic.Metadata.scheme)
+  |> Defs.add_refs (Record Config_diagnostic.scheme)
+  |> Defs.add_refs (Record Compiler_diagnostic.scheme)
+  |> Defs.add_refs (Record Toplevel_diagnostic.scheme)
+
+let roots =
+  String_set.of_list Diagnostic.[
+    scheme_name Config_diagnostic.scheme;
+    scheme_name Compiler_diagnostic.scheme;
+    scheme_name Toplevel_diagnostic.scheme
+  ]
 
 
 let pp_schema version name =
@@ -526,9 +552,10 @@ let pp_schema version name =
   | _, None ->  Format.eprintf "Unknown schema name: %s@." name
   | None, Some _ -> ()
   | Some pr, Some sch ->
+      let with_deps = !Options.with_deps in
       let printer = match pr with
-        | Options.Json -> JSchema.pp_type version
-        | Options.Adt -> Annotated_adt.pp_def
+        | Options.Json -> JSchema.pp_type ~roots ~with_deps version
+        | Options.Adt -> Annotated_adt.pp ~roots ~with_deps version
       in
       with_formatter name (fun ppf ->
       match !Options.output_template with

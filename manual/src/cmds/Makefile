@@ -10,7 +10,9 @@ CAMLLATEX = $(OCAMLRUN) $(addprefix -I ,$(LD_PATH)) \
 DSTART = @[<v>\begin{camlexample}{verbatim}@,\begin{caml}@,\begin{camlinput}@,
 DSTOP= @,\end{camlinput}@,\end{caml}@,\end{camlexample}@]@.
 
-DIAGINFO = $(OCAMLRUN) $(ROOTDIR)/tools/ocamldiaginfo -schema-format adt \
+DIAGINFO = $(OCAMLRUN) $(ROOTDIR)/tools/ocamldiaginfo \
+  -schema-format adt \
+  -with-deps false \
 	-template "$(DSTART)%a$(DSTOP)"
 
 TEXQUOTE = $(OCAMLRUN) $(TOOLS)/texquote2
