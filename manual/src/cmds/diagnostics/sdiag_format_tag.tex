@@ -1,0 +1,15 @@
+\begin{camlinput}
+type format_tag =
+  | Preservation
+  | Modification
+  | Insertion
+  | Deletion
+  | Hint
+  | Inline_code
+  | Loc
+  | Warning
+  | Error
+  | String_tag of string
+  | <Unknown> of string
+[@@since 1.0]
+\end{camlinput}

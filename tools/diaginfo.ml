@@ -357,7 +357,7 @@ module Annotated_adt = struct
     let fields = field_infos x in
     let all_opt = List.for_all (fun (_,x) -> x.optional) fields in
     let common, specific = split_stages lifetime_phases fields in
-    Format.fprintf ppf "{";
+    Format.fprintf ppf " {";
     List.iter (field all_opt specific ppf) fields;
     Format.fprintf ppf "@;<1 -2>}@]";
     if all_opt then Format.fprintf ppf " [@@@@optional]@,"
@@ -372,7 +372,7 @@ module Annotated_adt = struct
 
   let pp_def ppf ty =
     Option.iter (fun (name,pr) ->
-        Format.fprintf ppf "@[@[<hv 2>type %s = %t" name pr
+        Format.fprintf ppf "@[@[<hv 2>type %s =%t" name pr
       ) (def ty)
 
    let _pp_with_deps _v ppf (T typ) =

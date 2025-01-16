@@ -1,0 +1,24 @@
+\begin{camlinput}
+type debug = {
+  profile: string array * profile array;
+  cmm_invariant: string;
+  linear: string array;
+  mach: string array;
+  unbox-specialised-args: string array;
+  unbox-closures: string array;
+  unbox-free-vars-of-closures: string array;
+  remove-free-vars-equal-to-args: string array;
+  cmm: string array;
+  raw_clambda: string array;
+  clambda: string array;
+  raw_flambda: string array;
+  flambda: string array;
+  raw_lambda: string;
+  lambda: string;
+  instr: string;
+  shape: string;
+  typedtree: string;
+  source: string;
+  parsetree: string;
+} [@@optional][@@since 1.0]
+\end{camlinput}

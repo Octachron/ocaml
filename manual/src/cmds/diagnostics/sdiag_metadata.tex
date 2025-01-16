@@ -1,0 +1,9 @@
+\begin{camlinput}
+type metadata = {
+  deprecated_paths: string array array[@optional];
+  invalid_paths: string array array[@optional];
+  valid: validity;
+  downward_compatible: bool;
+  version: int * int;
+} [@@since 1.0]
+\end{camlinput}

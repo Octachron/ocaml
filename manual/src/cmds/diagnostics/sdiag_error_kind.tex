@@ -1,0 +1,9 @@
+\begin{camlinput}
+type error_kind =
+  | Report_warning_as_error of string
+  | Report_warning of string
+  | Report_alert_as_error of string
+  | Report_alert of string
+  | Report_error
+[@@since 1.0]
+\end{camlinput}

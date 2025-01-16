@@ -1,0 +1,8 @@
+\begin{camlinput}
+type compiler = {
+  alerts: error_report array;
+  warnings: error_report array;
+  error: error_report;
+  debug: debug;
+} [@@optional][@@since 1.0]
+\end{camlinput}
