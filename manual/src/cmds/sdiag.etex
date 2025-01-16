@@ -29,12 +29,12 @@ types annotated with versioning and evolution annotation.
 
 \begin{caml_example*}{verbatim}
 type error_kind =
-  | Fatal of string [@published (1,0)][@deleted (1,1)]
-  | Error of string [@published (1,0)]
+  | Fatal of string [@since 1.0][@deleted 1.1]
+  | Error of string [@since 1.0]
   | Warning of
       { contents:string; number:int; name:string }
-      [@published (1,0)] [@expanded (1,1)]
-  | Lint of string [@derived Warning (1,1)][@published (2,0)]
+      [@since 1.0] [@expanded 1.1]
+  | Lint of string [@preview 1.1][@since 2.0]
 \end{caml_example*}
 
 
@@ -153,6 +153,22 @@ could replace future constructor by a special constructor "<future>", but it is
 unclear if this would help tools more than having an unknown constructor name.
 Thus reliable deserializers that expect to work across major version would need
 to parse variant sum as if they were always extensible.
+
+
+\subsection{ss:sdiag-variant-subtyping}{Variant constructors and record fields lifecycle}
+
+Resuming the previous evolution rules, this means that constructors and records goes
+through stages during the evolution of a diagnostic
+
+\begin{enumerate}
+\item preview "[@preview <version>]", a derived constructor can be created in a preview state
+\item publication "[@since <version>]"
+\item expansion "[@expanded <version]", a constructor argument can be expanded
+\item requirement "[@required <version>]", an optional record field can be made mandatory
+\item deprecation "[@deprecated <version]"
+\item deletion "@[deleted <version>]"
+\end{enumerate}
+
 
 \section{s:metadata-diag}{Compiler diagnostics}
 
