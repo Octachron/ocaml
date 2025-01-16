@@ -161,12 +161,12 @@ Resuming the previous evolution rules, this means that constructors and records 
 through stages during the evolution of a diagnostic
 
 \begin{enumerate}
-\item preview "[@preview <version>]", a derived constructor can be created in a preview state
-\item publication "[@since <version>]"
-\item expansion "[@expanded <version]", a constructor argument can be expanded
-\item requirement "[@required <version>]", an optional record field can be made mandatory
-\item deprecation "[@deprecated <version]"
-\item deletion "@[deleted <version>]"
+\item preview "[\@preview M.m]", a derived constructor can be created in a preview state
+\item publication "[\@since M.m]"
+\item expansion "[\@expanded M.m]", a constructor argument can be expanded
+\item requirement "[\@required M.m]", an optional record field can be made mandatory
+\item deprecation "[\@deprecated M.m]"
+\item deletion "[\@deleted M.m]"
 \end{enumerate}
 
 
