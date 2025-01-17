@@ -1,0 +1,29 @@
+(**************************************************************************)
+(*                                                                        *)
+(*                                 OCaml                                  *)
+(*                                                                        *)
+(*             Florian Angeletti, projet Cambium, Inria Paris             *)
+(*                                                                        *)
+(*   Copyright 2024 Institut National de Recherche en Informatique et     *)
+(*     en Automatique.                                                    *)
+(*                                                                        *)
+(*   All rights reserved.  This file is distributed under the terms of    *)
+(*   the GNU Lesser General Public License version 2.1, with the          *)
+(*   special exception on linking described in the file LICENSE.          *)
+(*                                                                        *)
+(**************************************************************************)
+
+(** Access to configuration values *)
+module Versions: Diagnostic_history.S
+
+include Diagnostic.Record with type vl := Versions.id
+
+val print : id Log.t -> unit
+val var : string -> string option
+  (** the configuration value of a variable, if it exists *)
+
+  (** {1 Displaying configuration variables} *)
+
+val show_variable_and_exit : string -> unit
+(** Display the value of the given configuration variable,
+    then exit the program with code 0. *)

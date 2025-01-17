@@ -26,6 +26,7 @@ val version: string
 val bindir: string
 (** The directory containing the binary programs *)
 
+val standard_library_default: string
 val standard_library: string
 (** The directory containing the standard libraries *)
 
