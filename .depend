@@ -45,6 +45,22 @@ utils/clflags.cmx : \
 utils/clflags.cmi : \
     utils/profile.cmi \
     utils/misc.cmi
+utils/compiler_diagnostic.cmo : \
+    utils/misc.cmi \
+    utils/format_doc.cmi \
+    utils/diagnostic_history.cmi \
+    utils/diagnostic.cmi \
+    utils/compiler_diagnostic.cmi
+utils/compiler_diagnostic.cmx : \
+    utils/misc.cmx \
+    utils/format_doc.cmx \
+    utils/diagnostic_history.cmx \
+    utils/diagnostic.cmx \
+    utils/compiler_diagnostic.cmi
+utils/compiler_diagnostic.cmi : \
+    utils/format_doc.cmi \
+    utils/diagnostic_history.cmi \
+    utils/diagnostic.cmi
 utils/compression.cmo : \
     utils/compression.cmi
 utils/compression.cmx : \
