@@ -18,38 +18,43 @@ open Misc
 type info = {
   target: Unit_info.t;
   env : Env.t;
-  ppf_dump : Format.formatter;
+  debug_log : Compiler_diagnostic.Debug.id Log.t;
   tool_name : string;
   native : bool;
 }
 
-let with_info ~native ~tool_name ~dump_ext unit_info k =
+let with_info ~native ~tool_name ~dump_ext ~log unit_info k =
   Compmisc.init_path ();
   Env.set_current_unit unit_info ;
   let env = Compmisc.initial_env() in
   let dump_file = String.concat "." [Unit_info.prefix unit_info; dump_ext] in
-  Compmisc.with_ppf_dump ~file_prefix:dump_file @@ fun ppf_dump ->
-  k {
-    target = unit_info;
-    env;
-    ppf_dump;
-    tool_name;
-    native;
-  }
+  Compmisc.with_debug_log ~file_prefix:dump_file log (fun debug_log ->
+      k {
+        target = unit_info;
+        env;
+        debug_log;
+        tool_name;
+        native;
+      }
+    )
+
+let log_if i field printer x =
+  Clflags.dump_on_log i.debug_log field printer x; x
+module D = Compiler_diagnostic.Debug
 
 (** Compile a .mli file *)
 
 let parse_intf i =
   Pparse.parse_interface ~tool_name:i.tool_name (Unit_info.source_file i.target)
-  |> print_if i.ppf_dump Clflags.dump_parsetree Printast.interface
-  |> print_if i.ppf_dump Clflags.dump_source Pprintast.signature
+  |> log_if i D.parsetree Printast.interface
+  |> log_if i D.source Pprintast.signature
 
 let typecheck_intf info ast =
   Profile.(record_call typing) @@ fun () ->
   let tsg =
     ast
     |> Typemod.type_interface info.env
-    |> print_if info.ppf_dump Clflags.dump_typedtree Printtyped.interface
+    |> log_if info D.typedtree Printtyped.interface
   in
   let alerts = Builtin_attributes.alerts_of_sig ~mark:true ast in
   let sg = tsg.Typedtree.sig_type in
@@ -83,20 +88,17 @@ let interface info =
 
 
 (** Frontend for a .ml file *)
-
 let parse_impl i =
   let sourcefile = Unit_info.source_file i.target in
   Pparse.parse_implementation ~tool_name:i.tool_name sourcefile
-  |> print_if i.ppf_dump Clflags.dump_parsetree Printast.implementation
-  |> print_if i.ppf_dump Clflags.dump_source Pprintast.structure
+  |> log_if i D.parsetree Printast.implementation
+  |> log_if i D.source Pprintast.structure
 
 let typecheck_impl i parsetree =
   parsetree
-  |> Profile.(record typing)
-    (Typemod.type_implementation i.target i.env)
-  |> print_if i.ppf_dump Clflags.dump_typedtree
-    Printtyped.implementation_with_coercion
-  |> print_if i.ppf_dump Clflags.dump_shape
+  |> Profile.(record typing) (Typemod.type_implementation i.target i.env)
+  |> log_if i D.typedtree Printtyped.implementation_with_coercion
+  |> log_if i D.shape
     (fun fmt {Typedtree.shape; _} -> Shape.print fmt shape)
 
 let implementation info ~backend =

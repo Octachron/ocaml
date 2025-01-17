@@ -128,13 +128,6 @@ let split_chunks phrases =
   in
   loop phrases [] []
 
-module Compiler_messages = struct
-  let capture ppf ~f =
-    Misc.protect_refs
-      [ R (Location.formatter_for_warnings, ppf) ]
-      f
-end
-
 let collect_formatters buf pps ~f =
   let ppb = Format.formatter_of_buffer buf in
   let out_functions = Format.pp_get_formatter_out_functions ppb () in
@@ -158,14 +151,18 @@ let collect_formatters buf pps ~f =
   | exception exn -> restore (); raise exn
 
 (* Invariant: ppf = Format.formatter_of_buffer buf *)
-let capture_everything buf ppf ~f =
+let capture_everything buf ~f =
   collect_formatters buf [Format.std_formatter; Format.err_formatter]
-                     ~f:(fun () -> Compiler_messages.capture ppf ~f)
+    ~f
 
-let exec_phrase ppf phrase =
+
+let exec_phrase dlog ppf phrase =
+  let log_if kind pr x =
+    Clflags.dump_on_log dlog kind pr x
+  in
   Location.reset ();
-  if !Clflags.dump_parsetree then Printast. top_phrase ppf phrase;
-  if !Clflags.dump_source    then Pprintast.top_phrase ppf phrase;
+  log_if Compiler_diagnostic.Debug.parsetree Printast.top_phrase phrase;
+  log_if Compiler_diagnostic.Debug.source Pprintast.top_phrase phrase;
   Toploop.execute_phrase true ppf phrase
 
 let parse_contents ~fname contents =
@@ -234,6 +231,7 @@ let eval_expect_file _fname ~file_contents =
     Misc.Style.set_tag_handling ~color:false ppf in
   let dev = Log.Device.make (ref ppf) in
   let log = Topcommon.log_on_device dev in
+  let dlog = Log.detach log Compiler_diagnostic.debug in
   let exec_phrases phrases =
     let phrases =
       match min_line_number phrases with
@@ -247,7 +245,7 @@ let eval_expect_file _fname ~file_contents =
         acc &&
         let snap = Btype.snapshot () in
         try
-          exec_phrase ppf phrase
+          exec_phrase dlog ppf phrase
         with exn ->
           let bt = Printexc.get_raw_backtrace () in
           begin try Location.log_exception log exn
@@ -271,7 +269,7 @@ let eval_expect_file _fname ~file_contents =
     Misc.delete_eol_spaces s
   in
   let corrected_expectations =
-    capture_everything buf ppf ~f:(fun () ->
+    capture_everything buf ~f:(fun () ->
       List.fold_left chunks ~init:[] ~f:(fun acc chunk ->
         let output = exec_phrases chunk.phrases in
         match eval_expectation chunk.expectation ~output with
@@ -283,7 +281,7 @@ let eval_expect_file _fname ~file_contents =
     match trailing_code with
     | None -> ""
     | Some phrases ->
-      capture_everything buf ppf ~f:(fun () -> exec_phrases phrases)
+      capture_everything buf ~f:(fun () -> exec_phrases phrases)
   in
   { corrected_expectations; trailing_output }
 
