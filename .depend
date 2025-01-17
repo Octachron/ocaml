@@ -7516,6 +7516,7 @@ toplevel/topcommon.cmi : \
     utils/load_path.cmi \
     typing/ident.cmi \
     toplevel/genprintval.cmi \
+    utils/format_doc.cmi \
     typing/env.cmi
 toplevel/topdirs.cmo : \
     utils/warnings.cmi \
@@ -7620,6 +7621,7 @@ toplevel/toploop.cmi : \
     parsing/longident.cmi \
     parsing/location.cmi \
     utils/load_path.cmi \
+    utils/format_doc.cmi \
     typing/env.cmi
 toplevel/topmain.cmi :
 toplevel/topprinters.cmo : \
@@ -7673,6 +7675,7 @@ toplevel/byte/topeval.cmo : \
     parsing/location.cmi \
     utils/load_path.cmi \
     typing/ident.cmi \
+    utils/format_doc.cmi \
     typing/env.cmi \
     bytecomp/emitcode.cmi \
     bytecomp/dll.cmi \
@@ -7703,6 +7706,7 @@ toplevel/byte/topeval.cmx : \
     parsing/location.cmx \
     utils/load_path.cmx \
     typing/ident.cmx \
+    utils/format_doc.cmx \
     typing/env.cmx \
     bytecomp/emitcode.cmx \
     bytecomp/dll.cmx \
@@ -7758,6 +7762,7 @@ toplevel/byte/trace.cmo : \
     utils/misc.cmi \
     bytecomp/meta.cmi \
     parsing/longident.cmi \
+    utils/format_doc.cmi \
     typing/ctype.cmi \
     parsing/asttypes.cmi \
     toplevel/byte/trace.cmi
@@ -7771,6 +7776,7 @@ toplevel/byte/trace.cmx : \
     utils/misc.cmx \
     bytecomp/meta.cmx \
     parsing/longident.cmx \
+    utils/format_doc.cmx \
     typing/ctype.cmx \
     parsing/asttypes.cmx \
     toplevel/byte/trace.cmi
@@ -7799,6 +7805,7 @@ toplevel/native/topeval.cmo : \
     lambda/lambda.cmi \
     typing/includemod.cmi \
     typing/ident.cmi \
+    utils/format_doc.cmi \
     typing/env.cmi \
     otherlibs/dynlink/dynlink.cmi \
     utils/config.cmi \
@@ -7827,6 +7834,7 @@ toplevel/native/topeval.cmx : \
     lambda/lambda.cmx \
     typing/includemod.cmx \
     typing/ident.cmx \
+    utils/format_doc.cmx \
     typing/env.cmx \
     otherlibs/dynlink/dynlink.cmx \
     utils/config.cmx \
@@ -8736,6 +8744,7 @@ debugger/printval.cmo : \
     typing/outcometree.cmi \
     typing/oprint.cmi \
     toplevel/genprintval.cmi \
+    utils/format_doc.cmi \
     typing/env.cmi \
     debugger/debugcom.cmi \
     debugger/printval.cmi
@@ -8747,6 +8756,7 @@ debugger/printval.cmx : \
     typing/outcometree.cmi \
     typing/oprint.cmx \
     toplevel/genprintval.cmx \
+    utils/format_doc.cmx \
     typing/env.cmx \
     debugger/debugcom.cmx \
     debugger/printval.cmi
