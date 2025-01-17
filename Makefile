@@ -385,6 +385,7 @@ ocamloptcomp_SOURCES = $(ocamlmiddleend_SOURCES) $(asmcomp_SOURCES)
 
 ocamltoplevel_SOURCES = $(addprefix toplevel/, \
   genprintval.mli genprintval.ml \
+  toplevel_diagnostic.mli toplevel_diagnostic.ml \
   topcommon.mli topcommon.ml \
   native/tophooks.mli native/tophooks.ml \
   byte/topeval.mli byte/topeval.ml \

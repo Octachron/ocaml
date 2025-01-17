@@ -156,14 +156,14 @@ let capture_everything buf ~f =
     ~f
 
 
-let exec_phrase dlog ppf phrase =
+let exec_phrase log phrase =
   let log_if kind pr x =
-    Clflags.dump_on_log dlog kind pr x
+    Clflags.dump_on_log (Topcommon.debug_log log) kind pr x
   in
   Location.reset ();
   log_if Compiler_diagnostic.Debug.parsetree Printast.top_phrase phrase;
   log_if Compiler_diagnostic.Debug.source Pprintast.top_phrase phrase;
-  Toploop.execute_phrase true ppf phrase
+  Toploop.execute_phrase true log phrase
 
 let parse_contents ~fname contents =
   let lexbuf = Lexing.from_string contents in
@@ -231,39 +231,32 @@ let eval_expect_file _fname ~file_contents =
     Misc.Style.set_tag_handling ~color:false ppf in
   let dev = Log.Device.make (ref ppf) in
   let log = Topcommon.log_on_device dev in
-  let dlog = Log.detach log Compiler_diagnostic.debug in
   let exec_phrases phrases =
     let phrases =
       match min_line_number phrases with
       | None -> phrases
       | Some lnum -> shift_lines (1 - lnum) phrases
     in
-    (* For formatting purposes *)
-    Buffer.add_char buf '\n';
+    let () = Log.itemd Toplevel_diagnostic.trace log "" in
     let _ : bool =
       List.fold_left phrases ~init:true ~f:(fun acc phrase ->
         acc &&
+        let clog = Topcommon.compiler_log log in
         let snap = Btype.snapshot () in
-        try
-          exec_phrase dlog ppf phrase
-        with exn ->
+        let state = try exec_phrase log phrase with exn ->
           let bt = Printexc.get_raw_backtrace () in
-          begin try Location.log_exception log exn
+          begin try Location.log_exception clog exn
           with _ ->
             Format.fprintf ppf "Uncaught exception: %s\n%s\n"
               (Printexc.to_string exn)
               (Printexc.raw_backtrace_to_string bt)
           end;
           Btype.backtrack snap;
-          Log.flush log;
           false
+        in
+        Log.flush log; state
       )
     in
-    Format.pp_print_flush ppf ();
-    let len = Buffer.length buf in
-    if len > 0 && Buffer.nth buf (len - 1) <> '\n' then
-      (* For formatting purposes *)
-      Buffer.add_char buf '\n';
     let s = Buffer.contents buf in
     Buffer.clear buf;
     Misc.delete_eol_spaces s

@@ -15,7 +15,6 @@
 
 (* The "trace" facility *)
 
-open Format
 open Misc
 open Longident
 open Types
@@ -61,12 +60,12 @@ let invoke_traced_function codeptr env arg =
   Meta.invoke_traced_function codeptr env arg
 
 let print_label ppf l =
-  if l <> Asttypes.Nolabel then fprintf ppf "%s:"
+  if l <> Asttypes.Nolabel then Format_doc.fprintf ppf "%s:"
   (Asttypes.string_of_label l)
 
 (* If a function returns a functional value, wrap it into a trace code *)
 
-let rec instrument_result env name ppf clos_typ =
+let rec instrument_result env name log clos_typ =
   match get_desc (Ctype.expand_head env clos_typ) with
   | Tarrow(l, t1, t2, _) ->
       let starred_name =
@@ -74,7 +73,7 @@ let rec instrument_result env name ppf clos_typ =
         | Lident s -> Lident(s ^ "*")
         | Ldot(lid, s) -> Ldot(lid, s ^ "*")
         | Lapply _ -> fatal_error "Trace.instrument_result" in
-      let trace_res = instrument_result env starred_name ppf t2 in
+      let trace_res = instrument_result env starred_name log t2 in
       (fun clos_val ->
         Obj.repr (fun arg ->
           if not !may_trace then
@@ -82,23 +81,23 @@ let rec instrument_result env name ppf clos_typ =
           else begin
             may_trace := false;
             try
-              fprintf ppf "@[<2>%a <--@ %a%a@]@."
-                Printtyp.longident starred_name
+              Log.itemd Toplevel_diagnostic.trace log "@[<2>%a <--@ %a%a@]"
+                Printtyp.Doc.longident starred_name
                 print_label l
-                (Format_doc.compat @@ print_value !toplevel_env arg) t1;
+                (print_value !toplevel_env arg) t1;
               may_trace := true;
               let res = (Obj.magic clos_val : Obj.t -> Obj.t) arg in
               may_trace := false;
-              fprintf ppf "@[<2>%a -->@ %a@]@."
-                Printtyp.longident starred_name
-                (Format_doc.compat @@ print_value !toplevel_env res) t2;
+              Log.itemd Toplevel_diagnostic.trace log "@[<2>%a -->@ %a@]"
+                Printtyp.Doc.longident starred_name
+                (print_value !toplevel_env res) t2;
               may_trace := true;
               trace_res res
             with exn ->
               may_trace := false;
-              fprintf ppf "@[<2>%a raises@ %a@]@."
-                Printtyp.longident starred_name
-                (Format_doc.compat @@ print_value !toplevel_env (Obj.repr exn))
+              Log.itemd Toplevel_diagnostic.trace log "@[<2>%a raises@ %a@]"
+                Printtyp.Doc.longident starred_name
+                (print_value !toplevel_env (Obj.repr exn))
                 Predef.type_exn;
               may_trace := true;
               raise exn
@@ -110,10 +109,10 @@ let rec instrument_result env name ppf clos_typ =
 exception Dummy
 let _ = Dummy
 
-let instrument_closure env name ppf clos_typ =
+let instrument_closure env name log clos_typ =
   match get_desc (Ctype.expand_head env clos_typ) with
   | Tarrow(l, t1, t2, _) ->
-      let trace_res = instrument_result env name ppf t2 in
+      let trace_res = instrument_result env name log t2 in
       (fun actual_code closure arg ->
         if not !may_trace then begin
           try invoke_traced_function actual_code closure arg
@@ -122,23 +121,25 @@ let instrument_closure env name ppf clos_typ =
         end else begin
           may_trace := false;
           try
-            fprintf ppf "@[<2>%a <--@ %a%a@]@."
-              Printtyp.longident name
+            Log.itemd Toplevel_diagnostic.trace log
+              "@[<2>%a <--@ %a%a@]"
+              Printtyp.Doc.longident name
               print_label l
-              (Format_doc.compat @@ print_value !toplevel_env arg) t1;
+              (print_value !toplevel_env arg) t1;
             may_trace := true;
             let res = invoke_traced_function actual_code closure arg in
             may_trace := false;
-            fprintf ppf "@[<2>%a -->@ %a@]@."
-              Printtyp.longident name
-              (Format_doc.compat @@ print_value !toplevel_env res) t2;
+            Log.itemd Toplevel_diagnostic.trace log
+              "@[<2>%a -->@ %a@]"
+              Printtyp.Doc.longident name
+              (print_value !toplevel_env res) t2;
             may_trace := true;
             trace_res res
           with exn ->
             may_trace := false;
-            fprintf ppf "@[<2>%a raises@ %a@]@."
-              Printtyp.longident name
-              (Format_doc.compat @@ print_value !toplevel_env (Obj.repr exn))
+            Log.itemd Toplevel_diagnostic.trace log "@[<2>%a raises@ %a@]"
+              Printtyp.Doc.longident name
+              (print_value !toplevel_env (Obj.repr exn))
               Predef.type_exn;
             may_trace := true;
             raise exn
