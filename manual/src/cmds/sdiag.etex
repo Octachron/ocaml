@@ -177,6 +177,13 @@ on \href{https://github.com/ocaml/ocaml}. Moreover, this section contains a more
 human readable retranscription of those schema in the form of annotated
 algebraic data types.
 
+The current last version is:
+\begin{itemize}
+\item "1.0" for the "metadata" diagnostic
+\item "1.0" for the "config" diagnostic
+\item "1.0" for the compiler, toplevel and derived diagnostics
+\end{itemize}
+
 All those schema descriptions (and more) are generated using the
 "ocamldiaginfo" tool available in the compiler source tree.
 

@@ -95,6 +95,22 @@ module Lifetime = struct
       if published then None, inception else inception, None
     in
     { inception; publication; expansion; deprecation; deletion }
+
+  let at_version v lf =
+    match lf.inception, lf.publication with
+    | None, None -> None
+    | Some i, _ | _, Some i ->
+      if i > v then None else
+      let filter v lfe =
+        Option.bind lfe (fun lfe -> if lfe > v then None else Some lfe)
+      in
+      Some {
+        inception = filter v lf.inception;
+        publication = filter v lf.publication;
+        expansion = filter v lf.expansion;
+        deprecation = filter v lf.deprecation;
+        deletion = filter v lf.deletion;
+      }
 end
 
 

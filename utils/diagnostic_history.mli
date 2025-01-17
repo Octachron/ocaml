@@ -60,6 +60,10 @@ module Lifetime: sig
       [v]. [stage_at None lf] is [stage lf]. *)
   val stage_at: version option -> t -> point
 
+  (** [at_version v lf] represents the lifetime seen at version [v] by
+      removing all information ulterior to this version.*)
+  val at_version: version -> t -> t option
+
 end
 
 

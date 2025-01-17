@@ -104,7 +104,7 @@ let rec possibly_invalid: type a. a typ -> bool = function
 
 let rec record: type id.
   version:version -> id t -> id record -> report_paths =
-  fun ~version sch st -> fields ~version (D.field_infos sch) st
+  fun ~version sch st -> fields ~version (D.field_infos ~version:None sch) st
 and fields: type id.
   version:version -> (Label_map.key * label_metadata) list
   -> id record -> report_paths

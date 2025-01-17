@@ -16,6 +16,14 @@
 open Diagnostic_history
 module V = Compiler_diagnostic.V
 
+let pp_version ppf v = Format.fprintf ppf "%d.%d" v.major v.minor
+
+let failf fmt =
+  Format.eprintf "@[<v>Error:";
+  Format.kfprintf
+    (fun ppf -> Format.fprintf ppf "@]@."; exit 2)
+    Format.err_formatter fmt
+
 module Options = struct
   type schema_format = Json | Adt
   type schema_name = All | One of string
@@ -30,7 +38,7 @@ module Options = struct
   let parse_format = function
     | "json" -> format := Some Json
     | "adt" -> format := Some Adt
-    | _ -> failwith "Unknown schema format"
+    | _ -> failf "Unknown schema format"
 
   let filename_template = ref None
   let parse_file_template s =
@@ -45,18 +53,18 @@ module Options = struct
         output_template :=
           Some (fun ppf printer arg -> Format.fprintf ppf x printer arg)
     | exception Scanf.Scan_failure _ ->
-        failwith (Format.asprintf "Invalid format template: \"%s\"" s)
+        failf "Invalid format template: \"%s\"" s
 
   let version = ref None
   let parse_version () =
     match !version with
-    | None -> Some (Diagnostic_history.current_version V.history)
+    | None -> Diagnostic_history.current_version V.history
     | Some v ->
         match Scanf.sscanf_opt v "%d.%d"
                 (fun major minor -> {Diagnostic_history.major;minor})
         with
-        | Some _ as v -> v
-        | None -> Some (Diagnostic_history.current_version V.history)
+        | Some v -> v
+        | None -> failf "Invalid version format: %s" v
 
   let history = ref false
 end
@@ -77,13 +85,13 @@ module Defs = struct
           if String_map.mem name map then map
           else
             let map = String_map.add name (T ty) map in
-            subrefs (field_infos x) map
+            subrefs (field_infos ~version:None x) map
       | Record x ->
           let name = scheme_name x in
           if String_map.mem name map then map
           else
             let map = String_map.add name (T ty) map in
-            subrefs (field_infos x) map
+            subrefs (field_infos ~version:None x) map
       | Int -> map
       | Bool -> map
       | String -> map
@@ -112,13 +120,16 @@ module JSchema = struct
   let item = Pp.item json
 
 
-  let header name  =
+  let header v name  =
+    let uri =
+      Format.dprintf "https://github.com/ocaml/schema/%s.schema.json"
+           name
+    in
       [
         (item ~key:"$schema" @@
          string "https://json-schema.org/draft/2020-12/schema");
-        (item ~key:"$id" @@ string @@
-         Format.asprintf "https://github.com/ocaml/schema/%s.schema.json"
-           name);
+        (item ~key:"$id" uri);
+        item ~key:"version" (Format.dprintf {|"%a"|} pp_version v)
       ]
 
   let tfield  x = item ~key:"type" (string x)
@@ -166,7 +177,7 @@ module JSchema = struct
 
   let one_of l = item ~key:"oneOf" (array l)
   let const name = item ~key:"const" @@ string name
-  let sum ~desc x =
+  let sum ~v ~desc x =
     let brule name core =
       let name = const name in
       let forward_record =
@@ -192,26 +203,23 @@ module JSchema = struct
     in
     obj [
       desc_field desc;
-      one_of (List.map constructor (field_infos x))
+      one_of (List.map constructor (field_infos ~version:(Some v) x))
     ]
 
   let field v (key, {status; ltyp=T ty; _ }) =
-    match v with
-    | None -> Some (item ~key (obj [typ ty]))
-    | Some _ as v ->
-        let stage = Diagnostic_history.Lifetime.stage_at v status in
-        match stage with
-        | Future | Deletion -> None
-        | _ ->
-              let typ = typ ty in
-              let fields =
-                match stage with
-                | Deprecation ->
-                    let deprecated = item ~key:"deprecated" (bool true) in
-                    [typ; deprecated]
-                | _ -> [typ]
-              in
-              Some (item ~key (obj fields))
+    let stage = Diagnostic_history.Lifetime.stage_at (Some v) status in
+    match stage with
+    | Future | Deletion -> None
+    | _ ->
+        let typ = typ ty in
+        let fields =
+          match stage with
+          | Deprecation ->
+              let deprecated = item ~key:"deprecated" (bool true) in
+              [typ; deprecated]
+          | _ -> [typ]
+        in
+        Some (item ~key (obj fields))
 
   let fields v x = List.filter_map (field v) x
 
@@ -226,16 +234,17 @@ module JSchema = struct
   let record_fields ~desc v x =
     record_type (desc_field desc) (fields v x) (required_fields x)
 
-  let simple_record ~desc x = obj (record_fields ~desc None x)
+  let simple_record ~v ~desc x = obj (record_fields ~desc v x)
 
-  let def_printer = function
-      | T (Sum x) -> sum ~desc:(scheme_description x) x
+  let def_printer v = function
+      | T (Sum x) -> sum ~v ~desc:(scheme_description x) x
       | T (Record x) ->
-        simple_record ~desc:(scheme_description x) (field_infos x)
+        simple_record ~v ~desc:(scheme_description x)
+          (field_infos ~version:(Some v) x)
       | _ -> ignore
 
    let pp v ~with_deps ~roots sch ppf =
-     let keys = field_infos sch in
+     let keys = field_infos ~version:(Some v) sch in
      let root = String_set.mem (scheme_name sch) roots in
      let keys = if root then metakey :: keys else keys in
      let defs =
@@ -245,12 +254,12 @@ module JSchema = struct
          else
            let refs = String_map.bindings refs in
            let prs =
-             List.map (fun (key,ty) -> item ~key (def_printer ty)) refs
+             List.map (fun (key,ty) -> item ~key (def_printer v ty)) refs
            in
            [item ~key:"$defs" @@ obj prs]
      in
      obj (
-       header (scheme_name sch)
+       header v (scheme_name sch)
        @ defs
        @ schema_field :: record_fields ~desc:(scheme_description sch) v keys
      ) ppf
@@ -325,6 +334,9 @@ module Annotated_adt = struct
     in
     Format.pp_print_list pp_stage ~pp_sep:Format.pp_print_cut ppf l
 
+  let pp_version_attribute ppf v = Format.fprintf ppf
+      {|[@@@@version %a]|} pp_version v
+
   let lifetime_phases =
     let open Lifetime in
     [ "preview", (fun x -> x.inception);
@@ -334,7 +346,7 @@ module Annotated_adt = struct
       "deleted", (fun x -> x.deletion);
     ]
 
-  let sum x ppf =
+  let sum ~version x ppf =
     let constructor stages ppf (name, kty) =
       match kty.ltyp with
       | T Unit ->
@@ -344,15 +356,16 @@ module Annotated_adt = struct
           name (typ ~parentheses:false t)
           (pp_stage stages) kty.status
     in
-    let fields = field_infos x in
+    let fields = field_infos ~version:(Some version) x in
     let common, specific = split_stages lifetime_phases fields in
-    List.iter (constructor specific ppf) (field_infos x);
-    Format.fprintf ppf "@]%a%a@]"
+    List.iter (constructor specific ppf) fields;
+    Format.fprintf ppf "@]%a%a@ %a@]"
     break_if_not_empty common
     pp_common_stage common
+    pp_version_attribute version
 
 
-  let record ~root x ppf =
+  let record ~version ~root x ppf =
     let pp_opt all_opt ppf opt =
       if not all_opt && opt then Format.fprintf ppf "[@@optional]" else () in
     let field all_opt phases ppf (name, { ltyp=T ty; optional; status }) =
@@ -361,7 +374,7 @@ module Annotated_adt = struct
         (pp_opt all_opt) optional
         (pp_stage phases) status
     in
-    let fields = field_infos x in
+    let fields = field_infos ~version:(Some version) x in
     let fields = if root then metakey :: fields else fields in
     let all_opt = List.for_all (fun (_,x) -> x.optional) fields in
     let common, specific = split_stages lifetime_phases fields in
@@ -370,24 +383,25 @@ module Annotated_adt = struct
     Format.fprintf ppf "@;<1 -2>}@]";
     if all_opt then Format.fprintf ppf " [@@@@optional]@,"
     else Format.fprintf ppf " ";
-    Format.fprintf ppf "@]%a" pp_common_stage common
+    Format.fprintf ppf "@]%a@,%a"
+      pp_common_stage common
+      pp_version_attribute version
 
-
-  let def roots (T x) = match x with
-    | Sum x -> Some (scheme_name x, sum x)
+  let def version roots (T x) = match x with
+    | Sum x -> Some (scheme_name x, sum ~version x)
     | Record x ->
         let name = scheme_name x in
         let root = String_set.mem name roots in
-        Some (name, record ~root x)
+        Some (name, record ~version ~root x)
     | _ -> None
 
-  let pp_def roots ppf ty =
+  let pp_def v roots ppf ty =
     Option.iter (fun (name,pr) ->
         Format.fprintf ppf "@[@[<hv 2>type %s =%t" name pr
-      ) (def roots ty)
+      ) (def v roots ty)
 
-  let pp _v ~with_deps ~roots ppf (T ty as rty) =
-    let pp_def = pp_def roots in
+  let pp v ~with_deps ~roots ppf (T ty as rty) =
+    let pp_def = pp_def v roots in
     if not with_deps then
       Format.fprintf ppf "%a" pp_def rty
     else

@@ -86,7 +86,18 @@ let destruct c f =
   f (expand [] c)
 let scheme_name x = x.name
 let scheme_description x = x.description
-let field_infos d = d.labels
+
+let field_infos ~version d =
+  let all = d.labels in
+  let filter v (name,lmd)=
+    Option.map (fun status -> (name, {lmd with status}))
+      (Diagnostic_history.Lifetime.at_version v lmd.status)
+  in
+  match version with
+  | None -> all
+  | Some v ->
+      List.filter_map (filter v) all
+
 let field_names d = List.map fst d.labels
 
 let record_scheme: type a. a record typ -> a t  =
