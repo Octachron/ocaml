@@ -186,19 +186,21 @@ module Ident_conflicts = struct
       | [namespace, a] ->
           Fmt.fprintf ppf
         "@,\
-         @[<2>@{<hint>Hint@}: The %a %a has been defined multiple times@ \
+         @[<2>%t: The %a %a has been defined multiple times@ \
          in@ this@ toplevel@ session.@ \
          Some toplevel values still refer to@ old@ versions@ of@ this@ %a.\
          @ Did you try to redefine them?@]"
+        Style.hint
         Namespace.pp namespace
         Style.inline_code a Namespace.pp namespace
       | (namespace, _) :: _ :: _ ->
         Fmt.fprintf ppf
         "@,\
-         @[<2>@{<hint>Hint@}: The %a %a have been defined multiple times@ \
+         @[<2>%t: The %a %a have been defined multiple times@ \
          in@ this@ toplevel@ session.@ \
          Some toplevel values still refer to@ old@ versions@ of@ those@ %a.\
          @ Did you try to redefine them?@]"
+        Style.hint
         pp_namespace_plural namespace
         Fmt.(pp_print_list ~pp_sep:conj Style.inline_code)
         (List.map snd names)
@@ -739,14 +741,16 @@ end = struct
         | [] -> ()
         | [out_ident] ->
             fprintf ppf
-              "@ @[<2>@{<hint>Hint@}:@ %a@ is an existential type@ \
+              "@ @[<2>%t:@ %a@ is an existential type@ \
                bound by the constructor@ %a.@]"
+              Style.hint
               quoted_ident out_ident
               Style.inline_code constr
         | out_ident :: out_idents ->
             fprintf ppf
-              "@ @[<2>@{<hint>Hint@}:@ %a@ and %a@ are existential types@ \
+              "@ @[<2>%t:@ %a@ and %a@ are existential types@ \
                bound by the constructor@ %a.@]"
+              Style.hint
               (Fmt.pp_print_list
                  ~pp_sep:(fun ppf () -> fprintf ppf ",@ ")
                  quoted_ident)
