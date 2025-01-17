@@ -42,7 +42,7 @@ type filename = string
 type readenv_position =
   Before_args | Before_compile of filename | Before_link
 
-val readenv : Format.formatter -> readenv_position -> unit
+val readenv : Compiler_diagnostic.id Log.t -> readenv_position -> unit
 
 (* Deferred actions of the compiler, while parsing arguments *)
 
@@ -62,11 +62,11 @@ val impl : string -> unit
 val intf : string -> unit
 
 val process_deferred_actions :
-  Format.formatter *
-  (start_from:Clflags.Compiler_pass.t ->
+  (Compiler_diagnostic.id Log.t as 'log) *
+  (log:'log -> start_from:Clflags.Compiler_pass.t ->
    source_file:string -> output_prefix:string -> unit) *
   (* compile implementation *)
-  (source_file:string -> output_prefix:string -> unit) *
+  (log:'log -> source_file:string -> output_prefix:string -> unit) *
   (* compile interface *)
   string * (* ocaml module extension *)
   string -> (* ocaml library extension *)

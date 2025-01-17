@@ -220,7 +220,6 @@ ocamlbytecomp_SOURCES = \
   bytecomp/bytelink.mli bytecomp/bytelink.ml \
   bytecomp/bytelibrarian.mli bytecomp/bytelibrarian.ml \
   bytecomp/bytepackager.mli bytecomp/bytepackager.ml \
-  driver/errors.mli driver/errors.ml \
   driver/compile.mli driver/compile.ml \
   driver/maindriver.mli driver/maindriver.ml
 
@@ -279,7 +278,6 @@ asmcomp_SOURCES = \
   asmcomp/asmlink.mli asmcomp/asmlink.ml \
   asmcomp/asmlibrarian.mli asmcomp/asmlibrarian.ml \
   asmcomp/asmpackager.mli asmcomp/asmpackager.ml \
-  driver/opterrors.mli driver/opterrors.ml \
   driver/optcompile.mli driver/optcompile.ml \
   driver/optmaindriver.mli driver/optmaindriver.ml
 
@@ -2322,6 +2320,12 @@ ocamlprof_SOURCES = \
   arg_helper.mli arg_helper.ml \
   local_store.mli local_store.ml \
   load_path.mli load_path.ml \
+  diagnostic_history.mli diagnostic_history.ml \
+  diagnostic.mli diagnostic.ml \
+  diagnostic_validation.mli diagnostic_validation.ml \
+  log.mli log.ml \
+  compiler_diagnostic.mli compiler_diagnostic.ml \
+  diagnostic_backends.mli diagnostic_backends.ml \
   clflags.mli clflags.ml \
   terminfo.mli terminfo.ml \
   warnings.mli warnings.ml \
@@ -2344,6 +2348,12 @@ ocamlcp_ocamloptp_SOURCES = \
   build_path_prefix_map.mli build_path_prefix_map.ml \
   format_doc.mli format_doc.ml \
   misc.mli misc.ml \
+  diagnostic_history.mli diagnostic_history.ml \
+  diagnostic.mli diagnostic.ml \
+  diagnostic_validation.mli diagnostic_validation.ml \
+  log.mli log.ml \
+  compiler_diagnostic.mli compiler_diagnostic.ml \
+  diagnostic_backends.mli diagnostic_backends.ml \
   profile.mli profile.ml \
   warnings.mli warnings.ml \
   identifiable.mli identifiable.ml \
@@ -2387,6 +2397,12 @@ ocamlmktop_SOURCES = \
   arg_helper.mli arg_helper.ml \
   local_store.mli local_store.ml \
   load_path.mli load_path.ml \
+  diagnostic_history.mli diagnostic_history.ml \
+  diagnostic.mli diagnostic.ml \
+  diagnostic_validation.mli diagnostic_validation.ml \
+  log.mli log.ml \
+  compiler_diagnostic.mli compiler_diagnostic.ml \
+  diagnostic_backends.mli diagnostic_backends.ml \
   clflags.mli clflags.ml \
   profile.mli profile.ml \
   ccomp.mli ccomp.ml \
