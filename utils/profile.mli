@@ -33,7 +33,9 @@ val record : ?accumulate:bool -> string -> ('a -> 'b) -> 'a -> 'b
 
 type column = [ `Time | `Alloc | `Top_heap | `Abs_top_heap ]
 
-val print : Format.formatter -> column list -> unit
+type row
+val compute_rows: column list -> row list
+val print : Format.formatter -> row list -> unit
 (** Prints the selected recorded profiling information to the formatter. *)
 
 (** Command line flags *)

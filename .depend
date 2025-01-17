@@ -280,9 +280,13 @@ utils/numbers.cmi : \
     utils/identifiable.cmi
 utils/profile.cmo : \
     utils/misc.cmi \
+    utils/diagnostic.cmi \
+    utils/compiler_diagnostic.cmi \
     utils/profile.cmi
 utils/profile.cmx : \
     utils/misc.cmx \
+    utils/diagnostic.cmx \
+    utils/compiler_diagnostic.cmx \
     utils/profile.cmi
 utils/profile.cmi :
 utils/strongly_connected_components.cmo : \
