@@ -107,6 +107,7 @@ type error =
   | No_overriding of string * string
   | Duplicate of string * string
   | Closing_self_type of class_signature
+  | Polymorphic_class_parameter
 
 exception Error of Location.t * Env.t * error
 exception Error_forward of Location.error
@@ -192,6 +193,7 @@ let rec constructor_type constr cty =
   | Cty_signature _ ->
       constr
   | Cty_arrow (l, ty, cty) ->
+      let ty = Ctype.newmono ty in
       Ctype.newty (Tarrow (l, ty, constructor_type constr cty, commu_ok))
 
                 (***********************************)
@@ -773,7 +775,7 @@ let rec class_field_first_pass self_loc cl_num sign self_scope acc cf =
                match get_desc ty with
                | Tvar _ ->
                    let ty' = Ctype.newvar () in
-                   Ctype.unify val_env (Ctype.newty (Tpoly (ty', []))) ty;
+                   Ctype.unify val_env (Ctype.newmono ty') ty;
                    Ctype.unify val_env (type_approx val_env sbody) ty'
                | Tpoly (ty1, tl) ->
                    let _, ty1' = Ctype.instance_poly ~fixed:false tl ty1 in
@@ -908,9 +910,10 @@ and class_field_second_pass cl_num sign met_env field =
         (fun () ->
            let ty = Btype.method_type label.txt sign in
            let self_type = sign.Types.csig_self in
+           let self_param_type = Btype.newgenty (Tpoly(self_type, [])) in
            let meth_type =
              mk_expected
-               (Btype.newgenty (Tarrow(Nolabel, self_type, ty, commu_ok)))
+               (Btype.newgenty (Tarrow(Nolabel, self_param_type, ty, commu_ok)))
            in
            let texp =
              Ctype.with_raised_nongen_level
@@ -925,10 +928,10 @@ and class_field_second_pass cl_num sign met_env field =
       Warnings.with_state warning_state
         (fun () ->
            let unit_type = Ctype.instance Predef.type_unit in
-           let self_type = sign.Types.csig_self in
+           let self_param_type = Ctype.newmono sign.Types.csig_self in
            let meth_type =
-             mk_expected
-               (Ctype.newty (Tarrow (Nolabel, self_type, unit_type, commu_ok)))
+             mk_expected (Ctype.newty
+              (Tarrow (Nolabel, self_param_type, unit_type, commu_ok)))
            in
            let texp =
              Ctype.with_raised_nongen_level
@@ -1117,6 +1120,8 @@ and class_expr_aux cl_num val_env met_env virt self_scope scl =
           cl_attributes = scl.pcl_attributes;
          }
   | Pcl_fun (l, Some default, spat, sbody) ->
+      if has_poly_constraint spat then
+        raise(Error(spat.ppat_loc, val_env, Polymorphic_class_parameter));
       let loc = default.pexp_loc in
       let open Ast_helper in
       let scases = [
@@ -1147,6 +1152,8 @@ and class_expr_aux cl_num val_env met_env virt self_scope scl =
       in
       class_expr cl_num val_env met_env virt self_scope sfun
   | Pcl_fun (l, None, spat, scl') ->
+      if has_poly_constraint spat then
+        raise(Error(spat.ppat_loc, val_env, Polymorphic_class_parameter));
       let (pat, pv, val_env', met_env) =
         Ctype.with_local_level_generalize_structure_if_principal
           (fun () ->
@@ -1418,7 +1425,9 @@ let rec approx_declaration cl =
     Pcl_fun (l, _, _, cl) ->
       let arg =
         if Btype.is_optional l then Ctype.instance var_option
-        else Ctype.newvar () in
+        else Ctype.newvar ()
+      in
+      let arg = Ctype.newmono arg in
       Ctype.newty (Tarrow (l, arg, approx_declaration cl, commu_ok))
   | Pcl_let (_, _, cl) ->
       approx_declaration cl
@@ -1431,7 +1440,9 @@ let rec approx_description ct =
     Pcty_arrow (l, _, ct) ->
       let arg =
         if Btype.is_optional l then Ctype.instance var_option
-        else Ctype.newvar () in
+        else Ctype.newvar ()
+      in
+      let arg = Ctype.newmono arg in
       Ctype.newty (Tarrow (l, arg, approx_description ct, commu_ok))
   | _ -> Ctype.newvar ()
 
@@ -2199,6 +2210,9 @@ let report_error_doc env ppf =
        it has been unified with the self type of a class that is not yet@ \
        completely defined.@]"
       (Style.as_inline_code Printtyp.type_scheme) sign.csig_self
+  | Polymorphic_class_parameter ->
+      fprintf ppf
+        "Class parameters cannot be polymorphic"
 
 let report_error_doc env ppf err =
   Printtyp.wrap_printing_env ~error:true

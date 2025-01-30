@@ -18,6 +18,7 @@
 type printer_type = Types.type_expr -> Types.type_expr
 
 let type_arrow ta tb =
+  let ta = Ctype.newmono ta in
   Ctype.newty (Tarrow (Asttypes.Nolabel, ta, tb, Types.commu_var ()))
 
 let type_formatter () =

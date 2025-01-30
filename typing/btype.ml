@@ -163,6 +163,7 @@ let newgenstub ~scope  = newty3 ~level:generic_level ~scope (Tvar None)
 let is_Tvar ty = match get_desc ty with Tvar _ -> true | _ -> false
 let is_Tunivar ty = match get_desc ty with Tunivar _ -> true | _ -> false
 let is_Tconstr ty = match get_desc ty with Tconstr _ -> true | _ -> false
+let is_Tpoly ty = match get_desc ty with Tpoly _ -> true | _ -> false
 let is_poly_Tpoly ty =
   match get_desc ty with Tpoly (_, _ :: _) -> true | _ -> false
 let type_kind_is_abstract decl =
@@ -773,3 +774,24 @@ let instance_variable_type label sign =
   match Vars.find label sign.csig_vars with
   | (_, _, ty) -> ty
   | exception Not_found -> assert false
+
+                  (********************************)
+                  (*  Utilities for poly types    *)
+                  (********************************)
+
+let tpoly_is_mono ty =
+  match get_desc ty with
+  | Tpoly(_, []) -> true
+  | Tpoly(_, _ :: _) -> false
+  | _ -> assert false
+
+let tpoly_get_poly ty =
+  match get_desc ty with
+  | Tpoly(ty, vars) -> (ty, vars)
+  | _ -> assert false
+
+let tpoly_get_mono ty =
+  match get_desc ty with
+  | Tpoly(ty, []) -> ty
+  | _ -> assert false
+

@@ -117,10 +117,14 @@ let print_tag ppf s = Style.inline_code ppf ("`" ^ s)
 let print_tags ppf tags  =
   Fmt.(pp_print_list ~pp_sep:comma) print_tag ppf tags
 
-let is_unit env ty =
-  match Types.get_desc (Ctype.expand_head env ty) with
-  | Tconstr (p, _, _) -> Path.same p Predef.path_unit
-  | _ -> false
+let is_unit_arg env ty =
+  let ty, vars = Btype.tpoly_get_poly ty in
+  if vars <> [] then false
+  else begin
+    match Types.get_desc (Ctype.expand_head env ty) with
+    | Tconstr (p, _, _) -> Path.same p Predef.path_unit
+    | _ -> false
+  end
 
 let unifiable env ty1 ty2 =
   let snap = Btype.snapshot () in
@@ -134,13 +138,13 @@ let unifiable env ty1 ty2 =
 let explanation_diff env t3 t4 =
   match Types.get_desc t3, Types.get_desc t4 with
   | Tarrow (_, ty1, ty2, _), _
-    when is_unit env ty1 && unifiable env ty2 t4 ->
+    when is_unit_arg env ty1 && unifiable env ty2 t4 ->
       Some (doc_printf
           "@,@[@{<hint>Hint@}: Did you forget to provide %a as argument?@]"
           Style.inline_code "()"
         )
   | _, Tarrow (_, ty1, ty2, _)
-    when is_unit env ty1 && unifiable env t3 ty2 ->
+    when is_unit_arg env ty1 && unifiable env t3 ty2 ->
       Some (doc_printf
           "@,@[@{<hint>Hint@}: Did you forget to wrap the expression using \
            %a?@]"

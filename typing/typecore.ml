@@ -418,6 +418,15 @@ let disambiguate_array_literal ~loc env expected_ty =
   else
     { ty_elt = None; mut = Mutable }
 
+let has_poly_constraint spat =
+  match spat.ppat_desc with
+  | Ppat_constraint(_, styp) -> begin
+      match styp.ptyp_desc with
+      | Ptyp_poly _ -> true
+      | _ -> false
+    end
+  | _ -> false
+
 (* Typing of patterns *)
 
 (* Simplified patterns for effect continuations *)
@@ -2868,7 +2877,8 @@ let collect_unknown_apply_args env funct ty_fun0 rev_args sargs =
           let ty_fun = expand_head env ty_fun in
           match get_desc ty_fun with
           | Tvar _ ->
-              let ty_arg = newvar () in
+              let ty_arg_mono = newvar () in
+              let ty_arg = newmono ty_arg_mono in
               let ty_res = newvar () in
               if get_level ty_fun >= get_level ty_arg &&
                  not (is_prim ~name:"%identity" funct)
@@ -2876,9 +2886,9 @@ let collect_unknown_apply_args env funct ty_fun0 rev_args sargs =
                 Location.prerr_warning sarg.pexp_loc
                   Warnings.Ignored_extra_argument;
               unify env ty_fun (newty (Tarrow(lbl,ty_arg,ty_res,commu_var ())));
-              (ty_arg, ty_res)
+              (ty_arg_mono, ty_res)
           | Tarrow (l, ty_arg, ty_res, _) when labels_match ~param:l ~arg:lbl ->
-              (ty_arg, ty_res)
+              (tpoly_get_mono ty_arg, ty_res)
           | td ->
               let ty_fun = match td with Tarrow _ -> newty td | _ -> ty_fun in
               let ty_res = remaining_function_type_for_error ty_fun rev_args in
@@ -3182,7 +3192,7 @@ let rec approx_type env sty =
   match sty.ptyp_desc with
     Ptyp_arrow (p, _, sty) ->
       let ty1 = if is_optional p then type_option (newvar ()) else newvar () in
-      newty (Tarrow (p, ty1, approx_type env sty, commu_ok))
+      newty (Tarrow (p, newmono ty1, approx_type env sty, commu_ok))
   | Ptyp_tuple args ->
       newty (Ttuple (List.map (fun (l, t) -> l, approx_type env t) args))
   | Ptyp_constr (lid, ctl) ->
@@ -3212,7 +3222,7 @@ let type_approx_fun env label default spat ret_ty =
     | Optional _, Some _ ->
        type_option ty
   in
-  newty (Tarrow (label, ty, ret_ty, commu_ok))
+  newty (Tarrow (label, newmono ty, ret_ty, commu_ok))
 
 let type_approx_constraint env ty constraint_ ~loc =
   match constraint_ with
@@ -3276,7 +3286,8 @@ and type_approx_function env params c body ~loc =
       | Pfunction_body body ->
           type_approx env body
       | Pfunction_cases ({pc_rhs = e} :: _, _, _) ->
-          newty (Tarrow (Nolabel, newvar (), type_approx env e, commu_ok))
+          let ty_arg = newmono(newvar ()) in
+          newty (Tarrow (Nolabel, ty_arg, type_approx env e, commu_ok))
       | Pfunction_cases ([], _, _) ->
           newvar ()
     in
@@ -3599,9 +3610,11 @@ type apply_prim =
   | Revapply
 let check_apply_prim_type prim typ =
   match get_desc typ with
-  | Tarrow (Nolabel,a,b,_) ->
+  | Tarrow (Nolabel,a,b,_) when tpoly_is_mono a ->
+      let a = tpoly_get_mono a in
       begin match get_desc b with
-      | Tarrow(Nolabel,c,d,_) ->
+      | Tarrow(Nolabel,c,d,_) when tpoly_is_mono c ->
+          let c = tpoly_get_mono c in
           let f, x, res =
             match prim with
             | Apply -> a, c, d
@@ -3609,6 +3622,7 @@ let check_apply_prim_type prim typ =
           in
           begin match get_desc f with
           | Tarrow(Nolabel,fl,fr,_) ->
+              let fl = tpoly_get_mono fl in
               is_Tvar fl && is_Tvar fr && is_Tvar x && is_Tvar res
               && Types.eq_type fl x && Types.eq_type fr res
           | _ -> false
@@ -3892,13 +3906,15 @@ and type_expect_
           let ty_function =
             List.fold_right
               (fun param rest_ty ->
+                let ty_arg = newmono (newvar ()) in
                 newty
-                  (Tarrow (param.fp_arg_label, newvar (), rest_ty, commu_ok)))
+                  (Tarrow (param.fp_arg_label, ty_arg, rest_ty, commu_ok)))
               params
               (match body with
               | Tfunction_body _ -> newvar ()
               | Tfunction_cases _ ->
-                newty (Tarrow (Nolabel, newvar (), newvar (), commu_ok)))
+                let ty_arg = newmono (newvar ()) in
+                newty (Tarrow (Nolabel, ty_arg, newvar (), commu_ok)))
           in
           try unify env ty_function exp_type
           with Unify trace ->
@@ -4653,7 +4669,7 @@ and type_expect_
             { exp with exp_type = instance ty }
         | Tvar _ ->
             let exp = type_exp env sbody in
-            let exp = {exp with exp_type = newty (Tpoly (exp.exp_type, []))} in
+            let exp = {exp with exp_type = newmono exp.exp_type} in
             unify_exp ~sexp env exp ty;
             exp
         | _ -> assert false
@@ -4732,12 +4748,13 @@ and type_expect_
           let spat_params, ty_params = loop slet.pbop_pat (newvar ()) sands in
           let ty_func_result = newvar () in
           let ty_func =
-            newty (Tarrow(Nolabel, ty_params, ty_func_result, commu_ok)) in
+            newty (Tarrow(Nolabel, newmono ty_params, ty_func_result, commu_ok))
+          in
           let ty_result = newvar () in
           let ty_andops = newvar () in
           let ty_op =
-            newty (Tarrow(Nolabel, ty_andops,
-              newty (Tarrow(Nolabel, ty_func, ty_result, commu_ok)), commu_ok))
+            newty (Tarrow(Nolabel, newmono ty_andops,
+              newty (Tarrow(Nolabel, newmono ty_func, ty_result, commu_ok)), commu_ok))
           in
           begin try
             unify env op_type ty_op
@@ -5033,11 +5050,18 @@ and type_binding_op_ident env s =
       this is only used to improve error messages.
 *)
 and split_function_ty env ty_expected ~arg_label ~first ~in_function =
+  let has_poly = false in
   let { ty = ty_fun; explanation }, loc = in_function in
   let separate = !Clflags.principal || Env.has_local_constraints env in
-  with_local_level_generalize_structure_if separate begin fun () ->
-    let ty_arg, ty_res =
-      try filter_arrow env (instance ty_expected) arg_label
+  let { ty_arg; ty_ret = ty_res } =
+    with_local_level_generalize_structure_if separate begin fun () ->
+      let force_tpoly =
+        (* If [has_poly] is true then we rely on the later call to
+          type_pat to enforce the invariant that the parameter type
+          be a [Tpoly] node *)
+        not has_poly
+      in
+      try filter_arrow env (instance ty_expected) arg_label ~force_tpoly
       with Filter_arrow_failed err ->
         let err = match err with
         | Unification_error unif_err ->
@@ -5050,19 +5074,20 @@ and split_function_ty env ty_expected ~arg_label ~first ~in_function =
             else Too_many_arguments (ty_fun, explanation)
         in
         raise (Error(loc, env, err))
-    in
-    let ty_arg =
-      if is_optional arg_label then
-        let tv = newvar () in
-        begin
-          try unify env ty_arg (type_option tv)
-          with Unify _ -> assert false
-        end;
-        type_option tv
-      else ty_arg
-    in
-    (ty_arg, ty_res)
-  end
+    end
+  in
+  let ty_arg_mono =
+    if has_poly then ty_arg
+    else begin
+      let ty, vars = tpoly_get_poly ty_arg in
+      if vars = [] then ty
+      else begin
+        with_level ~level:generic_level
+          (fun () -> snd (instance_poly ~keep_names:true ~fixed:false vars ty))
+      end
+    end
+  in
+  (ty_arg, ty_res, ty_arg_mono)
 
 (* Typecheck parameters one at a time followed by the body. Later parameters
    are checked in the scope of earlier ones. That's necessary to support
@@ -5120,22 +5145,22 @@ and type_function
   | { pparam_desc = Pparam_val (arg_label, default_arg, pat); pparam_loc }
       :: rest
     ->
-      let ty_arg, ty_res =
+      let ty_arg, ty_res, ty_arg_mono =
         split_function_ty env ty_expected ~arg_label ~first ~in_function
       in
       (* [ty_arg_internal] is the type of the parameter viewed internally
-         to the function. This is different than [ty_arg] exactly for
-         optional arguments with defaults, where the external [ty_arg]
+         to the function. This is different than [ty_arg_mono] exactly for
+         optional arguments with defaults, where the external [ty_arg_mono]
          is optional and the internal view is not optional.
       *)
       let ty_arg_internal, default_arg =
         match default_arg with
-        | None -> ty_arg, None
+        | None -> ty_arg_mono, None
         | Some default ->
             assert (is_optional arg_label);
             let ty_default = newvar () in
             begin
-              try unify env (type_option ty_default) ty_arg
+              try unify env (type_option ty_default) ty_arg_mono
               with Unify _ -> assert false;
             end;
             (* Issue#12668: Retain type-directed disambiguation of
@@ -5631,7 +5656,9 @@ and type_argument ?explanation ?recarg env sarg ty_expected' ty_expected =
       let rec make_args args ty_fun =
         match get_desc (expand_head env ty_fun) with
         | Tarrow (l,ty_arg,ty_fun,_) when is_optional l ->
-            let ty = option_none env (instance ty_arg) sarg.pexp_loc in
+            let ty =
+              option_none env (instance (tpoly_get_mono ty_arg)) sarg.pexp_loc
+            in
             make_args ((l, Arg ty) :: args) ty_fun
         | Tarrow (l,_,ty_res',_) when l = Nolabel || !Clflags.classic ->
             List.rev args, ty_fun, no_labels ty_res'
@@ -5723,14 +5750,16 @@ and type_apply_arg env (lbl, arg) =
         unify_exp ~sexp:sarg env arg (type_option(newvar()));
       (lbl, Arg arg)
   | Arg (Known_arg { sarg; ty_arg; ty_arg0; wrapped_in_some }) ->
+      let ty_arg', _vars = tpoly_get_poly ty_arg in
       let arg =
+        let ty_arg0' = tpoly_get_mono ty_arg0 in
         if wrapped_in_some then
           option_some env
             (type_argument env sarg
-               (extract_option_type env ty_arg)
-               (extract_option_type env ty_arg0))
+               (extract_option_type env ty_arg')
+               (extract_option_type env ty_arg0'))
         else
-          type_argument env sarg ty_arg ty_arg0
+          type_argument env sarg ty_arg' ty_arg0'
       in
       (lbl, Arg arg)
   | Arg (Eliminated_optional_arg { ty_arg; _ }) ->
@@ -5743,14 +5772,14 @@ and type_apply_arg env (lbl, arg) =
 and type_application env funct sargs =
   let is_ignore funct =
     is_prim ~name:"%ignore" funct &&
-    (try ignore (filter_arrow env (instance funct.exp_type) Nolabel); true
-     with Filter_arrow_failed _ -> false)
+    (try ignore (filter_arrow_mono env (instance funct.exp_type) Nolabel); true
+     with Filter_arrow_mono_failed -> false)
   in
   match sargs with
   | (* Special case for ignore: avoid discarding warning *)
     [Nolabel, sarg] when is_ignore funct ->
-      let ty_arg, ty_res =
-        filter_arrow env (instance funct.exp_type) Nolabel in
+      let { ty_arg; ty_ret = ty_res } =
+        filter_arrow_mono env (instance funct.exp_type) Nolabel in
       let exp = type_expect env sarg (mk_expected ty_arg) in
       check_partial_application ~statement:false exp;
       ([Nolabel, Arg exp], ty_res)
@@ -6250,11 +6279,11 @@ and type_cases
 and type_function_cases_expect
       env ty_expected loc cases attrs ~first ~in_function =
   Builtin_attributes.warning_scope attrs begin fun () ->
-    let ty_arg, ty_res =
+    let ty_arg, ty_res, ty_arg_mono =
       split_function_ty env ty_expected ~arg_label:Nolabel ~first ~in_function
     in
     let cases, partial =
-      type_cases Value env ty_arg (mk_expected ty_res)
+      type_cases Value env ty_arg_mono (mk_expected ty_res)
         ~check_if_total:true loc cases
     in
     let ty_fun =
@@ -6306,8 +6335,10 @@ and type_let ?check ?check_strict
         with_local_level_generalize_structure_if_principal begin fun () ->
           let nvs = List.map (fun _ -> newvar ()) spatl in
           let (pat_list, _new_env, _force, _pvs, _mvs as res) =
-            type_pattern_list
-              Value existential_context env spatl nvs allow_modules in
+            with_local_level_generalize_if is_recursive (fun () ->
+              type_pattern_list
+                Value existential_context env spatl nvs allow_modules)
+          in
           (* If recursive, first unify with an approximation of the
              expression *)
           if is_recursive then
@@ -6571,9 +6602,9 @@ and type_andops env sarg sands expected_ty =
             let ty_rest = newvar () in
             let ty_result = newvar() in
             let ty_rest_fun =
-              newty (Tarrow(Nolabel, ty_arg, ty_result, commu_ok)) in
+              newty (Tarrow(Nolabel, newmono ty_arg, ty_result, commu_ok)) in
             let ty_op =
-              newty (Tarrow(Nolabel, ty_rest, ty_rest_fun, commu_ok)) in
+              newty (Tarrow(Nolabel, newmono ty_rest, ty_rest_fun, commu_ok)) in
             begin try
               unify env op_type ty_op
             with Unify err ->

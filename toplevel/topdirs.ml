@@ -213,7 +213,14 @@ let extract_last_arrow ty =
   in extract None ty
 
 let extract_target_type ty =
-  Option.map fst (extract_last_arrow ty)
+  match extract_last_arrow ty with
+  | None -> None
+  | Some ty ->
+    let ty = fst ty in
+    match Ctype.filter_mono ty with
+    | exception Ctype.Filter_mono_failed ->
+        None
+    | ty -> Some ty
 
 let extract_target_parameters ty =
   match extract_target_type ty with

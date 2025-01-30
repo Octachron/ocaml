@@ -2371,6 +2371,10 @@ labeled_simple_pattern:
       { (Labelled $1, None, $2) }
   | simple_pattern
       { (Nolabel, None, $1) }
+  | LABEL LPAREN poly_pattern RPAREN
+      { (Labelled $1, None, $3) }
+  | LPAREN poly_pattern RPAREN
+      { (Nolabel, None, $2) }
 ;
 
 pattern_var:
@@ -2391,6 +2395,11 @@ label_let_pattern:
       { let lab, pat = x in
         lab,
         mkpat ~loc:$sloc (Ppat_constraint (pat, cty)) }
+  | x = label_var COLON
+          cty = mktyp (vars = typevar_list DOT ty = core_type { Ptyp_poly(vars, ty) })
+      { let lab, pat = x in
+        lab,
+        mkpat ~loc:$sloc (Ppat_constraint (pat, cty)) }
 ;
 %inline label_var:
     mkrhs(LIDENT)
@@ -2401,6 +2410,17 @@ let_pattern:
       { $1 }
   | mkpat(pattern COLON core_type
       { Ppat_constraint($1, $3) })
+      { $1 }
+  | poly_pattern
+      { $1 }
+;
+%inline poly_pattern:
+    mkpat(
+      pat = pattern
+      COLON
+      cty = mktyp(vars = typevar_list DOT ty = core_type
+              { Ptyp_poly(vars, ty) })
+        { Ppat_constraint(pat, cty) })
       { $1 }
 ;
 
@@ -3673,7 +3693,7 @@ function_type:
       { ty }
   | mktyp(
       label = arg_label
-      domain = extra_rhs(tuple_type)
+      domain = extra_rhs(param_type)
       MINUSGREATER
       codomain = function_type
         { Ptyp_arrow(label, domain, codomain) }
@@ -3715,6 +3735,15 @@ function_type:
       { Labelled label }
   | /* empty */
       { Nolabel }
+;
+%inline param_type:
+  | mktyp(
+    LPAREN vars = typevar_list DOT ty = core_type RPAREN
+      { Ptyp_poly(vars, ty) }
+    )
+    { $1 }
+  | ty = tuple_type
+    { ty }
 ;
 (* Tuple types include:
    - atomic types (see below);

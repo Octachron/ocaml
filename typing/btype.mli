@@ -88,6 +88,7 @@ val newgenstub: scope:int -> type_expr
 val is_Tvar: type_expr -> bool
 val is_Tunivar: type_expr -> bool
 val is_Tconstr: type_expr -> bool
+val is_Tpoly: type_expr -> bool
 val is_poly_Tpoly: type_expr -> bool
 val dummy_method: label
 val type_kind_is_abstract: type_declaration -> bool
@@ -119,6 +120,13 @@ val hash_variant: label -> int
 val proxy: type_expr -> type_expr
         (* Return the proxy representative of the type: either itself
            or a row variable *)
+
+(**** Utilities for poly types ****)
+
+(* These three functions can only be called on [Tpoly] nodes. *)
+val tpoly_is_mono : type_expr -> bool
+val tpoly_get_mono : type_expr -> type_expr
+val tpoly_get_poly : type_expr -> type_expr * type_expr list
 
 (**** Utilities for private abbreviations with fixed rows ****)
 val row_of_type: type_expr -> type_expr

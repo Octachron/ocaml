@@ -47,6 +47,7 @@ type error =
   | Opened_object of Path.t option
   | Not_an_object of type_expr
   | Repeated_tuple_label of string
+  | Polymorphic_optional_param
 
 exception Error of Location.t * Env.t * error
 exception Error_forward of Location.error
@@ -432,15 +433,23 @@ and transl_type_aux env ~row_context ~aliased ~policy styp =
     in
     ctyp (Ttyp_var name) ty
   | Ptyp_arrow(l, st1, st2) ->
-    let cty1 = transl_type env ~policy ~row_context st1 in
-    let cty2 = transl_type env ~policy ~row_context st2 in
-    let ty1 = cty1.ctyp_type in
-    let ty1 =
-      if Btype.is_optional l
-      then newty (Tconstr(Predef.path_option,[ty1], ref Mnil))
-      else ty1 in
-    let ty = newty (Tarrow(l, ty1, cty2.ctyp_type, commu_ok)) in
-    ctyp (Ttyp_arrow (l, cty1, cty2)) ty
+    let arg_cty = transl_type env ~policy ~row_context st1 in
+    let ret_cty = transl_type env ~policy ~row_context st2 in
+    let arg_ty = arg_cty.ctyp_type in
+    let arg_ty =
+      if Btype.is_Tpoly arg_ty then arg_ty else newmono arg_ty
+    in
+    let arg_ty =
+      if not (Btype.is_optional l) then arg_ty
+      else begin
+        if not (Btype.tpoly_is_mono arg_ty) then
+          raise (Error (st1.ptyp_loc, env, Polymorphic_optional_param));
+        newmono
+          (newconstr Predef.path_option [Btype.tpoly_get_mono arg_ty])
+      end
+    in
+    let ty = newty (Tarrow(l, arg_ty, ret_cty.ctyp_type, commu_ok)) in
+    ctyp (Ttyp_arrow (l, arg_cty, ret_cty)) ty
   | Ptyp_tuple stl ->
     assert (List.length stl >= 2);
     Option.iter (fun l -> raise (Error (loc, env, Repeated_tuple_label l)))
@@ -974,6 +983,8 @@ let report_error_doc env ppf = function
   | Repeated_tuple_label l ->
       fprintf ppf "@[This tuple type has two labels named %a@]"
         Style.inline_code l
+  | Polymorphic_optional_param ->
+      fprintf ppf "@[Optional parameters cannot be polymorphic@]"
 
 let () =
   Location.register_error_of_exn
