@@ -207,6 +207,7 @@ type error =
   | Missing_tuple_label of string option * type_expr
   | Repeated_tuple_exp_label of string
   | Repeated_tuple_pat_label of string
+  | Optional_poly_param
 
 
 let not_principal fmt =
@@ -5167,6 +5168,9 @@ and type_function
   | { pparam_desc = Pparam_val (arg_label, default_arg, pat); pparam_loc }
       :: rest
     ->
+      let has_poly = has_poly_constraint pat in
+      if has_poly && is_optional arg_label then
+        raise(Error(pat.ppat_loc, env, Optional_poly_param));
       let { filtered_arrow = { ty_arg; ty_ret }; ty_arg_mono } =
         split_function_ty env ty_expected ~arg_label ~first ~in_function
           ~has_poly:false
@@ -7479,6 +7483,9 @@ let report_error ~loc env = function
       Location.errorf ~loc
         "@[This tuple pattern has two labels named %a@]"
         Style.inline_code l
+  | Optional_poly_param ->
+      Location.errorf ~loc
+        "Optional parameters cannot be polymorphic"
 
 let report_error ~loc env err =
   Printtyp.wrap_printing_env ~error:true env
