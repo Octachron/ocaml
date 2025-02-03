@@ -76,7 +76,7 @@ utils_SOURCES = $(addprefix utils/, \
   log.mli log.ml \
   compiler_diagnostic.mli compiler_diagnostic.ml \
   diagnostic_backends.mli diagnostic_backends.ml \
-  config_diagnostic.mli config_diagnostic.ml \
+  conf_diagnostic.mli conf_diagnostic.ml \
   clflags.mli clflags.ml \
   profile.mli profile.ml \
   terminfo.mli terminfo.ml \
@@ -2329,7 +2329,7 @@ ocamlprof_SOURCES = \
   log.mli log.ml \
   compiler_diagnostic.mli compiler_diagnostic.ml \
   diagnostic_backends.mli diagnostic_backends.ml \
-  config_diagnostic.mli config_diagnostic.ml \
+  conf_diagnostic.mli conf_diagnostic.ml \
   clflags.mli clflags.ml \
   terminfo.mli terminfo.ml \
   warnings.mli warnings.ml \
@@ -2365,7 +2365,7 @@ ocamlcp_ocamloptp_SOURCES = \
   arg_helper.mli arg_helper.ml \
   local_store.mli local_store.ml \
   load_path.mli load_path.ml \
-  config_diagnostic.mli config_diagnostic.ml \
+  conf_diagnostic.mli conf_diagnostic.ml \
   clflags.mli clflags.ml \
   terminfo.mli terminfo.ml \
   location.mli location.ml \
@@ -2408,7 +2408,7 @@ ocamlmktop_SOURCES = \
   log.mli log.ml \
   compiler_diagnostic.mli compiler_diagnostic.ml \
   diagnostic_backends.mli diagnostic_backends.ml \
-  config_diagnostic.mli config_diagnostic.ml \
+  conf_diagnostic.mli conf_diagnostic.ml \
   clflags.mli clflags.ml \
   profile.mli profile.ml \
   ccomp.mli ccomp.ml \

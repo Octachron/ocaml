@@ -37,7 +37,6 @@ utils/clflags.cmo : \
     utils/diagnostic_history.cmi \
     utils/diagnostic_backends.cmi \
     utils/diagnostic.cmi \
-    utils/config_diagnostic.cmi \
     utils/config.cmi \
     utils/arg_helper.cmi \
     utils/clflags.cmi
@@ -50,7 +49,6 @@ utils/clflags.cmx : \
     utils/diagnostic_history.cmx \
     utils/diagnostic_backends.cmx \
     utils/diagnostic.cmx \
-    utils/config_diagnostic.cmx \
     utils/config.cmx \
     utils/arg_helper.cmx \
     utils/clflags.cmi
@@ -82,6 +80,22 @@ utils/compression.cmo : \
 utils/compression.cmx : \
     utils/compression.cmi
 utils/compression.cmi :
+utils/conf_diagnostic.cmo : \
+    utils/log.cmi \
+    utils/diagnostic_history.cmi \
+    utils/diagnostic.cmi \
+    utils/config.cmi \
+    utils/conf_diagnostic.cmi
+utils/conf_diagnostic.cmx : \
+    utils/log.cmx \
+    utils/diagnostic_history.cmx \
+    utils/diagnostic.cmx \
+    utils/config.cmx \
+    utils/conf_diagnostic.cmi
+utils/conf_diagnostic.cmi : \
+    utils/log.cmi \
+    utils/diagnostic_history.cmi \
+    utils/diagnostic.cmi
 utils/config.common.cmo :
 utils/config.common.cmx :
 utils/config.fixed.cmo :
@@ -98,22 +112,6 @@ utils/config_boot.cmo : \
 utils/config_boot.cmx : \
     utils/config_boot.cmi
 utils/config_boot.cmi :
-utils/config_diagnostic.cmo : \
-    utils/log.cmi \
-    utils/diagnostic_history.cmi \
-    utils/diagnostic.cmi \
-    utils/config.cmi \
-    utils/config_diagnostic.cmi
-utils/config_diagnostic.cmx : \
-    utils/log.cmx \
-    utils/diagnostic_history.cmx \
-    utils/diagnostic.cmx \
-    utils/config.cmx \
-    utils/config_diagnostic.cmi
-utils/config_diagnostic.cmi : \
-    utils/log.cmi \
-    utils/diagnostic_history.cmi \
-    utils/diagnostic.cmi
 utils/config_main.cmo : \
     utils/config_main.cmi
 utils/config_main.cmx : \
@@ -7295,7 +7293,6 @@ driver/main_args.cmo : \
     utils/profile.cmi \
     utils/misc.cmi \
     parsing/location.cmi \
-    utils/config_diagnostic.cmi \
     utils/config.cmi \
     driver/compenv.cmi \
     utils/clflags.cmi \
@@ -7305,7 +7302,6 @@ driver/main_args.cmx : \
     utils/profile.cmx \
     utils/misc.cmx \
     parsing/location.cmx \
-    utils/config_diagnostic.cmx \
     utils/config.cmx \
     driver/compenv.cmx \
     utils/clflags.cmx \
@@ -8267,7 +8263,6 @@ tools/diaginfo.cmo : \
     utils/diagnostic_history.cmi \
     utils/diagnostic_backends.cmi \
     utils/diagnostic.cmi \
-    utils/config_diagnostic.cmi \
     utils/compiler_diagnostic.cmi \
     tools/diaginfo.cmi
 tools/diaginfo.cmx : \
@@ -8276,7 +8271,6 @@ tools/diaginfo.cmx : \
     utils/diagnostic_history.cmx \
     utils/diagnostic_backends.cmx \
     utils/diagnostic.cmx \
-    utils/config_diagnostic.cmx \
     utils/compiler_diagnostic.cmx \
     tools/diaginfo.cmi
 tools/diaginfo.cmi :
