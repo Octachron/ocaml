@@ -5099,6 +5099,19 @@ and split_function_ty env ty_expected ~arg_label ~has_poly ~first ~in_function =
         raise (Error(loc, env, err))
     end
   in
+  if not has_poly && not (tpoly_is_mono ty_arg) && !Clflags.principal
+      && get_level ty_arg < Btype.generic_level then begin
+    let snap = Btype.snapshot () in
+    let really_poly =
+      try
+        unify env (newmono (newvar ())) ty_arg;
+        false
+      with Unify _ -> true
+    in
+    Btype.backtrack snap;
+    if really_poly then
+      Location.prerr_warning loc (not_principal "this higher-rank function");
+  end;
   let ty_arg_mono =
     if has_poly then ty_arg
     else begin
