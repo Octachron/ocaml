@@ -2320,19 +2320,24 @@ let type_pattern_list
   (patl, !!new_penv, pattern_forces, pvs, mvs)
 
 let type_class_arg_pattern cl_num val_env met_env l spat =
-  let tps = create_type_pat_state Modules_rejected in
-  let nv = newvar () in
-  let equations_scope = get_current_level () in
-  let new_penv = Pattern_env.make val_env
-      ~equations_scope ~in_counterexample:false in
-  let pat =
-    type_pat tps Value ~no_existentials:In_class_args new_penv spat nv in
-  if has_variants pat then begin
-    Parmatch.pressure_variants val_env [pat];
-    finalize_variants pat;
-  end;
-  List.iter (fun f -> f()) tps.tps_pattern_force;
-  if is_optional l then unify_pat val_env pat (type_option (newvar ()));
+  let pvs, pat =
+    with_local_level_generalize_structure_if_principal begin fun () ->
+      let tps = create_type_pat_state Modules_rejected in
+      let nv = newvar () in
+      let equations_scope = get_current_level () in
+      let new_penv = Pattern_env.make val_env
+          ~equations_scope ~in_counterexample:false in
+      let pat =
+        type_pat tps Value ~no_existentials:In_class_args new_penv spat nv in
+      if has_variants pat then begin
+        Parmatch.pressure_variants val_env [pat];
+        finalize_variants pat;
+      end;
+      List.iter (fun f -> f()) tps.tps_pattern_force;
+      if is_optional l then unify_pat val_env pat (type_option (newvar ()));
+      tps.tps_pattern_variables, pat
+    end
+  in
   let (pv, val_env, met_env) =
     List.fold_right
       (fun {pv_id; pv_type; pv_loc; pv_kind; pv_attributes}
@@ -2363,7 +2368,7 @@ let type_class_arg_pattern cl_num val_env met_env l spat =
             met_env
          in
          ((id', pv_id, pv_type)::pv, val_env, met_env))
-      tps.tps_pattern_variables ([], val_env, met_env)
+      pvs ([], val_env, met_env)
   in
   (pat, pv, val_env, met_env)
 
