@@ -3665,6 +3665,11 @@ type split_function_ty =
   ty_arg_mono: type_expr;
 }
 
+type type_function_result_param =
+{ param : function_param;
+  has_poly : bool;
+}
+
 (* Generalize expressions *)
 let may_lower_contravariant env exp =
   if maybe_expansive exp then lower_contravariant env exp.exp_type
@@ -3910,9 +3915,12 @@ and type_expect_
         exp_env = env }
   | Pexp_function (params, body_constraint, body) ->
       let in_function = ty_expected_explained, loc in
-      let exp_type, params, body, newtypes, contains_gadt =
+      let exp_type, result_params, body, newtypes, contains_gadt =
         type_function env params body_constraint body ty_expected ~in_function
           ~first:true
+      in
+      let params =
+        List.map (fun { param; has_poly = _ } -> param) result_params
       in
       (* Require that the n-ary function is known to have at least n arrows
          in the type. This prevents GADT equations introduced by the parameters
@@ -3925,35 +3933,59 @@ and type_expect_
       begin match contains_gadt with
       | No_gadt -> ()
       | Contains_gadt ->
-          let ty_function =
-            List.fold_right
-              (fun param rest_ty ->
-                let ty_arg = newmono (newvar ()) in
-                newty
-                  (Tarrow (param.fp_arg_label, ty_arg, rest_ty, commu_ok)))
-              params
-              (match body with
-              | Tfunction_body _ -> newvar ()
-              | Tfunction_cases _ ->
-                let ty_arg = newmono (newvar ()) in
-                newty (Tarrow (Nolabel, ty_arg, newvar (), commu_ok)))
+          (* Assert that [ty] is a function, and return its return type. *)
+          let filter_ty_ret_exn ty arg_label ~force_tpoly =
+            match filter_arrow env ty arg_label ~force_tpoly with
+            | { ty_ret; _ } -> ty_ret
+            | exception (Filter_arrow_failed error) ->
+                let trace =
+                  match error with
+                  | Unification_error trace -> trace
+                  | Not_a_function ->
+                      let tarrow =
+                        (newty
+                          (Tarrow (arg_label, newvar (), newvar (), commu_ok)));
+                      in
+                      (* We go to some trouble to try to generate a unification
+                        error to help the error printing code's heuristic to
+                        identify the type equation at fault.
+                      *)
+                      (try
+                        unify env tarrow ty;
+                        fatal_error "unification unexpectedly succeeded"
+                      with Unify trace -> trace)
+                  | Label_mismatch _ ->
+                      fatal_error
+                        "Label_mismatch not expected as this point; this should \
+                        have been caught when the function was typechecked."
+                in
+                let syntactic_arity =
+                  List.length params +
+                    (match body with
+                      | Tfunction_body _ -> 0
+                      | Tfunction_cases _ -> 1)
+                in
+                let err =
+                  Function_arity_type_clash
+                    { syntactic_arity;
+                      type_constraint = exp_type;
+                      trace;
+                    }
+                in
+                raise (Error (loc, env, err))
           in
-          try unify env ty_function exp_type
-          with Unify trace ->
-            let syntactic_arity =
-              List.length params +
-                (match body with
-                  | Tfunction_body _ -> 0
-                  | Tfunction_cases _ -> 1)
-            in
-            let err =
-              Function_arity_type_clash
-                { syntactic_arity;
-                  type_constraint = exp_type;
-                  trace;
-                }
-            in
-            raise (Error (loc, env, err))
+          let ret_ty =
+            List.fold_left (fun ret_ty { param; has_poly } ->
+                filter_ty_ret_exn ret_ty param.fp_arg_label
+                  ~force_tpoly:(not has_poly))
+              exp_type
+              result_params
+          in
+          match body with
+          | Tfunction_body _ -> ()
+          | Tfunction_cases _ ->
+              ignore
+                (filter_ty_ret_exn ret_ty Nolabel ~force_tpoly:true : type_expr)
       end;
       re
         { exp_desc = Texp_function (params, body);
@@ -5277,12 +5309,15 @@ and type_function
             Tparam_optional_default (pat, default_arg), param
       in
       let param =
-        { fp_kind;
-          fp_arg_label = arg_label;
-          fp_param;
-          fp_partial = partial;
-          fp_newtypes = newtypes;
-          fp_loc = pparam_loc;
+        { has_poly;
+          param =
+            { fp_kind;
+              fp_arg_label = arg_label;
+              fp_param;
+              fp_partial = partial;
+              fp_newtypes = newtypes;
+              fp_loc = pparam_loc;
+            };
         }
       in
       exp_type, param :: params, body, [], contains_gadt
