@@ -5771,7 +5771,7 @@ and type_argument ?explanation ?recarg env sarg ty_expected' ty_expected =
       unify_exp ~sexp:sarg env texp ty_expected;
       texp
 
-and type_apply_arg env ~app_loc:_ (lbl, arg) =
+and type_apply_arg env ~app_loc (lbl, arg) =
   match arg with
   | Arg (Unknown_arg { sarg; ty_arg_mono }) ->
       let arg = type_expect env sarg (mk_expected ty_arg_mono) in
@@ -5779,16 +5779,55 @@ and type_apply_arg env ~app_loc:_ (lbl, arg) =
         unify_exp ~sexp:sarg env arg (type_option(newvar()));
       (lbl, Arg arg)
   | Arg (Known_arg { sarg; ty_arg; ty_arg0; wrapped_in_some }) ->
-      let ty_arg', _vars = tpoly_get_poly ty_arg in
+      let ty_arg', vars = tpoly_get_poly ty_arg in
       let arg =
-        let ty_arg0' = tpoly_get_mono ty_arg0 in
-        if wrapped_in_some then
-          option_some env
-            (type_argument env sarg
-               (extract_option_type env ty_arg')
-               (extract_option_type env ty_arg0'))
-        else
-          type_argument env sarg ty_arg' ty_arg0'
+        if vars = [] then begin
+          let ty_arg0' = tpoly_get_mono ty_arg0 in
+          if wrapped_in_some then
+            option_some env
+              (type_argument env sarg
+                 (extract_option_type env ty_arg')
+                 (extract_option_type env ty_arg0'))
+          else
+            type_argument env sarg ty_arg' ty_arg0'
+        end else begin
+          if !Clflags.principal
+             && get_level ty_arg < Btype.generic_level then begin
+            let snap = Btype.snapshot () in
+            let really_poly =
+              try
+                unify env (newmono (newvar ())) ty_arg;
+                false
+              with Unify _ -> true
+            in
+            Btype.backtrack snap;
+            if really_poly then
+              Location.prerr_warning app_loc
+                (not_principal "applying a higher-rank function here");
+          end;
+          let arg, ty_arg, vars =
+            with_local_level_generalize begin fun () ->
+              let separate =
+                !Clflags.principal || Env.has_local_constraints env
+              in
+              let vars, ty_arg' =
+                with_local_level_generalize_structure_if separate begin fun () ->
+                  instance_poly ~fixed:false vars ty_arg'
+                end
+              in
+              let (ty_arg0', vars0) = tpoly_get_poly ty_arg0 in
+              let vars0, ty_arg0' = instance_poly ~fixed:false vars0 ty_arg0' in
+              List.iter2 (fun ty ty' -> unify_var env ty ty') vars vars0;
+              let arg =
+                type_argument env sarg ty_arg' ty_arg0'
+              in
+              arg, ty_arg, vars
+            end
+            ~before_generalize:(fun (arg, _, _) -> may_lower_contravariant env arg)
+          in
+          check_univars env "argument" arg ty_arg vars;
+          {arg with exp_type = instance arg.exp_type}
+        end
       in
       (lbl, Arg arg)
   | Arg (Eliminated_optional_arg { ty_arg; _ }) ->
