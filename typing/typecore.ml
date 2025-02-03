@@ -2808,14 +2808,14 @@ type untyped_apply_arg =
   | Unknown_arg of
       {
         sarg : Parsetree.expression;
-        ty_arg : type_expr;
+        ty_arg_mono : type_expr;
       }
     (* [arg] is an [Unknown_arg] in:
        [f arg] when [f] is not known (either a type variable,
        or the [commu_ok] case where a function type is known
        but not principally).
 
-       [ty_arg] is the expected type of the argument, usually just
+       [ty_arg_mono] is the expected type of the argument, usually just
        a fresh type variable. *)
   | Eliminated_optional_arg of
       {
@@ -2873,7 +2873,7 @@ let collect_unknown_apply_args env funct ty_fun0 rev_args sargs =
     match sargs with
     | [] -> ty_fun, List.rev rev_args
     | (lbl, sarg) :: rest ->
-        let (ty_arg, ty_res) =
+        let (ty_arg_mono, ty_res) =
           let ty_fun = expand_head env ty_fun in
           match get_desc ty_fun with
           | Tvar _ ->
@@ -2907,7 +2907,7 @@ let collect_unknown_apply_args env funct ty_fun0 rev_args sargs =
                     previous_arg_loc = previous_arg_loc rev_args ~funct;
                     extra_arg_loc = sarg.pexp_loc; }))
         in
-        let arg = Unknown_arg { sarg; ty_arg } in
+        let arg = Unknown_arg { sarg; ty_arg_mono } in
         loop ty_res ((lbl, Arg arg) :: rev_args) rest
   in
   loop ty_fun0 rev_args sargs
@@ -3643,6 +3643,27 @@ let with_explanation explanation f =
         let err = Expr_type_clash(err', Some explanation, exp') in
         raise (Error (loc', env', err))
 
+
+
+(* The result of splitting a function type into its argument/return types along
+   with some extra information relevant to typechecking. The "extra information"
+   is documented on the fields of [t] below.
+
+   As a running example, we'll suppose the type of a function
+   [f = fun x_1 ... x_n -> e] is [a_1 -> a_2 -> ... -> a_n -> b], and we're
+   currently typechecking [a_i -> a_{i+1} -> ... -> b] for [i <= n].
+*)
+type split_function_ty =
+{ (* The result of calling [Ctype.filter_arrow] on
+     [a_i -> a_{i+1} -> ... -> b].
+  *)
+  filtered_arrow: filtered_arrow;
+  (* An instance of [a_i], unless [x_i] is annotated as polymorphic,
+     in which case it's just [a_i] (not an instance).
+  *)
+  ty_arg_mono: type_expr;
+}
+
 (* Generalize expressions *)
 let may_lower_contravariant env exp =
   if maybe_expansive exp then lower_contravariant env exp.exp_type
@@ -3983,7 +4004,7 @@ and type_expect_
         | _ ->
             funct, sargs
       in
-      let (args, ty_res) = type_application env funct sargs in
+      let (args, ty_res) = type_application env loc funct sargs in
       rue {
         exp_desc = Texp_apply(funct, args);
         exp_loc = loc; exp_extra = [];
@@ -5042,6 +5063,8 @@ and type_binding_op_ident env s =
 
 (** Returns the argument type and then the return type.
 
+    @param arg_label label for the relevant parameter
+    @param has_poly whether the parameter has a polymorphic type annotation
     @param first Whether the parameter corresponding to the argument of
       [ty_expected] is the first parameter to the (n-ary) function. This only
       affects error messages.
@@ -5049,11 +5072,10 @@ and type_binding_op_ident env s =
       process of being typechecked (its overall type and its location). Again,
       this is only used to improve error messages.
 *)
-and split_function_ty env ty_expected ~arg_label ~first ~in_function =
-  let has_poly = false in
+and split_function_ty env ty_expected ~arg_label ~has_poly ~first ~in_function =
   let { ty = ty_fun; explanation }, loc = in_function in
   let separate = !Clflags.principal || Env.has_local_constraints env in
-  let { ty_arg; ty_ret = ty_res } =
+  let { ty_arg; ty_ret = _ } as filtered_arrow =
     with_local_level_generalize_structure_if separate begin fun () ->
       let force_tpoly =
         (* If [has_poly] is true then we rely on the later call to
@@ -5087,7 +5109,7 @@ and split_function_ty env ty_expected ~arg_label ~first ~in_function =
       end
     end
   in
-  (ty_arg, ty_res, ty_arg_mono)
+  { filtered_arrow; ty_arg_mono }
 
 (* Typecheck parameters one at a time followed by the body. Later parameters
    are checked in the scope of earlier ones. That's necessary to support
@@ -5145,8 +5167,9 @@ and type_function
   | { pparam_desc = Pparam_val (arg_label, default_arg, pat); pparam_loc }
       :: rest
     ->
-      let ty_arg, ty_res, ty_arg_mono =
+      let { filtered_arrow = { ty_arg; ty_ret }; ty_arg_mono } =
         split_function_ty env ty_expected ~arg_label ~first ~in_function
+          ~has_poly:false
       in
       (* [ty_arg_internal] is the type of the parameter viewed internally
          to the function. This is different than [ty_arg_mono] exactly for
@@ -5178,7 +5201,7 @@ and type_function
       in
       let (pat, params, body, newtypes, contains_gadt), partial =
         (* Check everything else in the scope of the parameter. *)
-        map_half_typed_cases Value env ty_arg_internal ty_res pat.ppat_loc
+        map_half_typed_cases Value env ty_arg_internal ty_ret pat.ppat_loc
           ~check_if_total:true
           (* We don't make use of [case_data] here so we pass unit. *)
           [ { pattern = pat; has_guard = false; needs_refute = false }, () ]
@@ -5204,7 +5227,7 @@ and type_function
            | ([] | _ :: _ :: _), _ -> assert false
       in
       let exp_type =
-        instance (newgenty (Tarrow (arg_label, ty_arg, ty_res, commu_ok)))
+        instance (newgenty (Tarrow (arg_label, ty_arg, ty_ret, commu_ok)))
       in
       (* This is quadratic, as it operates over the entire tail of the
          type for each new parameter. Now that functions are n-ary, we
@@ -5217,10 +5240,12 @@ and type_function
          there might be an opportunity to improve this.
       *)
       let not_nolabel_function ty =
+        (* [list_labels] does expansion and is potentially expensive; only
+           call this when necessary. *)
         let ls, tvar = list_labels env ty in
         List.for_all (( <> ) Nolabel) ls && not tvar
       in
-      if is_optional arg_label && not_nolabel_function ty_res
+      if is_optional arg_label && not_nolabel_function ty_ret
       then
         Location.prerr_warning
           pat.pat_loc
@@ -5647,7 +5672,7 @@ and type_argument ?explanation ?recarg env sarg ty_expected' ty_expected =
   in
   match may_coerce with
     Some (safe_expect, lv) ->
-      (* apply optional arguments when expected type is "" *)
+      (* apply omittable arguments when expected type is "" *)
       (* we must be very careful about not breaking the semantics *)
       let texp =
         with_local_level_generalize_structure_if_principal
@@ -5742,10 +5767,10 @@ and type_argument ?explanation ?recarg env sarg ty_expected' ty_expected =
       unify_exp ~sexp:sarg env texp ty_expected;
       texp
 
-and type_apply_arg env (lbl, arg) =
+and type_apply_arg env ~app_loc:_ (lbl, arg) =
   match arg with
-  | Arg (Unknown_arg { sarg; ty_arg }) ->
-      let arg = type_expect env sarg (mk_expected ty_arg) in
+  | Arg (Unknown_arg { sarg; ty_arg_mono }) ->
+      let arg = type_expect env sarg (mk_expected ty_arg_mono) in
       if is_optional lbl then
         unify_exp ~sexp:sarg env arg (type_option(newvar()));
       (lbl, Arg arg)
@@ -5769,7 +5794,7 @@ and type_apply_arg env (lbl, arg) =
       (lbl, Arg arg)
   | Omitted _ as arg -> (lbl, arg)
 
-and type_application env funct sargs =
+and type_application env app_loc funct sargs =
   let is_ignore funct =
     is_prim ~name:"%ignore" funct &&
     (try ignore (filter_arrow_mono env (instance funct.exp_type) Nolabel); true
@@ -5778,11 +5803,12 @@ and type_application env funct sargs =
   match sargs with
   | (* Special case for ignore: avoid discarding warning *)
     [Nolabel, sarg] when is_ignore funct ->
-      let { ty_arg; ty_ret = ty_res } =
-        filter_arrow_mono env (instance funct.exp_type) Nolabel in
+      let { ty_arg; ty_ret } =
+        filter_arrow_mono env (instance funct.exp_type) Nolabel
+      in
       let exp = type_expect env sarg (mk_expected ty_arg) in
       check_partial_application ~statement:false exp;
-      ([Nolabel, Arg exp], ty_res)
+      ([Nolabel, Arg exp], ty_ret)
   | _ ->
       let ty = funct.exp_type in
       let ignore_labels =
@@ -5814,7 +5840,7 @@ and type_application env funct sargs =
          [args = [(Label "a", Omitted bar);
                   (Optional "opt", Arg (Eliminated_optional_arg baz));
                   (Nolabel, Arg (Known_arg n))]] *)
-      let args = List.map (fun arg -> type_apply_arg env arg) args in
+      let args = List.map (fun arg -> type_apply_arg ~app_loc env arg) args in
       (* example: type-check [n] and generate [None] for [?opt].
          [args] becomes [(Label "a", Omitted bar);
                          (Optional "opt", Arg None);
@@ -6279,15 +6305,16 @@ and type_cases
 and type_function_cases_expect
       env ty_expected loc cases attrs ~first ~in_function =
   Builtin_attributes.warning_scope attrs begin fun () ->
-    let ty_arg, ty_res, ty_arg_mono =
-      split_function_ty env ty_expected ~arg_label:Nolabel ~first ~in_function
+    let { filtered_arrow = { ty_arg; ty_ret }; ty_arg_mono } =
+      split_function_ty env ty_expected ~arg_label:Nolabel
+        ~first ~in_function ~has_poly:false
     in
     let cases, partial =
-      type_cases Value env ty_arg_mono (mk_expected ty_res)
+      type_cases Value env ty_arg_mono (mk_expected ty_ret)
         ~check_if_total:true loc cases
     in
     let ty_fun =
-      instance (newgenty (Tarrow (Nolabel, ty_arg, ty_res, commu_ok)))
+      instance (newgenty (Tarrow (Nolabel, ty_arg, ty_ret, commu_ok)))
     in
     unify_exp_types loc env ty_fun (instance ty_expected);
     cases, partial, ty_fun
