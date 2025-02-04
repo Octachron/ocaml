@@ -879,19 +879,6 @@ and build_as_type_aux (env : Env.t) p =
 
 (* Constraint solving during typing of patterns *)
 
-let solve_Ppat_poly_constraint tps env loc sty expected_ty =
-  let cty, ty, force = Typetexp.transl_simple_type_delayed env sty in
-  unify_pat_types loc env ty (instance expected_ty);
-  tps.tps_pattern_force <- force :: tps.tps_pattern_force;
-  match get_desc ty with
-  | Tpoly (body, tyl) ->
-      let _, ty' =
-        with_level ~level:generic_level
-          (fun () -> instance_poly ~keep_names:true ~fixed:false tyl body)
-      in
-      (cty, ty, ty')
-  | _ -> assert false
-
 let solve_Ppat_alias env pat =
   with_local_level_generalize (fun () -> build_as_type env pat)
 
@@ -1161,6 +1148,12 @@ let solve_Ppat_constraint tps loc env sty expected_ty =
   tps.tps_pattern_force <- force :: tps.tps_pattern_force;
   let ty, expected_ty' = instance ty, ty in
   unify_pat_types loc env ty (instance expected_ty);
+  let expected_ty' =
+    match get_desc expected_ty' with
+    | Tpoly (expected_ty', tl) ->
+        snd (instance_poly ~keep_names:true ~fixed:false tl expected_ty')
+    | _ -> expected_ty'
+  in
   (cty, ty, expected_ty')
 
 let solve_Ppat_variant loc env tag no_arg expected_ty =
@@ -1887,19 +1880,6 @@ and type_pat_aux
             pat_attributes = [];
             pat_env = !!penv }
       end
-  | Ppat_constraint(
-      {ppat_desc=Ppat_var name; ppat_loc=lloc; ppat_attributes = attrs},
-      ({ptyp_desc=Ptyp_poly _} as sty)) ->
-      (* explicitly polymorphic type *)
-      let cty, ty, ty' =
-        solve_Ppat_poly_constraint tps !!penv lloc sty expected_ty in
-      let id, uid = enter_variable tps lloc name ty' attrs in
-      rvp { pat_desc = Tpat_var (id, name, uid);
-            pat_loc = lloc;
-            pat_extra = [Tpat_constraint cty, loc, sp.ppat_attributes];
-            pat_type = ty;
-            pat_attributes = [];
-            pat_env = !!penv }
   | Ppat_alias(sq, name) ->
       let q = type_pat tps Value sq expected_ty in
       let ty_var = solve_Ppat_alias !!penv q in
@@ -2195,24 +2175,11 @@ and type_pat_aux
         pat_attributes = sp.ppat_attributes;
         pat_env = !!penv }
   | Ppat_constraint(sp, sty) ->
-      (* Pretend separate = true *)
       let cty, ty, expected_ty' =
         solve_Ppat_constraint tps loc !!penv sty expected_ty in
       let p = type_pat tps category sp expected_ty' in
       let extra = (Tpat_constraint cty, loc, sp.ppat_attributes) in
-      begin match category, (p : k general_pattern) with
-      | Value, {pat_desc = Tpat_var (id,s,uid); _} ->
-          { p with
-            pat_type = ty;
-            pat_desc =
-            Tpat_alias
-              ({p with pat_desc = Tpat_any; pat_attributes = []},
-               id, s, uid, ty);
-            pat_extra = [extra];
-          }
-      | _, p ->
-          { p with pat_type = ty; pat_extra = extra::p.pat_extra }
-      end
+      { p with pat_type = ty; pat_extra = extra::p.pat_extra }
   | Ppat_type lid ->
       let (path, p) = build_or_pat !!penv loc lid in
       pure category @@ solve_expected
@@ -5277,20 +5244,13 @@ and split_function_ty env ty_expected ~arg_label ~has_poly ~first ~in_function =
 and type_function
       env params_suffix body_constraint body ty_expected ~first ~in_function
   =
-  let ty_fun, (loc_function : Location.t) = in_function in
+  let ty_fun, (loc_fun : Location.t) = in_function in
   (* The "rest of the function" extends from the start of the first parameter
      to the end of the overall function. The parser does not construct such
      a location so we forge one for type errors.
   *)
-  let loc : Location.t =
-    match params_suffix, body with
-    | param :: _, _ ->
-        { loc_start = param.pparam_loc.loc_start;
-          loc_end = loc_function.loc_end;
-          loc_ghost = true;
-        }
-    | [], Pfunction_body pexp -> pexp.pexp_loc
-    | [], Pfunction_cases (_, loc_cases, _) -> loc_cases
+  let loc =
+    loc_rest_of_function ~first ~loc_function:loc_fun params_suffix body
   in
   match params_suffix with
   | { pparam_desc = Pparam_newtype newtype; pparam_loc = _ } :: rest ->
@@ -5317,7 +5277,7 @@ and type_function
         raise(Error(pat.ppat_loc, env, Optional_poly_param));
       let { filtered_arrow = { ty_arg; ty_ret }; ty_arg_mono } =
         split_function_ty env ty_expected ~arg_label ~first ~in_function
-          ~has_poly:false
+          ~has_poly
       in
       (* [ty_arg_internal] is the type of the parameter viewed internally
          to the function. This is different than [ty_arg_mono] exactly for
