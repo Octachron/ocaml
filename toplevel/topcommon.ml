@@ -429,6 +429,7 @@ let compiler_log log =
     end;
   clog
 
+let toplevel_log = ref (Log.tmp Toplevel_diagnostic.scheme)
 let log_on_device device =
   let log =
     Clflags.create_log
@@ -437,6 +438,7 @@ let log_on_device device =
       Toplevel_diagnostic.scheme
       device
   in
+  toplevel_log := log;
   let _ = compiler_log log in
   log
 

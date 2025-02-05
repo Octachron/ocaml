@@ -21,8 +21,6 @@ open Data_types
 open Toploop
 
 
-type 'a directive = Toplevel_diagnostic.id Log.t -> 'a -> unit
-
 let _error_fmt () =
   if !Sys.interactive then
     Format.std_formatter
@@ -65,299 +63,319 @@ let order_of_sections =
 
 (* To quit *)
 
-let dir_quit _log () = raise (Compenv.Exit_with_status 0)
+module With_log = struct
+  type 'a directive = Toplevel_diagnostic.id Log.t -> 'a -> unit
 
-let _ = add_directive "quit" (Directive_none dir_quit)
-    {
-      section = section_general;
-      doc = "Exit the toplevel.";
-    }
+  let dir_quit _log () = raise (Compenv.Exit_with_status 0)
 
-(* To add a directory to the load path *)
+  let _ = add_directive "quit" (Directive_none dir_quit)
+      {
+        section = section_general;
+        doc = "Exit the toplevel.";
+      }
 
-let dir_directory _log s =
-  let d = expand_directory Config.standard_library s in
-  Dll.add_path [d];
-  let dir = Load_path.Dir.create ~hidden:false d in
-  Load_path.prepend_dir dir;
-  toplevel_env :=
-    Stdlib.String.Set.fold
-      (fun name env ->
-         Env.add_persistent_structure (Ident.create_persistent name) env)
-      (Env.persistent_structures_of_dir dir)
-      !toplevel_env
+  (* To add a directory to the load path *)
 
-let _ = add_directive "directory" (Directive_string dir_directory)
-    {
-      section = section_run;
-      doc = "Add the given directory to search path for source and compiled \
-             files.";
-    }
+  let dir_directory _log s =
+    let d = expand_directory Config.standard_library s in
+    Dll.add_path [d];
+    let dir = Load_path.Dir.create ~hidden:false d in
+    Load_path.prepend_dir dir;
+    toplevel_env :=
+      Stdlib.String.Set.fold
+        (fun name env ->
+           Env.add_persistent_structure (Ident.create_persistent name) env)
+        (Env.persistent_structures_of_dir dir)
+        !toplevel_env
 
-(* To remove a directory from the load path *)
-let dir_remove_directory _log s =
-  let d = expand_directory Config.standard_library s in
-  let keep id =
-    match Load_path.find_normalized (Ident.name id ^ ".cmi") with
-    | exception Not_found -> true
-    | fn -> Filename.dirname fn <> d
-  in
-  toplevel_env := Env.filter_non_loaded_persistent keep !toplevel_env;
-  Load_path.remove_dir s;
-  Dll.remove_path [d]
+  let _ = add_directive "directory" (Directive_string dir_directory)
+      {
+        section = section_run;
+        doc = "Add the given directory to search path for source and compiled \
+               files.";
+      }
 
-let _ = add_directive "remove_directory" (Directive_string dir_remove_directory)
-    {
-      section = section_run;
-      doc = "Remove the given directory from the search path.";
-    }
+  (* To remove a directory from the load path *)
+  let dir_remove_directory _log s =
+    let d = expand_directory Config.standard_library s in
+    let keep id =
+      match Load_path.find_normalized (Ident.name id ^ ".cmi") with
+      | exception Not_found -> true
+      | fn -> Filename.dirname fn <> d
+    in
+    toplevel_env := Env.filter_non_loaded_persistent keep !toplevel_env;
+    Load_path.remove_dir s;
+    Dll.remove_path [d]
 
-let dir_show_dirs _log () =
-  List.iter print_endline (Load_path.get_path_list ())
+  let _ =
+    add_directive "remove_directory" (Directive_string dir_remove_directory)
+      {
+        section = section_run;
+        doc = "Remove the given directory from the search path.";
+      }
 
-let _ = add_directive "show_dirs" (Directive_none dir_show_dirs)
-    {
-      section = section_run;
-      doc = "List directories currently in the search path.";
-    }
+  let dir_show_dirs _log () =
+    List.iter print_endline (Load_path.get_path_list ())
 
-(* To change the current directory *)
+  let _ = add_directive "show_dirs" (Directive_none dir_show_dirs)
+      {
+        section = section_run;
+        doc = "List directories currently in the search path.";
+      }
 
-let dir_cd _log s = Sys.chdir s
+  (* To change the current directory *)
 
-let _ = add_directive "cd" (Directive_string dir_cd)
-    {
-      section = section_run;
-      doc = "Change the current working directory.";
-    }
+  let dir_cd _log s = Sys.chdir s
 
-let dir_load log name =
-  action_on_suberror (Topeval.load_file false log name)
+  let _ = add_directive "cd" (Directive_string dir_cd)
+      {
+        section = section_run;
+        doc = "Change the current working directory.";
+      }
 
-let _ = add_directive "load" (Directive_string dir_load)
-    {
-      section = section_run;
-      doc = "Load in memory a bytecode object, produced by ocamlc.";
-    }
+  let dir_load log name =
+    action_on_suberror (Topeval.load_file false log name)
 
-let dir_load_rec log name =
-  action_on_suberror (Topeval.load_file true log name)
+  let _ = add_directive "load" (Directive_string dir_load)
+      {
+        section = section_run;
+        doc = "Load in memory a bytecode object, produced by ocamlc.";
+      }
 
-let _ = add_directive "load_rec"
-    (Directive_string dir_load_rec)
-    {
-      section = section_run;
-      doc = "As #load, but loads dependencies recursively.";
-    }
+  let dir_load_rec log name =
+    action_on_suberror (Topeval.load_file true log name)
 
-let load_file = Topeval.load_file false
+  let _ = add_directive "load_rec"
+      (Directive_string dir_load_rec)
+      {
+        section = section_run;
+        doc = "As #load, but loads dependencies recursively.";
+      }
 
-(* Load commands from a file *)
+  let load_file = Topeval.load_file false
 
-let dir_use log name =
-  action_on_suberror (Toploop.use_input log (Toploop.File name))
-let dir_use_output log name = action_on_suberror (Toploop.use_output log name)
-let dir_mod_use log name =
-  action_on_suberror (Toploop.mod_use_input log (Toploop.File name))
+  (* Load commands from a file *)
 
-let _ = add_directive "use" (Directive_string dir_use)
-    {
-      section = section_run;
-      doc = "Read, compile and execute source phrases from the given file.";
-    }
+  let dir_use log name =
+    action_on_suberror (Toploop.use_input log (Toploop.File name))
+  let dir_use_output log name = action_on_suberror (Toploop.use_output log name)
+  let dir_mod_use log name =
+    action_on_suberror (Toploop.mod_use_input log (Toploop.File name))
 
-let _ = add_directive "use_output"
-    (Directive_string dir_use_output)
-    {
-      section = section_run;
-      doc = "Execute a command and read, compile and execute source phrases \
-             from its output.";
-    }
+  let _ = add_directive "use" (Directive_string dir_use)
+      {
+        section = section_run;
+        doc = "Read, compile and execute source phrases from the given file.";
+      }
 
-let _ = add_directive "mod_use" (Directive_string dir_mod_use)
-    {
-      section = section_run;
-      doc = "Usage is identical to #use but #mod_use \
-             wraps the contents in a module.";
-    }
+  let _ = add_directive "use_output"
+      (Directive_string dir_use_output)
+      {
+        section = section_run;
+        doc = "Execute a command and read, compile and execute source phrases \
+               from its output.";
+      }
 
-(* Install, remove a printer *)
+  let _ = add_directive "mod_use" (Directive_string dir_mod_use)
+      {
+        section = section_run;
+        doc = "Usage is identical to #use but #mod_use \
+               wraps the contents in a module.";
+      }
 
-module Printer = struct
-  type kind =
-    | Old of Types.type_expr
+  (* Install, remove a printer *)
+
+  module Printer = struct
+    type kind =
+      | Old of Types.type_expr
       (* 'a -> unit *)
-    | Simple of Types.type_expr
+      | Simple of Types.type_expr
       (* Format.formatter -> 'a -> unit *)
-    | Generic of { ty_path: Path.t; arity: int; }
+      | Generic of { ty_path: Path.t; arity: int; }
       (* (formatter -> 'a1 -> unit) ->
          (formatter -> 'a2 -> unit) ->
          ... ->
          (formatter -> 'an -> unit) ->
          formatter -> ('a1, 'a2, ..., 'an) t -> unit
       *)
-end
+  end
 
-let filter_arrow ty =
-  let ty = Ctype.expand_head !toplevel_env ty in
-  match get_desc ty with
-  | Tarrow (lbl, l, r, _) when not (Btype.is_optional lbl) -> Some (l, r)
-  | _ -> None
+  let filter_arrow ty =
+    let ty = Ctype.expand_head !toplevel_env ty in
+    match get_desc ty with
+    | Tarrow (lbl, l, r, _) when not (Btype.is_optional lbl) -> Some (l, r)
+    | _ -> None
 
-let extract_last_arrow ty =
-  let rec extract last ty =
-    match filter_arrow ty with
-    | None -> last
-    | Some ((_, rest) as next) -> extract (Some next) rest
-  in extract None ty
+  let extract_last_arrow ty =
+    let rec extract last ty =
+      match filter_arrow ty with
+      | None -> last
+      | Some ((_, rest) as next) -> extract (Some next) rest
+    in extract None ty
 
-let extract_target_type ty =
-  Option.map fst (extract_last_arrow ty)
+  let extract_target_type ty =
+    Option.map fst (extract_last_arrow ty)
 
-let extract_target_parameters ty =
-  match extract_target_type ty with
-  | None -> None
-  | Some tgt ->
-      let tgt = Ctype.expand_head !toplevel_env tgt in
-      match get_desc tgt with
-      | Tconstr (path, (_ :: _ as args), _)
-        when Ctype.all_distinct_vars !toplevel_env args ->
-          Some (path, args)
-      | _ -> None
-
-let match_simple_printer_type desc ~is_old_style =
-  let make_printer_type =
-    if is_old_style
-    then Topprinters.printer_type_old
-    else Topprinters.printer_type_new
-  in
-  match
-    Ctype.with_local_level_generalize begin fun () ->
-      let ty_arg = Ctype.newvar() in
-      Ctype.unify !toplevel_env
-        (make_printer_type ty_arg)
-        (Ctype.instance desc.val_type);
-      ty_arg
-    end
-  with
-  | exception Ctype.Unify _ -> None
-  | ty_arg ->
-      if is_old_style
-      then Some (Printer.Old ty_arg)
-      else Some (Printer.Simple ty_arg)
-
-let match_generic_printer_type desc ty_path params =
-  let make_printer_type = Topprinters.printer_type_new in
-  match
-    Ctype.with_local_level_generalize begin fun () ->
-      let args = List.map (fun _ -> Ctype.newvar ()) params in
-      let ty_target = Ctype.newty (Tconstr (ty_path, args, ref Mnil)) in
-      let printer_args_ty =
-        List.map (fun ty_var -> make_printer_type ty_var) args in
-      let ty_expected =
-        List.fold_right Topprinters.type_arrow
-          printer_args_ty (make_printer_type ty_target) in
-      Ctype.unify !toplevel_env
-        ty_expected
-        (Ctype.instance desc.val_type);
-      args
-    end
-  with
-  | exception Ctype.Unify _ -> None
-  | args ->
-      if Ctype.all_distinct_vars !toplevel_env args
-      then Some ()
-      else None
-
-let match_printer_type desc =
-  match match_simple_printer_type desc ~is_old_style:false with
-  | Some _ as res -> res
-  | None ->
-  match match_simple_printer_type desc ~is_old_style:true with
-  | Some _ as res -> res
-  | None ->
-  match extract_target_parameters desc.val_type with
-  | None -> None
-  | Some (ty_path, args) ->
-    match match_generic_printer_type desc ty_path args with
+  let extract_target_parameters ty =
+    match extract_target_type ty with
     | None -> None
-    | Some () ->
-      Some (Printer.Generic { ty_path; arity = List.length args; })
+    | Some tgt ->
+        let tgt = Ctype.expand_head !toplevel_env tgt in
+        match get_desc tgt with
+        | Tconstr (path, (_ :: _ as args), _)
+          when Ctype.all_distinct_vars !toplevel_env args ->
+            Some (path, args)
+        | _ -> None
 
-let quoted_longident = Misc.Style.as_inline_code Printtyp.Doc.longident
-let quoted_path = Misc.Style.as_inline_code Printtyp.Doc.path
+  let match_simple_printer_type desc ~is_old_style =
+    let make_printer_type =
+      if is_old_style
+      then Topprinters.printer_type_old
+      else Topprinters.printer_type_new
+    in
+    match
+      Ctype.with_local_level_generalize begin fun () ->
+        let ty_arg = Ctype.newvar() in
+        Ctype.unify !toplevel_env
+          (make_printer_type ty_arg)
+          (Ctype.instance desc.val_type);
+        ty_arg
+      end
+    with
+    | exception Ctype.Unify _ -> None
+    | ty_arg ->
+        if is_old_style
+        then Some (Printer.Old ty_arg)
+        else Some (Printer.Simple ty_arg)
 
-let find_printer lid =
-  let msg = Format_doc.doc_printf in
-  match Env.find_value_by_name lid !toplevel_env with
-  | exception Not_found ->
-      Error (msg "Unbound value %a." quoted_longident lid)
-  | (path, desc) ->
-    match match_printer_type desc with
+  let match_generic_printer_type desc ty_path params =
+    let make_printer_type = Topprinters.printer_type_new in
+    match
+      Ctype.with_local_level_generalize begin fun () ->
+        let args = List.map (fun _ -> Ctype.newvar ()) params in
+        let ty_target = Ctype.newty (Tconstr (ty_path, args, ref Mnil)) in
+        let printer_args_ty =
+          List.map (fun ty_var -> make_printer_type ty_var) args in
+        let ty_expected =
+          List.fold_right Topprinters.type_arrow
+            printer_args_ty (make_printer_type ty_target) in
+        Ctype.unify !toplevel_env
+          ty_expected
+          (Ctype.instance desc.val_type);
+        args
+      end
+    with
+    | exception Ctype.Unify _ -> None
+    | args ->
+        if Ctype.all_distinct_vars !toplevel_env args
+        then Some ()
+        else None
+
+  let match_printer_type desc =
+    match match_simple_printer_type desc ~is_old_style:false with
+    | Some _ as res -> res
     | None ->
-      let report =
-        msg "%a has the wrong type for a printing function."
-          quoted_longident lid
-      in Error report
-    | Some kind -> Ok (path, kind)
+        match match_simple_printer_type desc ~is_old_style:true with
+        | Some _ as res -> res
+        | None ->
+            match extract_target_parameters desc.val_type with
+            | None -> None
+            | Some (ty_path, args) ->
+                match match_generic_printer_type desc ty_path args with
+                | None -> None
+                | Some () ->
+                    let arity =  List.length args in
+                    Some (Printer.Generic { ty_path; arity })
 
-let install_printer_by_kind path kind =
-  let v = eval_value_path !toplevel_env path in
-  match kind with
-  | Printer.Old ty_arg ->
-    install_printer path ty_arg
-      (fun _formatter repr -> Obj.obj v (Obj.obj repr))
-  | Printer.Simple ty_arg ->
-    install_printer path ty_arg
-      (fun formatter repr -> Obj.obj v formatter (Obj.obj repr))
-  | Printer.Generic { ty_path; arity } ->
-     let rec build v = function
-       | 0 ->
-          Zero
-            (fun formatter repr -> Obj.obj v formatter (Obj.obj repr))
-       | n ->
-          Succ
-            (fun fn -> build ((Obj.obj v : _ -> Obj.t) fn) (n - 1)) in
-     install_generic_printer' path ty_path (build v arity)
+  let quoted_longident = Misc.Style.as_inline_code Printtyp.Doc.longident
+  let quoted_path = Misc.Style.as_inline_code Printtyp.Doc.path
 
-let remove_installed_printer path =
-  match remove_printer path with
-  | () -> Ok ()
-  | exception Not_found ->
-    let report =
-      Format_doc.doc_printf "The printer named %a is not installed."
-        quoted_path path
-    in Error report
+  let find_printer lid =
+    let msg = Format_doc.doc_printf in
+    match Env.find_value_by_name lid !toplevel_env with
+    | exception Not_found ->
+        Error (msg "Unbound value %a." quoted_longident lid)
+    | (path, desc) ->
+        match match_printer_type desc with
+        | None ->
+            let report =
+              msg "%a has the wrong type for a printing function."
+                quoted_longident lid
+            in Error report
+        | Some kind -> Ok (path, kind)
 
-let log_error log report = Log.cons log Toplevel_diagnostic.errors report
+  let install_printer_by_kind path kind =
+    let v = eval_value_path !toplevel_env path in
+    match kind with
+    | Printer.Old ty_arg ->
+        install_printer path ty_arg
+          (fun _formatter repr -> Obj.obj v (Obj.obj repr))
+    | Printer.Simple ty_arg ->
+        install_printer path ty_arg
+          (fun formatter repr -> Obj.obj v formatter (Obj.obj repr))
+    | Printer.Generic { ty_path; arity } ->
+        let rec build v = function
+          | 0 ->
+              Zero
+                (fun formatter repr -> Obj.obj v formatter (Obj.obj repr))
+          | n ->
+              Succ
+                (fun fn -> build ((Obj.obj v : _ -> Obj.t) fn) (n - 1)) in
+        install_generic_printer' path ty_path (build v arity)
 
-let dir_install_printer log lid =
-  match find_printer lid with
-  | Error report -> log_error log report
-  | Ok (path, kind) ->
-    install_printer_by_kind path kind
+  let remove_installed_printer path =
+    match remove_printer path with
+    | () -> Ok ()
+    | exception Not_found ->
+        let report =
+          Format_doc.doc_printf "The printer named %a is not installed."
+            quoted_path path
+        in Error report
 
-let dir_remove_printer log lid =
-  match find_printer lid with
-  | Error report -> log_error log report
-  | Ok (path, _kind) ->
-    match remove_installed_printer path with
-    | Ok () -> ()
+  let log_error log report = Log.cons log Toplevel_diagnostic.errors report
+
+  let dir_install_printer log lid =
+    match find_printer lid with
     | Error report -> log_error log report
+    | Ok (path, kind) ->
+        install_printer_by_kind path kind
 
-let _ = add_directive "install_printer"
-    (Directive_ident dir_install_printer)
-    {
-      section = section_print;
-      doc = "Registers a printer for values of a certain type.";
-    }
+  let dir_remove_printer log lid =
+    match find_printer lid with
+    | Error report -> log_error log report
+    | Ok (path, _kind) ->
+        match remove_installed_printer path with
+        | Ok () -> ()
+        | Error report -> log_error log report
 
-let _ = add_directive "remove_printer"
-    (Directive_ident dir_remove_printer)
-    {
-      section = section_print;
-      doc = "Remove the named function from the table of toplevel printers.";
-    }
+  let _ = add_directive "install_printer"
+      (Directive_ident dir_install_printer)
+      {
+        section = section_print;
+        doc = "Registers a printer for values of a certain type.";
+      }
+
+  let _ = add_directive "remove_printer"
+      (Directive_ident dir_remove_printer)
+      {
+        section = section_print;
+        doc = "Remove the named function from the table of toplevel printers.";
+      }
+
+end open With_log
+
+type 'a directive = 'a -> unit
+let with_log f x = f !(Topcommon.toplevel_log) x
+let dir_quit () = with_log With_log.dir_quit ()
+let dir_directory s = with_log With_log.dir_directory s
+let dir_remove_directory s = with_log With_log.dir_remove_directory s
+let dir_cd s = with_log With_log.dir_cd s
+let dir_load s = with_log With_log.dir_load s
+let dir_use s = with_log With_log.dir_use s
+let dir_use_output s = with_log With_log.dir_use_output s
+let dir_install_printer lid = with_log With_log.dir_install_printer lid
+let dir_remove_printer lid =  with_log With_log.dir_remove_printer lid
+let load_file s = with_log With_log.load_file s
 
 let parse_warnings log iserr s =
   try Option.iter Location.(prerr_alert none) @@ Warnings.parse_options iserr s
