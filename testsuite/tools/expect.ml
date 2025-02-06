@@ -78,7 +78,7 @@ let match_expect_extension (ext : Parsetree.extension) =
           | Pexp_tuple
               [ a
               ; { pexp_desc = Pexp_construct
-                  ({ txt = Lident { txt = "Principal"; _ }; _ }, Some b) }
+                                ({ txt = Lident "Principal"; _ }, Some b) }
               ] ->
             (string_constant a, string_constant b)
           | _ -> let s = string_constant e in (s, s)

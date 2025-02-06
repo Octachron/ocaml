@@ -207,8 +207,6 @@ module Make(O : OBJ)(EVP : EVALPATH with type valu = O.t) = struct
        a module that has been opened. *)
 
     let tree_of_qualified lookup_all get_path env ty_path name =
-      let name = Location.mknoloc name in
-
       (* If [ty_path] is [M.N.t] and [name] is [Foo], we want to find
          a short name for [M.N.Foo] in the current typing environment.
          Our strategy is to try [Foo], [N.Foo] and [M.N.Foo] in
@@ -217,7 +215,7 @@ module Make(O : OBJ)(EVP : EVALPATH with type valu = O.t) = struct
       (* Start by transforming the path [M.N.t] into the Longident [M.N.Foo]. *)
       let lid = match Untypeast.lident_of_path ty_path with
         | Lident _ -> Lident name
-        | Ldot (p,_) -> Ldot(p,name)
+        | Ldot (p,_) -> Ldot(p, Location.mknoloc name)
         | x -> x
       in
 
@@ -226,8 +224,8 @@ module Make(O : OBJ)(EVP : EVALPATH with type valu = O.t) = struct
       let candidates apply_exn lid =
         (* [loop M.N [Foo]] is [[Foo]; [N; Foo]; [M; N; Foo]] *)
         let rec loop lid suff = match lid with
-          | Lident {txt=last; _} -> [suff; (last :: suff)]
-          | Ldot(p, {txt=s; _}) -> suff :: loop p (s :: suff)
+          | Lident last -> [suff; (last :: suff)]
+          | Ldot(p, {txt=s; _}) -> suff :: loop p.txt (s :: suff)
           | Lapply _ -> raise apply_exn
         in
         loop lid [] (* [[]; [Foo]; [N; Foo]; [M; N; Foo]] *)
@@ -248,12 +246,12 @@ module Make(O : OBJ)(EVP : EVALPATH with type valu = O.t) = struct
       in
 
       let rec tree_of_lident = function
-        | Lident {txt=name; _} ->
+        | Lident name ->
             tree_of_name name
         | Ldot (lid, {txt=name; _}) ->
-            Oide_dot (tree_of_lident lid, name)
+            Oide_dot (tree_of_lident lid.txt, name)
         | Lapply (lid1, lid2) ->
-            Oide_apply (tree_of_lident lid1, tree_of_lident lid2)
+            Oide_apply (tree_of_lident lid1.txt, tree_of_lident lid2.txt)
       in
 
       let exception Functor_application in

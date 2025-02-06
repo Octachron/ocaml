@@ -89,15 +89,13 @@ let iter_opt f = function None -> () | Some x -> f x
 let iter_loc sub {loc; txt = _} = sub.location sub loc
 
 let rec iter_loc_lid sub lid =
+  sub.location sub lid.loc;
   let open Longident in
-  match lid with
-  | Lident id -> iter_loc sub id
-  | Ldot (lid, id) -> iter_loc_lid sub lid; iter_loc sub id
+  match lid.txt with
+  | Lident _id -> ()
+  | Ldot (lid, id) ->
+      iter_loc_lid sub lid; iter_loc sub id
   | Lapply (lid, lid') -> iter_loc_lid sub lid; iter_loc_lid sub lid'
-
-let iter_loc_lid sub {loc; txt} =
-  iter_loc_lid sub txt;
-  iter_loc sub {loc; txt}
 
 module T = struct
   (* Type expressions for the core language *)

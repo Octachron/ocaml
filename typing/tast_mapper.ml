@@ -79,14 +79,13 @@ let map_loc sub {loc; txt} = {loc=sub.location sub loc; txt}
 
 let rec map_loc_lid sub lid =
   let open Longident in
-  match lid with
-  | Lident id -> Lident (map_loc sub id)
-  | Ldot (lid, id) -> Ldot (map_loc_lid sub lid, map_loc sub id)
-  | Lapply (lid, lid') -> Lapply(map_loc_lid sub lid, map_loc_lid sub lid')
-
-let map_loc_lid sub {loc; txt} =
-  let txt = map_loc_lid sub txt in
-  map_loc sub {loc; txt}
+  let mk txt = { loc = sub.location sub lid.loc; txt } in
+  mk @@ match lid.txt with
+  | Lident id -> Lident id
+  | Ldot (lid, id) ->
+      Ldot (map_loc_lid sub lid, map_loc sub id)
+  | Lapply (lid, lid') ->
+      Lapply(map_loc_lid sub lid, map_loc_lid sub lid')
 
 let location _sub l = l
 

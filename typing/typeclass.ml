@@ -1122,22 +1122,21 @@ and class_expr_aux cl_num val_env met_env virt self_scope scl =
       let scases = [
         Exp.case
           (Pat.construct ~loc
-             (mknoloc (Longident.(Ldot (Lident (mknoloc "*predef*"),
+             (mknoloc (Longident.(Ldot (mknoloc (Lident "*predef*"),
                                         mknoloc "Some"))))
              (Some ([], Pat.var ~loc (mknoloc "*sth*"))))
-          (Exp.ident ~loc (mknoloc (Longident.Lident (mknoloc "*sth*"))));
+          (Exp.ident ~loc (mknoloc (Longident.Lident "*sth*")));
 
         Exp.case
           (Pat.construct ~loc
-             (mknoloc (Longident.(Ldot (Lident (mknoloc "*predef*"),
+             (mknoloc (Longident.(Ldot (mknoloc (Lident "*predef*"),
                                                 mknoloc "None"))))
              None)
           default;
        ]
       in
       let smatch =
-        Exp.match_ ~loc
-          (Exp.ident ~loc (mknoloc (Longident.Lident (mknoloc "*opt*"))))
+        Exp.match_ ~loc (Exp.ident ~loc (mknoloc (Longident.Lident "*opt*")))
           scases
       in
       let sfun =
@@ -1163,8 +1162,7 @@ and class_expr_aux cl_num val_env met_env virt self_scope scl =
             let vd = Env.find_value path val_env' in
             (id,
              {exp_desc =
-              Texp_ident(path, mknoloc
-                (Longident.Lident (mknoloc (Ident.name id))), vd);
+              Texp_ident(path, mknoloc (Longident.Lident (Ident.name id)), vd);
               exp_loc = Location.none; exp_extra = [];
               exp_type = Ctype.instance vd.val_type;
               exp_attributes = []; (* check *)
@@ -1319,8 +1317,7 @@ and class_expr_aux cl_num val_env met_env virt self_scope scl =
              in
              let expr =
                {exp_desc =
-                Texp_ident(path, mknoloc(
-                  Longident.Lident (mknoloc (Ident.name id))),vd);
+                Texp_ident(path, mknoloc(Longident.Lident (Ident.name id)),vd);
                 exp_loc = Location.none; exp_extra = [];
                 exp_type = ty;
                 exp_attributes = [];

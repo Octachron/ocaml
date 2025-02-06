@@ -69,15 +69,12 @@ let iter_snd f (_, y) = f y
 let iter_loc sub {loc; _} = sub.location sub loc
 
 let rec iter_loc_lid sub lid =
+  sub.location sub lid.loc;
   let open Longident in
-  match lid with
-  | Lident id -> iter_loc sub id
+  match lid.txt with
+  | Lident _ -> ()
   | Ldot (lid, id) -> iter_loc_lid sub lid; iter_loc sub id
   | Lapply (lid, lid') -> iter_loc_lid sub lid; iter_loc_lid sub lid'
-
-let iter_loc_lid sub {loc; txt} =
-  iter_loc_lid sub txt;
-  iter_loc sub {loc; txt}
 
 let location _sub _l = ()
 

@@ -26,9 +26,9 @@
 open Location
 
 type t =
-    Lident of string loc
-  | Ldot of t * string loc
-  | Lapply of t * t
+    Lident of string
+  | Ldot of t loc * string loc
+  | Lapply of t loc * t loc
 
 (** [same t t'] compares the longidents [t] and [t'] without taking locations
     into account. *)
@@ -42,7 +42,7 @@ val unflatten: string list -> t option
     [unflatten []] is [None].
 *)
 
-val last: t -> string loc
+val last: t -> string
 val parse: string -> t
 [@@deprecated "this function may misparse its input,\n\
 use \"Parse.longident\" or \"Longident.unflatten\""]

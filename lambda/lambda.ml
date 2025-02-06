@@ -722,7 +722,7 @@ let transl_prim mod_name name =
   let pers = Ident.create_persistent mod_name in
   let env = Env.add_persistent_structure pers Env.empty in
   let lid =
-    Longident.Ldot (Longident.Lident (Location.mknoloc mod_name),
+    Longident.Ldot (Location.mknoloc (Longident.Lident mod_name),
                     Location.mknoloc name)
   in
   match Env.find_value_by_name lid env with

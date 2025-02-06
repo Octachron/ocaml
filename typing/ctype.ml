@@ -1274,8 +1274,7 @@ let get_new_abstract_name env s =
     Printf.sprintf "%s%d" s index
   in
   let check index =
-    let lid = Longident.Lident (Location.mknoloc (name index)) in
-    match Env.find_type_by_name lid env with
+    match Env.find_type_by_name (Longident.Lident (name index)) env with
     | _ -> false
     | exception Not_found -> true
   in

@@ -93,15 +93,13 @@ let map_opt f = function None -> None | Some x -> Some (f x)
 let map_loc sub {loc; txt} = {loc = sub.location sub loc; txt}
 
 let rec map_loc_lid sub lid =
+  let mk txt = { loc = sub.location sub lid.loc; txt} in
   let open Longident in
-  match lid with
-  | Lident id -> Lident (map_loc sub id)
+  mk @@
+  match lid.txt with
+  | Lident id -> Lident id
   | Ldot (lid, id) -> Ldot (map_loc_lid sub lid, map_loc sub id)
   | Lapply (lid, lid') -> Lapply(map_loc_lid sub lid, map_loc_lid sub lid')
-
-let map_loc_lid sub {loc; txt} =
-  let txt = map_loc_lid sub txt in
-  map_loc sub {loc; txt}
 
 module C = struct
   (* Constants *)
@@ -882,7 +880,7 @@ module PpxContext = struct
   open Asttypes
   open Ast_helper
 
-  let lid name = mknoloc (Lident (mknoloc name))
+  let lid name = mknoloc (Lident name)
 
   let make_string s = Exp.constant (Const.string s)
 
@@ -960,21 +958,21 @@ module PpxContext = struct
                              { %s }] string syntax" name
       and get_bool pexp =
         match pexp with
-        | {pexp_desc = Pexp_construct ({txt = Longident.Lident {txt = "true"}},
+        | {pexp_desc = Pexp_construct ({txt = Longident.Lident "true"},
                                        None)} ->
             true
-        | {pexp_desc = Pexp_construct ({txt = Longident.Lident {txt = "false"}},
+        | {pexp_desc = Pexp_construct ({txt = Longident.Lident "false"},
                                        None)} ->
             false
         | _ -> raise_errorf "Internal error: invalid [@@@ocaml.ppx.context \
                              { %s }] bool syntax" name
       and get_list elem = function
         | {pexp_desc =
-             Pexp_construct ({txt = Longident.Lident {txt = "::"}},
+             Pexp_construct ({txt = Longident.Lident "::"},
                              Some {pexp_desc = Pexp_tuple [exp; rest]}) } ->
             elem exp :: get_list elem rest
         | {pexp_desc =
-             Pexp_construct ({txt = Longident.Lident {txt = "[]"}}, None)} ->
+             Pexp_construct ({txt = Longident.Lident "[]"}, None)} ->
             []
         | _ -> raise_errorf "Internal error: invalid [@@@ocaml.ppx.context \
                              { %s }] list syntax" name
@@ -985,11 +983,11 @@ module PpxContext = struct
                              { %s }] pair syntax" name
       and get_option elem = function
         | { pexp_desc =
-              Pexp_construct ({ txt = Longident.Lident { txt = "Some" } },
+              Pexp_construct ({ txt = Longident.Lident "Some" },
                               Some exp) } ->
             Some (elem exp)
         | { pexp_desc =
-              Pexp_construct ({ txt = Longident.Lident { txt = "None" } },
+              Pexp_construct ({ txt = Longident.Lident "None" },
                               None) } ->
             None
         | _ -> raise_errorf "Internal error: invalid [@@@ocaml.ppx.context \
@@ -1045,12 +1043,12 @@ module PpxContext = struct
           ()
     in
     List.iter
-      (function ({txt=Lident {txt=name}}, x) -> field name x | _ -> ()) fields
+      (function ({txt=Lident name}, x) -> field name x | _ -> ()) fields
 
   let update_cookies fields =
     let fields =
       List.filter
-        (function ({txt=Lident {txt="cookies"}}, _) -> false | _ -> true)
+        (function ({txt=Lident "cookies"}, _) -> false | _ -> true)
         fields
     in
     fields @ [get_cookies ()]
