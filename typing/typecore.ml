@@ -3227,23 +3227,8 @@ let type_pattern_approx env spat ty_expected =
           inferred_ty.ctyp_type
         | _ -> approx_type env sty
       in
-      begin try unify env inferred_ty ty_expected with Unify trace ->
-        raise(Error(spat.ppat_loc, env, Pattern_type_clash(trace, None)))
-      end;
+      unify_pat_types spat.ppat_loc env inferred_ty ty_expected
   | _ -> ()
-
-(* let type_approx_fun env label default spat ret_ty =
-  let ty = type_pattern_approx env spat in
-  let ty =
-    match label, default with
-    | (Nolabel | Labelled _), _ -> ty
-    | Optional _, None ->
-       unify_pat_types spat.ppat_loc env ty (type_option (newvar ()));
-       ty
-    | Optional _, Some _ ->
-       type_option ty
-  in
-  newty (Tarrow (label, newmono ty, ret_ty, commu_ok)) *)
 
 let type_approx_constraint env constraint_ ~loc ty_expected =
   match constraint_ with
@@ -3265,7 +3250,7 @@ let type_approx_constraint_opt env constraint_ ~loc ty_expected =
   | None -> ty_expected
   | Some constraint_ -> type_approx_constraint ~loc env constraint_ ty_expected
 
-let type_approx_fun_one_param env label spato ty_expected ~first ~in_function =
+let type_approx_fun_one_param env label _default spato ty_expected ~first ~in_function =
   let has_poly =
     match spato with
     | None -> false
@@ -3284,11 +3269,15 @@ let type_approx_fun_one_param env label spato ty_expected ~first ~in_function =
       in
       raise (Error(loc_fun, env, err))
   in
-  if has_poly then begin
+  let () =
     match spato with
     | None -> ()
-    | Some spat -> type_pattern_approx env spat ty_arg
-  end;
+    | Some spat ->
+      if has_poly || not (Btype.tpoly_is_mono ty_arg) then
+        type_pattern_approx env spat ty_arg
+      else
+        type_pattern_approx env spat (Btype.tpoly_get_mono ty_arg)
+  in
   ty_ret
 
 let rec type_approx env sexp ty_expected =
@@ -3332,9 +3321,9 @@ and type_approx_function =
     *)
     match params with
     | { pparam_desc = Pparam_newtype _ } :: _ -> ()
-    | { pparam_desc = Pparam_val (label, _, pat) } :: params ->
+    | { pparam_desc = Pparam_val (label, default, pat) } :: params ->
         let ty_res =
-          type_approx_fun_one_param env label (Some pat) ty_expected
+          type_approx_fun_one_param env label default (Some pat) ty_expected
             ~first ~in_function
         in
         loop env params c body ty_res ~in_function ~first:false
@@ -3350,7 +3339,7 @@ and type_approx_function =
             type_approx env body ty_expected
         | Pfunction_cases ({pc_rhs = e} :: _, _, _) ->
             let ty_res =
-              type_approx_fun_one_param env Nolabel None ty_expected
+              type_approx_fun_one_param env Nolabel None None ty_expected
                 ~in_function ~first
             in
             type_approx env e ty_res
