@@ -24,9 +24,13 @@ open Types
 open Btype
 open Outcometree
 
+
 module String = Misc.Stdlib.String
 module Sig_component_kind = Shape.Sig_component_kind
 module Style = Misc.Style
+
+let _highlight = Oprint.highlight
+let plain = Oprint.plain
 
 (* Print a long identifier *)
 
@@ -1032,7 +1036,7 @@ let rec tree_of_typexp mode ty =
   if Aliases.is_printed_proxy px && not (Aliases.is_delayed px) then
    let non_gen = is_non_gen mode (Transient_expr.type_expr px) in
    let name = Variable_names.(name_of_type (new_var_name ~non_gen ty)) px in
-   Otyp_var (non_gen, name) else
+   Otyp_var (plain non_gen, name) else
 
   let pr_typ () =
     let tty = Transient_expr.repr ty in
@@ -1040,7 +1044,7 @@ let rec tree_of_typexp mode ty =
     | Tvar _ ->
         let non_gen = is_non_gen mode ty in
         let name_gen = Variable_names.new_var_name ~non_gen ty in
-        Otyp_var (non_gen, Variable_names.name_of_type name_gen tty)
+        Otyp_var (plain non_gen, Variable_names.name_of_type name_gen tty)
     | Tarrow(l, ty1, ty2, _) ->
         let lab =
           if !print_labels || is_optional l then l else Nolabel
@@ -1053,7 +1057,7 @@ let rec tree_of_typexp mode ty =
                 tree_of_typexp mode ty
             | _ -> Otyp_stuff "<hidden>"
           else tree_of_typexp mode ty1 in
-        Otyp_arrow (lab, t1, tree_of_typexp mode ty2)
+        Otyp_arrow (plain lab, t1, tree_of_typexp mode ty2)
     | Ttuple tyl ->
         Otyp_tuple (tree_of_labeled_typlist mode tyl)
     | Tconstr(p, tyl, _abbrev) ->
@@ -1080,6 +1084,10 @@ let rec tree_of_typexp mode ty =
                | _ -> false)
             fields in
         let all_present = List.length present = List.length fields in
+        let tags () =
+          if all_present then None
+          else Some (List.map (fun (x,_) -> plain x) present)
+        in
         begin match name with
         | Some(p, tyl) when nameable_row row ->
             let (p', s) = best_type_path p in
@@ -1090,14 +1098,18 @@ let rec tree_of_typexp mode ty =
             if closed && all_present then
               out_variant
             else
-              let tags =
-                if all_present then None else Some (List.map fst present) in
-              Otyp_variant (Ovar_typ out_variant, closed, tags)
+              Otyp_variant {
+                fields = Ovar_typ out_variant;
+                closed = plain closed;
+                presents = tags ()
+              }
         | _ ->
             let fields = List.map (tree_of_row_field mode) fields in
-            let tags =
-              if all_present then None else Some (List.map fst present) in
-            Otyp_variant (Ovar_fields fields, closed, tags)
+            Otyp_variant {
+              fields = Ovar_fields fields;
+              closed = plain closed;
+              presents=tags ()
+            }
         end
     | Tobject (fi, nm) ->
         tree_of_typobject mode fi !nm
@@ -1127,7 +1139,7 @@ let rec tree_of_typexp mode ty =
           Aliases.delayed := old_delayed; tr
         end
     | Tunivar _ ->
-        Otyp_var (false, Variable_names.(name_of_type new_name) tty)
+        Otyp_var (plain false, Variable_names.(name_of_type new_name) tty)
     | Tpackage pack ->
         let pack = tree_of_package mode pack in
         Otyp_module pack
@@ -1140,24 +1152,32 @@ let rec tree_of_typexp mode ty =
     (* add_printed_alias chose a name, thus the name generator
        doesn't matter.*)
     let alias = Variable_names.(name_of_type (new_var_name ~non_gen ty)) px in
-    Otyp_alias {non_gen;  aliased = pr_typ (); alias } end
+    Otyp_alias {non_gen=plain non_gen;  aliased = pr_typ (); alias } end
   else pr_typ ()
 
 and tree_of_row_field mode (l, f) =
   match row_field_repr f with
-  | Rpresent None | Reither(true, [], _) -> (l, false, [])
-  | Rpresent(Some ty) -> (l, false, [tree_of_typexp mode ty])
-  | Reither(c, tyl, _) ->
-      if c (* contradiction: constant constructor with an argument *)
-      then (l, true, tree_of_typlist mode tyl)
-      else (l, false, tree_of_typlist mode tyl)
-  | Rabsent -> (l, false, [] (* actually, an error *))
+  | Rpresent None | Reither(true, [], _) ->
+      { name = plain l; constant=plain false; argument_conjunction=[]}
+  | Rpresent(Some ty) ->
+      { name = plain l;
+        constant=plain false;
+        argument_conjunction=[tree_of_typexp mode ty]
+      }
+  | Reither(c, tyl, _) -> {
+      name = plain l;
+      constant = plain c (* contradiction if [c=true] *);
+      argument_conjunction = tree_of_typlist mode tyl
+    }
+  | Rabsent ->
+      (* actually, an error *)
+      { name = plain l; constant=plain false; argument_conjunction=[] }
 
 and tree_of_typlist mode tyl =
   List.map (tree_of_typexp mode) tyl
 
 and tree_of_labeled_typlist mode tyl =
-  List.map (fun (label, ty) -> label, tree_of_typexp mode ty) tyl
+  List.map (fun (label, ty) -> plain label, tree_of_typexp mode ty) tyl
 
 and tree_of_typobject mode fi nm =
   begin match nm with
@@ -1194,9 +1214,9 @@ and tree_of_typfields mode rest = function
         | Tnil -> false
         | _ -> fatal_error "typfields (1)"
       in
-      ([], open_row)
+      ([], plain open_row)
   | (s, t) :: l ->
-      let field = (s, tree_of_typexp mode t) in
+      let field = (plain s, tree_of_typexp mode t) in
       let (fields, rest) = tree_of_typfields mode rest l in
       (field :: fields, rest)
 
@@ -1204,7 +1224,7 @@ and tree_of_package mode {pack_path; pack_cstrs} =
   { opack_path = tree_of_path (Some Module_type) pack_path;
     opack_cstrs =
       List.map
-        (fun (li, ty) -> (String.concat "." li, tree_of_typexp mode ty))
+        (fun (li, ty) -> (plain (String.concat "." li), tree_of_typexp mode ty))
         pack_cstrs }
 
 let typexp mode ppf ty =
@@ -1340,7 +1360,8 @@ let tree_of_type_decl id decl =
   let ty_manifest, params = prepare_decl id decl in
   let type_param ot_variance =
     function
-    | Otyp_var (ot_non_gen, ot_name) -> {ot_non_gen; ot_name; ot_variance}
+    | Otyp_var (ot_non_gen, ot_name) ->
+        {ot_non_gen=ot_non_gen.item; ot_name; ot_variance}
     | _ -> {ot_non_gen=false; ot_name="?"; ot_variance}
   in
   let type_defined decl =
@@ -1618,7 +1639,7 @@ let rec tree_of_class_type mode params =
       let self_ty =
         if Aliases.is_aliased_proxy px then
           Some
-            (Otyp_var (false, Variable_names.(name_of_type new_name) px))
+            (Otyp_var (plain false, Variable_names.(name_of_type new_name) px))
         else None
       in
       let csil = [] in
@@ -1669,7 +1690,8 @@ let tree_of_class_param param variance =
   let ot_variance =
     if is_Tvar param then Asttypes.(NoVariance, NoInjectivity) else variance in
   match tree_of_typexp Type_scheme param with
-    Otyp_var (ot_non_gen, ot_name) -> {ot_non_gen; ot_name; ot_variance}
+    Otyp_var (ot_non_gen, ot_name) ->
+      {ot_non_gen=ot_non_gen.item; ot_name; ot_variance}
   | _ -> {ot_non_gen=false; ot_name="?"; ot_variance}
 
 let class_variance =

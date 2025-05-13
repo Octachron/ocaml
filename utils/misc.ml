@@ -865,6 +865,7 @@ module Style = struct
     loc: tag_style;
     hint: tag_style;
     inline_code: tag_style;
+    difference_highlight: tag_style;
   }
 
   let no_markup stl = { ansi = stl; text_close = ""; text_open = "" }
@@ -874,6 +875,7 @@ module Style = struct
       error = no_markup [Bold; FG Red];
       loc = no_markup [Bold];
       hint = no_markup [Bold; FG Blue];
+      difference_highlight = no_markup [Bold];
       inline_code= no_markup [Bold]
     }
 
@@ -889,16 +891,19 @@ module Style = struct
     | Format.String_tag "loc" -> (!cur_styles).loc
     | Format.String_tag "hint" -> (!cur_styles).hint
     | Format.String_tag "inline_code" -> (!cur_styles).inline_code
+    | Format.String_tag "diff" -> (!cur_styles).difference_highlight
     | Format.String_tag "ralign" -> no_markup []
     | Style s -> no_markup s
     | _ -> raise Not_found
 
-
-  let as_inline_code printer ppf x =
+  let with_tag tag printer ppf x =
     let open Format_doc in
-    pp_open_stag ppf (Format.String_tag "inline_code");
+    pp_open_stag ppf (Format.String_tag tag);
     printer ppf x;
     pp_close_stag ppf ()
+
+  let highlight printer ppf x = with_tag "diff" printer ppf x
+  let as_inline_code printer ppf x = with_tag "inline_code" printer ppf x
 
   let inline_code ppf s = as_inline_code Format_doc.pp_print_string ppf s
   let hint ppf = Format_doc.fprintf ppf "@{<hint>Hint@}"

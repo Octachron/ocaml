@@ -15,12 +15,26 @@
 
 open Format_doc
 open Outcometree
+module Style = Misc.Style
+
+let highlight x = { highlighted=true; item=x }
+let plain x = { highlighted=false; item=x }
+
 
 exception Ellipsis
 
 let cautious f ppf arg =
   try f ppf arg with
     Ellipsis -> fprintf ppf "..."
+
+let highlight_if b printer ppf x =
+  if b then Style.highlight printer ppf x
+  else printer ppf x
+
+let may_highlight printer ppf x =
+  highlight_if x.highlighted printer ppf x.item
+
+
 
 let print_lident ppf = function
   | "::" -> pp_print_string ppf "(::)"
@@ -34,6 +48,7 @@ let rec print_ident ppf =
       print_ident ppf id; pp_print_char ppf '.'; print_lident ppf s
   | Oide_apply (id1, id2) ->
       fprintf ppf "%a(%a)" print_ident id1 print_ident id2
+  | Oide_highlight id -> Style.highlight print_ident ppf id
 
 let out_ident = ref print_ident
 
@@ -271,11 +286,14 @@ let rec print_list pr sep ppf =
   | a :: l -> pr ppf a; sep ppf; print_list pr sep ppf l
 
 let pr_present =
-  print_list (fun ppf s -> fprintf ppf "`%s" s) (fun ppf -> fprintf ppf "@ ")
+  print_list
+    (may_highlight (fun ppf s -> fprintf ppf "`%s" s))
+    (fun ppf -> fprintf ppf "@ ")
 
 let pr_var = Pprintast.Doc.tyvar
 let ty_var ~non_gen ppf s =
-  pr_var ppf (if non_gen then "_" ^ s else s)
+  highlight_if non_gen.highlighted pr_var ppf
+    (if non_gen.item then "_" ^ s else s)
 
 let pr_vars =
   print_list pr_var (fun ppf -> fprintf ppf "@ ")
@@ -285,6 +303,14 @@ let print_arg_label ppf (lbl : Asttypes.arg_label) =
   | Nolabel -> ()
   | Labelled s -> fprintf ppf "%a:" print_lident s
   | Optional s -> fprintf ppf "?%a:" print_lident s
+
+let variant_prefix ~closed ~tags ppf =
+  let str x = highlight_if closed.highlighted pp_print_string ppf x in
+  match closed.item, tags with
+  | true, None -> pp_print_string ppf " "
+  | true, Some _ -> str "< "
+  | false, None -> str "> "
+  | false, Some _ -> str "? "
 
 let rec print_out_type ppf =
   function
@@ -303,7 +329,7 @@ and print_out_type_1 ppf =
   function
     Otyp_arrow (lab, ty1, ty2) ->
       pp_open_box ppf 0;
-      print_arg_label ppf lab;
+      may_highlight print_arg_label ppf lab;
       print_out_type_2 ~arg:true ppf ty1;
       pp_print_string ppf " ->";
       pp_print_space ppf ();
@@ -317,13 +343,13 @@ and print_out_type_2 ~arg ppf =
          when the first element has a label. *)
       let parens =
         match tyl with
-        | (Some _, _) :: _ -> arg
+        | ({item=Some _; _}, _) :: _ -> arg
         | _ -> false
       in
       if parens then pp_print_char ppf '(';
       let print_elem ppf (label, ty) =
         pp_open_box ppf 0;
-        print_label_type ppf label;
+        may_highlight print_label_type ppf label;
         print_simple_out_type ppf ty;
         pp_close_box ppf ()
       in
@@ -343,10 +369,9 @@ and print_simple_out_type ppf =
       fprintf ppf "@[<2>< %a >@]" (print_fields open_row) fields
   | Otyp_stuff s -> pp_print_string ppf s
   | Otyp_var (non_gen, s) -> ty_var ~non_gen ppf s
-  | Otyp_variant (row_fields, closed, tags) ->
-      let print_present ppf =
-        function
-          None | Some [] -> ()
+  | Otyp_variant { fields=row_fields; closed; presents=tags } ->
+      let print_present ppf = function
+        | None | Some [] -> ()
         | Some l -> fprintf ppf "@;<1 -2>> @[<hov>%a@]" pr_present l
       in
       let print_fields ppf =
@@ -357,9 +382,8 @@ and print_simple_out_type ppf =
         | Ovar_typ typ ->
            print_simple_out_type ppf typ
       in
-      fprintf ppf "@[<hov>[%s@[<hv>@[<hv>%a@]%a@]@ ]@]"
-        (if closed then if tags = None then " " else "< "
-         else if tags = None then "> " else "? ")
+      fprintf ppf "@[<hov>[%t@[<hv>@[<hv>%a@]%a@]@ ]@]"
+        (variant_prefix ~closed ~tags)
         print_fields row_fields
         print_present tags
   | Otyp_alias _ | Otyp_poly _ | Otyp_arrow _ | Otyp_tuple _ as ty ->
@@ -375,13 +399,17 @@ and print_simple_out_type ppf =
       fprintf ppf "@[<1>(module %a)@]" print_package pack
   | Otyp_attribute (t, attr) ->
       fprintf ppf "@[<1>(%a [@@%s])@]" print_out_type t attr.oattr_name
+  | Otyp_highlight x -> Style.highlight print_out_type ppf x
 and print_package ppf pack =
   fprintf ppf "%a" print_ident pack.opack_path;
   let first = ref true in
   List.iter
     (fun (s, t) ->
       let sep = if !first then (first := false; "with") else "and" in
-      fprintf ppf " %s type %s = %a" sep s print_out_type t
+      fprintf ppf " %s type %a = %a"
+        sep
+        (may_highlight pp_print_string) s
+        print_out_type t
     )
     pack.opack_cstrs
 and print_record_decl ppf lbls =
@@ -390,20 +418,26 @@ and print_record_decl ppf lbls =
 and print_fields open_row ppf =
   function
     [] ->
-      if open_row then fprintf ppf "..";
+      if open_row.item then
+        highlight_if open_row.highlighted pp_print_string ppf ".."
   | [s, t] ->
-      fprintf ppf "%a : %a" print_lident s print_out_type t;
-      if open_row then fprintf ppf ";@ ";
+      fprintf ppf "%a : %a" (may_highlight print_lident) s print_out_type t;
+      if open_row.item then fprintf ppf ";@ ";
       print_fields open_row ppf []
   | (s, t) :: l ->
-      fprintf ppf "%s : %a;@ %a" s print_out_type t (print_fields open_row) l
-and print_row_field ppf (l, opt_amp, tyl) =
+      fprintf ppf "%a : %a;@ %a"
+        (may_highlight pp_print_string) s
+        print_out_type t
+        (print_fields open_row) l
+and print_row_field ppf {name=l; constant=opt_amp; argument_conjunction=tyl } =
   let pr_of ppf =
-    if opt_amp then fprintf ppf " of@ &@ "
+    if opt_amp.item then
+      fprintf ppf " of@ %a@ "
+        (highlight_if opt_amp.highlighted pp_print_string) "&"
     else if tyl <> [] then fprintf ppf " of@ "
     else fprintf ppf ""
   in
-  fprintf ppf "@[<hv 2>`%a%t%a@]" print_lident l pr_of
+  fprintf ppf "@[<hv 2>`%a%t%a@]" (may_highlight print_lident) l pr_of
     (print_typlist print_out_type " &")
     tyl
 and print_typlist : 'a . (_ -> 'a -> _) -> _ -> _ -> 'a list -> _ =
@@ -436,6 +470,7 @@ and print_out_label ppf {olab_name; olab_mut; olab_atomic; olab_type} =
     print_out_type olab_type
     (match olab_atomic with Atomic -> " [@atomic]" | Nonatomic -> "")
 
+
 let out_label = ref print_out_label
 
 let out_type = ref print_out_type
@@ -444,7 +479,7 @@ let out_type_args = ref print_typargs
 
 (* Class types *)
 
-let print_type_parameter ?(non_gen=false) ppf s =
+let print_type_parameter ?(non_gen=plain false) ppf s =
   if s = "_" then fprintf ppf "_" else ty_var ~non_gen ppf s
 
 let type_parameter ppf {ot_non_gen=non_gen; ot_name=ty; ot_variance=var,inj} =
@@ -456,7 +491,7 @@ let type_parameter ppf {ot_non_gen=non_gen; ot_name=ty; ot_variance=var,inj} =
     | NoVariance ->  ""
     | Bivariant -> "+-")
     (match inj with Injective -> "!" | NoInjectivity -> "")
-    (print_type_parameter ~non_gen) ty
+    (print_type_parameter ~non_gen:(plain non_gen)) ty
 
 let print_out_class_params ppf =
   function
@@ -802,7 +837,7 @@ and print_out_extension_constructor ppf ext =
         [] -> fprintf ppf "%a" print_lident ext.oext_type_name
       | [ty_param] ->
         fprintf ppf "@[%a@ %a@]"
-          (print_type_parameter ~non_gen:false)
+          (print_type_parameter ~non_gen:(plain false))
           ty_param
           print_lident ext.oext_type_name
       | _ ->
@@ -823,7 +858,7 @@ and print_out_type_extension ppf te =
       [] -> fprintf ppf "%a" print_lident te.otyext_name
     | [param] ->
       fprintf ppf "@[%a@ %a@]"
-        (print_type_parameter ~non_gen:false) param
+        (print_type_parameter ~non_gen:(plain false)) param
         print_lident te.otyext_name
     | _ ->
         fprintf ppf "@[(@[%a)@]@ %a@]"
