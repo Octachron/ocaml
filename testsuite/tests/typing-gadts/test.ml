@@ -288,7 +288,7 @@ module Existential_escape =
 Line 5, characters 21-22:
 5 |     let eval (D x) = x
                          ^
-Error: The value "x" has type "!($a t)" but an expression was expected of type "!('a)"
+Error: The value "x" has type "$a !(t)" but an expression was expected of type "!('a)"
        The type constructor "$a" would escape its scope
        Hint: "$a" is an existential type bound by the constructor "D".
 |}];;
@@ -945,7 +945,7 @@ let f : type a. a ty -> a t -> int = fun x y ->
 Line 6, characters 6-13:
 6 |   | D [|1.0|], TE TC -> 14
           ^^^^^^^
-Error: This pattern matches values of type "!('a array)"
+Error: This pattern matches values of type "'a !(array)"
        but a pattern was expected which matches values of type "!(a)"
 |}];;
 
@@ -965,7 +965,7 @@ type ('a, 'b) pair = { right : 'a; left : 'b; }
 Line 8, characters 25-32:
 8 |   | {left=TE TC; right=D [|1.0|]} -> 14
                              ^^^^^^^
-Error: This pattern matches values of type "!('a array)"
+Error: This pattern matches values of type "'a !(array)"
        but a pattern was expected which matches values of type "!(a)"
 |}];;
 

@@ -933,7 +933,7 @@ Line 1, characters 50-59:
 1 | type ('a,'b) t constraint 'a = 'b and ('a,'b) u = ('a,'b) t;;
                                                       ^^^^^^^^^
 Error: Constraints are not satisfied in this type.
-       Type "!(('a, 'b) t)" should be an instance of "!(('c, 'c) t)"
+       Type "('a, 'b) !(t)" should be an instance of "('c, 'c) !(t)"
 |}];;
 
 (* Full polymorphism if we do not expand *)
@@ -953,7 +953,7 @@ Line 2, characters 26-32:
 2 | type 'a u = 'a and 'a v = 'a u t;;
                               ^^^^^^
 Error: Constraints are not satisfied in this type.
-       Type "!('a u t)" should be an instance of "!(int t)"
+       Type "'a u !(t)" should be an instance of "int !(t)"
 |}];;
 
 (* Behaviour is unstable *)
@@ -968,7 +968,7 @@ Line 3, characters 26-32:
 3 | type 'a u = 'a and 'a v = 'a u t;;
                               ^^^^^^
 Error: Constraints are not satisfied in this type.
-       Type "!('a u t)" should be an instance of "!(g t)"
+       Type "'a u !(t)" should be an instance of "g !(t)"
 |}];;
 
 (* Full unification trace reported for "Constraints are not satisfied in this type" *)
@@ -1922,7 +1922,7 @@ Lines 1-3, characters 15-3:
 2 |   method x : 'b . 'b s list = [S]
 3 | end
 Error: This expression has type "< x : 'b. 'b s list >"
-       but an expression was expected of type "!('a c)"
+       but an expression was expected of type "'a !(c)"
        The method "x" has type "'b. 'b s list", but the expected method type was
        "'a list"
        The universal variable "'b" would escape its scope
@@ -1958,7 +1958,7 @@ Lines 1-3, characters 15-3:
 2 |   method x : 'b . 'b s list = []
 3 | end
 Error: This expression has type "< x : 'b. 'b s list >"
-       but an expression was expected of type "!('a c)"
+       but an expression was expected of type "'a !(c)"
        The method "x" has type "'b. 'b s list", but the expected method type was
        "'a list"
        The universal variable "'b" would escape its scope

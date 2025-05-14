@@ -20,8 +20,8 @@ fun b -> if true then (print_int b) else (if b then ());;
 Line 1, characters 45-46:
 1 | fun b -> if true then (print_int b) else (if b then ());;
                                                  ^
-Error: The value "b" has type "!(int)" but an expression was expected of type "!(
-       bool)" because it is in the condition of an if-statement
+Error: The value "b" has type "!(int)" but an expression was expected of type "
+       !(bool)" because it is in the condition of an if-statement
 |}];;
 
 (* Left-to-right bias is still there: if we swap the branches, the new error
@@ -41,8 +41,8 @@ if (let x = 3 in x) then ();;
 Line 1, characters 17-18:
 1 | if (let x = 3 in x) then ();;
                      ^
-Error: The value "x" has type "!(int)" but an expression was expected of type "!(
-       bool)" because it is in the condition of an if-statement
+Error: The value "x" has type "!(int)" but an expression was expected of type "
+       !(bool)" because it is in the condition of an if-statement
 |}];;
 
 if (if true then 3 else 4) then ();;

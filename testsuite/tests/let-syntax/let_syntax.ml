@@ -264,7 +264,7 @@ Line 4, characters 4-8:
 4 |     and+ y = 2 in
         ^^^^
 Error: The operator "and+" has type "bool -> !(bool)"
-       but it was expected to have type "bool -> !('a -> 'b)"
+       but it was expected to have type "bool -> 'a!( ->) 'b"
        Type "!(bool)" is not compatible with type "'a -> 'b"
 |}];;
 
@@ -353,7 +353,7 @@ Line 3, characters 4-8:
 3 |     let+ x = 1
         ^^^^
 Error: The operator "let+" has type "(int -> 'a) -> !(int) -> 'a"
-       but it was expected to have type "(int -> 'a) -> !('b * 'c -> 'd) -> 'e"
+       but it was expected to have type "(int -> 'a) -> 'b * 'c!( ->) 'd -> 'e"
        Type "!(int)" is not compatible with type "'b * 'c -> 'd"
 |}];;
 

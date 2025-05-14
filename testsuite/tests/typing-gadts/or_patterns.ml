@@ -529,8 +529,8 @@ let extract_merged_annotated (type a) (t2 : a t2) : a =
 Lines 3-4, characters 4-10:
 3 | ....Int x
 4 |   | Bool x.....
-Error: The variable "x" on the left-hand side of this or-pattern has type "!(
-       int)" but on the right-hand side it has type "!(bool)"
+Error: The variable "x" on the left-hand side of this or-pattern has type "
+       !(int)" but on the right-hand side it has type "!(bool)"
 |}]
 
 let extract_merged_super_annotated (type a) (t2 : a t2) : a =
@@ -553,8 +553,8 @@ let extract_merged_too_lightly_annotated (type a) (t2 : a t2) : a =
 Lines 3-4, characters 4-10:
 3 | ....Int (x : a)
 4 |   | Bool x.....
-Error: The variable "x" on the left-hand side of this or-pattern has type "!(
-       a)" but on the right-hand side it has type "!(bool)"
+Error: The variable "x" on the left-hand side of this or-pattern has type "
+       !(a)" but on the right-hand side it has type "!(bool)"
 |}]
 
 let extract_merged_super_lightly_annotated (type a) (t2 : a t2) =
@@ -587,8 +587,8 @@ let rambiguity (type a) (t2 : a t2) =
 Lines 3-4, characters 4-23:
 3 | ....Int (_ as x)
 4 |   | Bool ((_ : a) as x).....
-Error: The variable "x" on the left-hand side of this or-pattern has type "!(
-       int)" but on the right-hand side it has type "!(a)"
+Error: The variable "x" on the left-hand side of this or-pattern has type "
+       !(int)" but on the right-hand side it has type "!(a)"
 |}]
 
 
@@ -731,8 +731,8 @@ type _ t = A : [ `A ] t | B : [ `B ] t
 Line 6, characters 16-17:
 6 |   function (A | B) as t -> t
                     ^
-Error: This pattern matches values of type "!([ `B ] t)"
-       but a pattern was expected which matches values of type "!([ `A ] t)"
+Error: This pattern matches values of type "[ `B ] !(t)"
+       but a pattern was expected which matches values of type "[ `A ] !(t)"
        These two variant types have no intersection
 |}]
 

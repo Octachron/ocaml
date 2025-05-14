@@ -27,7 +27,7 @@ Line 1, characters 20-32:
 1 | let rec opt_error ?(opt : string) () = f ?opt ()
                         ^^^^^^^^^^^^
 Error: This pattern matches values of type "!(string)"
-       but a pattern was expected which matches values of type "!('a option)"
+       but a pattern was expected which matches values of type "'a !(option)"
 |}]
 
 let rec opt_ok_f () = opt_ok_g ~foo:A ~bar:A ()

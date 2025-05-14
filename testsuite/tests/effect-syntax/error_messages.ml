@@ -24,7 +24,7 @@ let () = match () with
 Line 3, characters 21-22:
 3 |   | effect A _, k -> k
                          ^
-Error: The value "k" has type "!((%eff, unit) continuation)"
+Error: The value "k" has type "(%eff, unit) !(continuation)"
        but an expression was expected of type "!(unit)"
 |}]
 

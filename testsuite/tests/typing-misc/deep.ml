@@ -45,8 +45,8 @@ Error: Signature mismatch:
        is not included in
          val f : int -> (float * string option) list
        The type "int -> !(int)" is not compatible with the type
-         "int -> !((float * string option) list)"
-       Type "!(int)" is not compatible with type "!((float * string option) list)"
+         "int -> (float * string option) !(list)"
+       Type "!(int)" is not compatible with type "(float * string option) !(list)"
 |}]
 
 (* Alpha-equivalence *)
@@ -69,9 +69,9 @@ Error: Signature mismatch:
          val f : 'c list * 'd option -> int
        is not included in
          val f : 'a list * 'b list -> int
-       The type "'a list * !('b option) -> int" is not compatible with the type
-         "'a list * !('c list) -> int"
-       Type "!('b option)" is not compatible with type "!('c list)"
+       The type "'a list * 'b !(option) -> int" is not compatible with the type
+         "'a list * 'c !(list) -> int"
+       Type "'b !(option)" is not compatible with type "'c !(list)"
 |}]
 
 module T : sig

@@ -57,15 +57,15 @@ Line 4, characters 21-25:
 4 |     fun Refl Refl -> Refl;;
                          ^^^^
 Error: The constructor "Refl" has type "(!(a), !(a)) eq"
-       but an expression was expected of type "(a, !(a X.t X.t)) eq"
-       Type "a" = "b X.t" is not compatible with type "!(a X.t) X.t"
-       Type "!(b)" is not compatible with type "!(a X.t)"
+       but an expression was expected of type "(a, a X.t !(X.t)) eq"
+       Type "a" = "b X.t" is not compatible with type "a !(X.t) X.t"
+       Type "!(b)" is not compatible with type "a !(X.t)"
 |}, Principal{|
 Line 4, characters 21-25:
 4 |     fun Refl Refl -> Refl;;
                          ^^^^
 Error: The constructor "Refl" has type "(!(a), !(a)) eq"
-       but an expression was expected of type "(a, !(a X.t X.t)) eq"
-       Type "a" = "!(b) X.t" is not compatible with type "!(a X.t) X.t"
-       Type "!(b)" is not compatible with type "!(a X.t)"
+       but an expression was expected of type "(a, a X.t !(X.t)) eq"
+       Type "a" = "!(b) X.t" is not compatible with type "a !(X.t) X.t"
+       Type "!(b)" is not compatible with type "a !(X.t)"
 |}]

@@ -26,7 +26,7 @@ Error: Unbound record field "z"
 Line 1, characters 6-14:
 1 | {x=3; contents=2};;
           ^^^^^^^^
-Error: The record field "contents" belongs to the type "!('a ref)"
+Error: The record field "contents" belongs to the type "'a !(ref)"
        but is mixed here with fields of type "!(t)"
 |}];;
 

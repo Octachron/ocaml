@@ -103,7 +103,7 @@ Line 3, characters 7-9:
 3 |   and ('k,'l) abs = 'l constraint 'k = 'l is_an_object
            ^^
 Error: Constraints are not satisfied in this type.
-       Type "!('l is_an_object)" should be an instance of "!(< .. > is_an_object)"
+       Type "'l !(is_an_object)" should be an instance of "< .. > !(is_an_object)"
 |}]
 
 module PR6505a = struct
@@ -448,7 +448,7 @@ Line 1, characters 0-22:
 1 | type 'a t = 'a foo foo
     ^^^^^^^^^^^^^^^^^^^^^^
 Error: Constraints are not satisfied in this type.
-       Type "!('a foo)" should be an instance of "!(int)"
+       Type "'a !(foo)" should be an instance of "!(int)"
        Type "foo" was considered abstract when checking constraints in this
        recursive type definition.
 |}]

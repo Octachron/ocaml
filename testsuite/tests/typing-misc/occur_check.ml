@@ -11,8 +11,8 @@ type 'a t = 'a
 Line 2, characters 42-43:
 2 | let f (g : 'a list -> 'a t -> 'a) s = g s s;;
                                               ^
-Error: The value "s" has type "!('a list)" but an expression was expected of type
-         "!('a t)" = "!('a)"
+Error: The value "s" has type "'a !(list)" but an expression was expected of type
+         "'a !(t)" = "!('a)"
        The type variable "'a" occurs inside "'a list"
 |}];;
 
@@ -22,7 +22,7 @@ Line 1, characters 42-43:
 1 | let f (g : 'a * 'b -> 'a t -> 'a) s = g s s;;
                                               ^
 Error: The value "s" has type "'a * 'b" but an expression was expected of type
-         "!('a t)" = "!('a)"
+         "'a !(t)" = "!('a)"
        The type variable "'a" occurs inside "'a * 'b"
 |}];;
 

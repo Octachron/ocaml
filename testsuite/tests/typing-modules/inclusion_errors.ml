@@ -271,7 +271,7 @@ Error: Signature mismatch:
        is not included in
          type t = < m : float * int; n : int >
        The type "< m : !(int); n : int >" is not equal to the type
-         "< m : !(float * int); n : int >"
+         "< m : float !(*) int; n : int >"
        The method "m" has type "int", but the expected method type was
        "float * int"
 |}];;
@@ -526,8 +526,8 @@ Error: Modules do not match:
        val r : '_weak1 list ref ref
      is not included in
        val r : Choice.t list ref ref
-     The type "!('_weak1 list ref ref)" is not compatible with the type
-       "!(Choice.t list ref ref)"
+     The type "'_weak1 list ref !(ref)" is not compatible with the type
+       "Choice.t list ref !(ref)"
      The type constructor "Choice.t" would escape its scope
 |}];;
 
@@ -683,7 +683,7 @@ Error: Signature mismatch:
          val r : '_weak3 list ref
        is not included in
          val r : t list ref
-       The type "!('_weak3 list ref)" is not compatible with the type "!(t list ref)"
+       The type "'_weak3 list !(ref)" is not compatible with the type "t list !(ref)"
        The type constructor "t" would escape its scope
 |}];;
 
@@ -726,7 +726,7 @@ Error: Signature mismatch:
          val r : '_weak4 list ref
        is not included in
          val r : T.t list ref
-       The type "!('_weak4 list ref)" is not compatible with the type "!(T.t list ref)"
+       The type "'_weak4 list !(ref)" is not compatible with the type "T.t list !(ref)"
        This instance of "T.t" is ambiguous:
        it would escape the scope of its equation
 |}];;
@@ -773,8 +773,8 @@ Error: Signature mismatch:
          val f : int * int -> int * int
        is not included in
          val f : int * float * int -> int -> int
-       The type "!(int * int) -> int * int" is not compatible with the type
-         "!(int * float * int) -> int -> int"
+       The type "int !(*) int -> int * int" is not compatible with the type
+         "int !(*) float !(*) int -> int -> int"
        Type "int * int" is not compatible with type "int * float * int"
 |}];;
 
@@ -1350,7 +1350,7 @@ Error: Signature mismatch:
          type t = private u
        is not included in
          type t = private int * (int * int)
-       The type "int * !(q)" is not equal to the type "int * !(int * int)"
+       The type "int * !(q)" is not equal to the type "int * int !(*) int"
        Type "!(q)" is not equal to type "int * int"
 |}];;
 
@@ -1379,7 +1379,7 @@ Error: Signature mismatch:
          type t = private u
        is not included in
          type t = private int * (int * int)
-       The type "int * !(q)" is not equal to the type "int * !(int * int)"
+       The type "int * !(q)" is not equal to the type "int * int !(*) int"
        Type "q" = "int * !(w)" is not equal to type "int * !(int)"
        Type "!(w)" = "!(float)" is not equal to type "!(int)"
 |}];;
@@ -1744,7 +1744,7 @@ Error: Signature mismatch:
          "A : (< x : 'b * 'b > as 'b) -> (< y : 'a > as 'a) t"
        is not the same as:
          "A : (< x : 'b > as 'b) -> (< y : 'a > as 'a) t"
-       The type "< x : !('a * 'a) > as 'a" is not equal to the type
+       The type "< x : 'a !(*) 'a > as 'a" is not equal to the type
          "< x : 'b > as 'b"
        The method "x" has type "< x : 'c > * < x : 'c > as 'c",
        but the expected method type was "< x : 'b > as 'b"
@@ -1772,7 +1772,7 @@ Error: Signature mismatch:
          "a : < x : 'a * 'a > as 'a;"
        is not the same as:
          "a : < x : 'a > as 'a;"
-       The type "< x : !('a * 'a) > as 'a" is not equal to the type
+       The type "< x : 'a !(*) 'a > as 'a" is not equal to the type
          "< x : 'b > as 'b"
        The method "x" has type "< x : 'c > * < x : 'c > as 'c",
        but the expected method type was "< x : 'b > as 'b"
@@ -1807,7 +1807,7 @@ Error: Signature mismatch:
          "A : (< x : 'b * 'b > as 'b) -> (< y : 'a > as 'a) ext"
        is not the same as:
          "A : (< x : 'b > as 'b) -> (< y : 'a > as 'a) ext"
-       The type "< x : !('a * 'a) > as 'a" is not equal to the type
+       The type "< x : 'a !(*) 'a > as 'a" is not equal to the type
          "< x : 'b > as 'b"
        The method "x" has type "< x : 'c > * < x : 'c > as 'c",
        but the expected method type was "< x : 'b > as 'b"
