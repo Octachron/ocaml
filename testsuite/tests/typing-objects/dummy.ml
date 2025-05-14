@@ -46,7 +46,7 @@ Line 16, characters 22-26:
 16 |       inherit child1' self
                            ^^^^
 Error: The value "self" has type "< child : 'a; previous : 'b option; .. >"
-       but an expression was expected of type "'c"
+       but an expression was expected of type "!('c)"
        Self type cannot escape its class
 |}]
 
@@ -194,10 +194,10 @@ Line 3, characters 36-41:
 3 |     inherit parameter_contains_self param
                                         ^^^^^
 Error: The value "param" has type
-         "< redrawWidget : parameter_contains_self -> unit; .. >"
+         "< redrawWidget : !(parameter_contains_self) -> unit; .. >"
        but an expression was expected of type
-         "< redrawWidget : < invalidate : unit; .. > -> unit; .. >"
-       Type "parameter_contains_self" = "< invalidate : unit >"
+         "< redrawWidget : !(< invalidate : unit; .. >) -> unit; .. >"
+       Type "!(parameter_contains_self)" = "< invalidate : unit >"
        is not compatible with type "< invalidate : unit; .. >"
        Self type cannot be unified with a closed object type
 |}]
@@ -210,10 +210,10 @@ Line 3, characters 26-31:
 3 |   parameter_contains_self param;;
                               ^^^^^
 Error: The value "param" has type
-         "< redrawWidget : parameter_contains_self -> unit; .. >"
+         "< redrawWidget : !(parameter_contains_self) -> unit; .. >"
        but an expression was expected of type
-         "< redrawWidget : < invalidate : unit; .. > -> unit; .. >"
-       Type "parameter_contains_self" = "< invalidate : unit >"
+         "< redrawWidget : !(< invalidate : unit; .. >) -> unit; .. >"
+       Type "!(parameter_contains_self)" = "< invalidate : unit >"
        is not compatible with type "< invalidate : unit; .. >"
        Self type cannot be unified with a closed object type
 |}]
@@ -229,7 +229,7 @@ let escapes_via_inheritance param =
 Line 4, characters 38-43:
 4 |       inherit parameter_contains_self param
                                           ^^^^^
-Error: The value "param" has type "'a" but an expression was expected of type
+Error: The value "param" has type "!('a)" but an expression was expected of type
          "< redrawWidget : < invalidate : unit; .. > -> unit; .. >"
        Self type cannot escape its class
 |}]
@@ -243,7 +243,7 @@ let escapes_via_application param =
 Line 3, characters 38-43:
 3 |     class c = parameter_contains_self param
                                           ^^^^^
-Error: The value "param" has type "'a" but an expression was expected of type
+Error: The value "param" has type "!('a)" but an expression was expected of type
          "< redrawWidget : < invalidate : unit; .. > -> unit; .. >"
        Self type cannot escape its class
 |}]
@@ -257,10 +257,10 @@ Line 3, characters 36-41:
 3 |     inherit parameter_contains_self param
                                         ^^^^^
 Error: The value "param" has type
-         "< redrawWidget : parameter_contains_self -> unit; .. >"
+         "< redrawWidget : !(parameter_contains_self) -> unit; .. >"
        but an expression was expected of type
-         "< redrawWidget : < invalidate : unit; .. > -> unit; .. >"
-       Type "parameter_contains_self" = "< invalidate : unit >"
+         "< redrawWidget : !(< invalidate : unit; .. >) -> unit; .. >"
+       Type "!(parameter_contains_self)" = "< invalidate : unit >"
        is not compatible with type "< invalidate : unit; .. >"
        Self type cannot be unified with a closed object type
 |}]

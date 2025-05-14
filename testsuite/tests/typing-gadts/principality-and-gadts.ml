@@ -89,9 +89,9 @@ let f (type a) t (x : a) =
 Line 4, characters 4-11:
 4 |   | BoolLit, b -> 1
         ^^^^^^^
-Error: This pattern matches values of type "bool t"
-       but a pattern was expected which matches values of type "int t"
-       Type "bool" is not compatible with type "int"
+Error: This pattern matches values of type "!(bool) t"
+       but a pattern was expected which matches values of type "!(int) t"
+       Type "!(bool)" is not compatible with type "!(int)"
 |}]
 
 let f (type a) t (x : a) =
@@ -105,7 +105,7 @@ let f (type a) t (x : a) =
 Line 3, characters 17-18:
 3 |   | IntLit, n -> n+1
                      ^
-Error: The value "n" has type "a" but an expression was expected of type "int"
+Error: The value "n" has type "!(a)" but an expression was expected of type "!(int)"
 |}]
 
 (**********************)
@@ -257,8 +257,8 @@ let () =
 Line 3, characters 27-28:
 3 |   | [ { b = F; _ } ; { a = 3; _ }] -> ()
                                ^
-Error: This pattern matches values of type "int"
-       but a pattern was expected which matches values of type "Foo.t"
+Error: This pattern matches values of type "!(int)"
+       but a pattern was expected which matches values of type "!(Foo.t)"
 |}]
 
 type (_, _, _) eq3 = Refl3 : ('a, 'a, 'a) eq3
@@ -390,8 +390,8 @@ let foo x =
 Line 3, characters 4-33:
 3 |   | { x = (x : N.t); eq = Refl3 } -> x
         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Error: This pattern matches values of type "N.t foo"
-       but a pattern was expected which matches values of type "'a"
+Error: This pattern matches values of type "!(N.t foo)"
+       but a pattern was expected which matches values of type "!('a)"
        This instance of "M.t" is ambiguous:
        it would escape the scope of its equation
 |}, Principal{|
@@ -404,8 +404,8 @@ Warning 18 [not-principal]: typing this pattern requires considering
 Line 3, characters 4-33:
 3 |   | { x = (x : N.t); eq = Refl3 } -> x
         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Error: This pattern matches values of type "N.t foo"
-       but a pattern was expected which matches values of type "'a"
+Error: This pattern matches values of type "!(N.t foo)"
+       but a pattern was expected which matches values of type "!('a)"
        This instance of "M.t" is ambiguous:
        it would escape the scope of its equation
 |}]

@@ -221,7 +221,8 @@ let visible_inline_code () =
   let open Misc.Style in
   let default = get_styles () in
   let inline_code = { ansi = []; text_open = {|"|}; text_close={|"|} } in
-  set_styles { default with inline_code }
+  let difference_highlight = { ansi = []; text_open = "!("; text_close = ")"} in
+  set_styles { default with inline_code; difference_highlight }
 
 let eval_expect_file _fname ~file_contents =
   Warnings.reset_fatal ();

@@ -411,8 +411,8 @@ val f : ('a, 'b -> 'b) eq -> ('a, int -> int) eq -> 'a -> 'b = <fun>
 Line 3, characters 36-41:
 3 |   let Refl = w1 in let Refl = w2 in M.g 3;;
                                         ^^^^^
-Error: This expression has type "b" = "int"
-       but an expression was expected of type "'a"
+Error: This expression has type "!(b)" = "!(int)"
+       but an expression was expected of type "!('a)"
        This instance of "int" is ambiguous:
        it would escape the scope of its equation
 |}]
@@ -425,7 +425,7 @@ val f : ('a, 'b -> 'b) eq -> ('a, int -> int) eq -> 'a -> int = <fun>
 Line 3, characters 37-42:
 3 |    let Refl = w2 in let Refl = w1 in M.g 3;;
                                          ^^^^^
-Error: This expression has type "int" but an expression was expected of type "'a"
+Error: This expression has type "!(int)" but an expression was expected of type "!('a)"
        This instance of "int" is ambiguous:
        it would escape the scope of its equation
 |}]
@@ -449,8 +449,8 @@ module type S = sig type a val g : a end
 Line 7, characters 36-41:
 7 |   let Refl = w1 in let Refl = w2 in M.g 3
                                         ^^^^^
-Error: This expression has type "b" = "int"
-       but an expression was expected of type "'a"
+Error: This expression has type "!(b)" = "!(int)"
+       but an expression was expected of type "!('a)"
        This instance of "int" is ambiguous:
        it would escape the scope of its equation
 |}]
@@ -465,7 +465,7 @@ val f :
 Line 3, characters 36-41:
 3 |   let Refl = w2 in let Refl = w1 in M.g 3
                                         ^^^^^
-Error: This expression has type "int" but an expression was expected of type "'a"
+Error: This expression has type "!(int)" but an expression was expected of type "!('a)"
        This instance of "int" is ambiguous:
        it would escape the scope of its equation
 |}]
@@ -482,8 +482,8 @@ val f : ('a, 'b -> 'b) eq -> ('a, int -> int) eq -> 'a -> 'b = <fun>
 Line 4, characters 2-7:
 4 |   M.res;;
       ^^^^^
-Error: The value "M.res" has type "b" = "int"
-       but an expression was expected of type "'a"
+Error: The value "M.res" has type "!(b)" = "!(int)"
+       but an expression was expected of type "!('a)"
        This instance of "int" is ambiguous:
        it would escape the scope of its equation
 |}]
@@ -497,7 +497,7 @@ val f : ('a, 'b -> 'b) eq -> ('a, int -> int) eq -> 'a -> int = <fun>
 Line 4, characters 3-8:
 4 |    M.res;;
        ^^^^^
-Error: The value "M.res" has type "int" but an expression was expected of type "'a"
+Error: The value "M.res" has type "!(int)" but an expression was expected of type "!('a)"
        This instance of "int" is ambiguous:
        it would escape the scope of its equation
 |}]

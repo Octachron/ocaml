@@ -116,7 +116,8 @@ val type_expr_with_reserved_names: type_expr printer
 
 type 'a diff = Same of 'a | Diff of 'a * 'a
 val trees_of_type_expansion:
-  type_or_scheme -> Errortrace.expanded_type -> out_type diff
+   type_or_scheme -> Types.type_expr option -> Errortrace.expanded_type
+   -> out_type diff
 val prepare_expansion: Errortrace.expanded_type -> Errortrace.expanded_type
 val pp_type_expansion: out_type diff printer
 val hide_variant_name: Types.type_expr -> Types.type_expr

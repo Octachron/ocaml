@@ -79,7 +79,7 @@ let f = fun (~foo, ~bar:bar) : (foo:int * bar:int) -> foo * 10 + bar
 Line 1, characters 54-68:
 1 | let f = fun (~foo, ~bar:bar) : (foo:int * bar:int) -> foo * 10 + bar
                                                           ^^^^^^^^^^^^^^
-Error: This expression has type "int" but an expression was expected of type
+Error: This expression has type "!(int)" but an expression was expected of type
          "foo:int * bar:int"
 |}]
 
@@ -98,7 +98,7 @@ let f = fun (~foo, ~bar:bar) : (foo:int * int) -> foo * 10 + bar
 Line 1, characters 50-64:
 1 | let f = fun (~foo, ~bar:bar) : (foo:int * int) -> foo * 10 + bar
                                                       ^^^^^^^^^^^^^^
-Error: This expression has type "int" but an expression was expected of type
+Error: This expression has type "!(int)" but an expression was expected of type
          "foo:int * int"
 |}]
 
@@ -169,7 +169,7 @@ let f (~(x:float),y) = x + y
 Line 1, characters 23-24:
 1 | let f (~(x:float),y) = x + y
                            ^
-Error: The value "x" has type "float" but an expression was expected of type "int"
+Error: The value "x" has type "!(float)" but an expression was expected of type "!(int)"
 |}]
 (* Reordering in functions *)
 type xy = (x:int * y:int)
@@ -205,7 +205,7 @@ Line 1, characters 21-27:
 1 | let swap (~x, ~y) = (~x, ~y : yx)
                          ^^^^^^
 Error: This expression has type "x:'a * y:'b"
-       but an expression was expected of type "yx" = "y:int * x:int"
+       but an expression was expected of type "!(yx)" = "y:int * x:int"
        Labels "x" and "y" do not match
 |}]
 
@@ -214,8 +214,8 @@ let swap (pt : xy) : yx = pt
 Line 1, characters 26-28:
 1 | let swap (pt : xy) : yx = pt
                               ^^
-Error: The value "pt" has type "xy" = "x:int * y:int"
-       but an expression was expected of type "yx" = "y:int * x:int"
+Error: The value "pt" has type "!(xy)" = "x:int * y:int"
+       but an expression was expected of type "!(yx)" = "y:int * x:int"
        Labels "x" and "y" do not match
 |}]
 
@@ -224,9 +224,9 @@ let swap : xy -> yx = Fun.id
 Line 1, characters 22-28:
 1 | let swap : xy -> yx = Fun.id
                           ^^^^^^
-Error: The value "Fun.id" has type "xy -> xy"
-       but an expression was expected of type "xy -> yx"
-       Type "xy" = "x:int * y:int" is not compatible with type "yx" = "y:int * x:int"
+Error: The value "Fun.id" has type "!(xy) -> !(xy)"
+       but an expression was expected of type "xy -> !(yx)"
+       Type "!(xy)" = "x:int * y:int" is not compatible with type "!(yx)" = "y:int * x:int"
        Labels "x" and "y" do not match
 |}]
 
@@ -235,9 +235,9 @@ let swap : xy -> yx = xy_id
 Line 1, characters 22-27:
 1 | let swap : xy -> yx = xy_id
                           ^^^^^
-Error: The value "xy_id" has type "(y:int * x:int) -> xy"
-       but an expression was expected of type "xy -> yx"
-       Type "y:int * x:int" is not compatible with type "xy" = "x:int * y:int"
+Error: The value "xy_id" has type "!(y:int * x:int) -> xy"
+       but an expression was expected of type "!(xy) -> yx"
+       Type "y:int * x:int" is not compatible with type "!(xy)" = "x:int * y:int"
        Labels "y" and "x" do not match
 |}]
 
@@ -246,9 +246,17 @@ let swap : xy -> yx = yx_id
 Line 1, characters 22-27:
 1 | let swap : xy -> yx = yx_id
                           ^^^^^
-Error: The value "yx_id" has type "yx -> yx"
-       but an expression was expected of type "xy -> yx"
-       Type "yx" = "y:int * x:int" is not compatible with type "xy" = "x:int * y:int"
+Error: The value "yx_id" has type "!(yx) -> !(yx)"
+       but an expression was expected of type "!(xy) -> yx"
+       Type "!(yx)" = "y:int * x:int" is not compatible with type "!(xy)" = "x:int * y:int"
+       Labels "y" and "x" do not match
+|}, Principal{|
+Line 1, characters 22-27:
+1 | let swap : xy -> yx = yx_id
+                          ^^^^^
+Error: The value "yx_id" has type "!(yx) -> yx"
+       but an expression was expected of type "!(xy) -> yx"
+       Type "!(yx)" = "y:int * x:int" is not compatible with type "!(xy)" = "x:int * y:int"
        Labels "y" and "x" do not match
 |}]
 

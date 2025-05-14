@@ -933,7 +933,7 @@ Line 1, characters 50-59:
 1 | type ('a,'b) t constraint 'a = 'b and ('a,'b) u = ('a,'b) t;;
                                                       ^^^^^^^^^
 Error: Constraints are not satisfied in this type.
-       Type "('a, 'b) t" should be an instance of "('c, 'c) t"
+       Type "!(('a, 'b) t)" should be an instance of "!(('c, 'c) t)"
 |}];;
 
 (* Full polymorphism if we do not expand *)
@@ -953,7 +953,7 @@ Line 2, characters 26-32:
 2 | type 'a u = 'a and 'a v = 'a u t;;
                               ^^^^^^
 Error: Constraints are not satisfied in this type.
-       Type "'a u t" should be an instance of "int t"
+       Type "!('a u t)" should be an instance of "!(int t)"
 |}];;
 
 (* Behaviour is unstable *)
@@ -968,7 +968,7 @@ Line 3, characters 26-32:
 3 | type 'a u = 'a and 'a v = 'a u t;;
                               ^^^^^^
 Error: Constraints are not satisfied in this type.
-       Type "'a u t" should be an instance of "g t"
+       Type "!('a u t)" should be an instance of "!(g t)"
 |}];;
 
 (* Full unification trace reported for "Constraints are not satisfied in this type" *)
@@ -980,8 +980,8 @@ Line 3, characters 13-29:
 3 |   and 'a u = (float,string) t;;
                  ^^^^^^^^^^^^^^^^
 Error: Constraints are not satisfied in this type.
-       Type "(float, string) t" should be an instance of "(int, int) t"
-       Type "float" is not compatible with type "int"
+       Type "(!(float), string) t" should be an instance of "(!(int), !(int)) t"
+       Type "!(float)" is not compatible with type "!(int)"
 |}]
 
 (* Example of wrong expansion *)
@@ -1156,9 +1156,9 @@ let f x =
 Line 2, characters 3-4:
 2 |   (x : <m : 'b. 'b * ('b * <m : 'c. 'c * ('c * 'bar)>)> as 'bar);;
        ^
-Error: The value "x" has type "< m : 'b. 'b * ('b * < m : 'c. 'c * 'a > as 'a) >"
+Error: The value "x" has type "< m : 'b. !('b) * (!('b) * < m : 'c. 'c * 'a > as 'a) >"
        but an expression was expected of type
-         "< m : 'b. 'b * ('b * < m : 'c. 'c * ('c * 'd) >) > as 'd"
+         "< m : 'b. 'b * ('b * < m : 'c. !('c) * (!('c) * 'd) >) > as 'd"
        The method "m" has type "'c. 'c * ('b * < m : 'c. 'e >) as 'e",
        but the expected method type was
        "'c. 'c * ('c * < m : 'b. 'b * ('b * < m : 'c. 'f >) >) as 'f"
@@ -1285,7 +1285,7 @@ type u = private [< t ]
 Line 6, characters 9-21:
 6 | fun x -> (x : v :> u);;
              ^^^^^^^^^^^^
-Error: Type "v" = "[> `A | `B ]" is not a subtype of "u" = "[< `A | `B ]"
+Error: Type "!(v)" = "[> `A | `B ]" is not a subtype of "!(u)" = "[< `A | `B ]"
 |}];;
 
 let f1 x =
@@ -1588,9 +1588,9 @@ let (n : < m : 'a. [< `Foo of int] -> 'a >) =
 Line 2, characters 2-72:
 2 |   object method m : 'x. [< `Foo of 'x] -> 'x = fun x -> assert false end;;
       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Error: This expression has type "< m : 'b 'x. ([< `Foo of 'x ] as 'b) -> 'x >"
+Error: This expression has type "< m : 'b 'x. ([< `Foo of !('x) ] as 'b) -> !('x) >"
        but an expression was expected of type
-         "< m : 'a. [< `Foo of int ] -> 'a >"
+         "< m : 'a. [< `Foo of !(int) ] -> 'a >"
        Types for tag "`Foo" are incompatible
 |}];;
 (* fail *)
@@ -1600,9 +1600,9 @@ let (n : 'b -> < m : 'a . ([< `Foo of int] as 'b) -> 'a >) = fun x ->
 Line 2, characters 2-72:
 2 |   object method m : 'x. [< `Foo of 'x] -> 'x = fun x -> assert false end;;
       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Error: This expression has type "< m : 'b 'x. ([< `Foo of 'x ] as 'b) -> 'x >"
+Error: This expression has type "< m : 'b 'x. ([< `Foo of !('x) ] as 'b) -> !('x) >"
        but an expression was expected of type
-         "< m : 'a. [< `Foo of int ] -> 'a >"
+         "< m : 'a. [< `Foo of !(int) ] -> 'a >"
        Types for tag "`Foo" are incompatible
 |}];;
 (* ok *)
@@ -1620,9 +1620,9 @@ let f (n : < m : 'a 'r. [< `Foo of 'a & int | `Bar] as 'r >) =
 Line 2, characters 3-4:
 2 |   (n : < m : 'b 'r. [< `Foo of int & 'b | `Bar] as 'r >)
        ^
-Error: The value "n" has type "< m : 'a 'c. [< `Bar | `Foo of 'a & int ] as 'c >"
+Error: The value "n" has type "< m : 'a 'c. [< `Bar | `Foo of !('a) & int ] as 'c >"
        but an expression was expected of type
-         "< m : 'b 'd. [< `Bar | `Foo of int & 'b ] as 'd >"
+         "< m : 'b 'd. [< `Bar | `Foo of !(int) & 'b ] as 'd >"
        Types for tag "`Foo" are incompatible
 |}]
 (* ok (with implicit universal quantification) *)
@@ -1642,8 +1642,8 @@ let f b (x: 'x) =
 Line 3, characters 19-22:
 3 |   if b then x else M.A;;
                        ^^^
-Error: The constructor "M.A" has type "M.t"
-       but an expression was expected of type "'x"
+Error: The constructor "M.A" has type "!(M.t)"
+       but an expression was expected of type "!('x)"
        The type constructor "M.t" would escape its scope
 |}];;
 
@@ -1922,7 +1922,7 @@ Lines 1-3, characters 15-3:
 2 |   method x : 'b . 'b s list = [S]
 3 | end
 Error: This expression has type "< x : 'b. 'b s list >"
-       but an expression was expected of type "'a c"
+       but an expression was expected of type "!('a c)"
        The method "x" has type "'b. 'b s list", but the expected method type was
        "'a list"
        The universal variable "'b" would escape its scope
@@ -1939,7 +1939,7 @@ let f (x : u) = (x : v)
 Line 1, characters 17-18:
 1 | let f (x : u) = (x : v)
                      ^
-Error: The value "x" has type "u" but an expression was expected of type "v"
+Error: The value "x" has type "!(u)" but an expression was expected of type "!(v)"
        The method "m" has type "'a s list * < m : 'b > as 'b",
        but the expected method type was "'a. 'a s list * < m : 'a. 'c > as 'c"
        The universal variable "'a" would escape its scope
@@ -1958,7 +1958,7 @@ Lines 1-3, characters 15-3:
 2 |   method x : 'b . 'b s list = []
 3 | end
 Error: This expression has type "< x : 'b. 'b s list >"
-       but an expression was expected of type "'a c"
+       but an expression was expected of type "!('a c)"
        The method "x" has type "'b. 'b s list", but the expected method type was
        "'a list"
        The universal variable "'b" would escape its scope

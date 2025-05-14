@@ -177,7 +177,7 @@ type t = private [< `A ]
 Line 2, characters 30-31:
 2 | let f: t -> [ `A ] = fun x -> x
                                   ^
-Error: The value "x" has type "t" but an expression was expected of type "[ `A ]"
+Error: The value "x" has type "!(t)" but an expression was expected of type "[ `A ]"
        The first variant type is private, it may not allow the tag(s) "`A"
 |}]
 
@@ -278,9 +278,9 @@ val f : ([< `A | `B of string | `R of 'a ] as 'a) -> int = <fun>
 Line 4, characters 30-31:
 4 | let g (x:[`A | `R of rt]) = f x
                                   ^
-Error: The value "x" has type "[ `A | `R of rt ]"
+Error: The value "x" has type "[ `A | `R of !(rt) ]"
        but an expression was expected of type "[< `A | `R of 'a ] as 'a"
-       Type "rt" = "[ `A | `B of string | `R of rt ]" is not compatible with type
+       Type "!(rt)" = "[ `A | `B of string | `R of rt ]" is not compatible with type
          "[< `A | `R of 'a ] as 'a"
        The second variant type does not allow tag(s) "`B"
 |}]
@@ -303,7 +303,7 @@ let f x = (x : [ `Foo of int ] list :> [ `Foo | `Bar ] list)
 Line 1, characters 10-60:
 1 | let f x = (x : [ `Foo of int ] list :> [ `Foo | `Bar ] list)
               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Error: Type "[ `Foo of int ] list" is not a subtype of "[ `Bar | `Foo ] list"
+Error: Type "!([ `Foo of int ]) list" is not a subtype of "!([ `Bar | `Foo ]) list"
        Type "[ `Foo of int ]" is not a subtype of "[ `Bar | `Foo ]"
        Types for tag "`Foo" are incompatible
 |}]

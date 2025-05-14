@@ -59,7 +59,7 @@ Lines 5-7, characters 10-5:
 6 |     method f _ = 0
 7 |  end)..
 Error: This expression has type "< f : 'a -> int >"
-       but an expression was expected of type "t_a"
+       but an expression was expected of type "!(t_a)"
        The method "f" has type "'a -> int", but the expected method type was
        "'a0. 'a0 -> int"
        The universal variable "'a0" would escape its scope
@@ -77,8 +77,8 @@ val f : uv -> int = <fun>
 Line 4, characters 11-49:
 4 | let () = f ( `A (object method f _ = 0 end): _ v);;
                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Error: This expression has type "'a v" but an expression was expected of type
-         "uv"
+Error: This expression has type "!('a v)" but an expression was expected of type
+         "!(uv)"
        The method "f" has type "'a -> int", but the expected method type was
        "'a0. 'a0 -> int"
        The universal variable "'a0" would escape its scope

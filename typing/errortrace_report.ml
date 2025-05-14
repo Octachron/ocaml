@@ -39,8 +39,18 @@ module Style = Misc.Style
 
 type 'a diff = 'a Out_type.diff = Same of 'a | Diff of 'a * 'a
 
+let look_ahead last tr =
+  let some x = Errortrace.map_diff (fun x -> Some x.Errortrace.ty) x in
+  let none = { Errortrace.expected=None; got=None} in
+  let last = Option.value ~default:none (Option.map some last) in
+  match tr with
+  | [] ->
+      last, []
+  | h :: q ->
+      some h, List.map some q @ [last]
+
 let trees_of_trace mode =
-  List.map (Errortrace.map_diff (trees_of_type_expansion mode))
+  List.map2 (Errortrace.map2_diff (trees_of_type_expansion mode))
 
 let rec trace fst txt ppf = function
   | {Errortrace.got; expected} :: rem ->
@@ -100,7 +110,7 @@ let rec filter_trace = function
     when printing_status elt = Optional_refinement -> [], Some d
   | Errortrace.Diff d :: rem ->
       let filtered, last = filter_trace rem in
-      d :: filtered, last
+      d :: filtered,  last
   | _ :: rem -> filter_trace rem
 
 let may_prepare_expansion compact (Errortrace.{ty; expanded} as ty_exp) =
@@ -472,10 +482,11 @@ let prepare_expansion_head empty_tr = function
       Some (Errortrace.map_diff (may_prepare_expansion empty_tr) d)
   | _ -> None
 
-let head_error_printer mode txt_got txt_but = function
+let head_error_printer mode txt_got txt_but next head =
+  match head with
   | None -> Format_doc.Doc.empty
   | Some d ->
-      let d = Errortrace.map_diff (trees_of_type_expansion mode) d in
+      let d = Errortrace.map2_diff (trees_of_type_expansion mode) next d in
       doc_printf "%a@;<1 2>%a@ %a@;<1 2>%a"
         pp_doc txt_got pp_type_expansion d.Errortrace.got
         pp_doc txt_but pp_type_expansion d.Errortrace.expected
@@ -498,18 +509,21 @@ let error trace_format mode subst env tr txt1 ppf txt2 ty_expect_explanation =
          Errortrace.{ty_exp with expanded = hide_variant_name ty_exp.expanded})
       tr
   in
-  match tr with
+  match tr  with
   | [] -> assert false
   | (elt :: tr) as full_trace ->
       with_labels (not !Clflags.classic) (fun () ->
       let tr, last = filter_trace tr in
+      let second, ahead_tr = look_ahead last tr in
       let head = prepare_expansion_head (tr=[] && last=None) elt in
       let tr = List.map (Errortrace.map_diff prepare_expansion) tr in
       let last = Option.map (Errortrace.map_diff prepare_expansion) last in
-      let head_error = head_error_printer mode txt1 txt2 head in
-      let tr = trees_of_trace mode tr in
+      let head_error = head_error_printer mode txt1 txt2 second head in
+      let tr = trees_of_trace mode ahead_tr tr in
       let last =
-        Option.map (Errortrace.map_diff (trees_of_type_expansion mode)) last in
+        let expand = Errortrace.map_diff (trees_of_type_expansion mode None) in
+        Option.map expand last
+      in
       let mis = mismatch txt1 env full_trace in
       let tr = match mis, last with
         | None, Some elt -> tr @ [elt]
@@ -575,14 +589,15 @@ module Subtype = struct
     with_labels (not !Clflags.classic) (fun () ->
       match tr with
       | elt :: tr' ->
-        let diffed_elt = get_diff elt in
         let tr, last = filter_trace tr' in
-        let tr = match keep_last, last with
-          | true, Some last -> tr @ [last]
-          | _ -> tr
+        let tr, last = match keep_last, last with
+          | true, Some last -> tr @ [last], None
+          | _ -> tr, last
         in
+        let second, ahead_tr = look_ahead last tr in
+        let diffed_elt = get_diff second elt in
         let tr =
-          trees_of_trace Type
+          trees_of_trace Type ahead_tr
           @@ List.map (Errortrace.map_diff prepare_expansion) tr in
         let tr =
           match fst, diffed_elt with
@@ -602,14 +617,14 @@ module Subtype = struct
         let ftr, last = filter_subtype_trace rem in
         d :: ftr, last
 
-  let unification_get_diff = function
+  let unification_get_diff next = function
     | Errortrace.Diff diff ->
-        Some (Errortrace.map_diff (trees_of_type_expansion Type) diff)
+        Some (Errortrace.map2_diff (trees_of_type_expansion Type) next diff)
     | _ -> None
 
-  let subtype_get_diff = function
+  let subtype_get_diff next = function
     | Errortrace.Subtype.Diff diff ->
-        Some (Errortrace.map_diff (trees_of_type_expansion Type) diff)
+        Some (Errortrace.map2_diff (trees_of_type_expansion Type) next diff)
 
   let error
         ppf

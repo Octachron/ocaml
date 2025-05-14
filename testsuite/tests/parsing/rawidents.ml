@@ -36,7 +36,7 @@ Error: Signature mismatch:
          type \#and = string
        is not included in
          type \#and = int
-       The type "string" is not equal to the type "int"
+       The type "!(string)" is not equal to the type "!(int)"
 |}]
 
 let x = (`\#let `\#and : [ `\#let of [ `\#and ] ])
@@ -125,8 +125,8 @@ type u = { \#true : int; }
 Line 4, characters 17-23:
 4 | let f { \#false; \#true } = 0
                      ^^^^^^
-Error: The record field "\#true" belongs to the type "u"
-       but is mixed here with fields of type "t"
+Error: The record field "\#true" belongs to the type "!(u)"
+       but is mixed here with fields of type "!(t)"
 |}]
 
 

@@ -46,6 +46,13 @@ let map_diff f r =
   let expected = f r.expected in
   { got; expected }
 
+let map2_diff f x y =
+  (* ordering is often meaningful when dealing with type_expr *)
+  let got = f x.got y.got in
+  let expected = f x.expected y.expected in
+  { got; expected }
+
+
 let swap_diff x = { got = x.expected; expected = x.got }
 
 type 'a escape_kind =

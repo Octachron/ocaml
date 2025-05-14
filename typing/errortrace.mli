@@ -39,6 +39,12 @@ type 'a diff = { got: 'a; expected: 'a }
 (** [map_diff f {expected;got}] is [{expected=f expected; got=f got}] *)
 val map_diff: ('a -> 'b) -> 'a diff -> 'b diff
 
+(** [map2_diff f x y] is
+    [{expected=f x.expected y.expected; got=f x.got y.got}]
+*)
+val map2_diff: ('a -> 'b -> 'c) -> 'a diff -> 'b diff -> 'c diff
+
+
 (** Scope escape related errors *)
 type 'a escape_kind =
   | Constructor of Path.t
