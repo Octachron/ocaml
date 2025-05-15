@@ -31,7 +31,7 @@ print_endline (ok ());;
 Line 1, characters 14-21:
 1 | print_endline (ok ());;
                   ^^^^^^^
-Error: This expression has type "'a -> 'b"
+Error: This expression has type "'a!( ->) 'b"
        but an expression was expected of type "!(string)"
 Hint: This function application is partial, maybe some arguments are missing.
 |}];;

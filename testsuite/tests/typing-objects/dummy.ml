@@ -45,7 +45,7 @@ end;;
 Line 16, characters 22-26:
 16 |       inherit child1' self
                            ^^^^
-Error: The value "self" has type "< child : 'a; previous : 'b option; .. >"
+Error: The value "self" has type "!(< child : 'a; previous : 'b option; .. >)"
        but an expression was expected of type "!('c)"
        Self type cannot escape its class
 |}]
@@ -198,7 +198,7 @@ Error: The value "param" has type
        but an expression was expected of type
          "< redrawWidget : !(< invalidate : unit; .. >) -> unit; .. >"
        Type "!(parameter_contains_self)" = "< invalidate : unit >"
-       is not compatible with type "< invalidate : unit; .. >"
+       is not compatible with type "< invalidate : unit; !(..) >"
        Self type cannot be unified with a closed object type
 |}]
 
@@ -214,7 +214,7 @@ Error: The value "param" has type
        but an expression was expected of type
          "< redrawWidget : !(< invalidate : unit; .. >) -> unit; .. >"
        Type "!(parameter_contains_self)" = "< invalidate : unit >"
-       is not compatible with type "< invalidate : unit; .. >"
+       is not compatible with type "< invalidate : unit; !(..) >"
        Self type cannot be unified with a closed object type
 |}]
 
@@ -230,7 +230,7 @@ Line 4, characters 38-43:
 4 |       inherit parameter_contains_self param
                                           ^^^^^
 Error: The value "param" has type "!('a)" but an expression was expected of type
-         "< redrawWidget : < invalidate : unit; .. > -> unit; .. >"
+         "!(< redrawWidget : < invalidate : unit; .. > -> unit; .. >)"
        Self type cannot escape its class
 |}]
 
@@ -244,7 +244,7 @@ Line 3, characters 38-43:
 3 |     class c = parameter_contains_self param
                                           ^^^^^
 Error: The value "param" has type "!('a)" but an expression was expected of type
-         "< redrawWidget : < invalidate : unit; .. > -> unit; .. >"
+         "!(< redrawWidget : < invalidate : unit; .. > -> unit; .. >)"
        Self type cannot escape its class
 |}]
 
@@ -261,7 +261,7 @@ Error: The value "param" has type
        but an expression was expected of type
          "< redrawWidget : !(< invalidate : unit; .. >) -> unit; .. >"
        Type "!(parameter_contains_self)" = "< invalidate : unit >"
-       is not compatible with type "< invalidate : unit; .. >"
+       is not compatible with type "< invalidate : unit; !(..) >"
        Self type cannot be unified with a closed object type
 |}]
 
@@ -301,7 +301,7 @@ Line 2, characters 63-75:
 2 |   ((fun (x : 'a) -> object (_:'a) end) : 'a -> object('a) end) (object end);;
                                                                    ^^^^^^^^^^^^
 Error: This expression has type "<  >" but an expression was expected of type
-         "< .. >"
+         "< !(..) >"
        Self type cannot be unified with a closed object type
 |}];;
 
@@ -312,7 +312,7 @@ class type ['a] ct = object ('a) constraint 'a = < .. > end
 Line 2, characters 38-47:
 2 | class type closes_via_application = [ <m : int> ] ct;;
                                           ^^^^^^^^^
-Error: The type parameter "< m : int >"
-       does not meet its constraint: it should be "< .. >"
+Error: The type parameter "< !(m) : int >"
+       does not meet its constraint: it should be "< !(..) >"
        Self type cannot be unified with a closed object type
 |}];;

@@ -21,7 +21,7 @@ let f (g : 'a * 'b -> 'a t -> 'a) s = g s s;;
 Line 1, characters 42-43:
 1 | let f (g : 'a * 'b -> 'a t -> 'a) s = g s s;;
                                               ^
-Error: The value "s" has type "'a * 'b" but an expression was expected of type
+Error: The value "s" has type "'a !(*) 'b" but an expression was expected of type
          "'a !(t)" = "!('a)"
        The type variable "'a" occurs inside "'a * 'b"
 |}];;

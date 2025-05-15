@@ -232,7 +232,7 @@ Line 1, characters 10-11:
 1 | let a = A 9
               ^
 Error: The constant "9" has type "!(int)" but an expression was expected of type
-         "[> `Var ]"
+         "!([> `Var ])"
 |}]
 
 type 'a foo += B : int foo
@@ -241,7 +241,7 @@ type 'a foo += B : int foo
 Line 1, characters 19-22:
 1 | type 'a foo += B : int foo
                        ^^^
-Error: This type "!(int)" should be an instance of type "[> `Var ]"
+Error: This type "!(int)" should be an instance of type "!([> `Var ])"
 |}]
 
 (* Signatures can make an extension private *)

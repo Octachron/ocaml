@@ -32,7 +32,7 @@ val h : (module S2 with type t = 'a) -> (module S with type t = 'a) = <fun>
 Line 5, characters 3-4:
 5 |   (x : (module S'));; (* fail *)
        ^
-Error: The value "x" has type "(module S2 with type t = int and type u = bool)"
+Error: The value "x" has type "(module S2 with type !(t) = int and type !(u) = bool)"
        but an expression was expected of type "(module S')"
        Modules do not match:
          S'
@@ -50,7 +50,7 @@ module type S3 = sig type u type t val x : int end
 Line 3, characters 2-67:
 3 |   (x : (module S3 with type t = 'a and type u = 'b) :> (module S'));; (* fail *)
       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Error: Type "(module S3 with type t = 'a and type u = 'b)" is not a subtype of
+Error: Type "(module S3 with type !(t) = 'a and type !(u) = 'b)" is not a subtype of
          "(module S')"
        The two first-class module types differ by their runtime size.
 |}];;

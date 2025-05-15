@@ -1171,20 +1171,20 @@ let rec tree_of_typexp next mode ty =
 and tree_of_row_field next mode (l, f) =
   match row_field_repr f with
   | Rpresent None | Reither(true, [], _) ->
-      { name = plain l; constant=plain false; argument_conjunction=[]}
+      plain { name = plain l; constant=plain false; argument_conjunction=[]}
   | Rpresent(Some ty) ->
-      { name = plain l;
+      plain { name = plain l;
         constant=plain false;
         argument_conjunction=[tree_of_typexp next mode ty]
       }
-  | Reither(c, tyl, _) -> {
+  | Reither(c, tyl, _) -> plain {
       name = plain l;
       constant = plain c (* contradiction if [c=true] *);
       argument_conjunction = tree_of_typlist next mode tyl
     }
   | Rabsent ->
       (* actually, an error *)
-      { name = plain l; constant=plain false; argument_conjunction=[] }
+      plain { name = plain l; constant=plain false; argument_conjunction=[] }
 
 and tree_of_typlist next mode tyl =
   List.map (tree_of_typexp next mode) tyl

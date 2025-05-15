@@ -117,7 +117,7 @@ and out_package = {
 }
 
 and out_variant =
-  | Ovar_fields of out_field list
+  | Ovar_fields of out_field highlightable list
   | Ovar_typ of out_type
 
 and out_field = {

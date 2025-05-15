@@ -48,7 +48,7 @@ Line 3, characters 21-22:
                          ^
 Error: The value "s" has type "(module Scalar with type t = s)"
        but an expression was expected of type
-         "(module Vector_space with type scalar = 'a and type t = 'b)"
+         "(module Vector_space with type !(scalar) = 'a and type t = 'b)"
        The type "scalar" depends on internal types in the first module type.
 |}];;
 
@@ -69,6 +69,6 @@ Line 2, characters 3-4:
        ^
 Error: The value "x" has type "(module A with type a = int)"
        but an expression was expected of type
-         "(module B with type a = int and type b = int)"
+         "(module B with type a = int and type !(b) = int)"
        The type "b" depends on internal types in the first module type.
 |}]

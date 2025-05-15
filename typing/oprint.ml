@@ -18,6 +18,8 @@ open Outcometree
 module Style = Misc.Style
 
 let highlight x = { highlighted=true; item=x }
+let highlighting_on x = { x with highlighted=true }
+
 let plain x = { highlighted=false; item=x }
 
 
@@ -43,6 +45,172 @@ let highlight_close_if ppf b =
 let may_highlight printer ppf x =
   highlight_if x.highlighted printer ppf x.item
 
+let highlight_diff x y =
+  if x.item = y.item then x, y else
+    highlighting_on x, highlighting_on y
+
+let rec highlight_map_diff ~key ~diff ~mismatch l r = match l, r with
+  | [], r -> [], List.map mismatch r
+  | l, [] -> List.map mismatch l, r
+  | lh :: lq, rh :: rq ->
+      if key lh < key rh then
+        let l, r = highlight_map_diff ~key ~diff ~mismatch lq r in
+        mismatch lh :: l, r
+      else if key lh = key rh then
+        let lh, rh = diff (key lh) lh rh in
+        let lq, rq = highlight_map_diff ~key ~diff ~mismatch lq rq in
+        lh :: lq, rh :: rq
+      else
+        let l, rq = highlight_map_diff ~key ~diff ~mismatch l rq in
+        l, mismatch rh :: rq
+
+let highlight_set_diff l r =
+  let key x = x.item in
+  let mismatch x = highlighting_on x in
+  let diff name _ _ = let n = plain name in n, n in
+  highlight_map_diff ~key ~diff ~mismatch l r
+
+let rec highlight_map2 ~mismatch f x y = match x, y with
+  | [], [] -> [], []
+  | [], r -> [], List.map mismatch r
+  | l, [] -> List.map mismatch l, []
+  | lh :: lq, rh :: rq ->
+      let lh, rh = f lh rh in
+      let lq, rq = highlight_map2 ~mismatch f lq rq in
+      lh :: lq, rh :: rq
+
+let rec syntactic_highlight l r = match l, r with
+  | Otyp_highlight _ as x, (Otyp_highlight _ as y)
+  | Otyp_highlight x, y | x, Otyp_highlight y -> x, y
+  | (Otyp_abstract | Otyp_open | Otyp_stuff _ | Otyp_manifest _
+    | Otyp_record _ | Otyp_sum _ | Otyp_external _ ), _
+  | _ , (Otyp_abstract | Otyp_open | Otyp_stuff _ | Otyp_manifest _
+        | Otyp_record _ | Otyp_sum _ | Otyp_external _ ) -> l, r
+
+  | (Otyp_var _ | Otyp_constr _), _ | _, (Otyp_var _ | Otyp_constr _) -> l, r
+  | Otyp_class _ , _ | _, Otyp_class _ -> l, r
+
+
+  | Otyp_alias l, Otyp_alias r ->
+      let non_gen_l, non_gen_r = highlight_diff l.non_gen r.non_gen in
+      let aliased_l, aliased_r = syntactic_highlight l.aliased r.aliased in
+      Otyp_alias { non_gen=non_gen_l; aliased = aliased_l; alias = l.alias },
+      Otyp_alias { non_gen=non_gen_r; aliased = aliased_r; alias = r.alias }
+  | Otyp_alias l, r ->
+      let aliased, r = syntactic_highlight l.aliased r in
+      Otyp_alias { l with aliased }, r
+  | l, Otyp_alias r ->
+      let l, aliased = syntactic_highlight l r.aliased in
+      l, Otyp_alias { r with aliased }
+
+  | Otyp_arrow (label, arg, ret), Otyp_arrow (label', arg', ret') ->
+     let label, label' = highlight_diff label label' in
+     let arg, arg' = syntactic_highlight arg arg' in
+     let ret, ret' = syntactic_highlight ret ret' in
+     Otyp_arrow (label,arg,ret), Otyp_arrow (label',arg',ret')
+  | Otyp_arrow _, _ | _, Otyp_arrow _ -> Otyp_highlight l, Otyp_highlight r
+  | Otyp_object l, Otyp_object r ->
+      let open_row, open_row' = highlight_diff l.open_row r.open_row in
+      let diff lbl (_,ty) (_,ty') =
+        let ty, ty' = syntactic_highlight ty ty' in
+        (plain lbl,ty), (plain lbl,ty')
+      in
+      let mismatch (lbl,ty) = (highlighting_on lbl, ty) in
+      let key (lbl,_) = lbl.item in
+      let fields, fields'=
+        highlight_map_diff ~key ~diff ~mismatch l.fields r.fields
+      in
+      Otyp_object { fields; open_row },
+      Otyp_object { fields = fields'; open_row=open_row'}
+  | Otyp_object _, _ | _, Otyp_object _ -> Otyp_highlight l, Otyp_highlight r
+  | Otyp_tuple l, Otyp_tuple r ->
+      let elt (lbl,ty) (lbl',ty') =
+        let lbl, lbl' = highlight_diff lbl lbl' in
+        let ty, ty' = syntactic_highlight ty ty' in
+        (lbl,ty), (lbl',ty')
+      in
+      let mismatch (lbl,ty) =
+        if lbl.item = None then (highlighting_on lbl, ty)
+        else (lbl, Otyp_highlight ty)
+      in
+      let l, r = highlight_map2 ~mismatch elt l r in
+      Otyp_tuple l, Otyp_tuple r
+  | Otyp_tuple _, _ | _, Otyp_tuple _ -> Otyp_highlight l, Otyp_highlight r
+
+  | Otyp_attribute (l,att), r ->
+      let l, r = syntactic_highlight l r in
+      Otyp_attribute (l,att), r
+  | l, Otyp_attribute (r,att) ->
+      let l, r = syntactic_highlight l r in
+      l, Otyp_attribute (r,att)
+  | Otyp_variant l, Otyp_variant r ->
+      let closed, closed' = highlight_diff l.closed r.closed in
+      let presents, presents' =
+        match l.presents, r.presents with
+        | None, None -> None, None
+        | Some l, None -> Some (List.map highlighting_on l), None
+        | None, Some r -> None, Some (List.map highlighting_on r)
+        | Some l, Some r ->
+            let l, r = highlight_set_diff l r in Some l, Some r
+      in
+      let fields, fields' = syntactic_variant_diff l.fields r.fields in
+      Otyp_variant { fields; closed; presents },
+      Otyp_variant { fields = fields'; closed = closed'; presents = presents' }
+  | Otyp_variant _, _ | _, Otyp_variant _ -> Otyp_highlight l, Otyp_highlight r
+
+  | Otyp_poly (b,ty), Otyp_poly (b',ty') ->
+      let ty, ty' = syntactic_highlight ty ty' in
+      Otyp_poly (b,ty), Otyp_poly (b',ty')
+  | Otyp_poly _, _ | _, Otyp_poly _ -> Otyp_highlight l, Otyp_highlight r
+
+  | Otyp_module l, Otyp_module r -> syntactic_package_highlight l r
+
+and syntactic_variant_diff x y =
+  match x, y with
+  | Ovar_typ x, Ovar_typ y ->
+    let x, y = syntactic_highlight x y in
+    Ovar_typ x, Ovar_typ y
+  | Ovar_typ _, _ | _, Ovar_typ _ -> x, y
+  | Ovar_fields l, Ovar_fields r ->
+      let key (x:out_field highlightable) = x.item.name.item in
+      let mismatch x = highlighting_on x in
+      let diff name x y =
+        let x = x.item and y = y.item in
+        let constant, constant' = highlight_diff x.constant y.constant in
+        let argument_conjunction, argument_conjunction' =
+          List.split @@ List.map2 syntactic_highlight
+            x.argument_conjunction
+            y.argument_conjunction
+        in
+        let name = plain name in
+        plain { name; constant; argument_conjunction },
+        plain {
+          name;
+          constant=constant';
+          argument_conjunction=argument_conjunction'
+        }
+      in
+      let l, r = highlight_map_diff ~key ~diff ~mismatch l r in
+      Ovar_fields l, Ovar_fields r
+
+and syntactic_package_highlight l r =
+  let key (x,_) = x.item in
+  let mismatch (x,y) = (highlighting_on x, y) in
+  let diff name (_,x) (_,y) =
+    let x, y = syntactic_highlight x y in
+    (plain name,x), (plain name, y)
+  in
+  let opack_cstrs, opack_cstrs' =
+    highlight_map_diff ~key ~diff ~mismatch l.opack_cstrs r.opack_cstrs
+  in
+  Otyp_module { l with opack_cstrs },
+  Otyp_module { r with opack_cstrs = opack_cstrs' }
+
+let syntactic_highlight l r = match l, r with
+  | Otyp_highlight _ as x, (Otyp_highlight _ as y) -> x, y
+  | Otyp_highlight _ as x, y -> x, Otyp_highlight y
+  | x, (Otyp_highlight _ as y) -> Otyp_highlight x, y
+  | x, y -> syntactic_highlight x y
 
 
 let print_lident ppf = function
@@ -457,17 +625,20 @@ and print_fields open_row ppf =
         (may_highlight pp_print_string) s
         (print_out_type ~highlight:false) t
         (print_fields open_row) l
-and print_row_field ppf {name=l; constant=opt_amp; argument_conjunction=tyl } =
+and print_row_field ppf hfield =
+  let field = hfield.item in
   let pr_of ppf =
-    if opt_amp.item then
+    if field.constant.item then
       fprintf ppf " of@ %a@ "
-        (highlight_if opt_amp.highlighted pp_print_string) "&"
-    else if tyl <> [] then fprintf ppf " of@ "
+        (highlight_if field.constant.highlighted pp_print_string) "&"
+    else if field.argument_conjunction <> [] then fprintf ppf " of@ "
     else fprintf ppf ""
   in
-  fprintf ppf "@[<hv 2>`%a%t%a@]" (may_highlight print_lident) l pr_of
+  highlight_open_if ppf hfield.highlighted;
+  fprintf ppf "@[<hv 2>`%a%t%a@]" (may_highlight print_lident) field.name pr_of
     (print_typlist print_out_type and_sep)
-    tyl
+    field.argument_conjunction;
+  highlight_close_if ppf hfield.highlighted
 and print_typlist : 'a . (_ -> 'a -> _) -> _ -> _ -> 'a list -> _ =
   fun print_elem sep ppf tyl ->
   match tyl with

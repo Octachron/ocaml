@@ -58,7 +58,7 @@ Lines 5-7, characters 10-5:
 5 | ..........(object
 6 |     method f _ = 0
 7 |  end)..
-Error: This expression has type "< f : 'a -> int >"
+Error: This expression has type "!(< f : 'a -> int >)"
        but an expression was expected of type "!(t_a)"
        The method "f" has type "'a -> int", but the expected method type was
        "'a0. 'a0 -> int"
@@ -91,7 +91,7 @@ let f: 'a. ([> `A ] as 'a) -> [ `A ] = fun x -> x
 Line 1, characters 48-49:
 1 | let f: 'a. ([> `A ] as 'a) -> [ `A ] = fun x -> x
                                                     ^
-Error: The value "x" has type "[> `A ]" but an expression was expected of type
+Error: The value "x" has type "[!(> )`A ]" but an expression was expected of type
          "[ `A ]"
        The first variant type is bound to the universal type variable "'a",
        it cannot be closed
@@ -103,7 +103,7 @@ Line 1, characters 48-49:
 1 | let f: 'a. [ `A ] -> ([> `A ] as 'a) = fun x -> x
                                                     ^
 Error: The value "x" has type "[ `A ]" but an expression was expected of type
-         "[> `A ]"
+         "[!(> )`A ]"
        The second variant type is bound to the universal type variable "'a",
        it cannot be closed
 |}]
@@ -114,8 +114,8 @@ let f: 'a. [ `A | `B ] -> ([> `A ] as 'a) = fun x -> x
 Line 1, characters 53-54:
 1 | let f: 'a. [ `A | `B ] -> ([> `A ] as 'a) = fun x -> x
                                                          ^
-Error: The value "x" has type "[ `A | `B ]"
-       but an expression was expected of type "[> `A ]"
+Error: The value "x" has type "[ `A | !(`B) ]"
+       but an expression was expected of type "[!(> )`A ]"
        The second variant type is bound to the universal type variable "'a",
        it cannot be closed
 |}]
@@ -126,7 +126,7 @@ let f: 'a. [> `A | `B | `C ] -> ([> `A ] as 'a) = fun x -> x
 Line 1, characters 59-60:
 1 | let f: 'a. [> `A | `B | `C ] -> ([> `A ] as 'a) = fun x -> x
                                                                ^
-Error: The value "x" has type "[> `A | `B | `C ]"
+Error: The value "x" has type "[> `A | !(`B) | !(`C) ]"
        but an expression was expected of type "[> `A ]"
        The second variant type is bound to the universal type variable "'a",
        it may not allow the tag(s) "`B", "`C"

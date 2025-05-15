@@ -45,7 +45,7 @@ let _ = print_int `Cons
 Line 1, characters 18-23:
 1 | let _ = print_int `Cons
                       ^^^^^
-Error: The constructor "`Cons" has type "[> `Cons ]"
+Error: The constructor "`Cons" has type "!([> `Cons ])"
        but an expression was expected of type "!(int)"
 |}]
 

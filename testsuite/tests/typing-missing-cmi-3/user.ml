@@ -34,7 +34,7 @@ Line 1, characters 19-20:
                        ^
 Error: The value "x" has type "(module Original.T)"
        but an expression was expected of type
-         "(module Original.T with type t = int)"
+         "(module Original.T with type !(t) = int)"
        There is no type "t" in the first module type.
 |}]
 
@@ -74,7 +74,7 @@ module type T1 = sig type t = int end
 Line 2, characters 12-45:
 2 | let foo x = (x : Middle.pack1 :> (module T1))
                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Error: Type "!(Middle.pack1)" = "(module Original.T with type t = int)"
+Error: Type "!(Middle.pack1)" = "(module Original.T with type !(t) = int)"
        is not a subtype of "(module T1)"
        The module alias "Original.T" could not be expanded
 |}]
@@ -86,7 +86,7 @@ module type T2 = sig module M : sig type t = int end end
 Line 2, characters 12-45:
 2 | let foo x = (x : Middle.pack2 :> (module T2))
                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Error: Type "!(Middle.pack2)" = "(module Middle.T with type M.t = int)"
+Error: Type "!(Middle.pack2)" = "(module Middle.T with type !(M.t) = int)"
        is not a subtype of "(module T2)"
        The module alias "Original.T" could not be expanded
 |}]

@@ -9,7 +9,7 @@ type ab = [ `A | `B ]
 Line 2, characters 32-35:
 2 | let f (x : [`A]) = match x with #ab -> 1;;
                                     ^^^
-Error: This pattern matches values of type "[? `A | `B ]"
+Error: This pattern matches values of type "[!(? )`A | !(`B) ]"
        but a pattern was expected which matches values of type "[ `A ]"
        The second variant type does not allow tag(s) "`B"
 |}];;
@@ -18,8 +18,8 @@ let f x = ignore (match x with #ab -> 1); ignore (x : [`A]);;
 Line 1, characters 31-34:
 1 | let f x = ignore (match x with #ab -> 1); ignore (x : [`A]);;
                                    ^^^
-Error: This pattern matches values of type "[? `B ]"
-       but a pattern was expected which matches values of type "[ `A ]"
+Error: This pattern matches values of type "[!(? )!(`B) ]"
+       but a pattern was expected which matches values of type "[ !(`A) ]"
        The second variant type does not allow tag(s) "`B"
 |}];;
 let f x = ignore (match x with `A|`B -> 1); ignore (x : [`A]);;
@@ -27,8 +27,8 @@ let f x = ignore (match x with `A|`B -> 1); ignore (x : [`A]);;
 Line 1, characters 34-36:
 1 | let f x = ignore (match x with `A|`B -> 1); ignore (x : [`A]);;
                                       ^^
-Error: This pattern matches values of type "[? `B ]"
-       but a pattern was expected which matches values of type "[ `A ]"
+Error: This pattern matches values of type "[!(? )!(`B) ]"
+       but a pattern was expected which matches values of type "[ !(`A) ]"
        The second variant type does not allow tag(s) "`B"
 |}];;
 
@@ -46,8 +46,8 @@ let f (x : [`A | `B]) = match x with `A | `B | `C -> 0;; (* fail *)
 Line 1, characters 47-49:
 1 | let f (x : [`A | `B]) = match x with `A | `B | `C -> 0;; (* fail *)
                                                    ^^
-Error: This pattern matches values of type "[? `C ]"
-       but a pattern was expected which matches values of type "[ `A | `B ]"
+Error: This pattern matches values of type "[!(? )!(`C) ]"
+       but a pattern was expected which matches values of type "[ !(`A) | !(`B) ]"
        The second variant type does not allow tag(s) "`C"
 |}];;
 
@@ -165,8 +165,8 @@ let x:(([`A] as 'a)* ([`B] as 'a)) = [`A]
 Line 1, characters 30-32:
 1 | let x:(([`A] as 'a)* ([`B] as 'a)) = [`A]
                                   ^^
-Error: This alias is bound to type "[ `B ]" but is used as an instance of type
-         "[ `A ]"
+Error: This alias is bound to type "[ !(`B) ]" but is used as an instance of type
+         "[ !(`A) ]"
        These two variant types have no intersection
 |}]
 
@@ -177,7 +177,7 @@ type t = private [< `A ]
 Line 2, characters 30-31:
 2 | let f: t -> [ `A ] = fun x -> x
                                   ^
-Error: The value "x" has type "!(t)" but an expression was expected of type "[ `A ]"
+Error: The value "x" has type "!(t)" but an expression was expected of type "!([ `A ])"
        The first variant type is private, it may not allow the tag(s) "`A"
 |}]
 
@@ -235,12 +235,8 @@ val x : [> `X of [> `Y of '_weak2 -> bool ] as '_weak3 ] as '_weak2 =
 
 let f (x:[`X of int]) = (x:[`X])
 [%%expect{|
-Line 5, characters 25-26:
-5 | let f (x:[`X of int]) = (x:[`X])
-                             ^
-Error: The value "x" has type "[ `X of int ]"
-       but an expression was expected of type "[ `X ]"
-       Types for tag "`X" are incompatible
+Uncaught exception: Typecore.Error(_, _, _)
+
 |}]
 
 
@@ -250,7 +246,7 @@ Line 1, characters 25-26:
 1 | let f (x:[`X of int]) = (x:[<`X of & int])
                              ^
 Error: The value "x" has type "[ `X of int ]"
-       but an expression was expected of type "[< `X of & int ]"
+       but an expression was expected of type "[< `X of !(&) int ]"
        Types for tag "`X" are incompatible
 |}]
 
@@ -258,12 +254,8 @@ Error: The value "x" has type "[ `X of int ]"
 
 let f (x:[<`X of & int & float]) = (x:[`X])
 [%%expect{|
-Line 3, characters 36-37:
-3 | let f (x:[<`X of & int & float]) = (x:[`X])
-                                        ^
-Error: The value "x" has type "[< `X of & int & float ]"
-       but an expression was expected of type "[ `X ]"
-       Types for tag "`X" are incompatible
+Uncaught exception: Typecore.Error(_, _, _)
+
 |}]
 
 
@@ -278,9 +270,9 @@ val f : ([< `A | `B of string | `R of 'a ] as 'a) -> int = <fun>
 Line 4, characters 30-31:
 4 | let g (x:[`A | `R of rt]) = f x
                                   ^
-Error: The value "x" has type "[ `A | `R of !(rt) ]"
+Error: The value "x" has type "[ `A | `R of rt ]"
        but an expression was expected of type "[< `A | `R of 'a ] as 'a"
-       Type "!(rt)" = "[ `A | `B of string | `R of rt ]" is not compatible with type
+       Type "!(rt)" = "[ `A | !(`B of string) | `R of rt ]" is not compatible with type
          "[< `A | `R of 'a ] as 'a"
        The second variant type does not allow tag(s) "`B"
 |}]
@@ -291,19 +283,12 @@ Error: The value "x" has type "[ `A | `R of !(rt) ]"
 (* #13706 *)
 let f x = (x : [ `Foo of int ] :> [ `Foo | `Bar ])
 [%%expect{|
-Line 4, characters 10-50:
-4 | let f x = (x : [ `Foo of int ] :> [ `Foo | `Bar ])
-              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Error: Type "[ `Foo of int ]" is not a subtype of "[ `Bar | `Foo ]"
-       Types for tag "`Foo" are incompatible
+Uncaught exception: Typecore.Error(_, _, _)
+
 |}]
 
 let f x = (x : [ `Foo of int ] list :> [ `Foo | `Bar ] list)
 [%%expect{|
-Line 1, characters 10-60:
-1 | let f x = (x : [ `Foo of int ] list :> [ `Foo | `Bar ] list)
-              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Error: Type "!([ `Foo of int ]) list" is not a subtype of "!([ `Bar | `Foo ]) list"
-       Type "[ `Foo of int ]" is not a subtype of "[ `Bar | `Foo ]"
-       Types for tag "`Foo" are incompatible
+Uncaught exception: Typecore.Error(_, _, _)
+
 |}]

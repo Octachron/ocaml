@@ -519,7 +519,7 @@ end
 Line 3, characters 12-17:
 3 |   method id x = x
                 ^^^^^
-Error: This method has type "'a -> 'a" which is less general than "'b. 'b -> 'a"
+Error: This method has type "'a!( ->) 'a" which is less general than "!('b. 'b -> 'a)"
 |}];;
 
 class id2 (x : 'a) = object
@@ -531,7 +531,7 @@ end
 Line 3, characters 12-17:
 3 |   method id x = x
                 ^^^^^
-Error: This method has type "'a -> 'a" which is less general than "'b. 'b -> 'a"
+Error: This method has type "'a!( ->) 'a" which is less general than "!('b. 'b -> 'a)"
 |}];;
 
 class id3 x = object
@@ -544,7 +544,7 @@ end
 Line 4, characters 12-17:
 4 |   method id _ = x
                 ^^^^^
-Error: This method has type "'b -> 'b" which is less general than "'a. 'a -> 'a"
+Error: This method has type "'b!( ->) 'b" which is less general than "!('a. 'a -> 'a)"
 |}];;
 
 class id4 () = object
@@ -562,7 +562,7 @@ Lines 4-7, characters 12-17:
 5 |     match r with
 6 |       None -> r <- Some x; x
 7 |     | Some y -> y
-Error: This method has type "'b -> 'b" which is less general than "'a. 'a -> 'a"
+Error: This method has type "'b!( ->) 'b" which is less general than "!('a. 'a -> 'a)"
 |}];;
 
 class c = object
@@ -1156,9 +1156,9 @@ let f x =
 Line 2, characters 3-4:
 2 |   (x : <m : 'b. 'b * ('b * <m : 'c. 'c * ('c * 'bar)>)> as 'bar);;
        ^
-Error: The value "x" has type "< m : 'b. !('b) * (!('b) * < m : 'c. 'c * 'a > as 'a) >"
+Error: The value "x" has type "< m : 'b. 'b * ('b * < m : 'c. 'c * 'a > as 'a) >"
        but an expression was expected of type
-         "< m : 'b. 'b * ('b * < m : 'c. !('c) * (!('c) * 'd) >) > as 'd"
+         "< m : 'b. 'b * ('b * < m : 'c. 'c * (!('c) * 'd) >) > as 'd"
        The method "m" has type "'c. 'c * ('b * < m : 'c. 'e >) as 'e",
        but the expected method type was
        "'c. 'c * ('c * < m : 'b. 'b * ('b * < m : 'c. 'f >) >) as 'f"
@@ -1285,7 +1285,7 @@ type u = private [< t ]
 Line 6, characters 9-21:
 6 | fun x -> (x : v :> u);;
              ^^^^^^^^^^^^
-Error: Type "!(v)" = "[> `A | `B ]" is not a subtype of "!(u)" = "[< `A | `B ]"
+Error: Type "!(v)" = "[!(> )`A | `B ]" is not a subtype of "!(u)" = "[!(< )`A | `B ]"
 |}];;
 
 let f1 x =
@@ -1307,8 +1307,8 @@ Lines 2-3, characters 2-47:
 2 | ..(x : <m:'a. (<p:int;..> as 'a) -> int>
 3 |     :> <m:'b. (<p:int;q:int;..> as 'b) -> int>)..
 Error: Type "< m : 'a. (< p : int; .. > as 'a) -> int >" is not a subtype of
-         "< m : 'b. (< p : int; q : int; .. > as 'b) -> int >"
-       Type "< p : int; q : int; .. >" is not a subtype of "< p : int; .. >"
+         "< m : 'b. (< p : int; !(q) : int; .. > as 'b) -> int >"
+       Type "< p : int; !(q) : int; .. >" is not a subtype of "< p : int; .. >"
 |}];;
 
 (* Keep sharing the epsilons *)
@@ -1431,8 +1431,8 @@ val d : ('a * 'a) t -> int = <fun>
 Line 9, characters 2-46:
 9 |   function Leaf x -> x | Node x -> 1 + depth x;; (* fails *)
       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Error: This definition has type "int t -> int" which is less general than
-         "'a. 'a t -> int"
+Error: This definition has type "int t!( ->) int" which is less general than
+         "!('a. 'a t -> int)"
 |}];;
 
 (* compare with records (should be the same) *)
@@ -1447,8 +1447,8 @@ type t = { f : 'a. [< `Int of int ] as 'a; }
 Line 4, characters 16-22:
 4 | let zero = {f = `Int 0} ;; (* fails *)
                     ^^^^^^
-Error: This constructor has type "[> `Int of int ]"
-       but an expression was expected of type "[< `Int of int ]"
+Error: This constructor has type "[!(> )`Int of int ]"
+       but an expression was expected of type "[!(< )`Int of int ]"
        The second variant type is bound to the universal type variable "'a",
        it may not allow the tag(s) "`Int"
 |}];;
@@ -1500,8 +1500,8 @@ type t = { f : 'a. 'a -> unit; }
 Line 3, characters 19-20:
 3 | let f ?x y = y in {f};; (* fail *)
                        ^
-Error: This field value has type "unit -> unit" which is less general than
-         "'a. 'a -> unit"
+Error: This field value has type "unit!( ->) unit" which is less general than
+         "!('a. 'a -> unit)"
 |}];;
 
 (* Polux Moon caml-list 2011-07-26 *)
@@ -1588,7 +1588,7 @@ let (n : < m : 'a. [< `Foo of int] -> 'a >) =
 Line 2, characters 2-72:
 2 |   object method m : 'x. [< `Foo of 'x] -> 'x = fun x -> assert false end;;
       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Error: This expression has type "< m : 'b 'x. ([< `Foo of !('x) ] as 'b) -> !('x) >"
+Error: This expression has type "< m : 'b 'x. ([< `Foo of !('x) ] as 'b) -> 'x >"
        but an expression was expected of type
          "< m : 'a. [< `Foo of !(int) ] -> 'a >"
        Types for tag "`Foo" are incompatible
@@ -1600,7 +1600,7 @@ let (n : 'b -> < m : 'a . ([< `Foo of int] as 'b) -> 'a >) = fun x ->
 Line 2, characters 2-72:
 2 |   object method m : 'x. [< `Foo of 'x] -> 'x = fun x -> assert false end;;
       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Error: This expression has type "< m : 'b 'x. ([< `Foo of !('x) ] as 'b) -> !('x) >"
+Error: This expression has type "< m : 'b 'x. ([< `Foo of !('x) ] as 'b) -> 'x >"
        but an expression was expected of type
          "< m : 'a. [< `Foo of !(int) ] -> 'a >"
        Types for tag "`Foo" are incompatible
@@ -1898,8 +1898,8 @@ let rec foo : 'a . 'a -> 'd = fun x -> x
 Line 1, characters 30-40:
 1 | let rec foo : 'a . 'a -> 'd = fun x -> x
                                   ^^^^^^^^^^
-Error: This definition has type "'b -> 'b" which is less general than
-         "'a. 'a -> 'c"
+Error: This definition has type "'b!( ->) 'b" which is less general than
+         "!('a. 'a -> 'c)"
 |}]
 
 (* #7741 *)
@@ -1921,7 +1921,7 @@ Lines 1-3, characters 15-3:
 1 | ...............object
 2 |   method x : 'b . 'b s list = [S]
 3 | end
-Error: This expression has type "< x : 'b. 'b s list >"
+Error: This expression has type "!(< x : 'b. 'b s list >)"
        but an expression was expected of type "'a !(c)"
        The method "x" has type "'b. 'b s list", but the expected method type was
        "'a list"
@@ -1957,7 +1957,7 @@ Lines 1-3, characters 15-3:
 1 | ...............object
 2 |   method x : 'b . 'b s list = []
 3 | end
-Error: This expression has type "< x : 'b. 'b s list >"
+Error: This expression has type "!(< x : 'b. 'b s list >)"
        but an expression was expected of type "'a !(c)"
        The method "x" has type "'b. 'b s list", but the expected method type was
        "'a list"
@@ -2032,8 +2032,8 @@ let fail: 'a . 'a -> [> `X of 'a ] -> 'a = fun x y ->
 Line 3, characters 4-6:
 3 |   | `Y -> x
         ^^
-Error: This pattern matches values of type "[? `Y ]"
-       but a pattern was expected which matches values of type "[> `X of 'a ]"
+Error: This pattern matches values of type "[? !(`Y) ]"
+       but a pattern was expected which matches values of type "[> !(`X of 'a) ]"
        The second variant type is bound to the universal type variable "'b",
        it may not allow the tag(s) "`Y"
 |}]
@@ -2061,7 +2061,7 @@ let explicitly_quantified_row: 'a 'r. (<x:'a; ..> as 'r) -> 'a = fun o -> o#y ()
 Line 1, characters 65-85:
 1 | let explicitly_quantified_row: 'a 'r. (<x:'a; ..> as 'r) -> 'a = fun o -> o#y (); o#x
                                                                      ^^^^^^^^^^^^^^^^^^^^
-Error: This definition has type "'b. < x : 'b; y : unit -> 'c; .. > -> 'b"
+Error: This definition has type "'b. < x : 'b; !(y) : unit -> 'c; .. > -> 'b"
        which is less general than "'a 'd. (< x : 'a; .. > as 'd) -> 'a"
 |}]
 

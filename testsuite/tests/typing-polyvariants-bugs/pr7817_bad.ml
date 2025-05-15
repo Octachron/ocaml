@@ -30,7 +30,7 @@ Error: Signature mismatch:
        is not included in
          val write : [< `A of string | `B of int ] -> unit
        The type "([< `A of '_weak3 | `B of '_weak4 ] as '_weak2) -> unit"
-       is not compatible with the type "!([< `A of string | `B of int ]) -> unit"
+       is not compatible with the type "[< `A of string | `B of int ] -> unit"
        Type "[< `A of '_weak3 | `B of '_weak4 ] as '_weak2"
        is not compatible with type "[< `A of string | `B of int ]"
 |}]

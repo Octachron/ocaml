@@ -766,7 +766,7 @@ let f : type a b. (a,b) eq -> < m : a; .. > -> < m : b > =
 Line 3, characters 44-45:
 3 |     let r : < m : b > = match eq with Eq -> o in (* fail *)
                                                 ^
-Error: The value "o" has type "< m : !(a); .. >"
+Error: The value "o" has type "< m : !(a); !(..) >"
        but an expression was expected of type "< m : !(b) >"
        Type "!(a)" is not compatible with type "!(b)" = "!(a)"
        This instance of "a" is ambiguous:
@@ -841,7 +841,7 @@ Lines 1-5, characters 4-5:
 Error: This expression has type
          "('a, 'b) eq -> [ `A of 'a | `B ] -> [ `A of 'b | `B ]"
        but an expression was expected of type
-         "('a, 'b) eq -> [> `A of 'a | `B ] -> [ `A of 'b | `B ]"
+         "('a, 'b) eq -> [!(> )`A of 'a | `B ] -> [ `A of 'b | `B ]"
        The second variant type is bound to the universal type variable "'c",
        it cannot be closed
 |}, Principal{|
@@ -864,7 +864,7 @@ let f : type a b. (a,b) eq -> [> `A of a | `B] -> [`A of b | `B] =
 Line 3, characters 49-50:
 3 |     let r : [`A of b | `B] = match eq with Eq -> o in (* fail *)
                                                      ^
-Error: The value "o" has type "[> `A of !(a) | `B ]"
+Error: The value "o" has type "[!(> )`A of !(a) | `B ]"
        but an expression was expected of type "[ `A of !(b) | `B ]"
        Type "!(a)" is not compatible with type "!(b)" = "!(a)"
        This instance of "a" is ambiguous:
@@ -1067,9 +1067,9 @@ type _ int_bar = IB_constr : < bar : int; .. > int_bar
 Line 10, characters 3-4:
 10 |   (x:<foo:int>)
         ^
-Error: The value "x" has type "t" = "< foo : int; .. >"
+Error: The value "x" has type "t" = "< foo : int; !(..) >"
        but an expression was expected of type "< foo : int >"
-       Type "!($0)" = "< bar : int; .. >" is not compatible with type "<  >"
+       Type "!($0)" = "< !(bar) : int; !(..) >" is not compatible with type "<  >"
        The second object type has no method "bar"
 |}];;
 
@@ -1081,9 +1081,9 @@ let g (type t) (x:t) (e : t int_foo) (e' : t int_bar) =
 Line 3, characters 3-4:
 3 |   (x:<foo:int;bar:int>)
        ^
-Error: The value "x" has type "t" = "< foo : int; .. >"
-       but an expression was expected of type "< bar : int; foo : int >"
-       Type "!($0)" = "< bar : int; .. >" is not compatible with type "< bar : int >"
+Error: The value "x" has type "t" = "< foo : int; !(..) >"
+       but an expression was expected of type "< !(bar) : int; foo : int >"
+       Type "!($0)" = "< bar : int; !(..) >" is not compatible with type "< bar : int >"
        The first object type has an abstract row, it cannot be closed
 |}];;
 
@@ -1095,14 +1095,14 @@ let g (type t) (x:t) (e : t int_foo) (e' : t int_bar) =
 Line 3, characters 2-26:
 3 |   (x:<foo:int;bar:int;..>)
       ^^^^^^^^^^^^^^^^^^^^^^^^
-Error: This expression has type "< bar : int; foo : int; .. >"
+Error: This expression has type "!(< bar : int; foo : int; .. >)"
        but an expression was expected of type "!('a)"
        The type constructor "$1" would escape its scope
 |}, Principal{|
 Line 3, characters 2-26:
 3 |   (x:<foo:int;bar:int;..>)
       ^^^^^^^^^^^^^^^^^^^^^^^^
-Error: This expression has type "< bar : int; foo : int; .. >"
+Error: This expression has type "!(< bar : int; foo : int; .. >)"
        but an expression was expected of type "!('a)"
        This instance of "$1" is ambiguous:
        it would escape the scope of its equation
@@ -1301,7 +1301,7 @@ Line 8, characters 2-3:
 8 |   z#m
       ^
 Error: This expression has type "!(M.t)" but an expression was expected of type
-         "< m : 'a; .. >"
+         "!(< m : 'a; .. >)"
        This instance of "< m : int >" is ambiguous:
        it would escape the scope of its equation
 |}]
@@ -1322,7 +1322,7 @@ Line 8, characters 2-3:
 8 |   z#m
       ^
 Error: This expression has type "!(M.t)" but an expression was expected of type
-         "< m : 'a; .. >"
+         "!(< m : 'a; .. >)"
        This instance of "< m : int >" is ambiguous:
        it would escape the scope of its equation
 |}]
@@ -1348,7 +1348,7 @@ Line 9, characters 4-5:
 9 |     z#b
         ^
 Error: This expression has type "!($a)" = "< b : bool >"
-       but an expression was expected of type "< b : 'a; .. >"
+       but an expression was expected of type "< b : 'a; !(..) >"
        This instance of "< b : bool >" is ambiguous:
        it would escape the scope of its equation
        Hint: "$a" is an existential type bound by the constructor "C".
@@ -1376,7 +1376,7 @@ Line 9, characters 4-5:
 9 |     z#b
         ^
 Error: This expression has type "!($a)" = "< b : bool >"
-       but an expression was expected of type "< b : 'a; .. >"
+       but an expression was expected of type "< b : 'a; !(..) >"
        This instance of "< b : bool >" is ambiguous:
        it would escape the scope of its equation
        Hint: "$a" is an existential type bound by the constructor "C".

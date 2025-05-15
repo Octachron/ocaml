@@ -713,7 +713,7 @@ Error: Signature mismatch:
          val f : (#c as 'a) -> 'a
        is not included in
          val f : #c -> #c
-       The type "(#c as 'a) -> 'a" is not compatible with the type "#c -> #!(c)"
+       The type "(#c as 'a) -> 'a" is not compatible with the type "#c -> #c"
        Type "#c as 'a" = "< m : 'a; .. >" is not compatible with type
          "#c as 'b" = "< m : 'b; .. >"
        Type "!('a)" is not compatible with type "!('b)"
@@ -741,7 +741,7 @@ fun x -> (x : int -> bool :> 'a -> 'a);;
 Line 1, characters 9-38:
 1 | fun x -> (x : int -> bool :> 'a -> 'a);;
              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Error: Type "int -> !(bool)" is not a subtype of "!(int) -> !(int)"
+Error: Type "int -> !(bool)" is not a subtype of "int -> !(int)"
        Type "!(bool)" is not a subtype of "!(int)"
 |}];;
 fun x -> (x : int -> bool :> int -> int);;
@@ -1023,8 +1023,8 @@ class ['a] c : object ('a) constraint 'a = < .. > end
 Line 4, characters 14-25:
 4 |     inherit [ < m : int > ] c
                   ^^^^^^^^^^^
-Error: The type parameter "< m : int >"
-       does not meet its constraint: it should be "< .. >"
+Error: The type parameter "< !(m) : int >"
+       does not meet its constraint: it should be "< !(..) >"
        Self type cannot be unified with a closed object type
 |}];;
 
@@ -1073,9 +1073,9 @@ Lines 3-5, characters 8-3:
 Error: The class type object ('a) method m : < m : 'a; .. > as 'a end
        is not matched by the class type
          object method m : < m : 'a > as 'a end
-       The method m has type "< m : 'a; .. > as 'a"
+       The method m has type "< m : 'a; !(..) > as 'a"
        but is expected to have type "< m : 'b > as 'b"
-       Type "!('a)" is not compatible with type "<  >"
+       Type "!('a)" is not compatible with type "!(<  >)"
 |}];;
 
 class c :
@@ -1132,10 +1132,10 @@ Error: The class type
          object ('a) method m : (< m : 'a -> unit; .. > as 'a) -> unit end
        is not matched by the class type
          object method m : < m : 'a; x : int; .. > -> unit as 'a end
-       The method m has type "(< m : 'a -> unit; .. > as 'a) -> unit"
+       The method m has type "(< m : 'a -> unit; .. > as 'a)!( ->) unit"
        but is expected to have type
-         "'b. (< m : 'c; x : int; .. > as 'b) -> unit as 'c"
-       Type "!('a)" is not compatible with type "< x : int; .. >"
+         "!('b. (< m : 'c; x : int; .. > as 'b) -> unit as 'c)"
+       Type "!('a)" is not compatible with type "!(< x : int; .. >)"
 |}];;
 
 let is_empty (x : < >) = ()
@@ -1145,7 +1145,7 @@ val is_empty : <  > -> unit = <fun>
 Line 2, characters 54-58:
 2 | class c = object (self) method private foo = is_empty self end;;
                                                           ^^^^
-Error: The value "self" has type "< .. >" but an expression was expected of type
+Error: The value "self" has type "< !(..) >" but an expression was expected of type
          "<  >"
        Self type cannot be unified with a closed object type
 |}];;
@@ -1240,7 +1240,7 @@ Line 1, characters 41-45:
 1 | let o = object(self) initializer has_foo self end;;
                                              ^^^^
 Error: The value "self" has type "<  >" but an expression was expected of type
-         "< foo : int; .. >"
+         "< !(foo) : int; !(..) >"
        The first object type has no method "foo"
 |}];;
 

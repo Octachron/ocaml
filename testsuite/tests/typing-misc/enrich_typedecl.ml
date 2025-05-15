@@ -31,7 +31,7 @@ Error: Signature mismatch:
          type t = A.t = A | B
        is not included in
          type t = int * string
-       The type "!(A.t)" is not equal to the type "int * string"
+       The type "!(A.t)" is not equal to the type "int !(*) string"
 |}]
 
 module rec B : sig
@@ -160,7 +160,7 @@ Error: Signature mismatch:
          type 'a t = 'a E.t = A of 'a | B
        is not included in
          type 'a t = 'a constraint 'a = [> `Foo ]
-       The type "!('a)" is not equal to the type "[> `Foo ]"
+       The type "!('a)" is not equal to the type "!([> `Foo ])"
 |}];;
 
 module rec E2 : sig
@@ -192,7 +192,7 @@ Error: Signature mismatch:
          type 'a t = 'a E2.t = A of 'a | B
        is not included in
          type 'a t = [ `Foo ]
-       The type "'a !(E2.t)" is not equal to the type "[ `Foo ]"
+       The type "'a !(E2.t)" is not equal to the type "!([ `Foo ])"
 |}];;
 
 module rec E3 : sig
@@ -224,7 +224,7 @@ Error: Signature mismatch:
          type 'a t = 'a E3.t = A of 'a | B
        is not included in
          type 'a t = 'a constraint 'a = [< `Foo ]
-       The type "!('a)" is not equal to the type "[< `Foo ]"
+       The type "!('a)" is not equal to the type "!([< `Foo ])"
 |}];;
 
 

@@ -208,7 +208,7 @@ Line 1, characters 27-28:
 1 | let c'' = new color_circle p;;
                                ^
 Error: The value "p" has type "!(point)" but an expression was expected of type
-         "#color_point"
+         "#!(color_point)"
        The first object type has no method "color"
 |}];;
 let c'' = new color_circle p';;
@@ -227,7 +227,7 @@ Line 1, characters 0-21:
     ^^^^^^^^^^^^^^^^^^^^^
 Error: Type
          "color_point color_circle" =
-           "< center : color_point; color : string; move : int -> unit;
+           "< center : color_point; !(color) : string; move : int -> unit;
              set_center : color_point -> unit >"
        is not a subtype of
          "point circle" =
@@ -242,7 +242,7 @@ Line 1, characters 9-55:
              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: Type
          "color_point color_circle" =
-           "< center : color_point; color : string; move : int -> unit;
+           "< center : color_point; !(color) : string; move : int -> unit;
              set_center : color_point -> unit >"
        is not a subtype of
          "point circle" =
@@ -544,13 +544,13 @@ Line 1, characters 6-28:
           ^^^^^^^^^^^^^^^^^^^^^^
 Error: Type
          "int_comparable2" =
-           "< cmp : int_comparable2 -> int; set_x : int -> unit; x : int >"
+           "< cmp : int_comparable2 -> int; !(set_x) : int -> unit; x : int >"
        is not a subtype of
          "int_comparable" = "< cmp : int_comparable -> int; x : int >"
        Type "!(int_comparable)" = "< cmp : int_comparable -> int; x : int >"
        is not a subtype of
          "!(int_comparable2)" =
-           "< cmp : int_comparable2 -> int; set_x : int -> unit; x : int >"
+           "< cmp : int_comparable2 -> int; !(set_x) : int -> unit; x : int >"
        The first object type has no method "set_x"
 |}];;      (* Fail : 'a comp2 is not a subtype *)
 (new sorted_list ())#add c2;;
@@ -590,12 +590,12 @@ Line 1, characters 25-27:
                              ^^
 Error: The value "c3" has type
          "int_comparable3" =
-           "< cmp : !(int_comparable) -> int; setx : int -> unit; x : int >"
+           "< cmp : int_comparable -> int; !(setx) : int -> unit; !(x) : int >"
        but an expression was expected of type
-         "#comparable as 'a" = "< cmp : 'a -> int; .. >"
-       Type "!(int_comparable)" = "< cmp : int_comparable -> int; x : int >"
+         "#comparable as 'a" = "< cmp : 'a -> int; !(..) >"
+       Type "!(int_comparable)" = "< cmp : int_comparable -> int; !(x) : int >"
        is not compatible with type
-         "#comparable as 'a" = "< cmp : 'a -> int; .. >"
+         "!(#comparable as 'a)" = "< cmp : 'a -> int; !(..) >"
        The first object type has no method "setx"
 |}];;   (* Error; strange message with -principal *)
 

@@ -239,7 +239,7 @@ Line 3, characters 4-8:
 3 |     let+ x = 1 in
         ^^^^
 Error: The operator "let+" has type "!(int)" but it was expected to have type
-         "'a -> ('b -> 'c) -> 'd"
+         "'a!( ->) ('b -> 'c) -> 'd"
 |}];;
 
 module Ill_typed_4 = struct
@@ -265,7 +265,7 @@ Line 4, characters 4-8:
         ^^^^
 Error: The operator "and+" has type "bool -> !(bool)"
        but it was expected to have type "bool -> 'a!( ->) 'b"
-       Type "!(bool)" is not compatible with type "'a -> 'b"
+       Type "!(bool)" is not compatible with type "'a!( ->) 'b"
 |}];;
 
 module Ill_typed_5 = struct
@@ -294,7 +294,7 @@ Lines 3-5, characters 9-14:
 3 | .........x = 1
 4 |     and+ y = 2
 5 |     and+ z = 3...
-Error: These bindings have type "(int * int) * int"
+Error: These bindings have type "(int * int) !(*) int"
        but bindings were expected of type "!(bool)"
 |}];;
 
@@ -323,7 +323,7 @@ let ill_typed_6 =
 Lines 3-4, characters 9-14:
 3 | .........x = 1
 4 |     and+ y = 2
-Error: These bindings have type "int * int" but bindings were expected of type
+Error: These bindings have type "int !(*) int" but bindings were expected of type
          "!(int)"
 |}];;
 
@@ -354,7 +354,7 @@ Line 3, characters 4-8:
         ^^^^
 Error: The operator "let+" has type "(int -> 'a) -> !(int) -> 'a"
        but it was expected to have type "(int -> 'a) -> 'b * 'c!( ->) 'd -> 'e"
-       Type "!(int)" is not compatible with type "'b * 'c -> 'd"
+       Type "!(int)" is not compatible with type "'b * 'c!( ->) 'd"
 |}];;
 
 module Indexed_monad = struct

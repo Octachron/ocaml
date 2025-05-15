@@ -103,7 +103,7 @@ let f = function
 Line 6, characters 6-8:
 6 |     | `C -> ()
           ^^
-Error: This pattern matches values of type "[? `C ]"
+Error: This pattern matches values of type "!([? `C ])"
        but a pattern was expected which matches values of type "!(t)"
        The second variant type does not allow tag(s) "`C"
 |}]

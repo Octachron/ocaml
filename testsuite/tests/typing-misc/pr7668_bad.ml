@@ -93,9 +93,9 @@ Error: Signature mismatch:
          "[ `A of int | `B of [ `BA | `BB of unit list ] | `C of unit ] ->
          !([> `B of [> `BA | `BB of int list ] | `C of unit ])"
        is not compatible with the type "t -> !(t)"
-       Type "[> `B of [> `BA | `BB of !(int) list ] | `C of unit ]"
+       Type "[!(> )`B of [!(> )`BA | `BB of !(int) list ] | `C of unit ]"
        is not compatible with type
-         "t" = "[ `A of int | `B of [ `BA | `BB of unit list ] | `C of unit ]"
+         "t" = "[ !(`A of int) | `B of [ `BA | `BB of unit list ] | `C of unit ]"
        Types for tag "`BB" are incompatible
 |}, Principal{|
 Lines 8-27, characters 6-3:
@@ -134,8 +134,8 @@ Error: Signature mismatch:
          "[ `A of int | `B of [ `BA | `BB of unit list ] | `C of unit ] ->
          !([> `B of [> `BA | `BB of int list ] | `C of unit ])"
        is not compatible with the type "t -> !(t)"
-       Type "[> `B of [> `BA | `BB of !(int) list ] | `C of unit ]"
+       Type "[!(> )`B of [!(> )`BA | `BB of !(int) list ] | `C of unit ]"
        is not compatible with type
-         "t" = "[ `A of int | `B of [ `BA | `BB of !(unit) list ] | `C of unit ]"
+         "t" = "[ !(`A of int) | `B of [ `BA | `BB of !(unit) list ] | `C of unit ]"
        Types for tag "`BB" are incompatible
 |}]
