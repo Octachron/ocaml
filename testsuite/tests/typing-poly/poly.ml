@@ -519,7 +519,7 @@ end
 Line 3, characters 12-17:
 3 |   method id x = x
                 ^^^^^
-Error: This method has type "'a!( ->) 'a" which is less general than "!('b. 'b -> 'a)"
+Error: This method has type "'a !(->) 'a" which is less general than "!('b. 'b -> 'a)"
 |}];;
 
 class id2 (x : 'a) = object
@@ -531,7 +531,7 @@ end
 Line 3, characters 12-17:
 3 |   method id x = x
                 ^^^^^
-Error: This method has type "'a!( ->) 'a" which is less general than "!('b. 'b -> 'a)"
+Error: This method has type "'a !(->) 'a" which is less general than "!('b. 'b -> 'a)"
 |}];;
 
 class id3 x = object
@@ -544,7 +544,7 @@ end
 Line 4, characters 12-17:
 4 |   method id _ = x
                 ^^^^^
-Error: This method has type "'b!( ->) 'b" which is less general than "!('a. 'a -> 'a)"
+Error: This method has type "'b !(->) 'b" which is less general than "!('a. 'a -> 'a)"
 |}];;
 
 class id4 () = object
@@ -562,7 +562,7 @@ Lines 4-7, characters 12-17:
 5 |     match r with
 6 |       None -> r <- Some x; x
 7 |     | Some y -> y
-Error: This method has type "'b!( ->) 'b" which is less general than "!('a. 'a -> 'a)"
+Error: This method has type "'b !(->) 'b" which is less general than "!('a. 'a -> 'a)"
 |}];;
 
 class c = object
@@ -1431,7 +1431,7 @@ val d : ('a * 'a) t -> int = <fun>
 Line 9, characters 2-46:
 9 |   function Leaf x -> x | Node x -> 1 + depth x;; (* fails *)
       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Error: This definition has type "int t!( ->) int" which is less general than
+Error: This definition has type "int t !(->) int" which is less general than
          "!('a. 'a t -> int)"
 |}];;
 
@@ -1500,7 +1500,7 @@ type t = { f : 'a. 'a -> unit; }
 Line 3, characters 19-20:
 3 | let f ?x y = y in {f};; (* fail *)
                        ^
-Error: This field value has type "unit!( ->) unit" which is less general than
+Error: This field value has type "unit !(->) unit" which is less general than
          "!('a. 'a -> unit)"
 |}];;
 
@@ -1898,7 +1898,7 @@ let rec foo : 'a . 'a -> 'd = fun x -> x
 Line 1, characters 30-40:
 1 | let rec foo : 'a . 'a -> 'd = fun x -> x
                                   ^^^^^^^^^^
-Error: This definition has type "'b!( ->) 'b" which is less general than
+Error: This definition has type "'b !(->) 'b" which is less general than
          "!('a. 'a -> 'c)"
 |}]
 

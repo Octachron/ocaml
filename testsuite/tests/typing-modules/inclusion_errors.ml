@@ -748,7 +748,7 @@ Error: Signature mismatch:
        is not included in
          val f : int * float * int -> int -> int
        The type "int !(*) int -> int !(*) int" is not compatible with the type
-         "int !(*) float !(*) int -> int!( ->) int"
+         "int !(*) float !(*) int -> int !(->) int"
        Type "int * int" is not compatible with type "int * float * !()int"
 |}];;
 
@@ -1805,7 +1805,7 @@ Error: Signature mismatch:
          type t = x:int -> int
        is not included in
          type t = int -> int
-       The type "!(x:)int -> int" is not equal to the type "!()int -> int"
+       The type "!(x):int -> int" is not equal to the type "int -> int"
        The first argument is labeled "x",
        but an unlabeled argument was expected
 |}]
@@ -1829,7 +1829,7 @@ Error: Signature mismatch:
          type t = x:int -> int
        is not included in
          type t = y:int -> int
-       The type "!(x:)int -> int" is not equal to the type "!(y:)int -> int"
+       The type "!(x):int -> int" is not equal to the type "!(y):int -> int"
        Labels "x" and "y" do not match
 |}]
 
@@ -1852,7 +1852,7 @@ Error: Signature mismatch:
          val f : x:'a -> unit
        is not included in
          val f : int -> unit
-       The type "!(x:)'a -> unit" is not compatible with the type "!()int -> unit"
+       The type "!(x):'a -> unit" is not compatible with the type "int -> unit"
        The first argument is labeled "x",
        but an unlabeled argument was expected
 |}]
@@ -1881,7 +1881,7 @@ Error: Signature mismatch:
          val f : ?x:'a -> unit
        is not included in
          val f : int -> unit
-       The type "!(?x:)'a -> unit" is not compatible with the type "!()int -> unit"
+       The type "?!(x):'a -> unit" is not compatible with the type "int -> unit"
        The first argument is labeled "?x",
        but an unlabeled argument was expected
 |}]
@@ -1911,7 +1911,7 @@ Error: Signature mismatch:
          val f : ?x:'a -> unit
        is not included in
          val f : x:int -> unit
-       The type "!(?x:)'a -> unit" is not compatible with the type "!(x:)int -> unit"
+       The type "?!(x):'a -> unit" is not compatible with the type "!(x):int -> unit"
        The label "?x" was expected to not be optional
 |}]
 
@@ -1940,7 +1940,7 @@ Error: Signature mismatch:
          val f : ?y:'a -> unit
        is not included in
          val f : ?x:int -> unit
-       The type "!(?y:)'a -> unit" is not compatible with the type "!(?x:)int -> unit"
+       The type "?!(y):'a -> unit" is not compatible with the type "?!(x):int -> unit"
        Labels "?y" and "?x" do not match
 |}]
 
@@ -1964,6 +1964,6 @@ Error: Signature mismatch:
          val f : 'a -> unit
        is not included in
          val f : ?x:int -> unit
-       The type "!()'a -> unit" is not compatible with the type "!(?x:)int -> unit"
+       The type "'a -> unit" is not compatible with the type "?!(x):int -> unit"
        A label "?x" was expected
 |}]

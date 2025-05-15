@@ -1132,7 +1132,7 @@ Error: The class type
          object ('a) method m : (< m : 'a -> unit; .. > as 'a) -> unit end
        is not matched by the class type
          object method m : < m : 'a; x : int; .. > -> unit as 'a end
-       The method m has type "(< m : 'a -> unit; .. > as 'a)!( ->) unit"
+       The method m has type "(< m : 'a -> unit; .. > as 'a) !(->) unit"
        but is expected to have type
          "!('b. (< m : 'c; x : int; .. > as 'b) -> unit as 'c)"
        Type "!('a)" is not compatible with type "!(< x : int; .. >)"

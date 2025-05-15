@@ -473,7 +473,7 @@ type 'a t3 = < m : 'b. (int -> 'b) as 'a >
 Line 1, characters 23-40:
 1 | type 'a t3 = < m : 'b. (int -> 'b) as 'a >
                            ^^^^^^^^^^^^^^^^^
-Error: This type "!('a)" should be an instance of type "int!( ->) 'b"
+Error: This type "!('a)" should be an instance of type "int !(->) 'b"
        The universal variable "'b" would escape its scope
 |}]
 
@@ -495,6 +495,6 @@ end
 Line 2, characters 17-34:
 2 |   method m : 'b. (int -> 'b) as 'a
                      ^^^^^^^^^^^^^^^^^
-Error: This type "!('a)" should be an instance of type "int!( ->) 'b"
+Error: This type "!('a)" should be an instance of type "int !(->) 'b"
        The universal variable "'b" would escape its scope
 |}]
