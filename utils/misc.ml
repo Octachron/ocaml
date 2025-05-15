@@ -875,7 +875,7 @@ module Style = struct
       error = no_markup [Bold; FG Red];
       loc = no_markup [Bold];
       hint = no_markup [Bold; FG Blue];
-      difference_highlight = no_markup [FG Cyan];
+      difference_highlight = no_markup [FG Red];
       inline_code= no_markup [Bold]
     }
 
