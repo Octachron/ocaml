@@ -93,10 +93,10 @@ let raise_trace_for
    trace information; sometimes it makes sense, however, since we're maintaining
    the trace at an outer exception handler. *)
 let raise_unexplained_for tr_exn =
-  raise_trace_for tr_exn []
+  raise_trace_for tr_exn Errortrace.empty
 
 let raise_for tr_exn e =
-  raise_trace_for tr_exn [e]
+  raise_trace_for tr_exn (Errortrace.root_explanation e)
 
 (* Thrown from [moregen_kind] *)
 exception Public_method_to_private_method
@@ -2235,12 +2235,12 @@ let expand_to_moregen_error env trace =
 (* Equivalent to [expand_trace env [Diff {got; expected}]] for a single
    element *)
 let expanded_diff env ~got ~expected =
-  Diff (map_diff (expand_type env) {got; expected})
+  map_diff (expand_type env) {got; expected}
 
 (* Diff while transforming a [type_expr] into an [expanded_type] without
    expanding *)
 let unexpanded_diff ~got ~expected =
-  Diff (map_diff trivial_expansion {got; expected})
+  map_diff trivial_expansion {got; expected}
 
 (**** Unification ****)
 
@@ -2815,7 +2815,7 @@ let rec unify uenv t1 t2 =
     reset_trace_gadt_instances reset_tracing;
   with Unify_trace trace ->
     reset_trace_gadt_instances reset_tracing;
-    raise_trace_for Unify (Diff {got = t1; expected = t2} :: trace)
+    raise_trace_for Unify (diff2 ~got:t1 ~expected:t2 trace)
 
 and unify2 uenv t1 t2 = unify2_expand uenv t1 t1 t2 t2
 
@@ -3100,7 +3100,7 @@ and unify_fields uenv ty1 ty2 =          (* Optimization *)
           unify uenv t1 t2
         with Unify_trace trace ->
           raise_trace_for Unify
-            (incompatible_fields ~name ~got:t1 ~expected:t2 :: trace)
+            (incompatible_fields ~name ~got:t1 ~expected:t2 trace)
       )
       pairs
   with exn ->
@@ -3210,7 +3210,8 @@ and unify_row uenv row1 row2 =
       (fun (l,f1,f2) ->
         try unify_row_field uenv fixed1 fixed2 rm1 rm2 l f1 f2
         with Unify_trace trace ->
-          raise_trace_for Unify (Variant (Incompatible_types_for l) :: trace)
+          raise_trace_for Unify
+            (late_explanation (Variant (Incompatible_types_for l)) trace)
       )
       pairs;
     if static_row row1 then begin
@@ -3228,7 +3229,7 @@ and unify_row_field uenv fixed1 fixed2 rm1 rm2 l f1 f2 =
     match fixed with
     | None -> f ()
     | Some fix ->
-        let tr = [Variant(Fixed_row(pos,Cannot_add_tags [l],fix))] in
+        let tr = variant(Fixed_row(pos,Cannot_add_tags [l],fix)) in
         raise_trace_for Unify tr in
   let first = First, fixed1 and second = Second, fixed2 in
   let either_fixed = match fixed1, fixed2 with
@@ -3315,9 +3316,9 @@ and unify_row_field uenv fixed1 fixed2 rm1 rm2 l f1 f2 =
   | Rpresent None, Reither(true, [], _) ->
       if_not_fixed second (fun () -> link_row_field_ext ~inside:f2 f1)
   | Rabsent, (Rpresent _ | Reither(_,_,true)) ->
-      raise_trace_for Unify [Variant(No_tags(First, [l,f1]))]
+      raise_trace_for Unify (variant(No_tags(First, [l,f1])))
   | (Rpresent _ | Reither (_,_,true)), Rabsent ->
-      raise_trace_for Unify [Variant(No_tags(Second, [l,f2]))]
+      raise_trace_for Unify (variant(No_tags(Second, [l,f2])))
   | (Rpresent (Some _) | Reither(false,_,_)),
     (Rpresent None | Reither(true,_,_))
   | (Rpresent None | Reither(true,_,_)),
@@ -3381,7 +3382,7 @@ let unify_var uenv t1 t2 =
         reset_trace_gadt_instances reset_tracing;
         raise (Unify (expand_to_unification_error
                         env
-                        (Diff { got = t1; expected = t2 } :: trace)))
+                        (diff2 ~got:t1 ~expected:t2 trace)))
       end
   | _ ->
       unify uenv t1 t2
@@ -3443,7 +3444,7 @@ let filter_arrow env t l =
                (Unification_error
                   (expand_to_unification_error
                      env
-                     (Diff { got = t'; expected = t } :: trace))))
+                     (diff2 ~got:t' ~expected:t trace))))
   in
   match get_desc t with
   | Tvar _ ->
@@ -3482,7 +3483,7 @@ let rec filter_method_field env name ty =
                (Unification_error
                   (expand_to_unification_error
                      env
-                     (Diff { got = ty; expected = ty' } :: trace))))
+                     (diff2 ~got:ty ~expected:ty' trace))))
   in
   match get_desc ty with
   | Tvar _ ->
@@ -3517,7 +3518,7 @@ let filter_method env name ty =
                (Unification_error
                   (expand_to_unification_error
                      env
-                     (Diff { got = ty; expected = ty' } :: trace))))
+                     (diff2 ~got:ty ~expected:ty' trace))))
   in
   match get_desc ty with
   | Tvar _ ->
@@ -3700,12 +3701,12 @@ let unify_self_types env sign1 sign2 =
   match unify env self_type1 self_type2 with
   | () -> ()
   | exception Unify err -> begin
-      match err.trace with
-      | Errortrace.Diff _ :: Errortrace.Incompatible_fields {name; _} :: rem ->
-          let err = Errortrace.unification_error ~trace:rem in
-          let failure = Method (name, Type_mismatch err) in
+      match Errortrace.pop_explanation err.trace with
+      | Some (Errortrace.Incompatible_fields f, trace) ->
+          let err = Errortrace.unification_error ~trace in
+          let failure = Method (f.name, Type_mismatch err) in
           raise (Inherit_class_signature_failed failure)
-      | _ ->
+      | Some _ | None ->
           raise (Inherit_class_signature_failed (Self_type_mismatch err))
     end
 
@@ -3903,7 +3904,7 @@ let rec moregen inst_nongen type_pairs env t1 t2 =
               raise_unexplained_for Moregen
         end
   with Moregen_trace trace ->
-    raise_trace_for Moregen (Diff {got = t1; expected = t2} :: trace)
+    raise_trace_for Moregen (diff2 ~got:t1 ~expected:t2 trace)
 
 
 and moregen_list inst_nongen type_pairs env tl1 tl2 =
@@ -3947,7 +3948,7 @@ and moregen_fields inst_nongen type_pairs env ty1 ty2 =
        moregen_kind k1 k2;
        try moregen inst_nongen type_pairs env t1 t2 with Moregen_trace trace ->
          raise_trace_for Moregen
-           (incompatible_fields ~name ~got:t1 ~expected:t2 :: trace)
+           (incompatible_fields ~name ~got:t1 ~expected:t2 trace)
     )
     pairs
 
@@ -4013,7 +4014,7 @@ and moregen_row inst_nongen type_pairs env row1 row2 =
                moregen inst_nongen type_pairs env t1 t2
              with Moregen_trace trace ->
                raise_trace_for Moregen
-                 (Variant (Incompatible_types_for l) :: trace)
+                 (late_explanation (Variant (Incompatible_types_for l)) trace)
            end
          | Rpresent None, Rpresent None -> ()
          (* Both [Reither] *)
@@ -4035,7 +4036,7 @@ and moregen_row inst_nongen type_pairs env row1 row2 =
                end
              with Moregen_trace trace ->
                raise_trace_for Moregen
-                 (Variant (Incompatible_types_for l) :: trace)
+                 (late_explanation (Variant (Incompatible_types_for l)) trace)
            end
          (* Generalizing [Reither] *)
          | Reither(false, tl1, _), Rpresent(Some t2) when may_inst -> begin
@@ -4046,7 +4047,7 @@ and moregen_row inst_nongen type_pairs env row1 row2 =
                  tl1
              with Moregen_trace trace ->
                raise_trace_for Moregen
-                 (Variant (Incompatible_types_for l) :: trace)
+                 (late_explanation (Variant (Incompatible_types_for l)) trace)
            end
          | Reither(true, [], _), Rpresent None when may_inst ->
              link_row_field_ext ~inside:f1 f2
@@ -4174,12 +4175,13 @@ let matches ~expand_error_trace env ty ty' =
   | () ->
       if not (all_distinct_vars env vars) then begin
         backtrack snap;
-        let diff =
+        let d =
           if expand_error_trace
           then expanded_diff env ~got:ty ~expected:ty'
           else unexpanded_diff ~got:ty ~expected:ty'
         in
-        raise (Matches_failure (env, unification_error ~trace:[diff]))
+        let trace = diff d (root_explanation Mismatched_type_variables) in
+        raise (Matches_failure (env, unification_error ~trace))
       end;
       backtrack snap
   | exception Unify err ->
@@ -4280,7 +4282,7 @@ let rec eqtype rename type_pairs subst env t1 t2 =
               raise_unexplained_for Equality
         end
   with Equality_trace trace ->
-    raise_trace_for Equality (Diff {got = t1; expected = t2} :: trace)
+    raise_trace_for Equality (diff2 ~got:t1 ~expected:t2 trace)
 
 and eqtype_list_same_length rename type_pairs subst env tl1 tl2 =
   List.iter2 (eqtype rename type_pairs subst env) tl1 tl2
@@ -4330,7 +4332,7 @@ and eqtype_fields rename type_pairs subst env ty1 ty2 =
              eqtype rename type_pairs subst env t1 t2;
            with Equality_trace trace ->
              raise_trace_for Equality
-               (incompatible_fields ~name ~got:t1 ~expected:t2 :: trace))
+               (incompatible_fields ~name ~got:t1 ~expected:t2 trace))
         pairs
 
 and eqtype_kind k1 k2 =
@@ -4381,7 +4383,7 @@ and eqtype_row rename type_pairs subst env row1 row2 =
              eqtype rename type_pairs subst env t1 t2
            with Equality_trace trace ->
              raise_trace_for Equality
-               (Variant (Incompatible_types_for l) :: trace)
+               (late_explanation (Variant (Incompatible_types_for l)) trace)
          end
        | Rpresent None, Rpresent None -> ()
        (* Both matching [Reither]s *)
@@ -4401,7 +4403,7 @@ and eqtype_row rename type_pairs subst env row1 row2 =
              end
            with Equality_trace trace ->
              raise_trace_for Equality
-               (Variant (Incompatible_types_for l) :: trace)
+               (late_explanation (Variant (Incompatible_types_for l)) trace)
          end
        (* Both [Rabsent]s *)
        | Rabsent, Rabsent -> ()
@@ -5085,11 +5087,11 @@ let rec subtype_rec env trace t1 t2 cstrs =
 
 and subtype_labeled_list env trace labeled_tl1 labeled_tl2 cstrs =
   if 0 <> List.compare_lengths labeled_tl1 labeled_tl2 then
-    subtype_error ~env ~trace ~unification_trace:[];
+    subtype_error ~env ~trace ~unification_trace:empty;
   List.fold_left2
     (fun cstrs (label1, ty1) (label2, ty2) ->
       if not (Option.equal String.equal label1 label2) then
-        subtype_error ~env ~trace ~unification_trace:[];
+        subtype_error ~env ~trace ~unification_trace:empty;
       subtype_rec
         env
         (Subtype.Diff { got = ty1; expected = ty2 } :: trace)
@@ -5105,7 +5107,8 @@ and subtype_package env trace lvl1 pack1 lvl2 pack2 cstrs =
   in
   match ntl1, ntl2 with
   | Error e, _ | _, Error e ->
-      subtype_error ~env ~trace ~unification_trace:[First_class_module e]
+      subtype_error ~env ~trace
+        ~unification_trace:(root_explanation @@ First_class_module e)
   | Ok ntl1, Ok ntl2 ->
       let cstrs' =
         List.map
@@ -5127,7 +5130,7 @@ and subtype_package env trace lvl1 pack1 lvl2 pack2 cstrs =
             | Error e ->
                 Btype.backtrack snap;
                 subtype_error ~env ~trace
-                  ~unification_trace:[First_class_module e]
+                  ~unification_trace:(root_explanation @@ First_class_module e)
 
 and subtype_fields env trace ty1 ty2 cstrs =
   (* Assume that either rest1 or rest2 is not Tvar *)
@@ -5199,8 +5202,8 @@ and subtype_row env trace row1 row2 cstrs =
           | Rabsent, _ -> cstrs
           | Rpresent None, Rpresent (Some _)
           | Rpresent (Some _), Rpresent None ->
-              subtype_error ~env ~trace
-                ~unification_trace:[Variant (Incompatible_types_for l)]
+              let err =root_explanation (Variant (Incompatible_types_for l)) in
+              subtype_error ~env ~trace ~unification_trace:err
           | _ ->
               raise Exit)
         cstrs pairs
@@ -5248,7 +5251,7 @@ let subtype env ty1 ty2 =
            subtype_error
              ~env
              ~trace:trace0
-             ~unification_trace:(List.tl trace))
+             ~unification_trace:trace)
         (List.rev cstrs))
 
                               (*******************)

@@ -1158,7 +1158,7 @@ Line 2, characters 3-4:
        ^
 Error: The value "x" has type "< m : 'b. 'b * ('b * < m : 'c. 'c * 'a > as 'a) >"
        but an expression was expected of type
-         "< m : 'b. 'b * ('b * < m : 'c. 'c * (!('c) * 'd) >) > as 'd"
+         "< m : 'b. 'b * ('b * < m : 'c. 'c * ('c * 'd) >) > as 'd"
        The method "m" has type "'c. 'c * ('b * < m : 'c. 'e >) as 'e",
        but the expected method type was
        "'c. 'c * ('c * < m : 'b. 'b * ('b * < m : 'c. 'f >) >) as 'f"

@@ -62,10 +62,6 @@ type 'a escape =
 
 val map_escape : ('a -> 'b) -> 'a escape -> 'b escape
 
-val explain: 'a list ->
-  (prev:'a option -> 'a -> 'b option) ->
-  'b option
-
 (** Type indices *)
 type unification = private Unification
 type comparison  = private Comparison
@@ -105,21 +101,50 @@ type first_class_module =
         lhs:string list
       }
 
-type ('a, 'variety) elt =
+type ('a, 'variety) explanation =
   (* Common *)
-  | Diff : 'a diff -> ('a, _) elt
-  | Variant : 'variety variant -> ('a, 'variety) elt
-  | Obj : 'variety obj -> ('a, 'variety) elt
-  | Escape : 'a escape -> ('a, _) elt
+  | Variant : 'variety variant -> ('a, 'variety) explanation
+  | Obj : 'variety obj -> ('a, 'variety) explanation
+  | Escape : 'a escape -> ('a, _) explanation
   | Function_label_mismatch of Asttypes.arg_label diff
   | Tuple_label_mismatch of string option diff
-  | Incompatible_fields : { name:string; diff: type_expr diff } -> ('a, _) elt
-  | First_class_module: first_class_module -> ('a,_) elt
+  | Incompatible_fields :
+      { name:string; diff: type_expr diff } -> ('a, _) explanation
+  | First_class_module: first_class_module -> ('a,_) explanation
   | Univar_mismatch of { order:order; diff:type_expr diff }
   (* Unification & Moregen; included in Equality for simplicity *)
-  | Rec_occur : type_expr * type_expr -> ('a, _) elt
+  | Rec_occur : type_expr * type_expr -> ('a, _) explanation
+  (* Unification *)
+  | GADT_mismatched_return_type : ('a, unification) explanation
+  | Mismatched_type_variables: ('a, unification) explanation
+  | Mismatched_bound_univars: ('a, unification) explanation
 
-type ('a, 'variety) t = ('a, 'variety) elt list
+
+type ('a,'variety) explanation_segment =
+  {
+    explanation: ('a,'variety) explanation;
+    subtrace: 'a diff list;
+  }
+type ('a, 'variety) t =
+  {
+    context: 'a diff list;
+    explanations: ('a,'variety) explanation_segment list
+  }
+
+val explanation: ('a,'variety) t -> ('a,'variety) explanation_segment option
+val narrowest_diff: ('a,'variety) t -> 'a diff option
+
+val diff2: got:'a -> expected:'a -> ('a,'variety) t -> ('a,'variety) t
+val diff: 'a diff -> ('a,'variety) t -> ('a,'variety) t
+
+val late_explanation:
+  ('a,'variety) explanation -> ('a,'variety) t -> ('a,'variety) t
+val root_explanation: ('a,'variety) explanation -> ('a,'variety) t
+val variant: 'v variant -> ('a,'v) t
+val escape: Types.type_expr escape -> (expanded_type,'variety) t
+val pop_explanation: ('a,'v) t -> (('a,'v) explanation * ('a,'v) t) option
+
+val empty: ('a,'variety) t
 
 type 'variety trace = (type_expr,     'variety) t
 type 'variety error = (expanded_type, 'variety) t
@@ -127,7 +152,8 @@ type 'variety error = (expanded_type, 'variety) t
 val map : ('a -> 'b) -> ('a, 'variety) t -> ('b, 'variety) t
 
 val incompatible_fields :
-  name:string -> got:type_expr -> expected:type_expr -> (type_expr, _) elt
+  name:string -> got:type_expr -> expected:type_expr -> (type_expr, 'v) t
+  -> (type_expr, 'v) t
 
 val swap_trace : ('a, 'variety) t -> ('a, 'variety) t
 

@@ -74,16 +74,6 @@ let map_escape f esc =
      | Equation eq -> Equation (f eq)
      | (Constructor _ | Univ _ | Self | Module_type _ | Constraint) as c -> c}
 
-let explain trace f =
-  let rec explain = function
-    | [] -> None
-    | [h] -> f ~prev:None h
-    | h :: (prev :: _ as rem) ->
-      match f ~prev:(Some prev) h with
-      | Some _ as m -> m
-      | None -> explain rem in
-  explain (List.rev trace)
-
 (* Type indices *)
 type unification = private Unification
 type comparison  = private Comparison
@@ -123,28 +113,77 @@ type first_class_module =
         lhs:string list
       }
 
-type ('a, 'variety) elt =
+type ('a, 'variety) explanation =
   (* Common *)
-  | Diff : 'a diff -> ('a, _) elt
-  | Variant : 'variety variant -> ('a, 'variety) elt
-  | Obj : 'variety obj -> ('a, 'variety) elt
-  | Escape : 'a escape -> ('a, _) elt
+  | Variant : 'variety variant -> ('a, 'variety) explanation
+  | Obj : 'variety obj -> ('a, 'variety) explanation
+  | Escape : 'a escape -> ('a, _) explanation
   | Function_label_mismatch of Asttypes.arg_label diff
   | Tuple_label_mismatch of string option diff
-  | Incompatible_fields : { name:string; diff: type_expr diff } -> ('a, _) elt
+  | Incompatible_fields :
+      { name:string; diff: type_expr diff } -> ('a, _) explanation
       (* Could move [Incompatible_fields] into [obj] *)
-  | First_class_module: first_class_module -> ('a,_) elt
+  | First_class_module: first_class_module -> ('a,_) explanation
   | Univar_mismatch of { order:order; diff:type_expr diff }
   (* Unification & Moregen; included in Equality for simplicity *)
-  | Rec_occur : type_expr * type_expr -> ('a, _) elt
+  | Rec_occur : type_expr * type_expr -> ('a, _) explanation
+  | GADT_mismatched_return_type : ('a, unification) explanation
+  | Mismatched_type_variables: ('a, unification) explanation
+  | Mismatched_bound_univars: ('a,unification) explanation
 
-type ('a, 'variety) t = ('a, 'variety) elt list
+type ('a,'variety) explanation_segment = {
+  explanation: ('a,'variety) explanation;
+  subtrace: 'a diff list
+}
+type ('a, 'variety) t = {
+  context: 'a diff list;
+  explanations: ('a,'variety) explanation_segment list
+}
+
+let empty = { context = []; explanations = [] }
+
+let diff diff x = { x with context = diff :: x.context }
+let diff2 ~got ~expected x = diff {got;expected} x
+
+let root_explanation explanation = {
+  context = [];
+  explanations = [ {explanation; subtrace=[]} ]
+}
+let late_explanation explanation { context; explanations } = {
+  context = [];
+  explanations = { explanation; subtrace=context } :: explanations
+}
+let variant v = root_explanation (Variant v)
+let escape e = root_explanation (Escape (map_escape trivial_expansion e))
+let incompatible_fields ~name ~got ~expected trace =
+  late_explanation (Incompatible_fields { name; diff={got; expected} }) trace
+
+let pop_explanation tr = match tr.explanations with
+  | a :: q -> Some (a.explanation, { context = a.subtrace; explanations = q })
+  | [] -> None
+
+let rec last_opt = function
+  | [] -> None
+  | [a] -> Some a
+  | _ :: (_::_ as q) -> last_opt q
+let explanation x = last_opt x.explanations
+let narrowest_diff e =
+  let rec in_subtraces = function
+    | [] -> None
+    | a :: q ->
+        match last_opt a.subtrace with
+        | Some _ as a ->  a
+        | None -> in_subtraces q
+  in
+  match in_subtraces e.explanations with
+  | Some _ as x -> x
+  | None -> last_opt e.context
 
 type 'variety trace = (type_expr,     'variety) t
 type 'variety error = (expanded_type, 'variety) t
 
-let map_elt (type variety) f : ('a, variety) elt -> ('b, variety) elt = function
-  | Diff x -> Diff (map_diff f x)
+let map_elt (type variety) f:
+  ('a, variety) explanation -> ('b, variety) explanation = function
   | Escape {kind = Equation x; context} ->
       Escape { kind = Equation (f x); context }
   | Escape {kind = (Univ _ | Self | Constructor _ | Module_type _ | Constraint);
@@ -153,14 +192,23 @@ let map_elt (type variety) f : ('a, variety) elt -> ('b, variety) elt = function
   | Incompatible_fields _
   | Rec_occur (_, _) | First_class_module _  as x -> x
   | Univar_mismatch _ as x -> x
+  | GADT_mismatched_return_type as x -> x
+  | Mismatched_type_variables as x -> x
+  | Mismatched_bound_univars as x -> x
 
-let map f t = List.map (map_elt f) t
+let map_segment f s = {
+  explanation = map_elt f s.explanation;
+  subtrace = List.map (map_diff f) s.subtrace
 
-let incompatible_fields ~name ~got ~expected =
-  Incompatible_fields { name; diff={got; expected} }
+}
 
-let swap_elt (type variety) : ('a, variety) elt -> ('a, variety) elt = function
-  | Diff x -> Diff (swap_diff x)
+let map f t = {
+  context = List.map (map_diff f) t.context;
+  explanations = List.map (map_segment f) t.explanations;
+}
+
+let swap_elt (type variety):
+  ('a, variety) explanation -> ('a, variety) explanation = function
   | Incompatible_fields { name; diff } ->
     Incompatible_fields { name; diff = swap_diff diff}
   | Obj (Missing_field(pos,s)) -> Obj (Missing_field(swap_position pos,s))
@@ -185,7 +233,14 @@ let swap_elt (type variety) : ('a, variety) elt -> ('a, variety) elt = function
       First_class_module c
   | x -> x
 
-let swap_trace e = List.map swap_elt e
+let swap_explanation_segment s = {
+  explanation = swap_elt s.explanation;
+  subtrace = List.map swap_diff s.subtrace
+}
+let swap_trace e ={
+  context = List.map swap_diff e.context;
+  explanations = List.map swap_explanation_segment e.explanations
+}
 
 type unification_error = { trace : unification error } [@@unboxed]
 
@@ -195,16 +250,18 @@ type equality_error =
 
 type moregen_error = { trace : comparison error } [@@unboxed]
 
+let nonempty e = e.context <> [] || e.explanations <> []
+
 let unification_error ~trace : unification_error =
-  assert (trace <> []);
+  assert (nonempty trace);
   { trace }
 
 let equality_error ~trace ~subst : equality_error =
-    assert (trace <> []);
+    assert (nonempty trace);
     { trace; subst }
 
 let moregen_error ~trace : moregen_error =
-  assert (trace <> []);
+  assert (nonempty trace);
   { trace }
 
 type comparison_error =
@@ -231,6 +288,11 @@ module Subtype = struct
 
   let error ~trace ~unification_trace =
   assert (trace <> []);
+  let unification_trace =
+    match unification_trace.context with
+    | _ :: q -> { unification_trace with context = q }
+    | [] -> unification_trace
+  in
   { trace; unification_trace }
 
   let map_elt f = function

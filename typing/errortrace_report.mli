@@ -24,7 +24,7 @@ val ambiguous_type:
 val unification :
   formatter ->
   Env.t -> Errortrace.unification_error ->
-  ?type_expected_explanation:Format_doc.t -> Format_doc.t -> Format_doc.t ->
+  ?type_expected_explanation:Format_doc.Doc.t -> Format_doc.t -> Format_doc.t ->
   unit
 
 val equality :

@@ -1753,10 +1753,8 @@ let check_scope_escape loc env level ty =
   with Escape esc ->
     (* We don't expand the type here because if we do, we might expand to the
        type that escaped, leading to confusing error messages. *)
-    let trace = Errortrace.[Escape (map_escape trivial_expansion esc)] in
-    raise (Error(loc,
-                 env,
-                 Pattern_type_clash(Errortrace.unification_error ~trace, None)))
+    let err = Errortrace.unification_error ~trace:(Errortrace.escape esc) in
+    raise (Error(loc, env, Pattern_type_clash(err, None)))
 
 
 (** The typedtree has two distinct syntactic categories for patterns,
@@ -3392,12 +3390,13 @@ let check_univars env kind exp ty_expected vars =
   let ty, complete = polyfy env exp_ty vars in
   if not complete then
     let ty_expected = instance ty_expected in
+    let d = Ctype.expanded_diff env ~got:ty ~expected:ty_expected in
+    let trace =
+      Errortrace.(diff d (root_explanation Mismatched_bound_univars)) in
     raise (Error(exp.exp_loc,
                  env,
-                 Less_general(kind,
-                              Errortrace.unification_error
-                                ~trace:[Ctype.expanded_diff env
-                                          ~got:ty ~expected:ty_expected])))
+                 Less_general(kind,Errortrace.unification_error ~trace)
+                ))
 
 (* [check_statement] implements the [non-unit-statement] check.
 
@@ -6820,11 +6819,7 @@ let tuple_component ~print_article ppf lbl =
   | None -> fprintf ppf "%sunlabeled component" article
 
 (* Returns the first diff of the trace *)
-let type_clash_of_trace trace =
-  Errortrace.(explain trace (fun ~prev:_ -> function
-    | Diff diff -> Some diff
-    | _ -> None
-  ))
+let type_clash_of_trace trace = Errortrace.narrowest_diff trace
 
 (** More precise denomination for type errors. Used by messages:
 
@@ -7072,15 +7067,8 @@ let report_error ~loc env = function
        that the GADT pattern introduced an equation on.
     *)
     let type_with_local_equation =
-      let last_diff =
-        List.find_map
-          (function Errortrace.Diff diff -> Some diff | _ -> None)
-          (List.rev trace)
-      in
-      match last_diff with
-      | None -> None
-      | Some diff -> Some diff.expected.ty
-    in
+      let open Errortrace in
+      Option.map (fun x -> x.expected.ty) (narrowest_diff trace) in
     (* [syntactic_arity>1] for this error, so "arguments" is always plural. *)
     Location.errorf ~loc
       "@[\
