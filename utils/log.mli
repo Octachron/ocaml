@@ -92,7 +92,7 @@ val detach: 'id log -> ('id2 Diagnostic.record, 'id) field -> 'id2 log
     the field [f] in the parent [log]. *)
 val detach_item: 'id log -> ('id2 Diagnostic.record list, 'id) field -> 'id2 log
 
-(** {1:log_delayed Delayed log contents *)
+(** {1:log_delayed Delayed log contents} *)
 
 val get: 'id log -> ('a,'id) field -> 'a option
 val dynamic_get: 'id log -> string -> Diagnostic.typed_val option

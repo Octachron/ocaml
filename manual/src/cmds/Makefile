@@ -26,7 +26,7 @@ FILES = comp.tex top.tex runtime.tex native.tex lexyacc.tex intf-c.tex \
 
 .PHONY:sdiag
 sdiag:
-	$(DIAGINFO) -schema \* -o "diagnostics/sdiag_%s.tex"
+	$(DIAGINFO) -all-schema -o "diagnostics/sdiag_%s.tex"
 
 etex-files: $(FILES)
 all: $(FILES) sdiag

@@ -26,12 +26,10 @@ let failf fmt =
 
 module Options = struct
   type schema_format = Json | Adt
-  type schema_name = All | One of string
-  let name = ref None
+  type output = List | All | One of string
+  let output = ref None
   let with_deps = ref true
-  let parse_name = function
-    | "*" -> name := (Some All)
-    | s -> name := Some (One s)
+  let parse_name s = output := Some (One s)
 
   let format = ref None
   let format_list = ["json"; "adt"]
@@ -67,6 +65,8 @@ module Options = struct
         | None -> failf "Invalid version format: %s" v
 
   let history = ref false
+  let parse_list() = output := Some List
+  let parse_all () = output := Some All
 end
 
 module String_map = Misc.Stdlib.String.Map
@@ -416,9 +416,10 @@ let args =
   let open Options in
   Arg.align
   [ "-schema-format", Arg.Symbol (format_list, parse_format),
-    "<name> print the schema <name> in <name> format";
-    "-schema", Arg.String parse_name,
-    "<name> print the schema <name>, if <name>=* print all known schema";
+    "<format> print the schema in <format> format";
+    "-schema", Arg.String parse_name, "<name> print the schema <name>";
+    "-all-schema", Arg.Unit parse_all, " print all schema";
+    "-list", Arg.Unit parse_list, " print root schemas";
     "-history", Arg.Set history, " print log format history";
     "-version", Arg.String (fun x -> version := Some x),
     "<version> schema version";
@@ -581,8 +582,12 @@ let () =
   Arg.parse args ignore "print log information";
   let version = Options.parse_version () in
   history ();
-  match !Options.name with
+  match !Options.output with
   | None -> ()
-  | Some (Options.All) ->
+  | Some Options.All ->
       String_map.iter (fun name _ -> pp_schema version name) schemas
   | Some (Options.One x) -> pp_schema version x
+  | Some Options.List ->
+      let pp_sep ppf () = Format.fprintf ppf "@," in
+      Format.printf "@[<v>%a]@."
+        Format.(pp_print_seq ~pp_sep pp_print_string) (String_set.to_seq roots)
