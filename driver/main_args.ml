@@ -589,14 +589,16 @@ let mk_error_style f =
     \  be set through the OCAML_ERROR_STYLE environment variable."
 
 let mk_log_format f =
-  "-log-format", Arg.Symbol (["stdout"; "sexp"; "json"], f),
+  "-log-format",
+  Arg.Symbol (["stdout-light"; "stdout-full"; "sexp"; "json"], f),
   Printf.sprintf
     "<format>  Control the way error messages and warnings are printed\n\
     \    The following formats are supported:\n\
-    \      stdout      classic mode\n\
-    \      json        json object\n\
-    \      sexp        s-expression\n\
-    \    The default setting is 'fmt'.\n\
+    \      stdout-light   classic mode\n\
+    \      stdout-full    config mode: classic mode with printed field names\n\
+    \      json           json object\n\
+    \      sexp           s-expression\n\
+    \    The default setting is 'stdout-light'.\n\
     \  If the option is not specified, these setting can alternatively\n\
     \  be set through the OCAML_LOG_FORMAT environment variable."
 

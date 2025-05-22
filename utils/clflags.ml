@@ -393,13 +393,14 @@ let error_style_reader = {
 let log_format = ref None
 let log_format_reader = {
   parse = (function
-      | "stdout" -> Some Diagnostic_backends.fmt
+      | "stdout-light" -> Some Diagnostic_backends.fmt
+      | "stdout-full" -> Some Diagnostic_backends.fmt_with_fields
       | "json" -> Some Diagnostic_backends.json
       | "sexp" -> Some Diagnostic_backends.sexp
       | _ -> None
     );
   print = (fun x -> x.Diagnostic_backends.name);
-  usage={|expected "stdout", "json", or "sexp"|};
+  usage={|expected "stdout-light", stdout-full", "json", or "sexp"|};
   env_var = "OCAML_LOG_FORMAT"
 }
 
