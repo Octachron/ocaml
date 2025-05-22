@@ -82,6 +82,10 @@ type 'variety variant =
   | Presence_not_guaranteed_for : position * string -> comparison variant
   | Openness : position (* Always [Second] for Moregen *) -> comparison variant
 
+  | Arity_mismatch: string -> _ variant
+  | Invalid_conjunction: _ variant
+
+
 type 'variety obj =
   (* Common *)
   | Missing_field : position * string -> _ obj
@@ -115,10 +119,33 @@ type ('a, 'variety) explanation =
   (* Unification & Moregen; included in Equality for simplicity *)
   | Rec_occur : type_expr * type_expr -> ('a, _) explanation
   (* Unification *)
+  | Type_constructor_mismatch: (_,_) explanation
+  | Type_constructor_arity_mismatch: (_,_) explanation
+
+  (* New *)
+  | Out_of_scope_univar: (_,_) explanation
+  | Kind_mismatch: (_,_) explanation
   | GADT_mismatched_return_type : ('a, unification) explanation
   | Mismatched_type_variables: ('a, unification) explanation
   | Mismatched_bound_univars: ('a, unification) explanation
+  | Constructor_arity_mismatch : ('a,'v) explanation
+  | Injective_arity_mismatch : ('a,'v) explanation
 
+  | GADTness_mismatch: (_,_) explanation
+  | Variant_constructor_mismatch: (_,_) explanation
+  | Missing_variant_constructor: (_,_) explanation
+  | Inline_record_mismatch: (_,_) explanation
+
+  | Record_field_mismatch: (_,_) explanation
+
+  | Moregen_occur
+
+  | Type_variable_already_bound: (_,_) explanation
+
+  | Tuple_arity_mismatch
+
+
+   (* Compatibibility *)
 
 type ('a,'variety) explanation_segment =
   {

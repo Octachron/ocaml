@@ -492,6 +492,7 @@ Error: Signature mismatch:
        is not included in
          type t = y:int * int
        The type "!(x:)int * int" is not equal to the type "!(y:)int * int"
+       Labels "x" and "y" do not match
 |}]
 
 module Int_int : sig
@@ -511,6 +512,8 @@ Error: Signature mismatch:
        is not included in
          type t = int * int
        The type "!(x:)int * int" is not equal to the type "!()int * int"
+       The first tuple element is labeled "x",
+       but an unlabeled element was expected
 |}]
 
 (* Recursive modules *)

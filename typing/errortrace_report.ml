@@ -109,6 +109,28 @@ let is_structural d =
 (** Flatten the trace and remove elements that are always discarded
     during printing *)
 
+
+let wip: type a b. (a,b) Errortrace.explanation -> bool =
+  let open Errortrace in function
+    | Out_of_scope_univar
+    | Type_constructor_mismatch
+    | Kind_mismatch
+    | GADT_mismatched_return_type
+    | Mismatched_type_variables
+    | Mismatched_bound_univars
+    | Moregen_occur
+    | Tuple_arity_mismatch
+    | Type_constructor_arity_mismatch
+    | Constructor_arity_mismatch
+    | Injective_arity_mismatch
+    | GADTness_mismatch
+    | Variant_constructor_mismatch
+    | Missing_variant_constructor
+    | Inline_record_mismatch
+    | Record_field_mismatch
+    | Type_variable_already_bound -> true
+    | _ -> false
+
 let clean_trace f tr empty_expl =
   let rec clean f expl = function
     | [] -> []
@@ -141,6 +163,9 @@ let rec split_last =
   | [a] | [a; { explanation = Escape { kind=Constraint; _ }; _ }] ->
       let sub, last = partition_subtrace [] None a.subtrace in
       [sub], [a.explanation], last
+  | [a;b] when wip b.explanation ->
+      let sub, last = partition_subtrace [] None a.subtrace in
+      [sub], [a.explanation], last
   | [{explanation=Incompatible_fields _ as f; subtrace=ftr};
      {explanation= (Escape {kind=Univ _; _} | Univar_mismatch _) as e;
       subtrace = etr}
@@ -155,7 +180,8 @@ let simplify_trace f t =
   let open Errortrace in
   let intermediary, last_explanation, last_trace = split_last t.explanations in
   let diff = List.concat (t.context :: intermediary) in
-  clean_trace f diff (last_explanation=[]), last_explanation, last_trace
+  let keep_last = List.for_all wip last_explanation in
+  clean_trace f diff keep_last, last_explanation, last_trace
 
 let may_prepare_expansion compact (Errortrace.{ty; expanded} as ty_exp) =
   match Types.get_desc expanded with
@@ -262,6 +288,14 @@ let explain_variant (type variety) : variety Errortrace.variant -> _ = function
       explainf "@,The %a variant type is open and the %a is not"
         Errortrace.print_pos pos
         Errortrace.print_pos (Errortrace.swap_position pos)
+  | Errortrace.Arity_mismatch tag ->
+      explainf
+        "@,The arity of the %a tag is mismatched"
+        Style.inline_code tag
+
+
+  | Errortrace.Invalid_conjunction ->
+      explainf "@,TODO Invalid conjunction"
 
 let explain_escape pre = function
   | Errortrace.Univ u ->
@@ -475,12 +509,27 @@ let explanation (type variety) intro
                 (Style.as_inline_code prepared_type_expr) diff.expected
                 pp_doc more
              )
+
     | Errortrace.GADT_mismatched_return_type -> None
     | Errortrace.Mismatched_type_variables -> None
     | Errortrace.Mismatched_bound_univars -> None
+    | Errortrace.Moregen_occur -> None
+    | Errortrace.Tuple_arity_mismatch -> None
+    | Errortrace.Type_constructor_arity_mismatch -> None
+    | Errortrace.Type_constructor_mismatch -> None
+    | Errortrace.Constructor_arity_mismatch -> None
+    | Errortrace.Injective_arity_mismatch -> None
+    | Errortrace.GADTness_mismatch -> None
+    | Errortrace.Variant_constructor_mismatch -> None
+    | Errortrace.Missing_variant_constructor -> None
+    | Errortrace.Inline_record_mismatch -> None
+    | Errortrace.Record_field_mismatch -> None
+    | Errortrace.Type_variable_already_bound -> None
+    | Errortrace.Out_of_scope_univar -> None
+    | Errortrace.Kind_mismatch -> None
 
-
-let explanations intro env last_diff = function
+let explanations intro env last_diff l =
+  match List.filter_map (explanation intro) l with
   | [] ->
     begin match last_diff with
     | None -> []
@@ -488,7 +537,7 @@ let explanations intro env last_diff = function
         let open Errortrace in
         explanation_diff env (d.got.expanded) (d.expected.expanded)
     end
-  | l -> List.filter_map (explanation intro) l
+  | l -> l
 
 let warn_on_missing_def env ppf t =
   match Types.get_desc t with

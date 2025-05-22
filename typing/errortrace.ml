@@ -94,6 +94,9 @@ type 'variety variant =
   | Presence_not_guaranteed_for : position * string -> comparison variant
   | Openness : position (* Always [Second] for Moregen *) -> comparison variant
 
+  | Arity_mismatch: string -> _ variant
+  | Invalid_conjunction: _ variant
+
 type 'variety obj =
   (* Common *)
   | Missing_field : position * string -> _ obj
@@ -127,9 +130,33 @@ type ('a, 'variety) explanation =
   | Univar_mismatch of { order:order; diff:type_expr diff }
   (* Unification & Moregen; included in Equality for simplicity *)
   | Rec_occur : type_expr * type_expr -> ('a, _) explanation
+
+ (* Unification *)
+  | Type_constructor_mismatch: (_,_) explanation
+  | Type_constructor_arity_mismatch: (_,_) explanation
+
+(* NEW *)
+  | Out_of_scope_univar: (_,_) explanation
+  | Kind_mismatch: (_,_) explanation
+
   | GADT_mismatched_return_type : ('a, unification) explanation
   | Mismatched_type_variables: ('a, unification) explanation
-  | Mismatched_bound_univars: ('a,unification) explanation
+  | Mismatched_bound_univars: ('a, unification) explanation
+  | Constructor_arity_mismatch : ('a,'v) explanation
+  | Injective_arity_mismatch : ('a,'v) explanation
+
+  | GADTness_mismatch: (_,_) explanation
+  | Variant_constructor_mismatch: (_,_) explanation
+  | Missing_variant_constructor: (_,_) explanation
+  | Inline_record_mismatch: (_,_) explanation
+
+  | Record_field_mismatch: (_,_) explanation
+
+  | Moregen_occur
+
+  | Type_variable_already_bound: (_,_) explanation
+
+  | Tuple_arity_mismatch
 
 type ('a,'variety) explanation_segment = {
   explanation: ('a,'variety) explanation;
@@ -190,11 +217,17 @@ let map_elt (type variety) f:
             _}
   | Variant _ | Obj _ | Function_label_mismatch _ | Tuple_label_mismatch _
   | Incompatible_fields _
-  | Rec_occur (_, _) | First_class_module _  as x -> x
-  | Univar_mismatch _ as x -> x
+  | Rec_occur (_, _) | First_class_module _ | Univar_mismatch _
+  | Kind_mismatch | Out_of_scope_univar
+  | Type_constructor_mismatch | Type_constructor_arity_mismatch
+  | Constructor_arity_mismatch | Injective_arity_mismatch | GADTness_mismatch
+  | Variant_constructor_mismatch | Missing_variant_constructor
+  | Inline_record_mismatch | Record_field_mismatch | Moregen_occur
+  | Type_variable_already_bound | Tuple_arity_mismatch  as x -> x
   | GADT_mismatched_return_type as x -> x
   | Mismatched_type_variables as x -> x
   | Mismatched_bound_univars as x -> x
+
 
 let map_segment f s = {
   explanation = map_elt f s.explanation;

@@ -247,7 +247,7 @@ Line 1, characters 25-26:
                              ^
 Error: The value "x" has type "[ `X of int ]"
        but an expression was expected of type "[< `X of !(&) int ]"
-       Types for tag "`X" are incompatible
+       The arity of the "X" tag is mismatched
 |}]
 
 (** Inconsistent type *)

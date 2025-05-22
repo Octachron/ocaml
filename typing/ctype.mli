@@ -30,8 +30,6 @@ exception Cannot_expand
 exception Cannot_apply
 exception Matches_failure of Env.t * Errortrace.unification_error
   (* Raised from [matches], hence the odd name *)
-exception Incompatible
-  (* Raised from [mcomp] *)
 
 (* All the following wrapper functions revert to the original level,
    even in case of exception. *)
@@ -483,5 +481,5 @@ val package_subtype :
     (Env.t -> package -> package ->
      (unit,Errortrace.first_class_module) Result.t) ref
 
-(* Raises [Incompatible] *)
 val mcomp : Env.t -> type_expr -> type_expr -> unit
+val compatible : Env.t -> type_expr -> type_expr -> bool
