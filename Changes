@@ -128,6 +128,10 @@ Working version
   recursive modules.
   (Shivam Acharya, review by Gabriel Scherer and Florian Angeletti)
 
+- #?????: Improved error messages for first-class modules with a missing
+  constrained type.
+  (Florian Angeletti, review by ?????)
+
 - #14076: error messages, add a short explanation for mismatched universal
   variables.
   (Florian Angeletti, review by Gabriel Scherer)

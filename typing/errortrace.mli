@@ -91,6 +91,7 @@ type first_class_module =
     | Package_cannot_scrape of Path.t
     | Package_inclusion of Format_doc.doc
     | Package_coercion of Format_doc.doc
+    | Missing_type_constraint of position * string list
 
 type ('a, 'variety) elt =
   (* Common *)

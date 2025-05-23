@@ -2661,6 +2661,7 @@ let complete_type_list ?(allow_absent=false) env fl1 lv2 pack2 =
 
      It'd be nice if we avoided creating such temporary dummy modules and broken
      environments though. *)
+  let exception Missing of string list in
   let id2 = Ident.create_local "Pkg" in
   let env' = Env.add_module id2 Mp_present (Mty_ident pack2.pack_path) env in
   let rec complete fl1 fl2 =
@@ -2680,24 +2681,33 @@ let complete_type_list ?(allow_absent=false) env fl1 lv2 pack2 =
                 if allow_absent then
                   complete nl fl2
                 else
-                  raise Exit
+                  raise (Missing n)
             end
         | (_, {type_arity = 0; type_kind = Type_abstract _;
                type_private = Public; type_manifest = None})
           when allow_absent ->
             complete nl fl2
-        | _ -> raise Exit
-        | exception Not_found when allow_absent->
+        | _ -> raise (Missing n)
+        | exception Not_found ->
+           if allow_absent then
             complete nl fl2
+           else raise (Missing n)
   in
   match complete fl1 pack2.pack_cstrs with
-  | res -> res
-  | exception Exit -> raise Not_found
+  | res -> Ok res
+  | exception (Missing n) -> Error n
 
 (* raise Not_found rather than Unify if the module types are incompatible *)
 let compare_package env unify_list lv1 pack1 lv2 pack2 =
   let ntl2 = complete_type_list env pack1.pack_cstrs lv2 pack2
   and ntl1 = complete_type_list env pack2.pack_cstrs lv1 pack1 in
+  let missing pos name =
+     raise_for Unify (First_class_module (Missing_type_constraint (pos,name)))
+  in
+  match ntl1, ntl2 with
+  | Error g, Ok _ -> missing First g
+  | _, Error e -> missing Second e
+  | Ok ntl1, Ok ntl2 ->
   unify_list (List.map snd ntl1) (List.map snd ntl2);
   if eq_package_path env pack1.pack_path pack2.pack_path then Ok ()
   else Result.bind
@@ -3018,6 +3028,10 @@ and unify_list env tl1 tl2 =
     raise_unexplained_for Unify;
   List.iter2 (unify env) tl1 tl2
 
+and unify_list_same_length env tl1 tl2 =
+  assert (List.compare_lengths tl1 tl2 = 0);
+  List.iter2 (unify env) tl1 tl2
+
 and unify_labeled_list env labeled_tl1 labeled_tl2 =
   if 0 <> List.compare_lengths labeled_tl1 labeled_tl2 then
     raise_unexplained_for Unify;
@@ -3032,7 +3046,8 @@ and unify_labeled_list env labeled_tl1 labeled_tl2 =
 
 and unify_package uenv lvl1 pack1 lvl2 pack2 =
   match
-    compare_package (get_env uenv) (unify_list uenv) lvl1 pack1 lvl2 pack2
+    compare_package (get_env uenv) (unify_list_same_length uenv)
+      lvl1 pack1 lvl2 pack2
   with
   | Ok () -> ()
   | Error fm_err ->
@@ -3900,6 +3915,10 @@ and moregen_list inst_nongen type_pairs env tl1 tl2 =
     raise_unexplained_for Moregen;
   List.iter2 (moregen inst_nongen type_pairs env) tl1 tl2
 
+and moregen_list_same_length inst_nongen type_pairs env tl1 tl2 =
+  assert (List.compare_lengths tl1 tl2 = 0);
+  List.iter2 (moregen inst_nongen type_pairs env) tl1 tl2
+
 and moregen_labeled_list inst_nongen type_pairs env labeled_tl1
     labeled_tl2 =
   if 0 <> List.compare_lengths labeled_tl1 labeled_tl2 then
@@ -3913,7 +3932,7 @@ and moregen_labeled_list inst_nongen type_pairs env labeled_tl1
 
 and moregen_package inst_nongen type_pairs env lvl1 pack1 lvl2 pack2 =
   match
-    compare_package env (moregen_list inst_nongen type_pairs env)
+    compare_package env (moregen_list_same_length inst_nongen type_pairs env)
       lvl1 pack1 lvl2 pack2
   with
   | Ok () -> ()
@@ -5099,6 +5118,9 @@ and subtype_package env trace lvl1 pack1 lvl2 pack2 cstrs =
     and ntl2 =
       complete_type_list env pack1.pack_cstrs lvl2 pack2
         ~allow_absent:true in
+    match ntl1, ntl2 with
+    | Error _, _ | _, Error _ -> raise Not_found
+    | Ok ntl1, Ok ntl2 ->
     let cstrs' =
       List.map
         (fun (n2,t2) -> (trace, List.assoc n2 ntl1, t2, !univar_pairs))

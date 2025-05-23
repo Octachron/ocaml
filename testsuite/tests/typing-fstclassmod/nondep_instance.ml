@@ -49,4 +49,5 @@ Line 3, characters 21-22:
 Error: The value "s" has type "(module Scalar with type t = s)"
        but an expression was expected of type
          "(module Vector_space with type scalar = 'a and type t = 'b)"
+       There is no type "scalar" in the first module type.
 |}];;

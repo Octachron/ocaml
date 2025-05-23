@@ -306,6 +306,17 @@ let explain_first_class_module = function
       Some(doc_printf "@,@[%a@]" Fmt.pp_doc pr)
   | Errortrace.Package_coercion pr ->
       Some(doc_printf "@,@[%a@]" Fmt.pp_doc pr)
+  | Errortrace.Missing_type_constraint (position,name) ->
+      let name = String.concat "." name in
+      let expl = match position with
+        | First ->
+            doc_printf "@,@[There is no type %a in the first module type.@]"
+              Style.inline_code name
+        | Second ->
+            doc_printf "@,@[There is no type %a in the second module type.@]"
+              Style.inline_code name
+      in
+      Some expl
 
 let explanation (type variety) intro prev env
   : (Errortrace.expanded_type, variety) Errortrace.elt -> _ = function

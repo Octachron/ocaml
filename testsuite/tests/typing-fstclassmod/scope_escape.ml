@@ -23,6 +23,7 @@ Lines 6-9, characters 2-22:
 9 |     with type t = M.t)
 Error: This expression has type "(module S with type t = M.t)"
        but an expression was expected of type "(module S)"
+       There is no type "t" in the second module type.
 |}];;
 
 let rec k =
