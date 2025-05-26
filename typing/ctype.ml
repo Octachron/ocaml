@@ -2649,8 +2649,8 @@ let nondep_instance env level id ty =
   with_level ~level (fun () -> instance ty)
 
 (* Find the type paths nl1 in the module type pack2, and add them to the
-   list (nl2, tl2). raise Not_found if impossible *)
-let complete_type_list ?(allow_absent=false) env fl1 lv2 pack2 =
+   list (nl2, tl2). *)
+let complete_type_list ~pos ?(allow_absent=false) env fl1 lv2 pack2 =
   (* This is morally WRONG: we're adding a (dummy) module without a scope in the
      environment. However no operation which cares about levels/scopes is going
      to happen while this module exists.
@@ -2661,7 +2661,9 @@ let complete_type_list ?(allow_absent=false) env fl1 lv2 pack2 =
 
      It'd be nice if we avoided creating such temporary dummy modules and broken
      environments though. *)
-  let exception Missing of string list in
+  let exception Exit of Errortrace.first_class_module in
+  let mismatch lhs decl =
+    Exit(Constraint_on_mismatched_type {pos; decl; lhs}) in
   let id2 = Ident.create_local "Pkg" in
   let env' = Env.add_module id2 Mp_present (Mty_ident pack2.pack_path) env in
   let rec complete fl1 fl2 =
@@ -2681,33 +2683,33 @@ let complete_type_list ?(allow_absent=false) env fl1 lv2 pack2 =
                 if allow_absent then
                   complete nl fl2
                 else
-                  raise (Missing n)
+                  raise (Exit (Constraint_with_deps(pos,n)))
             end
-        | (_, {type_arity = 0; type_kind = Type_abstract _;
-               type_private = Public; type_manifest = None})
-          when allow_absent ->
-            complete nl fl2
-        | _ -> raise (Missing n)
+        | (_, ({type_arity = 0; type_kind = Type_abstract _;
+               type_private = Public; type_manifest = None} as decl))
+           ->
+            if allow_absent then
+              complete nl fl2
+            else raise (mismatch n decl)
+        | _, decl -> raise (mismatch n decl)
         | exception Not_found ->
            if allow_absent then
             complete nl fl2
-           else raise (Missing n)
+           else raise (Exit (Constraint_on_missing_type (pos,n)))
   in
   match complete fl1 pack2.pack_cstrs with
   | res -> Ok res
-  | exception (Missing n) -> Error n
+  | exception (Exit e) -> Error e
 
-(* raise Not_found rather than Unify if the module types are incompatible *)
 let compare_package env unify_list lv1 pack1 lv2 pack2 =
-  let ntl2 = complete_type_list env pack1.pack_cstrs lv2 pack2
-  and ntl1 = complete_type_list env pack2.pack_cstrs lv1 pack1 in
-  let missing pos name =
-     raise_for Unify (First_class_module (Missing_type_constraint (pos,name)))
+  let check = function
+    | Error e -> raise_for Unify (First_class_module e)
+    | Ok ntl -> ntl
   in
-  match ntl1, ntl2 with
-  | Error g, Ok _ -> missing First g
-  | _, Error e -> missing Second e
-  | Ok ntl1, Ok ntl2 ->
+  let ntl2 = complete_type_list ~pos:Second env pack1.pack_cstrs lv2 pack2
+  and ntl1 = complete_type_list ~pos:First env pack2.pack_cstrs lv1 pack1 in
+  let ntl2 = check ntl2 in
+  let ntl1 = check ntl1 in
   unify_list (List.map snd ntl1) (List.map snd ntl2);
   if eq_package_path env pack1.pack_path pack2.pack_path then Ok ()
   else Result.bind
@@ -5114,9 +5116,9 @@ and subtype_labeled_list env trace labeled_tl1 labeled_tl2 cstrs =
 
 and subtype_package env trace lvl1 pack1 lvl2 pack2 cstrs =
   try
-    let ntl1 = complete_type_list env pack2.pack_cstrs lvl1 pack1
+    let ntl1 = complete_type_list ~pos:Second env pack2.pack_cstrs lvl1 pack1
     and ntl2 =
-      complete_type_list env pack1.pack_cstrs lvl2 pack2
+      complete_type_list ~pos:First env pack1.pack_cstrs lvl2 pack2
         ~allow_absent:true in
     match ntl1, ntl2 with
     | Error _, _ | _, Error _ -> raise Not_found

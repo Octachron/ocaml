@@ -108,7 +108,13 @@ type first_class_module =
     | Package_cannot_scrape of Path.t
     | Package_inclusion of Format_doc.doc
     | Package_coercion of Format_doc.doc
-    | Missing_type_constraint of position * string list
+    | Constraint_on_missing_type of position * string list
+    | Constraint_with_deps of position * string list
+    | Constraint_on_mismatched_type of {
+        pos:position;
+        decl:Types.type_declaration;
+        lhs:string list
+      }
 
 type ('a, 'variety) elt =
   (* Common *)
@@ -161,6 +167,15 @@ let swap_elt (type variety) : ('a, variety) elt -> ('a, variety) elt = function
         order = swap_order d.order;
         diff = swap_diff d.diff
       }
+  | First_class_module (Constraint_on_missing_type (pos,lhs)) ->
+    First_class_module (Constraint_on_missing_type (swap_position pos,lhs))
+  | First_class_module (Constraint_with_deps (pos,lhs)) ->
+    First_class_module (Constraint_with_deps (swap_position pos,lhs))
+  | First_class_module (Constraint_on_mismatched_type r) ->
+      let c =
+        Constraint_on_mismatched_type { r with pos = swap_position r.pos}
+      in
+      First_class_module c
   | x -> x
 
 let swap_trace e = List.map swap_elt e

@@ -91,7 +91,13 @@ type first_class_module =
     | Package_cannot_scrape of Path.t
     | Package_inclusion of Format_doc.doc
     | Package_coercion of Format_doc.doc
-    | Missing_type_constraint of position * string list
+    | Constraint_on_missing_type of position * string list
+    | Constraint_with_deps of position * string list
+    | Constraint_on_mismatched_type of {
+        pos:position;
+        decl:Types.type_declaration;
+        lhs:string list
+      }
 
 type ('a, 'variety) elt =
   (* Common *)
