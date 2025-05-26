@@ -3939,7 +3939,6 @@ and moregen_package inst_nongen type_pairs env lvl1 pack1 lvl2 pack2 =
   with
   | Ok () -> ()
   | Error fme -> raise_for Moregen (First_class_module fme)
-  | exception Not_found -> raise_unexplained_for Moregen
 
 and moregen_fields inst_nongen type_pairs env ty1 ty2 =
   let (fields1, rest1) = flatten_fields ty1
@@ -4318,7 +4317,6 @@ and eqtype_package rename type_pairs subst env lvl1 pack1 lvl2 pack2 =
   with
   | Ok () -> ()
   | Error fme -> raise_for Equality (First_class_module fme)
-  | exception Not_found -> raise_unexplained_for Equality
 
 and eqtype_fields rename type_pairs subst env ty1 ty2 =
   let (fields1, rest1) = flatten_fields ty1 in
