@@ -2661,16 +2661,17 @@ let complete_type_list ~pos ?(allow_absent=false) env fl1 lv2 pack2 =
 
      It'd be nice if we avoided creating such temporary dummy modules and broken
      environments though. *)
-  let exception Exit of Errortrace.first_class_module in
-  let mismatch lhs decl =
-    Exit(Constraint_on_mismatched_type {pos; decl; lhs}) in
+  let exception Exit of string list list * Errortrace.first_class_module in
+  let mismatch ?(dropped=[]) lhs decl =
+    Exit(dropped, Constraint_on_mismatched_type {pos; decl; lhs}) in
   let id2 = Ident.create_local "Pkg" in
   let env' = Env.add_module id2 Mp_present (Mty_ident pack2.pack_path) env in
-  let rec complete fl1 fl2 =
+  let rec complete ~fl2_extended ~dropped fl1 fl2 =
     match fl1, fl2 with
-      [], _ -> fl2
+      [], _ -> List.rev_append fl2_extended fl2, dropped
     | (n, _) :: nl, (n2, _ as nt2) :: ntl' when n >= n2 ->
-        nt2 :: complete (if n = n2 then nl else fl1) ntl'
+        complete ~fl2_extended:(nt2::fl2_extended) ~dropped
+          (if n = n2 then nl else fl1) ntl'
     | (n, _) :: nl, _ ->
         let lid = "Pkg" :: n in
         let lid = Option.get (Longident.unflatten lid) in
@@ -2678,36 +2679,37 @@ let complete_type_list ~pos ?(allow_absent=false) env fl1 lv2 pack2 =
         | (_, {type_arity = 0; type_kind = Type_abstract _;
                type_private = Public; type_manifest = Some t2}) ->
             begin match nondep_instance env' lv2 id2 t2 with
-            | t -> (n, t) :: complete nl fl2
+            | t ->
+                complete ~dropped ~fl2_extended:((n, t) ::fl2_extended) nl fl2
             | exception Nondep_cannot_erase _ ->
                 if allow_absent then
-                  complete nl fl2
+                  complete ~fl2_extended ~dropped:(n::dropped) nl fl2
                 else
-                  raise (Exit (Constraint_with_deps(pos,n)))
+                  raise (Exit ([], Constraint_with_deps(pos,n)))
             end
         | (_, ({type_arity = 0; type_kind = Type_abstract _;
                type_private = Public; type_manifest = None} as decl))
            ->
             if allow_absent then
-              complete nl fl2
+              complete ~fl2_extended ~dropped:(n::dropped) nl fl2
             else raise (mismatch n decl)
-        | _, decl -> raise (mismatch n decl)
+        | _, decl -> raise (mismatch ~dropped n decl)
         | exception Not_found ->
            if allow_absent then
-            complete nl fl2
-           else raise (Exit (Constraint_on_missing_type (pos,n)))
+            complete ~fl2_extended ~dropped:(n::dropped) nl fl2
+           else raise (Exit ([],Constraint_on_missing_type (pos,n)))
   in
-  match complete fl1 pack2.pack_cstrs with
-  | res -> Ok res
-  | exception (Exit e) -> Error e
+  match complete ~fl2_extended:[] ~dropped:[] fl1 pack2.pack_cstrs with
+  | res, dropped -> Ok res, dropped
+  | exception (Exit (dropped,e)) -> Error e, dropped
 
 let compare_package env unify_list lv1 pack1 lv2 pack2 =
   let check = function
     | Error e -> raise_for Unify (First_class_module e)
     | Ok ntl -> ntl
   in
-  let ntl2 = complete_type_list ~pos:Second env pack1.pack_cstrs lv2 pack2
-  and ntl1 = complete_type_list ~pos:First env pack2.pack_cstrs lv1 pack1 in
+  let ntl2, _ = complete_type_list ~pos:Second env pack1.pack_cstrs lv2 pack2
+  and ntl1, _ = complete_type_list ~pos:First env pack2.pack_cstrs lv1 pack1 in
   let ntl2 = check ntl2 in
   let ntl1 = check ntl1 in
   unify_list (List.map snd ntl1) (List.map snd ntl2);
@@ -5113,32 +5115,41 @@ and subtype_labeled_list env trace labeled_tl1 labeled_tl2 cstrs =
     cstrs labeled_tl1 labeled_tl2
 
 and subtype_package env trace lvl1 pack1 lvl2 pack2 cstrs =
-  try
-    let ntl1 = complete_type_list ~pos:Second env pack2.pack_cstrs lvl1 pack1
-    and ntl2 =
-      complete_type_list ~pos:First env pack1.pack_cstrs lvl2 pack2
-        ~allow_absent:true in
-    match ntl1, ntl2 with
-    | Error _, _ | _, Error _ -> raise Not_found
-    | Ok ntl1, Ok ntl2 ->
-    let cstrs' =
-      List.map
-        (fun (n2,t2) -> (trace, List.assoc n2 ntl1, t2, !univar_pairs))
-        ntl2
-    in
-    if eq_package_path env pack1.pack_path pack2.pack_path then cstrs' @ cstrs
-    else begin
-      (* need to check module subtyping *)
-      let snap = Btype.snapshot () in
-      match List.iter (fun (_, t1, t2, _) -> unify env t1 t2) cstrs' with
-      | () when Result.is_ok (!package_subtype env pack1 pack2) ->
-        Btype.backtrack snap; cstrs' @ cstrs
-      | () | exception Unify _ ->
-        Btype.backtrack snap; raise Not_found
-    end
-  with Not_found ->
-    (trace, newty (Tpackage pack1), newty (Tpackage pack2), !univar_pairs)
+  let ntl1, _ = complete_type_list ~pos:Second env pack2.pack_cstrs lvl1 pack1
+  and ntl2, dropped =
+    complete_type_list ~pos:First env pack1.pack_cstrs lvl2 pack2
+      ~allow_absent:true
+  in
+  let pack1_for_error () =
+    let pack_cstrs =
+        List.filter (fun (n,_) -> not (List.mem n dropped)) pack1.pack_cstrs
+      in
+      (* We remove the constraints on the left-hand side that do not exist on
+         the right-hand side to avoid them triggering an early erroneous
+         error. *)
+      newty (Tpackage { pack1 with pack_cstrs })
+  in
+  match ntl1, ntl2 with
+  | Error _, _ | _, Error _ ->
+      (trace, pack1_for_error (), newty (Tpackage pack2), !univar_pairs)
       ::cstrs
+  | Ok ntl1, Ok ntl2 ->
+      let cstrs' =
+        List.map
+          (fun (n2,t2) -> (trace, List.assoc n2 ntl1, t2, !univar_pairs))
+          ntl2
+      in
+      if eq_package_path env pack1.pack_path pack2.pack_path then cstrs' @ cstrs
+      else
+        (* need to check module subtyping *)
+        let snap = Btype.snapshot () in
+        match List.iter (fun (_, t1, t2, _) -> unify env t1 t2) cstrs' with
+        | () when Result.is_ok (!package_subtype env pack1 pack2) ->
+            Btype.backtrack snap; cstrs' @ cstrs
+        | () | exception Unify _ ->
+            Btype.backtrack snap;
+            (trace, pack1_for_error (), newty (Tpackage pack2), !univar_pairs)
+            ::cstrs
 
 and subtype_fields env trace ty1 ty2 cstrs =
   (* Assume that either rest1 or rest2 is not Tvar *)

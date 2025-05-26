@@ -55,14 +55,14 @@ module type Y = sig type t = < m : t * t > end
 val f : (module X with type t = < m : 'a * 'a > as 'a) -> (module Y) = <fun>
 |}]
 
-(* Wrong error message *)
 let f (x: (module A with type b = int))= (x :> (module D))
 [%%expect {|
 Line 1, characters 41-58:
 1 | let f (x: (module A with type b = int))= (x :> (module D))
                                              ^^^^^^^^^^^^^^^^^
 Error: Type "(module A with type b = int)" is not a subtype of "(module D)"
-       There is no type "b" in the second module type.
+       Modules do not match: A is not included in D
+       The type "d" is required but not provided
 |}]
 
 
