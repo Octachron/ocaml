@@ -235,7 +235,7 @@ let swap : xy -> yx = xy_id
 Line 1, characters 22-27:
 1 | let swap : xy -> yx = xy_id
                           ^^^^^
-Error: The value "xy_id" has type "y:int !(*) x:int -> xy"
+Error: The value "xy_id" has type "(y:int !(*) x:int) -> xy"
        but an expression was expected of type "!(xy) -> yx"
        Type "!(y:)int * !(x:)int" is not compatible with type "!(xy)" = "!(x:)int * !(y:)int"
        Labels "y" and "x" do not match

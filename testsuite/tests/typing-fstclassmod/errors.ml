@@ -18,9 +18,9 @@ module type C = sig type a type 'a b type c end
 Line 7, characters 3-4:
 7 |   (x:(module B with type a = char and type c = float and type err = string))
        ^
-Error: The value "x" has type "(module A with type b = int)"
+Error: The value "x" has type "(module A with type !(b) = int)"
        but an expression was expected of type
-         "(module B with type a = char and type c = float and type err =
+         "(module B with type !(a) = char and type !(c) = float and type !(err) =
           string)"
        There is no type "err" in the first module type.
 |}]
@@ -32,9 +32,9 @@ let f (x: (module A with type b = int))=
 Line 2, characters 3-4:
 2 |   (x:(module C with type a = char and type c = float))
        ^
-Error: The value "x" has type "(module A with type b = int)"
+Error: The value "x" has type "(module A with type !(b) = int)"
        but an expression was expected of type
-         "(module C with type a = char and type c = float)"
+         "(module C with type !(a) = char and type !(c) = float)"
        The constraint on "b" in the first module type is not compatible
        with the declaration of type 'a b in the second module type.
 |}]
@@ -61,7 +61,7 @@ let f (x: (module A with type b = int))= (x :> (module D))
 Line 1, characters 41-58:
 1 | let f (x: (module A with type b = int))= (x :> (module D))
                                              ^^^^^^^^^^^^^^^^^
-Error: Type "(module A with type b = int)" is not a subtype of "(module D)"
+Error: Type "(module A with type !(b) = int)" is not a subtype of "(module D)"
        Modules do not match:
          sig type a = char type b = int type c = float end
        is not included in
@@ -85,7 +85,7 @@ module type B = sig type b = int type c = float end
 Line 4, characters 42-59:
 4 | let f (x: (module A with type a = int)) = (x :> (module B))
                                               ^^^^^^^^^^^^^^^^^
-Error: Type "(module A with type a = int)" is not a subtype of "(module B)"
+Error: Type "(module A with type !(a) = int)" is not a subtype of "(module B)"
        Modules do not match:
          sig type a = int type b = a type c = int end
        is not included in

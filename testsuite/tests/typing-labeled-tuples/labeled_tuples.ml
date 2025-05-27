@@ -95,7 +95,7 @@ else
 Line 4, characters 3-24:
 4 |    ~a: "5", 10, ~c: "hi"
        ^^^^^^^^^^^^^^^^^^^^^
-Error: This expression has type "a:'a * 'b * c:!('c)"
+Error: This expression has type "a:'a * 'b * !(c:)'c"
        but an expression was expected of type "a:string * int"
 |}]
 
@@ -276,7 +276,7 @@ Line 1, characters 30-42:
 1 | let x: string * a:int * int = ~lbl:5, "hi"
                                   ^^^^^^^^^^^^
 Error: This expression has type "!(lbl:)'a * !()'b"
-       but an expression was expected of type "!()string * !(a:)int * !()int"
+       but an expression was expected of type "!()string * !(a:)int * !(int)"
 |}]
 
 (* Well-typed *)

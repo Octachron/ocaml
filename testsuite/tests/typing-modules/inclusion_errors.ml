@@ -201,7 +201,7 @@ Error: Signature mismatch:
          type t = int * float * int
        is not included in
          type t = int * float
-       The type "int * float * !()int" is not equal to the type "int * float"
+       The type "int * float * !(int)" is not equal to the type "int * float"
 |}];;
 
 module M : sig
@@ -749,7 +749,7 @@ Error: Signature mismatch:
          val f : int * float * int -> int -> int
        The type "int !(*) int -> int !(*) int" is not compatible with the type
          "int !(*) float !(*) int -> int !(->) int"
-       Type "int * int" is not compatible with type "int * float * !()int"
+       Type "int * int" is not compatible with type "int * float * !(int)"
 |}];;
 
 module M: sig
@@ -1282,7 +1282,7 @@ Error: Signature mismatch:
          type t = private u
        is not included in
          type t = private int * (int * int)
-       The type "int * !(q)" is not equal to the type "int * int !(*) int"
+       The type "int * !(q)" is not equal to the type "int * (int !(*) int)"
        Type "!(q)" is not equal to type "int !(*) int"
 |}];;
 
@@ -1311,7 +1311,7 @@ Error: Signature mismatch:
          type t = private u
        is not included in
          type t = private int * (int * int)
-       The type "int * !(q)" is not equal to the type "int * int !(*) int"
+       The type "int * !(q)" is not equal to the type "int * (int !(*) int)"
        Type "q" = "int * !(w)" is not equal to type "int * !(int)"
        Type "!(w)" = "!(float)" is not equal to type "!(int)"
 |}];;

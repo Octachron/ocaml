@@ -130,7 +130,7 @@ let rec syntactic_highlight l r = match l, r with
         (lbl,ty), (lbl',ty')
       in
       let mismatch (lbl,ty) =
-        if lbl.item = None then (highlighting_on lbl, ty)
+        if lbl.item <> None then (highlighting_on lbl, ty)
         else (lbl, Otyp_highlight ty)
       in
       let l, r = highlight_map2 ~mismatch elt l r in
@@ -509,6 +509,7 @@ let rec print_out_type ?(highlight=false) ppf =
         pr_vars sl
         (print_out_type ~highlight:false) ty;
       highlight_close_if ppf highlight;
+  | Otyp_highlight x -> print_out_type ~highlight:true ppf x
   | ty ->
       print_out_type_1 ~highlight ppf ty
 
@@ -523,6 +524,7 @@ and print_out_type_1 ?(highlight=false) ppf =
       pp_print_space ppf ();
       print_out_type_1 ppf ty2;
       pp_close_box ppf ()
+  | Otyp_highlight x -> print_out_type_1 ~highlight:true ppf x
   | ty -> print_out_type_2 ~arg:false ~highlight ppf ty
 and print_out_type_2 ~arg ?(highlight=false) ppf =
   function
@@ -544,6 +546,7 @@ and print_out_type_2 ~arg ?(highlight=false) ppf =
       fprintf ppf "@[<0>%a@]"
         (print_typlist print_elem (prod_sep ~highlight)) tyl;
       if parens then pp_print_char ppf ')'
+  | Otyp_highlight x -> print_out_type_2 ~arg ~highlight:true ppf x
   | ty -> print_simple_out_type ~highlight ppf ty
 and print_simple_out_type ?(highlight=false) ppf =
   function
@@ -594,7 +597,7 @@ and print_simple_out_type ?(highlight=false) ppf =
   | Otyp_attribute (t, attr) ->
       fprintf ppf "@[<1>(%a [@@%s])@]"
         (print_out_type ~highlight) t attr.oattr_name
-  | Otyp_highlight x -> print_out_type ~highlight:true ppf x
+  | Otyp_highlight x -> print_simple_out_type ~highlight:true ppf x
 and print_package ~highlight ppf pack =
   fprintf ppf "%a" (highlight_if highlight print_ident) pack.opack_path;
   let first = ref true in

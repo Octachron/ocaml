@@ -353,7 +353,7 @@ Line 3, characters 4-8:
 3 |     let+ x = 1
         ^^^^
 Error: The operator "let+" has type "(int -> 'a) -> !(int) -> 'a"
-       but it was expected to have type "(int -> 'a) -> 'b * 'c !(->) 'd -> 'e"
+       but it was expected to have type "(int -> 'a) -> ('b * 'c !(->) 'd) -> 'e"
        Type "!(int)" is not compatible with type "'b * 'c !(->) 'd"
 |}];;
 
