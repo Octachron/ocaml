@@ -62,11 +62,37 @@ Line 1, characters 41-58:
 1 | let f (x: (module A with type b = int))= (x :> (module D))
                                              ^^^^^^^^^^^^^^^^^
 Error: Type "(module A with type b = int)" is not a subtype of "(module D)"
-       There is no type "b" in the second module type.
+       Modules do not match:
+         sig type a = char type b = int type c = float end
+       is not included in
+         D
+       The type "d" is required but not provided
 |}]
 
 
 let f (x: (module A with type b = int))= (x :> (module Empty))
 [%%expect {|
 val f : (module A with type b = int) -> (module Empty) = <fun>
+|}]
+
+module type A = sig type a type b = a type c =int end
+module type B = sig type b = int type c = float end
+
+let f (x: (module A with type a = int)) = (x :> (module B))
+[%%expect {|
+module type A = sig type a type b = a type c = int end
+module type B = sig type b = int type c = float end
+Line 4, characters 42-59:
+4 | let f (x: (module A with type a = int)) = (x :> (module B))
+                                              ^^^^^^^^^^^^^^^^^
+Error: Type "(module A with type a = int)" is not a subtype of "(module B)"
+       Modules do not match:
+         sig type a = int type b = a type c = int end
+       is not included in
+         B
+       Type declarations do not match:
+         type c = int
+       is not included in
+         type c = float
+       The type "int" is not equal to the type "float"
 |}]

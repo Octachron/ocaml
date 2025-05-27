@@ -5113,32 +5113,36 @@ and subtype_labeled_list env trace labeled_tl1 labeled_tl2 cstrs =
     cstrs labeled_tl1 labeled_tl2
 
 and subtype_package env trace lvl1 pack1 lvl2 pack2 cstrs =
-  try
-    let ntl1 = complete_type_list ~pos:Second env pack2.pack_cstrs lvl1 pack1
-    and ntl2 =
-      complete_type_list ~pos:First env pack1.pack_cstrs lvl2 pack2
-        ~allow_absent:true in
-    match ntl1, ntl2 with
-    | Error _, _ | _, Error _ -> raise Not_found
-    | Ok ntl1, Ok ntl2 ->
-    let cstrs' =
-      List.map
-        (fun (n2,t2) -> (trace, List.assoc n2 ntl1, t2, !univar_pairs))
-        ntl2
-    in
-    if eq_package_path env pack1.pack_path pack2.pack_path then cstrs' @ cstrs
-    else begin
-      (* need to check module subtyping *)
-      let snap = Btype.snapshot () in
-      match List.iter (fun (_, t1, t2, _) -> unify env t1 t2) cstrs' with
-      | () when Result.is_ok (!package_subtype env pack1 pack2) ->
-        Btype.backtrack snap; cstrs' @ cstrs
-      | () | exception Unify _ ->
-        Btype.backtrack snap; raise Not_found
-    end
-  with Not_found ->
-    (trace, newty (Tpackage pack1), newty (Tpackage pack2), !univar_pairs)
-      ::cstrs
+  let ntl1 = complete_type_list ~pos:Second env pack2.pack_cstrs lvl1 pack1
+  and ntl2 =
+    complete_type_list ~pos:First env pack1.pack_cstrs lvl2 pack2
+      ~allow_absent:true
+  in
+  match ntl1, ntl2 with
+  | Error e, _ | _, Error e ->
+      subtype_error ~env ~trace ~unification_trace:[First_class_module e]
+  | Ok ntl1, Ok ntl2 ->
+      let cstrs' =
+        List.map
+          (fun (n2,t2) -> (trace, List.assoc n2 ntl1, t2, !univar_pairs))
+          ntl2
+      in
+      if eq_package_path env pack1.pack_path pack2.pack_path then cstrs' @ cstrs
+      else
+        (* need to check module subtyping *)
+        let snap = Btype.snapshot () in
+        match List.iter (fun (_, t1, t2, _) -> unify env t1 t2) cstrs' with
+        | exception Unify {trace=unification_trace} ->
+            Btype.backtrack snap;
+            subtype_error ~env ~trace ~unification_trace
+        | () ->
+            match !package_subtype env pack1 pack2 with
+            | Ok () ->
+                Btype.backtrack snap; cstrs' @ cstrs
+            | Error e ->
+                Btype.backtrack snap;
+                subtype_error ~env ~trace
+                  ~unification_trace:[First_class_module e]
 
 and subtype_fields env trace ty1 ty2 cstrs =
   (* Assume that either rest1 or rest2 is not Tvar *)
