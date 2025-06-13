@@ -19,6 +19,28 @@ open Format
 open Misc
 open Types
 open Data_types
+
+type query_longident =
+  | Lident of string
+  | Ldot of query_longident * string
+  | Lapply of query_longident * query_longident
+let rec remove_longident_loc  = function
+  | Longident.Lident s -> Lident s
+  | Longident.Ldot (x,y) ->
+      Ldot(remove_longident_loc x.Location.txt, y.Location.txt)
+  | Longident.Lapply (x,y) ->
+      Lapply(remove_longident_loc x.Location.txt,
+             remove_longident_loc y.Location.txt)
+let rec longident_of_query = function
+  | Lident s -> Longident.Lident s
+  | Ldot(x,y) ->
+      Longident.Ldot (Location.mknoloc (longident_of_query x),
+                      Location.mknoloc y)
+  | Lapply(x,y) ->
+      Longident.Lapply(Location.mknoloc (longident_of_query x),
+                       Location.mknoloc (longident_of_query y))
+
+
 open Toploop
 
 let error_fmt () =
@@ -208,14 +230,16 @@ let remove_installed_printer path =
   | () -> Ok ()
   | exception Not_found -> Error (`No_active_printer path)
 
-let dir_install_printer ppf lid =
+let dir_install_printer_source ppf lid =
   match Topprinters.find_printer !toplevel_env lid with
   | Error error ->
     Topprinters.report_error ppf error
   | Ok (path, kind) ->
     install_printer_by_kind path kind
+let dir_install_printer ppf qlid =
+  dir_install_printer_source ppf (longident_of_query qlid)
 
-let dir_remove_printer ppf lid =
+let dir_remove_printer_source ppf lid =
   match Topprinters.find_printer !toplevel_env lid with
   | Error error ->
     Topprinters.report_error ppf error
@@ -223,16 +247,19 @@ let dir_remove_printer ppf lid =
     match remove_installed_printer path with
     | Ok () -> ()
     | Error error -> Topprinters.report_error ppf error
+let dir_remove_printer ppf qlid =
+  dir_remove_printer_source ppf (longident_of_query qlid)
+
 
 let _ = add_directive "install_printer"
-    (Directive_ident (with_error_fmt dir_install_printer))
+    (Directive_ident (with_error_fmt dir_install_printer_source))
     {
       section = section_print;
       doc = "Registers a printer for values of a certain type.";
     }
 
 let _ = add_directive "remove_printer"
-    (Directive_ident (with_error_fmt dir_remove_printer))
+    (Directive_ident (with_error_fmt dir_remove_printer_source))
     {
       section = section_print;
       doc = "Remove the named function from the table of toplevel printers.";

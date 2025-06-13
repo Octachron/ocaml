@@ -17,6 +17,14 @@
 
 open Format
 
+(** Compatibility longident type for toplevel scripts *)
+type query_longident =
+  | Lident of string
+  | Ldot of query_longident * string
+  | Lapply of query_longident * query_longident
+val remove_longident_loc: Longident.t -> query_longident
+val longident_of_query: query_longident -> Longident.t
+
 val dir_quit : unit -> unit
 val dir_directory : string -> unit
 val dir_remove_directory : string -> unit
@@ -24,8 +32,10 @@ val dir_cd : string -> unit
 val dir_load : formatter -> string -> unit
 val dir_use : formatter -> string -> unit
 val dir_use_output : formatter -> string -> unit
-val dir_install_printer : formatter -> Longident.t -> unit
-val dir_remove_printer : formatter -> Longident.t -> unit
+val dir_install_printer : formatter -> query_longident -> unit
+val dir_remove_printer : formatter -> query_longident -> unit
+val dir_install_printer_source : formatter -> Longident.t -> unit
+val dir_remove_printer_source : formatter -> Longident.t -> unit
 
 (* These are now injected from [Topeval], for the bytecode toplevel only:
 val dir_trace : formatter -> Longident.t -> unit

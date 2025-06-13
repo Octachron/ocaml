@@ -10,7 +10,7 @@ let mknoloc = Location.mknoloc
 let lident l = mknoloc (L.Lident l)
 
 let () =
-  Topdirs.dir_install_printer Format.err_formatter
+  Topdirs.dir_install_printer_source Format.err_formatter
    (L.parse "Location.print_loc")
 
 [%%expect {|
