@@ -636,7 +636,8 @@ Error: Signature mismatch:
        is not included in
          val x : 'a list ref
        The type "!('_weak2) list ref" is not compatible with the type "!('a) list ref"
-       Type "!('_weak2)" is not compatible with type "!('a)"
+       The non generic type variable "'weak2"
+       is not compatible with the universal type variable "'a".
 |}];;
 
 module M = struct let r = ref [] end;;

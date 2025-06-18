@@ -118,7 +118,6 @@ let wip: type a b. (a,b) Errortrace.explanation -> bool =
     | GADT_mismatched_return_type
     | Mismatched_type_variables
     | Mismatched_bound_univars
-    | Moregen_occur
     | Tuple_arity_mismatch
     | Type_constructor_arity_mismatch
     | Constructor_arity_mismatch
@@ -156,6 +155,14 @@ let rec partition_subtrace main shadow = function
       else partition_subtrace (a::main) shadow q
   | [] -> List.rev main, shadow
 
+let highlight shadow expl = match shadow with
+  | Some _ as x -> x
+  | None ->
+    match expl with
+    | [Errortrace.Moregen_occur d] ->
+        Some Errortrace.(map_diff trivial_expansion d)
+    | _ -> None
+
 let rec split_last =
   let open Errortrace in
   function
@@ -181,7 +188,8 @@ let simplify_trace f t =
   let intermediary, last_explanation, last_trace = split_last t.explanations in
   let diff = List.concat (t.context :: intermediary) in
   let keep_last = List.for_all wip last_explanation in
-  clean_trace f diff keep_last, last_explanation, last_trace
+  clean_trace f diff keep_last, last_explanation,
+  highlight last_trace last_explanation
 
 let may_prepare_expansion compact (Errortrace.{ty; expanded} as ty_exp) =
   match Types.get_desc expanded with
@@ -513,10 +521,18 @@ let explanation (type variety) intro
     | Errortrace.GADT_mismatched_return_type -> None
     | Errortrace.Mismatched_type_variables -> None
     | Errortrace.Mismatched_bound_univars -> None
-    | Errortrace.Moregen_occur -> None
+    | Errortrace.Moregen_occur diff ->
+      add_type_to_preparation diff.got;
+      add_type_to_preparation diff.expected;
+      explainf
+        "@,@[The non generic type variable@ %a@ \
+           is not compatible with the universal type variable %a.@]"
+        (Style.as_inline_code prepared_type_expr) diff.got
+        (Style.as_inline_code prepared_type_expr) diff.expected
     | Errortrace.Tuple_arity_mismatch -> None
     | Errortrace.Type_constructor_arity_mismatch -> None
     | Errortrace.Type_constructor_mismatch -> None
+
     | Errortrace.Constructor_arity_mismatch -> None
     | Errortrace.Injective_arity_mismatch -> None
     | Errortrace.GADTness_mismatch -> None

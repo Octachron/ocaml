@@ -152,7 +152,7 @@ type ('a, 'variety) explanation =
 
   | Record_field_mismatch: (_,_) explanation
 
-  | Moregen_occur
+  | Moregen_occur of type_expr diff
 
   | Type_variable_already_bound: (_,_) explanation
 
@@ -209,8 +209,8 @@ let narrowest_diff e =
 type 'variety trace = (type_expr,     'variety) t
 type 'variety error = (expanded_type, 'variety) t
 
-let map_elt (type variety) f:
-  ('a, variety) explanation -> ('b, variety) explanation = function
+let map_elt (type a b variety) f:
+  (a, variety) explanation -> (b, variety) explanation = function
   | Escape {kind = Equation x; context} ->
       Escape { kind = Equation (f x); context }
   | Escape {kind = (Univ _ | Self | Constructor _ | Module_type _ | Constraint);
@@ -222,12 +222,12 @@ let map_elt (type variety) f:
   | Type_constructor_mismatch | Type_constructor_arity_mismatch
   | Constructor_arity_mismatch | Injective_arity_mismatch | GADTness_mismatch
   | Variant_constructor_mismatch | Missing_variant_constructor
-  | Inline_record_mismatch | Record_field_mismatch | Moregen_occur
+  | Inline_record_mismatch | Record_field_mismatch
   | Type_variable_already_bound | Tuple_arity_mismatch  as x -> x
   | GADT_mismatched_return_type as x -> x
   | Mismatched_type_variables as x -> x
   | Mismatched_bound_univars as x -> x
-
+  | Moregen_occur _ as x -> x
 
 let map_segment f s = {
   explanation = map_elt f s.explanation;
@@ -264,6 +264,7 @@ let swap_elt (type variety):
         Constraint_on_mismatched_type { r with pos = swap_position r.pos}
       in
       First_class_module c
+  | Moregen_occur x -> Moregen_occur (swap_diff x)
   | x -> x
 
 let swap_explanation_segment s = {

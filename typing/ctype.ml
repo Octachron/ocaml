@@ -2917,7 +2917,8 @@ and unify3 uenv t1 t1' t2 t2' =
             unify_list Type_constructor_arity_mismatch uenv tl1 tl2
           else if can_assume_injective uenv then
             without_assume_injective uenv
-              (fun uenv -> unify_list Type_constructor_arity_mismatch uenv tl1 tl2)
+              (fun uenv ->
+                 unify_list Type_constructor_arity_mismatch uenv tl1 tl2)
           else if in_current_module p1 (* || in_pervasives p1 *)
                || List.exists (expands_to_datatype (get_env uenv)) [t1'; t1; t2]
           then
@@ -3826,18 +3827,19 @@ let subject_level = generic_level - 1
    Update the level of [ty]. First check that the levels of generic
    variables from the subject are not lowered.
 *)
-let moregen_occur env level ty =
+let moregen_occur env level pattern ty =
+  let exception Occur of type_expr in
   with_type_mark begin fun mark ->
     let rec occur ty =
       let lv = get_level ty in
       if lv <= level then () else
-      if is_Tvar ty && lv >= subject_level then raise Occur else
+      if is_Tvar ty && lv >= subject_level then raise (Occur ty) else
       if try_mark_node mark ty then iter_type_expr occur ty
     in
     try
       occur ty
-    with Occur ->
-      raise_for Moregen Moregen_occur
+    with (Occur ty) ->
+      raise_for Moregen (Moregen_occur { got = pattern; expected=ty})
   end;
   (* also check for free univars *)
   occur_univar_for Moregen env ty;
@@ -3854,7 +3856,7 @@ let rec moregen inst_nongen type_pairs env t1 t2 =
   try
     match (get_desc t1, get_desc t2) with
       (Tvar _, _) when may_instantiate inst_nongen t1 ->
-        moregen_occur env (get_level t1) t2;
+        moregen_occur env (get_level t1) t1 t2;
         update_scope_for Moregen (get_scope t1) t2;
         occur_for Moregen (Expression {env; in_subst = false}) t1 t2;
         link_type t1 t2
@@ -3869,7 +3871,7 @@ let rec moregen inst_nongen type_pairs env t1 t2 =
           TypePairs.add type_pairs (t1', t2');
           match (get_desc t1', get_desc t2') with
             (Tvar _, _) when may_instantiate inst_nongen t1' ->
-              moregen_occur env (get_level t1') t2;
+              moregen_occur env (get_level t1') t1' t2;
               update_scope_for Moregen (get_scope t1') t2;
               link_type t1' t2
           | (Tarrow (l1, t1, u1, _), Tarrow (l2, t2, u2, _)) ->
@@ -3997,7 +3999,7 @@ and moregen_row inst_nongen type_pairs env row1 row2 =
                     (create_row ~fields:r2 ~more:rm2 ~name:None
                        ~fixed:row2_fixed ~closed:row2_closed))
       in
-      moregen_occur env (get_level rm1) ext;
+      moregen_occur env (get_level rm1) rm1 ext;
       update_scope_for Moregen (get_scope rm1) ext;
       (* This [link_type] has to be undone if the rest of the function fails *)
       link_type rm1 ext
@@ -4093,7 +4095,7 @@ let moregen inst_nongen type_pairs env patt subj =
    Usually, the subject is given by the user, and the pattern
    is unimportant.  So, no need to propagate abbreviations.
 *)
-let moregeneral env inst_nongen pat_sch subj_sch =
+let moregeneral env ~inst_nongen pat_sch subj_sch =
   (* Moregen splits the generic level into two finer levels:
      [generic_level] and [subject_level = generic_level - 1].
      In order to properly detect and print weak variables when
@@ -4126,8 +4128,8 @@ let moregeneral env inst_nongen pat_sch subj_sch =
     | Error trace -> raise (Moregen (expand_to_moregen_error env trace))
   end
 
-let is_moregeneral env inst_nongen pat_sch subj_sch =
-  match moregeneral env inst_nongen pat_sch subj_sch with
+let is_moregeneral env ~inst_nongen pat_sch subj_sch =
+  match moregeneral env ~inst_nongen pat_sch subj_sch with
   | () -> true
   | exception Moregen _ -> false
 

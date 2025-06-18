@@ -138,7 +138,7 @@ type ('a, 'variety) explanation =
 
   | Record_field_mismatch: (_,_) explanation
 
-  | Moregen_occur
+  | Moregen_occur of type_expr diff
 
   | Type_variable_already_bound: (_,_) explanation
 
