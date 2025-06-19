@@ -5008,13 +5008,9 @@ let rec subtype_rec env trace t1 t2 cstrs =
         (trace, t1, t2, !univar_pairs)::cstrs
     | (Tarrow(l1, t1, u1, _), Tarrow(l2, t2, u2, _))
       when compatible_labels ~in_pattern_mode:false l1 l2 ->
-        let cstrs =
-          subtype_rec
-            env
-            (Subtype.Diff {got = t2; expected = t1} :: trace)
-            t2 t1
-            cstrs
-        in
+        (* the trace will be updated at the next step due to the Tpoly wrapping
+           of parameter. *)
+        let cstrs = subtype_rec env trace t2 t1 cstrs in
         subtype_rec
           env
           (Subtype.Diff {got = u1; expected = u2} :: trace)
@@ -5079,11 +5075,14 @@ let rec subtype_rec env trace t1 t2 cstrs =
           (trace, t1, t2, !univar_pairs)::cstrs
         end
     | (Tpoly (u1, []), Tpoly (u2, [])) ->
+        let trace = Subtype.Diff {got = u1; expected = u2} :: trace in
         subtype_rec env trace u1 u2 cstrs
     | (Tpoly (u1, tl1), Tpoly (u2, [])) ->
+        let trace = Subtype.Diff {got = t1; expected = u2} :: trace in
         let _, u1' = instance_poly ~fixed:false tl1 u1 in
         subtype_rec env trace u1' u2 cstrs
     | (Tpoly (u1, tl1), Tpoly (u2,tl2)) ->
+        let trace = Subtype.Diff {got = t1; expected = t2} :: trace in
         begin try
           enter_poly env u1 tl1 u2 tl2
             (fun t1 t2 -> subtype_rec env trace t1 t2 cstrs)
