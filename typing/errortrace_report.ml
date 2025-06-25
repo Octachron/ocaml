@@ -159,7 +159,7 @@ let highlight shadow expl = match shadow with
   | Some _ as x -> x
   | None ->
     match expl with
-    | [Errortrace.Moregen_occur d] ->
+    | [Errortrace.Moregen_occur d | Errortrace.Univar_mismatch {diff=d}] ->
         Some Errortrace.(map_diff trivial_expansion d)
     | _ -> None
 
