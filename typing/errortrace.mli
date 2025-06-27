@@ -105,6 +105,12 @@ type first_class_module =
         lhs:string list
       }
 
+type polyfy_error =
+  | Already_bound
+  | Non_generic
+  | Non_universal_row
+  | Not_a_variable
+
 type ('a, 'variety) explanation =
   (* Common *)
   | Variant : 'variety variant -> ('a, 'variety) explanation
@@ -125,9 +131,11 @@ type ('a, 'variety) explanation =
   (* New *)
   | Out_of_scope_univar: (_,_) explanation
   | Kind_mismatch: (_,_) explanation
+  | Univar_quantification_mismatch:
+      (polyfy_error * type_expr) list -> ('a, unification) explanation
+
   | GADT_mismatched_return_type : ('a, unification) explanation
   | Mismatched_type_variables: ('a, unification) explanation
-  | Mismatched_bound_univars: ('a, unification) explanation
   | Constructor_arity_mismatch : ('a,'v) explanation
   | Injective_arity_mismatch : ('a,'v) explanation
 

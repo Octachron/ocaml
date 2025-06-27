@@ -2154,24 +2154,28 @@ let enter_poly_for tr_exn env t1 tl1 t2 tl2 f =
 
 (**** Instantiate a generic type into a poly type ***)
 
+
 let polyfy env ty vars =
   let subst_univar copy_scope ty =
     match get_desc ty with
     | Tvar name when get_level ty = generic_level ->
         let t = newty (Tunivar name) in
         For_copy.redirect_desc copy_scope ty (Tsubst (t, None));
-        Some t
-    | _ -> None
+        Either.Left t
+    | Tsubst (t,_) -> Either.Right (Errortrace.Already_bound, t)
+    | Tvar _ -> Either.Right (Errortrace.Non_generic, ty)
+    | Tfield _ -> Either.Right (Errortrace.Non_universal_row, ty)
+    | _ -> Either.Right (Errortrace.Not_a_variable, ty)
   in
   (* need to expand twice? cf. Ctype.unify2 *)
   let vars = List.map (expand_head env) vars in
   let vars = List.map (expand_head env) vars in
   For_copy.with_scope (fun copy_scope ->
-    let vars' = List.filter_map (subst_univar copy_scope) vars in
+    let vars', missing = List.partition_map (subst_univar copy_scope) vars in
     let ty = copy copy_scope ty in
     let ty = newty2 ~level:(get_level ty) (Tpoly(ty, vars')) in
-    let complete = List.length vars = List.length vars' in
-    ty, complete
+    let status = if missing = [] then Ok () else Error missing in
+    ty, status
   )
 
 (* assumption: [ty] is fully generalized. *)

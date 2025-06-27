@@ -112,12 +112,12 @@ let is_structural d =
 
 let wip: type a b. (a,b) Errortrace.explanation -> bool =
   let open Errortrace in function
-    | Out_of_scope_univar
+    | Mismatched_type_variables -> true
+
+    | Out_of_scope_univar -> true
     | Type_constructor_mismatch
-    | Kind_mismatch
+    | Kind_mismatch -> true
     | GADT_mismatched_return_type
-    | Mismatched_type_variables
-    | Mismatched_bound_univars
     | Tuple_arity_mismatch
     | Type_constructor_arity_mismatch
     | Constructor_arity_mismatch
@@ -520,7 +520,37 @@ let explanation (type variety) intro
 
     | Errortrace.GADT_mismatched_return_type -> None
     | Errortrace.Mismatched_type_variables -> None
-    | Errortrace.Mismatched_bound_univars -> None
+    | Errortrace.Univar_quantification_mismatch l ->
+        let qp ppf x = Style.as_inline_code prepared_type_expr ppf x in
+        let pp ppf (kind,ty) =
+          add_type_to_preparation ty;
+          match kind with
+          | Errortrace.Already_bound ->
+              begin match Types.get_desc ty with
+              | Tunivar (Some name) ->
+                  Fmt.fprintf ppf
+                    "@,@[The universal variable %a would be paired@ to@ multiple@ \
+                     distinct@ universal@ type@ variables.@]"
+                    Style.inline_code name
+              | _ -> ()
+              end
+          | Errortrace.Non_generic ->
+              Fmt.fprintf ppf
+                "@,@[The type variable %a is not generalizable@ to@ an@ universal@ \
+                 type variable.@]"
+                qp ty
+          | Errortrace.Non_universal_row ->
+              Fmt.fprintf ppf
+                "@,@[The type %a is constrained and cannot be generalized@]"
+                qp ty
+          | Errortrace.Not_a_variable ->
+              Fmt.fprintf ppf
+                "@[The type %a is not a type variable@]"
+                qp ty
+        in
+
+        explainf "%a"
+        Fmt.(pp_print_list ~pp_sep:(fun _ppf () -> ()) pp) l
     | Errortrace.Moregen_occur diff ->
       add_type_to_preparation diff.got;
       add_type_to_preparation diff.expected;
