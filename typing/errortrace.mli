@@ -150,8 +150,6 @@ type ('a, 'variety) explanation =
 
   | Type_variable_already_bound: (_,_) explanation
 
-  | Tuple_arity_mismatch
-
 
    (* Compatibibility *)
 

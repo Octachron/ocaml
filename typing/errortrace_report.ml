@@ -118,7 +118,6 @@ let wip: type a b. (a,b) Errortrace.explanation -> bool =
     | Type_constructor_mismatch
     | Kind_mismatch -> true
     | GADT_mismatched_return_type
-    | Tuple_arity_mismatch
     | Type_constructor_arity_mismatch
     | Constructor_arity_mismatch
     | Injective_arity_mismatch
@@ -128,6 +127,7 @@ let wip: type a b. (a,b) Errortrace.explanation -> bool =
     | Inline_record_mismatch
     | Record_field_mismatch
     | Type_variable_already_bound -> true
+
     | _ -> false
 
 let clean_trace f tr empty_expl =
@@ -529,15 +529,15 @@ let explanation (type variety) intro
               begin match Types.get_desc ty with
               | Tunivar (Some name) ->
                   Fmt.fprintf ppf
-                    "@,@[The universal variable %a would be paired@ to@ multiple@ \
-                     distinct@ universal@ type@ variables.@]"
+                    "@,@[The universal variable %a would be paired@ to@ \
+                     multiple@ distinct@ universal@ type@ variables.@]"
                     Style.inline_code name
               | _ -> ()
               end
           | Errortrace.Non_generic ->
               Fmt.fprintf ppf
-                "@,@[The type variable %a is not generalizable@ to@ an@ universal@ \
-                 type variable.@]"
+                "@,@[The type variable %a is not generalizable@ to@ an@ \
+                 universal@ type variable.@]"
                 qp ty
           | Errortrace.Non_universal_row ->
               Fmt.fprintf ppf
@@ -559,7 +559,6 @@ let explanation (type variety) intro
            is not compatible with the universal type variable %a.@]"
         (Style.as_inline_code prepared_type_expr) diff.got
         (Style.as_inline_code prepared_type_expr) diff.expected
-    | Errortrace.Tuple_arity_mismatch -> None
     | Errortrace.Type_constructor_arity_mismatch -> None
     | Errortrace.Type_constructor_mismatch -> None
 

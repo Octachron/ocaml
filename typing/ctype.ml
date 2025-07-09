@@ -3044,7 +3044,7 @@ and unify_list err env tl1 tl2 =
 
 and unify_labeled_list env labeled_tl1 labeled_tl2 =
   if 0 <> List.compare_lengths labeled_tl1 labeled_tl2 then
-    raise_for Unify Tuple_arity_mismatch;
+    raise_for Unify Kind_mismatch (* tuple arity mismatch is syntaxic *);
   List.iter2
     (fun (label1, ty1) (label2, ty2) ->
       if not (Option.equal String.equal label1 label2) then begin
@@ -3923,7 +3923,7 @@ and moregen_list inst_nongen type_pairs env tl1 tl2 =
 and moregen_labeled_list inst_nongen type_pairs env labeled_tl1
     labeled_tl2 =
   if 0 <> List.compare_lengths labeled_tl1 labeled_tl2 then
-    raise_for Moregen Tuple_arity_mismatch;
+    raise_for Moregen Kind_mismatch;
   List.iter2
     (fun (label1, ty1) (label2, ty2) ->
       if not (Option.equal String.equal label1 label2) then
@@ -4303,7 +4303,7 @@ and eqtype_list_same_length rename type_pairs subst env tl1 tl2 =
 
 and eqtype_labeled_list rename type_pairs subst env labeled_tl1 labeled_tl2 =
   if 0 <> List.compare_lengths labeled_tl1 labeled_tl2 then
-    raise_for Equality Tuple_arity_mismatch;
+    raise_for Equality Kind_mismatch;
   List.iter2
     (fun (label1, ty1) (label2, ty2) ->
       if not (Option.equal String.equal label1 label2) then

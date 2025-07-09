@@ -164,8 +164,6 @@ type ('a, 'variety) explanation =
 
   | Type_variable_already_bound: (_,_) explanation
 
-  | Tuple_arity_mismatch
-
 type ('a,'variety) explanation_segment = {
   explanation: ('a,'variety) explanation;
   subtrace: 'a diff list
@@ -231,7 +229,7 @@ let map_elt (type a b variety) f:
   | Constructor_arity_mismatch | Injective_arity_mismatch | GADTness_mismatch
   | Variant_constructor_mismatch | Missing_variant_constructor
   | Inline_record_mismatch | Record_field_mismatch
-  | Type_variable_already_bound | Tuple_arity_mismatch  as x -> x
+  | Type_variable_already_bound as x -> x
   | GADT_mismatched_return_type as x -> x
   | Mismatched_type_variables as x -> x
   | Univar_quantification_mismatch x ->
