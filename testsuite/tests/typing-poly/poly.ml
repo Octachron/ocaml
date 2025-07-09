@@ -519,7 +519,10 @@ end
 Line 3, characters 12-17:
 3 |   method id x = x
                 ^^^^^
-Error: This method has type "'a !(->) 'a" which is less general than "!('b. 'b -> 'a)"
+Error: This method has type "'b !(->) 'b" which is less general than
+         "!('b0. 'b0 -> 'b)"
+       The type variable "'b" is not generalizable to an universal
+       type variable.
 |}];;
 
 class id2 (x : 'a) = object
@@ -531,7 +534,10 @@ end
 Line 3, characters 12-17:
 3 |   method id x = x
                 ^^^^^
-Error: This method has type "'a !(->) 'a" which is less general than "!('b. 'b -> 'a)"
+Error: This method has type "'b !(->) 'b" which is less general than
+         "!('b0. 'b0 -> 'b)"
+       The type variable "'b" is not generalizable to an universal
+       type variable.
 |}];;
 
 class id3 x = object
@@ -544,7 +550,10 @@ end
 Line 4, characters 12-17:
 4 |   method id _ = x
                 ^^^^^
-Error: This method has type "'b !(->) 'b" which is less general than "!('a. 'a -> 'a)"
+Error: This method has type "'a !(->) 'a" which is less general than
+         "!('a0. 'a0 -> 'a0)"
+       The type variable "'a" is not generalizable to an universal
+       type variable.
 |}];;
 
 class id4 () = object
@@ -562,7 +571,10 @@ Lines 4-7, characters 12-17:
 5 |     match r with
 6 |       None -> r <- Some x; x
 7 |     | Some y -> y
-Error: This method has type "'b !(->) 'b" which is less general than "!('a. 'a -> 'a)"
+Error: This method has type "'a !(->) 'a" which is less general than
+         "!('a0. 'a0 -> 'a0)"
+       The type variable "'a" is not generalizable to an universal
+       type variable.
 |}];;
 
 class c = object
@@ -831,8 +843,10 @@ type bad = { bad : 'a. 'a option ref; }
 Line 2, characters 17-25:
 2 | let bad = {bad = ref None};;
                      ^^^^^^^^
-Error: This field value has type "'b option ref" which is less general than
-         "'a. 'a option ref"
+Error: This field value has type "'a option ref" which is less general than
+         "'a0. 'a0 option ref"
+       The type variable "'a" is not generalizable to an universal
+       type variable.
 |}];;
 
 (* Type variable scope *)
@@ -1432,7 +1446,7 @@ Line 9, characters 2-46:
 9 |   function Leaf x -> x | Node x -> 1 + depth x;; (* fails *)
       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: This definition has type "int t !(->) int" which is less general than
-         "!('a. 'a t -> int)"
+         "!('a. 'a t -> int)"The type "int" is not a type variable
 |}];;
 
 (* compare with records (should be the same) *)
@@ -1501,7 +1515,7 @@ Line 3, characters 19-20:
 3 | let f ?x y = y in {f};; (* fail *)
                        ^
 Error: This field value has type "unit !(->) unit" which is less general than
-         "!('a. 'a -> unit)"
+         "!('a. 'a -> unit)"The type "unit" is not a type variable
 |}];;
 
 (* Polux Moon caml-list 2011-07-26 *)
@@ -1898,8 +1912,10 @@ let rec foo : 'a . 'a -> 'd = fun x -> x
 Line 1, characters 30-40:
 1 | let rec foo : 'a . 'a -> 'd = fun x -> x
                                   ^^^^^^^^^^
-Error: This definition has type "'b !(->) 'b" which is less general than
-         "!('a. 'a -> 'c)"
+Error: This definition has type "'a !(->) 'a" which is less general than
+         "!('a0. 'a0 -> 'b)"
+       The type variable "'a" is not generalizable to an universal
+       type variable.
 |}]
 
 (* #7741 *)
@@ -1975,6 +1991,8 @@ Line 2, characters 6-44:
           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: This definition has type "'a option ref" which is less general than
          "'a0. 'a0 option ref"
+       The type variable "'a" is not generalizable to an universal
+       type variable.
 |}]
 
 type pr = { foo : 'a. 'a option ref }
@@ -1984,8 +2002,10 @@ type pr = { foo : 'a. 'a option ref; }
 Line 2, characters 16-24:
 2 | let x = { foo = ref None }
                     ^^^^^^^^
-Error: This field value has type "'b option ref" which is less general than
-         "'a. 'a option ref"
+Error: This field value has type "'a option ref" which is less general than
+         "'a0. 'a0 option ref"
+       The type variable "'a" is not generalizable to an universal
+       type variable.
 |}]
 
 
@@ -2061,8 +2081,9 @@ let explicitly_quantified_row: 'a 'r. (<x:'a; ..> as 'r) -> 'a = fun o -> o#y ()
 Line 1, characters 65-85:
 1 | let explicitly_quantified_row: 'a 'r. (<x:'a; ..> as 'r) -> 'a = fun o -> o#y (); o#x
                                                                      ^^^^^^^^^^^^^^^^^^^^
-Error: This definition has type "'b. < x : 'b; !(y) : unit -> 'c; .. > -> 'b"
-       which is less general than "'a 'd. (< x : 'a; .. > as 'd) -> 'a"
+Error: This definition has type "'a. < x : 'a; !(y) : unit -> 'b; .. > -> 'a"
+       which is less general than "'a 'c. (< x : 'a; .. > as 'c) -> 'a"
+       The type "< y : unit -> 'd; .. >" is constrained and cannot be generalized
 |}]
 
 
