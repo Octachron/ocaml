@@ -105,6 +105,11 @@ type first_class_module =
         lhs:string list
       }
 
+(** Definition related error *)
+type decl =
+  | GADT_mismatched_return_type
+  | Type_variable_already_bound
+
 type polyfy_error =
   | Already_bound
   | Non_generic
@@ -116,6 +121,8 @@ type ('a, 'variety) explanation =
   | Variant : 'variety variant -> ('a, 'variety) explanation
   | Obj : 'variety obj -> ('a, 'variety) explanation
   | Escape : 'a escape -> ('a, _) explanation
+  | Decl: decl -> ('a,_) explanation
+  | Incompatible: ('a,unification) explanation
   | Function_label_mismatch of Asttypes.arg_label diff
   | Tuple_label_mismatch of string option diff
   | Incompatible_fields :
@@ -134,21 +141,10 @@ type ('a, 'variety) explanation =
   | Univar_quantification_mismatch:
       (polyfy_error * type_expr) list -> ('a, unification) explanation
 
-  | GADT_mismatched_return_type : ('a, unification) explanation
   | Mismatched_type_variables: ('a, unification) explanation
-  | Constructor_arity_mismatch : ('a,'v) explanation
-  | Injective_arity_mismatch : ('a,'v) explanation
-
-  | GADTness_mismatch: (_,_) explanation
-  | Variant_constructor_mismatch: (_,_) explanation
-  | Missing_variant_constructor: (_,_) explanation
-  | Inline_record_mismatch: (_,_) explanation
-
-  | Record_field_mismatch: (_,_) explanation
 
   | Moregen_occur of type_expr diff
 
-  | Type_variable_already_bound: (_,_) explanation
 
 
    (* Compatibibility *)

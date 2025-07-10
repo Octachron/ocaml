@@ -309,7 +309,7 @@ let make_constructor env loc type_path type_params svars sargs sret_type =
                      ~got:ret_type
                      ~expected:(Ctype.newconstr type_path type_params)
                   )
-                  (root_explanation GADT_mismatched_return_type)
+                  (root_explanation @@ Decl GADT_mismatched_return_type)
               in
               raise (Error(sret_type.ptyp_loc,
                            Constraint_failed(

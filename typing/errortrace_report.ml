@@ -116,19 +116,16 @@ let wip: type a b. (a,b) Errortrace.explanation -> bool =
 
     | Out_of_scope_univar -> true
     | Type_constructor_mismatch
-    | Kind_mismatch -> true
-    | GADT_mismatched_return_type
-    | Type_constructor_arity_mismatch
-    | Constructor_arity_mismatch
-    | Injective_arity_mismatch
-    | GADTness_mismatch
-    | Variant_constructor_mismatch
-    | Missing_variant_constructor
-    | Inline_record_mismatch
-    | Record_field_mismatch
-    | Type_variable_already_bound -> true
-
+    | Type_constructor_arity_mismatch -> true
     | _ -> false
+
+let transparent: type a b. (a,b) Errortrace.explanation -> bool =
+  let open Errortrace in function
+    | Decl _ -> true
+    | Incompatible -> true
+    | Kind_mismatch -> true
+    | _ -> false
+
 
 let clean_trace f tr empty_expl =
   let rec clean f expl = function
@@ -170,7 +167,7 @@ let rec split_last =
   | [a] | [a; { explanation = Escape { kind=Constraint; _ }; _ }] ->
       let sub, last = partition_subtrace [] None a.subtrace in
       [sub], [a.explanation], last
-  | [a;b] when wip b.explanation ->
+  | [a;b] when wip b.explanation || transparent b.explanation ->
       let sub, last = partition_subtrace [] None a.subtrace in
       [sub], [a.explanation], last
   | [{explanation=Incompatible_fields _ as f; subtrace=ftr};
@@ -187,7 +184,9 @@ let simplify_trace f t =
   let open Errortrace in
   let intermediary, last_explanation, last_trace = split_last t.explanations in
   let diff = List.concat (t.context :: intermediary) in
-  let keep_last = List.for_all wip last_explanation in
+  let keep_last =
+    List.for_all (fun x -> wip x || transparent x) last_explanation
+  in
   clean_trace f diff keep_last, last_explanation,
   highlight last_trace last_explanation
 
@@ -518,7 +517,7 @@ let explanation (type variety) intro
                 pp_doc more
              )
 
-    | Errortrace.GADT_mismatched_return_type -> None
+    | Errortrace.Decl GADT_mismatched_return_type -> None
     | Errortrace.Mismatched_type_variables -> None
     | Errortrace.Univar_quantification_mismatch l ->
         let qp ppf x = Style.as_inline_code prepared_type_expr ppf x in
@@ -562,14 +561,9 @@ let explanation (type variety) intro
     | Errortrace.Type_constructor_arity_mismatch -> None
     | Errortrace.Type_constructor_mismatch -> None
 
-    | Errortrace.Constructor_arity_mismatch -> None
-    | Errortrace.Injective_arity_mismatch -> None
-    | Errortrace.GADTness_mismatch -> None
-    | Errortrace.Variant_constructor_mismatch -> None
-    | Errortrace.Missing_variant_constructor -> None
-    | Errortrace.Inline_record_mismatch -> None
-    | Errortrace.Record_field_mismatch -> None
-    | Errortrace.Type_variable_already_bound -> None
+    | Errortrace.Incompatible -> None
+    | Errortrace.Decl _ -> None
+
     | Errortrace.Out_of_scope_univar -> None
     | Errortrace.Kind_mismatch -> None
 
