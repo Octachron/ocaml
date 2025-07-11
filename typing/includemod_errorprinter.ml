@@ -896,15 +896,16 @@ and signature ~expansion_token ~env:_ ~before ~ctx sgs =
     )
 and sigitem ~expansion_token ~env ~before ~ctx (name,s) = match s with
   | Core c ->
-      dwith_context ctx (core env.i_env name c) :: before
+      dwith_context ctx (core env.i_env (Types.signature_item_id name) c)
+      :: before
   | Module_type diff ->
       module_type ~expansion_token ~eqmode:false ~env ~before
-        ~ctx:(Context.Module name :: ctx) diff
+        ~ctx:(Context.Module (Types.signature_item_id name) :: ctx) diff
   | Module_type_declaration diff ->
       module_type_decl ~expansion_token ~env ~before ~ctx name diff
 and module_type_decl ~expansion_token ~env ~before ~ctx id diff =
   let next =
-    dwith_context_and_elision ctx (module_type_declarations id) diff in
+    dwith_context_and_elision ctx (module_type_declarations @@ Types.signature_item_id id) diff in
   let before = next :: before in
   match diff.symptom with
   | Not_less_than mts ->
@@ -913,21 +914,21 @@ and module_type_decl ~expansion_token ~env ~before ~ctx id diff =
         :: before
       in
       module_type ~expansion_token ~eqmode:true ~before ~env
-        ~ctx:(Context.Modtype id :: ctx) mts
+        ~ctx:(Context.Modtype (Types.signature_item_id id) :: ctx) mts
   | Not_greater_than mts ->
       let before =
         Location.msg "The second module type is not included in the first"
         :: before in
       module_type ~expansion_token ~eqmode:true ~before ~env
-        ~ctx:(Context.Modtype id :: ctx) mts
+        ~ctx:(Context.Modtype (Types.signature_item_id id) :: ctx) mts
   | Incomparable mts ->
       module_type ~expansion_token ~eqmode:true ~env ~before
-        ~ctx:(Context.Modtype id :: ctx) mts.less_than
+        ~ctx:(Context.Modtype (Types.signature_item_id id) :: ctx) mts.less_than
   | Illegal_permutation c ->
       begin match diff.got.Types.mtd_type with
       | None -> assert false
       | Some mty ->
-          with_context (Modtype id::ctx)
+          with_context (Modtype (Types.signature_item_id id)::ctx)
             (Runtime_coercion.illegal_permutation Context.alt_pp env.i_env)
             (mty,c)
           :: before
