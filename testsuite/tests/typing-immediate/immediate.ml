@@ -146,11 +146,8 @@ Error: Signature mismatch:
          sig type t = string end
        is not included in
          sig type t [@@immediate] end
-       Type declarations do not match:
-         type t = string
-       is not included in
-         type t [@@immediate]
-       The first is not an immediate type.
+       Try changing type "t" to
+       type t [@@immediate]
 |}];;
 
 (* Same as above but with explicit signature *)
@@ -161,11 +158,8 @@ Line 1, characters 23-49:
                            ^^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: Signature mismatch:
        Modules do not match: sig type t = string end is not included in S
-       Type declarations do not match:
-         type t = string
-       is not included in
-         type t [@@immediate]
-       The first is not an immediate type.
+       Try changing type "t" to
+       type t [@@immediate]
 |}];;
 module FM_invalid = F (struct type t = string end);;
 [%%expect{|

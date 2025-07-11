@@ -88,11 +88,8 @@ Error: Signature mismatch:
          sig type +-'a t = int end
        is not included in
          sig type +!'a t end
-       Type declarations do not match:
-         type +-'a t = int
-       is not included in
-         type +!'a t
-       Their variances do not agree.
+       Try changing type "t" to
+       type +!'a t
 |}]
 
 (* Annotations in type abbreviations allow to check injectivity *)
@@ -150,11 +147,8 @@ Error: Signature mismatch:
          sig type +-'a t = < m : int > end
        is not included in
          sig type !'a t = private < m : int; .. > end
-       Type declarations do not match:
-         type +-'a t = < m : int >
-       is not included in
-         type !'a t
-       Their variances do not agree.
+       Try changing type "t" to
+       type !'a t
 |}]
 
 (* Injectivity annotations are inferred correctly for constrained parameters *)
@@ -229,11 +223,8 @@ Error: Signature mismatch:
          sig type +-'a t = int end
        is not included in
          sig type +-!'a t end
-       Type declarations do not match:
-         type +-'a t = int
-       is not included in
-         type +-!'a t
-       Their variances do not agree.
+       Try changing type "t" to
+       type +-!'a t
 |}]
 
 (* One cannot assume that abstract types are not injective *)

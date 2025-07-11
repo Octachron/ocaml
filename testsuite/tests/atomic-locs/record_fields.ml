@@ -103,15 +103,8 @@ Error: Signature mismatch:
          sig type t = { mutable x : int; } end
        is not included in
          sig type t = { mutable x : int [@atomic]; } end
-       Type declarations do not match:
-         type t = { mutable x : int; }
-       is not included in
-         type t = { mutable x : int [@atomic]; }
-       Fields do not match:
-         "mutable x : int;"
-       is not the same as:
-         "mutable x : int [@atomic];"
-       The second is atomic and the first is not.
+       Try changing type "t" to
+       type t = { mutable x : int [@atomic]; }
 |}];;
 
 module Wrong2 = (struct
@@ -130,15 +123,8 @@ Error: Signature mismatch:
          sig type t = { mutable x : int [@atomic]; } end
        is not included in
          sig type t = { mutable x : int; } end
-       Type declarations do not match:
-         type t = { mutable x : int [@atomic]; }
-       is not included in
-         type t = { mutable x : int; }
-       Fields do not match:
-         "mutable x : int [@atomic];"
-       is not the same as:
-         "mutable x : int;"
-       The first is atomic and the second is not.
+       Try changing type "t" to
+       type t = { mutable x : int; }
 |}];;
 
 module Ok = (struct

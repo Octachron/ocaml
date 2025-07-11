@@ -709,14 +709,7 @@ Error: Signature mismatch:
          sig val f : (#c as 'a) -> 'a end
        is not included in
          sig val f : #c -> #c end
-       Values do not match:
-         val f : (#c as 'a) -> 'a
-       is not included in
-         val f : #c -> #c
-       The type "(#c as 'a) -> 'a" is not compatible with the type "#c -> #c"
-       Type "#c as 'a" = "< m : 'a; .. >" is not compatible with type
-         "#c as 'b" = "< m : 'b; .. >"
-       Type "'a" is not compatible with type "'b"
+       Try changing value "f" to be a "#c -> #c"
 |}];;
 
 module M = struct type t = int class t () = object end end;;

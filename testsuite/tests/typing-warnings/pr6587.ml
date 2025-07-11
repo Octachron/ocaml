@@ -32,11 +32,5 @@ Error: Signature mismatch:
          sig val f : fpclass -> Stdlib.fpclass end
        is not included in
          sig val f : fpclass -> fpclass end
-       Values do not match:
-         val f : fpclass -> Stdlib.fpclass
-       is not included in
-         val f : fpclass -> fpclass
-       The type "fpclass -> Stdlib.fpclass" is not compatible with the type
-         "fpclass -> fpclass"
-       Type "Stdlib.fpclass" is not compatible with type "fpclass"
+       Try changing value "f" to be a "fpclass -> fpclass"
 |}]

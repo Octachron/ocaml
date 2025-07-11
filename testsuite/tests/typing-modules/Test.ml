@@ -76,11 +76,8 @@ Error: Signature mismatch:
          sig type +'a t = private int end
        is not included in
          sig type -'a t = private int end
-       Type declarations do not match:
-         type +'a t = private int
-       is not included in
-         type -'a t = private int
-       Their variances do not agree.
+       Try changing type "t" to
+       type -'a t = private int
 |}];;
 
 (* PR#6005 *)
@@ -141,15 +138,6 @@ Error: Signature mismatch:
          sig type t += E of int end
        is not included in
          sig type t += E end
-       Extension declarations do not match:
-         type t += E of int
-       is not included in
-         type t += E
-       Constructors do not match:
-         "E of int"
-       is not the same as:
-         "E"
-       They have different arities.
 |}];;
 
 module M : sig type t += E of char end = struct type t += E of int end;;
@@ -162,15 +150,6 @@ Error: Signature mismatch:
          sig type t += E of int end
        is not included in
          sig type t += E of char end
-       Extension declarations do not match:
-         type t += E of int
-       is not included in
-         type t += E of char
-       Constructors do not match:
-         "E of int"
-       is not the same as:
-         "E of char"
-       The type "int" is not equal to the type "char"
 |}];;
 
 module M : sig type t += C of int end = struct type t += E of int end;;
@@ -183,7 +162,6 @@ Error: Signature mismatch:
          sig type t += E of int end
        is not included in
          sig type t += C of int end
-       The extension constructor "C" is required but not provided
 |}];;
 
 module M : sig
@@ -201,13 +179,4 @@ Error: Signature mismatch:
          sig type t += E of int end
        is not included in
          sig type t += E of { x : int; } end
-       Extension declarations do not match:
-         type t += E of int
-       is not included in
-         type t += E of { x : int; }
-       Constructors do not match:
-         "E of int"
-       is not the same as:
-         "E of { x : int; }"
-       The second uses inline records and the first doesn't.
 |}];;

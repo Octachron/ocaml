@@ -20,8 +20,7 @@ Error: Modules do not match:
          sig type t end
        is not included in
          sig type +'a t end
-       Type declarations do not match: type t is not included in type +'a t
-       They have different arities.
+       Try changing type "t" to type +'a t
 |}]
 
 module rec A: sig
@@ -48,7 +47,7 @@ Error: Modules do not match:
          $S1 = sig type y end
        does not include
          $T1 = sig type x end
-       The type "y" is required but not provided
+       Try adding a type "y"
 |}]
 
 module type S = sig type 'a t end
@@ -60,8 +59,7 @@ and B : S = struct type t end;;
 module type S = sig type 'a t end
 Line 1:
 Error: Modules do not match: sig type t end is not included in S
-       Type declarations do not match: type t is not included in type 'a t
-       They have different arities.
+       Try changing type "t" to type 'a t
 |}]
 
 module rec A: sig val x: 'a B.M.t -> unit end = struct
@@ -77,16 +75,5 @@ Error: Modules do not match:
          sig module type S = sig type t end module M : S end
        is not included in
          sig module type S = sig type 'a t end module M : S end
-       Module type declarations do not match:
-         module type S = sig type t end
-       does not match
-         module type S = sig type 'a t end
-       At position "module type S = <here>"
-       Module types do not match:
-         sig type t end
-       is not equal to
-         sig type 'a t end
-       At position "module type S = <here>"
-       Type declarations do not match: type t is not included in type 'a t
-       They have different arities.
+       Try changing module type "S" to module type S = sig type 'a t end
 |}]

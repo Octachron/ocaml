@@ -316,15 +316,6 @@ Error: Signature mismatch:
          sig type ('a, 'b) bar += A of float end
        is not included in
          sig type ('a, 'b) bar += A of int end
-       Extension declarations do not match:
-         type ('a, 'b) bar += A of float
-       is not included in
-         type ('a, 'b) bar += A of int
-       Constructors do not match:
-         "A of float"
-       is not the same as:
-         "A of int"
-       The type "float" is not equal to the type "int"
 |}]
 
 module M : sig
@@ -342,15 +333,6 @@ Error: Signature mismatch:
          sig type ('a, 'b) bar += A of 'b end
        is not included in
          sig type ('a, 'b) bar += A of 'a end
-       Extension declarations do not match:
-         type ('a, 'b) bar += A of 'b
-       is not included in
-         type ('a, 'b) bar += A of 'a
-       Constructors do not match:
-         "A of 'b"
-       is not the same as:
-         "A of 'a"
-       The type "'b" is not equal to the type "'a"
 |}]
 
 module M : sig
@@ -368,15 +350,8 @@ Error: Signature mismatch:
          sig type ('b, 'a) bar = A of 'a end
        is not included in
          sig type ('a, 'b) bar = A of 'a end
-       Type declarations do not match:
-         type ('b, 'a) bar = A of 'a
-       is not included in
-         type ('a, 'b) bar = A of 'a
-       Constructors do not match:
-         "A of 'a"
-       is not the same as:
-         "A of 'a"
-       The type "'a" is not equal to the type "'b"
+       Try changing type "bar" to
+       type ('a, 'b) bar = A of 'a
 |}];;
 
 
@@ -395,15 +370,6 @@ Error: Signature mismatch:
          sig type ('a, 'b) bar += A : 'd -> ('c, 'd) bar end
        is not included in
          sig type ('a, 'b) bar += A : 'c -> ('c, 'd) bar end
-       Extension declarations do not match:
-         type ('a, 'b) bar += A : 'd -> ('c, 'd) bar
-       is not included in
-         type ('a, 'b) bar += A : 'c -> ('c, 'd) bar
-       Constructors do not match:
-         "A : 'd -> ('c, 'd) bar"
-       is not the same as:
-         "A : 'c -> ('c, 'd) bar"
-       The type "'d" is not equal to the type "'c"
 |}]
 
 (* Extensions can be rebound *)

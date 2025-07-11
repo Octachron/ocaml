@@ -172,11 +172,8 @@ Line 1, characters 14-15:
                   ^
 Error: Signature mismatch:
        Modules do not match: sig type foo = M.foo end is not included in S
-       Type declarations do not match:
-         type foo = M.foo
-       is not included in
-         type foo = ..
-       The first is abstract, but the second is an extensible variant.
+       Try changing type "foo" to
+       type foo = ..
 |}]
 
 (* Check that signatures can make exstensibility private *)
@@ -233,11 +230,8 @@ Error: Signature mismatch:
          sig type foo = M.foo = private .. end
        is not included in
          S
-       Type declarations do not match:
-         type foo = M.foo = private ..
-       is not included in
-         type foo = ..
-       A private extensible variant would be revealed.
+       Try changing type "foo" to
+       type foo = ..
 |}]
 
 
@@ -266,11 +260,8 @@ Error: Signature mismatch:
          sig type 'a foo = 'a M.foo = .. type 'a bar = 'a foo = .. end
        is not included in
          S
-       Type declarations do not match:
-         type 'a foo = 'a M.foo = ..
-       is not included in
-         type 'a foo = ..
-       Their variances do not agree.
+       Try changing type "foo" to
+       type 'a foo = ..
 |}]
 
 (* Exn is an open type *)

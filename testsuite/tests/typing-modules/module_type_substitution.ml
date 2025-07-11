@@ -142,21 +142,8 @@ Error: In this "with" constraint, the new definition of "t"
          sig type t = X of x | Y of y end
        is not equal to
          base
-       At position "module type t = <here>"
-       Type declarations do not match:
-         type t = X of x | Y of y
-       is not included in
-         type t = X of int | Y of float
-       1. Constructors do not match:
-         "X of x"
-       is not the same as:
-         "X of int"
-       The type "x" is not equal to the type "int"
-       2. Constructors do not match:
-         "Y of y"
-       is not the same as:
-         "Y of float"
-       The type "y" is not equal to the type "float"
+       Try changing type "t" to
+       type t = X of int | Y of float
 |}]
 
 (** First class module types require an identity *)
@@ -582,10 +569,6 @@ Error: In this "with" constraint, the new definition of "A"
          sig type t = bool end
        is not equal to
          sig type t = int end
-       At position "module type A = <here>"
-       Type declarations do not match:
-         type t = bool
-       is not included in
-         type t = int
-       The type "bool" is not equal to the type "int"
+       Try changing type "t" to
+       type t = int
 |}]

@@ -17,12 +17,7 @@ Error: Signature mismatch:
          sig val x : bool * string end
        is not included in
          sig val x : bool * int end
-       Values do not match:
-         val x : bool * string
-       is not included in
-         val x : bool * int
-       The type "bool * string" is not compatible with the type "bool * int"
-       Type "string" is not compatible with type "int"
+       Try changing value "x" to be a "bool * int"
 |}]
 
 module T : sig
@@ -40,13 +35,7 @@ Error: Signature mismatch:
          sig val f : int -> int end
        is not included in
          sig val f : int -> (float * string option) list end
-       Values do not match:
-         val f : int -> int
-       is not included in
-         val f : int -> (float * string option) list
-       The type "int -> int" is not compatible with the type
-         "int -> (float * string option) list"
-       Type "int" is not compatible with type "(float * string option) list"
+       Try changing value "f" to be a "int -> (float * string option) list"
 |}]
 
 (* Alpha-equivalence *)
@@ -65,13 +54,7 @@ Error: Signature mismatch:
          sig val f : 'c list * 'd option -> int end
        is not included in
          sig val f : 'a list * 'b list -> int end
-       Values do not match:
-         val f : 'c list * 'd option -> int
-       is not included in
-         val f : 'a list * 'b list -> int
-       The type "'a list * 'b option -> int" is not compatible with the type
-         "'a list * 'c list -> int"
-       Type "'b option" is not compatible with type "'c list"
+       Try changing value "f" to be a "'a list * 'b list -> int"
 |}]
 
 module T : sig
@@ -89,10 +72,6 @@ Error: Signature mismatch:
          sig type t = bool * float end
        is not included in
          sig type t = int * float end
-       Type declarations do not match:
-         type t = bool * float
-       is not included in
-         type t = int * float
-       The type "bool * float" is not equal to the type "int * float"
-       Type "bool" is not equal to type "int"
+       Try changing type "t" to
+       type t = int * float
 |}]
