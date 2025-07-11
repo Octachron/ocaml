@@ -27,11 +27,8 @@ Error: Signature mismatch:
          sig type t = A.t = A | B val f : t -> unit end
        is not included in
          sig type t = int * string end
-       Type declarations do not match:
-         type t = A.t = A | B
-       is not included in
-         type t = int * string
-       The type "A.t" is not equal to the type "int * string"
+       Try changing type "t" to
+       type t = int * string
 |}]
 
 module rec B : sig
@@ -59,11 +56,8 @@ Error: Signature mismatch:
          sig type 'a t = 'a B.t = A of 'a | B val f : 'a t -> unit end
        is not included in
          sig type 'a t = 'a end
-       Type declarations do not match:
-         type 'a t = 'a B.t = A of 'a | B
-       is not included in
-         type 'a t = 'a
-       The type "'a B.t" is not equal to the type "'a"
+       Try changing type "t" to
+       type 'a t = 'a
 |}];;
 
 module rec C : sig
@@ -91,11 +85,8 @@ Error: Signature mismatch:
          sig type 'a t = 'a C.t = A of 'a | B val f : 'a t -> unit end
        is not included in
          sig type 'a t = { x : 'a; } end
-       Type declarations do not match:
-         type 'a t = 'a C.t = A of 'a | B
-       is not included in
-         type 'a t = { x : 'a; }
-       The first is a variant, but the second is a record.
+       Try changing type "t" to
+       type 'a t = { x : 'a; }
 |}];;
 
 
@@ -124,11 +115,8 @@ Error: Signature mismatch:
          sig type 'a t = 'a D.t = A of 'a | B val f : 'a t -> unit end
        is not included in
          sig type 'a t = int end
-       Type declarations do not match:
-         type 'a t = 'a D.t = A of 'a | B
-       is not included in
-         type 'a t = int
-       The type "'a D.t" is not equal to the type "int"
+       Try changing type "t" to
+       type 'a t = int
 |}];;
 
 module rec E : sig
@@ -156,11 +144,8 @@ Error: Signature mismatch:
          sig type 'a t = 'a E.t = A of 'a | B val f : 'a t -> unit end
        is not included in
          sig type 'a t = 'a constraint 'a = [> `Foo ] end
-       Type declarations do not match:
-         type 'a t = 'a E.t = A of 'a | B
-       is not included in
-         type 'a t = 'a constraint 'a = [> `Foo ]
-       The type "'a" is not equal to the type "[> `Foo ]"
+       Try changing type "t" to
+       type 'a t = 'a constraint 'a = [> `Foo ]
 |}];;
 
 module rec E2 : sig
@@ -188,11 +173,8 @@ Error: Signature mismatch:
          sig type 'a t = 'a E2.t = A of 'a | B val f : 'a t -> unit end
        is not included in
          sig type 'a t = [ `Foo ] end
-       Type declarations do not match:
-         type 'a t = 'a E2.t = A of 'a | B
-       is not included in
-         type 'a t = [ `Foo ]
-       The type "'a E2.t" is not equal to the type "[ `Foo ]"
+       Try changing type "t" to
+       type 'a t = [ `Foo ]
 |}];;
 
 module rec E3 : sig
@@ -220,11 +202,8 @@ Error: Signature mismatch:
          sig type 'a t = 'a E3.t = A of 'a | B val f : 'a t -> unit end
        is not included in
          sig type 'a t = 'a constraint 'a = [< `Foo ] end
-       Type declarations do not match:
-         type 'a t = 'a E3.t = A of 'a | B
-       is not included in
-         type 'a t = 'a constraint 'a = [< `Foo ]
-       The type "'a" is not equal to the type "[< `Foo ]"
+       Try changing type "t" to
+       type 'a t = 'a constraint 'a = [< `Foo ]
 |}];;
 
 
@@ -254,13 +233,6 @@ Error: Signature mismatch:
          end
        is not included in
          sig type ('a, 'b) t = Foo of 'a end
-       Type declarations do not match:
-         type ('a, 'b) t = ('a, 'b) F.t = Foo of 'b
-       is not included in
-         type ('a, 'b) t = Foo of 'a
-       Constructors do not match:
-         "Foo of 'b"
-       is not the same as:
-         "Foo of 'a"
-       The type "'b" is not equal to the type "'a"
+       Try changing type "t" to
+       type ('a, 'b) t = Foo of 'a
 |}];;

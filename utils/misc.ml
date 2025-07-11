@@ -1054,6 +1054,284 @@ let did_you_mean ?(pp=Style.inline_code) choices =
             pp last
       )
 
+module Maybe_infinite = struct
+  type 'a t = Finite of 'a | Infinity of unit
+
+  let of_option = function
+  | None -> Infinity ()
+  | Some x -> Finite x
+
+  let to_option = function
+  | Finite x -> Some x
+  | Infinity () -> None
+end
+
+module Trie = struct
+  let new_uid =
+    let counter = ref 0 in
+    fun () ->
+      incr counter;
+      !counter
+
+  type 'a t = {
+    uid : int;
+    mutable leaf_data : 'a option;
+    strict_suffixes : (char, 'a t) Hashtbl.t;
+    mutable subtrie_count : int;
+        (** The total number of subtries this trie contains (including
+            itself). *)
+    mutable shortest_suffix : (int * 'a) option;
+        (** The length and associated data of a shortest suffix, if any. *)
+    mutable longest_suffix : (int * 'a) option;
+        (** The length and associated data of a longest suffix, if any. *)
+  }
+
+  let create () =
+    {
+      uid = new_uid ();
+      leaf_data = None;
+      strict_suffixes = Hashtbl.create 1;
+      subtrie_count = 1;
+      shortest_suffix = None;
+      longest_suffix = None;
+    }
+
+  let add trie string data =
+    let rec aux s length trie =
+      (trie.shortest_suffix <-
+        match trie.shortest_suffix with
+        | Some (l, d) when l <= length -> Some (l, d)
+        | _ -> Some (length, data));
+      (trie.longest_suffix <-
+        match trie.longest_suffix with
+        | Some (l, d) when l >= length -> Some (l, d)
+        | _ -> Some (length, data));
+      match s () with
+      | Seq.Nil ->
+          trie.leaf_data <- Some data
+      | Seq.Cons (c, next) ->
+          match Hashtbl.find_opt trie.strict_suffixes c with
+          | None ->
+              let new_child = create () in
+              aux next (length - 1) new_child;
+              Hashtbl.add trie.strict_suffixes c new_child;
+              trie.subtrie_count <- trie.subtrie_count + new_child.subtrie_count
+          | Some child ->
+              let subtries_without_child =
+                trie.subtrie_count - child.subtrie_count
+              in
+              aux next (length - 1) child;
+              trie.subtrie_count <- subtries_without_child + child.subtrie_count
+    in
+    aux (String.to_seq string) (String.length string) trie
+
+  let of_seq entries =
+    let trie = create () in
+    Seq.iter (fun (string, data) -> add trie string data) entries;
+    trie
+
+  module Levenshtein_state(T : sig type a end) = struct
+    (** A state of a Levenshtein automaton. *)
+
+    type nonrec t = {
+      trie : T.a t;  (** The remaining suffixes we can match against. *)
+      remaining_length : int;
+          (** The remaining length of the string we are trying to match. *)
+      distance : int;
+          (** The current distance to the string we are trying to match. *)
+      remaining_distance_estimation : int;
+          (** An estimation of the remaining distance. *)
+    }
+
+    let priority state = state.distance + state.remaining_distance_estimation
+    let compare s s' = compare (priority s) (priority s')
+
+    (** An admissible heuristic for A* (as in, it always under-estimates the
+        true remainign distance). *)
+    let estimate_remaining_distance
+      ~insertion_cost
+      ~deletion_cost
+      remaining_length
+      trie
+    =
+      let open Maybe_infinite in
+      match (trie.shortest_suffix, trie.longest_suffix) with
+      | Some (shortest_length, _), _
+      when remaining_length <= shortest_length ->
+          Finite ((shortest_length - remaining_length) * insertion_cost)
+      | _, Some (longest_length, _) when remaining_length >= longest_length ->
+          Finite ((remaining_length - longest_length) * deletion_cost)
+      | None, None -> Infinity ()
+      | _, _ -> Finite 0
+
+    let make ~insertion_cost ~deletion_cost trie remaining_length distance =
+      match
+        estimate_remaining_distance
+          ~insertion_cost
+          ~deletion_cost
+          remaining_length
+          trie
+      with
+      | Finite remaining_distance_estimation ->
+          Some
+            {
+              trie;
+              remaining_length;
+              distance;
+              remaining_distance_estimation
+            }
+      | Infinity () -> None
+
+    (** Computes a list of all possible states after performing a single
+        operation. *)
+    let transitions
+      ~insertion_cost
+      ~deletion_cost
+      ~substitution_cost
+      text
+      state
+    =
+      let n = String.length text in
+      []
+      (* Deletion. *)
+      |> (fun transitions ->
+          if state.remaining_length > 0 then
+            match
+              make
+                ~insertion_cost
+                ~deletion_cost
+                state.trie
+                (state.remaining_length - 1)
+                (state.distance + deletion_cost)
+            with
+            | None -> transitions
+            | Some transition -> transition :: transitions
+          else
+            transitions)
+      (* Insertions. *)
+      |> Hashtbl.fold
+          (fun _ suffix_trie transitions ->
+            match
+              make
+                ~insertion_cost
+                ~deletion_cost
+                suffix_trie
+                state.remaining_length
+                (state.distance + insertion_cost)
+            with
+            | None -> transitions
+            | Some transition -> transition :: transitions)
+          state.trie.strict_suffixes
+      (* Substitutions. *)
+      |> Hashtbl.fold
+          (fun c suffix_trie transitions ->
+            if state.remaining_length > 0 then
+              let substitution_cost_here =
+                if c = text.[n - state.remaining_length] then
+                  0
+                else
+                  substitution_cost
+              in
+              match
+                make
+                  ~insertion_cost
+                  ~deletion_cost
+                  suffix_trie
+                  (state.remaining_length - 1)
+                  (state.distance + substitution_cost_here)
+              with
+              | None -> transitions
+              | Some transition -> transition :: transitions
+            else
+              transitions)
+          state.trie.strict_suffixes
+  end
+
+  let compute_preferences (type a) ?(deletion_cost = 1) ?(insertion_cost = 1)
+      ?(substitution_cost = 1) ?(cutoff : int option) (trie : a t)
+      (string : string) : (a * int) Seq.t =
+
+      let module State = Levenshtein_state(struct type nonrec a = a end) in
+      let module PriorityQueue = Pqueue.MakeMin (State) in
+
+      let cutoff = Maybe_infinite.of_option cutoff in
+    let rec compute queue seen_states = fun () ->
+      match PriorityQueue.pop_min queue with
+      | None -> Seq.Nil
+      | Some state ->
+          if Maybe_infinite.Finite (State.priority state) > cutoff then
+            Seq.Nil
+          else
+            let state_id = state.trie.uid, state.State.remaining_length in
+            if Hashtbl.mem seen_states state_id then
+              compute queue seen_states ()
+            else (
+              Hashtbl.add seen_states state_id ();
+              List.iter
+                  (fun transition -> PriorityQueue.add queue transition)
+                  (State.transitions
+                    ~insertion_cost ~deletion_cost ~substitution_cost
+                    string
+                    state);
+              match state with
+              | {
+                State.trie = { leaf_data = Some data; _ };
+                remaining_length = 0;
+                distance;
+                _;
+              } ->
+                  Seq.Cons ((data, distance), compute queue seen_states)
+              | _ -> compute queue seen_states ()
+            )
+    in
+
+    let n = String.length string in
+    let queue = PriorityQueue.create () in
+    Option.iter
+      (fun state -> PriorityQueue.add queue state)
+      (State.make ~insertion_cost ~deletion_cost trie n 0);
+    let seen_states = Hashtbl.create trie.subtrie_count in
+    compute queue seen_states
+
+  let compute_preference_layers (type a) ?(deletion_cost = 1)
+      ?(insertion_cost = 1) ?(substitution_cost = 1) ?(cutoff : int option)
+      ?(max_elements : int option) (trie : a t) (string : string)
+      : (a list * int) Seq.t =
+
+    (* [current_distance = None] iff [acc = []]. *)
+    let rec compute seq current_distance acc = fun () ->
+      match current_distance, seq () with
+      | None, Seq.Nil ->
+          Seq.Nil
+      | Some current_distance, Seq.Nil ->
+          Seq.Cons ((acc, current_distance), Seq.empty)
+      | None, Seq.Cons ((data, distance), next) ->
+          compute next (Some distance) [ data ] ()
+      | Some current_distance, Seq.Cons ((data, distance), next) ->
+          if distance = current_distance then
+            compute next (Some current_distance) (data :: acc) ()
+          else
+            let kont = compute next (Some distance) [ data ] in
+            Seq.Cons ((acc, current_distance), kont)
+    in
+
+    let preferences =
+      compute_preferences
+        ~deletion_cost
+        ~insertion_cost
+        ~substitution_cost
+        ?cutoff
+        trie
+        string
+    in
+    let seq =
+      match max_elements with
+      | Some n -> Seq.take n preferences
+      | None -> preferences
+    in
+    compute seq None []
+end
+
 module Error_style = struct
   type setting =
     | Contextual

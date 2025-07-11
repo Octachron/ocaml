@@ -294,7 +294,7 @@ Error: This "with" constraint on "M.t" makes the applicative functor
          sig type u = M.u end
        is not included in
          sig type t end
-       The type "t" is required but not provided
+       Try adding a type "t"
 |}]
 
 (* However if the applicative functor doesn't care about the type
@@ -327,7 +327,7 @@ Lines 2-5, characters 17-25:
 Error: This "with" constraint on "M2.t" makes the applicative functor
        type "Id(M2).t" ill-typed in the constrained signature:
        Modules do not match: sig end is not included in sig type t end
-       The type "t" is required but not provided
+       Try adding a type "t"
 |}]
 
 

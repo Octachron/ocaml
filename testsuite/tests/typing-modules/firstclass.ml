@@ -36,7 +36,7 @@ Error: The value "x" has type "(module S2 with type t = int and type u = bool)"
          S'
        is not included in
          sig type u = bool type t = int type w end
-       The type "w" is required but not provided
+       Try adding a type "w"
 |}];;
 let k (x : (module S2 with type t = 'a)) =
   (x : (module S with type t = 'a));; (* fail *)
@@ -46,8 +46,7 @@ Line 2, characters 3-4:
        ^
 Error: The value "x" has type "(module S2 with type t = 'a)"
        but an expression was expected of type "(module S with type t = 'a)"
-       Modules do not match: S is not included in S2
-       The type "w" is required but not provided
+       Modules do not match: S is not included in S2 Try adding a type "w"
 |}];;
 
 (* but you cannot forget values (no physical coercions) *)
@@ -90,8 +89,7 @@ Line 2, characters 2-34:
 2 |   (x : (module S5) :> (module S4));; (* fail *)
       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: Type "(module S5)" is not a subtype of "(module S4)"
-       Modules do not match: S5 is not included in S4
-       The value "mid" is required but not provided
+       Modules do not match: S5 is not included in S4 Try adding a value "mid"
 |}];;
 
 module type Prim_Id = sig external id: 'a -> 'a = "%identity" end

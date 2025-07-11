@@ -125,12 +125,8 @@ Error: Signature mismatch:
          sig type t = A of string [@@unboxed] end
        is not included in
          sig type t = A of string end
-       Type declarations do not match:
-         type t = A of string [@@unboxed]
-       is not included in
-         type t = A of string
-       Their internal representations differ:
-       the first declaration uses unboxed representation.
+       Try changing type "t" to
+       type t = A of string
 |}];;
 
 module N : sig
@@ -148,12 +144,8 @@ Error: Signature mismatch:
          sig type t = A of string end
        is not included in
          sig type t = A of string [@@unboxed] end
-       Type declarations do not match:
-         type t = A of string
-       is not included in
-         type t = A of string [@@unboxed]
-       Their internal representations differ:
-       the second declaration uses unboxed representation.
+       Try changing type "t" to
+       type t = A of string [@@unboxed]
 |}];;
 
 module O : sig
@@ -171,12 +163,8 @@ Error: Signature mismatch:
          sig type t = { f : string; } [@@unboxed] end
        is not included in
          sig type t = { f : string; } end
-       Type declarations do not match:
-         type t = { f : string; } [@@unboxed]
-       is not included in
-         type t = { f : string; }
-       Their internal representations differ:
-       the first declaration uses unboxed representation.
+       Try changing type "t" to
+       type t = { f : string; }
 |}];;
 
 module P : sig
@@ -194,12 +182,8 @@ Error: Signature mismatch:
          sig type t = { f : string; } end
        is not included in
          sig type t = { f : string; } [@@unboxed] end
-       Type declarations do not match:
-         type t = { f : string; }
-       is not included in
-         type t = { f : string; } [@@unboxed]
-       Their internal representations differ:
-       the second declaration uses unboxed representation.
+       Try changing type "t" to
+       type t = { f : string; } [@@unboxed]
 |}];;
 
 module Q : sig
@@ -217,12 +201,8 @@ Error: Signature mismatch:
          sig type t = A of { f : string; } [@@unboxed] end
        is not included in
          sig type t = A of { f : string; } end
-       Type declarations do not match:
-         type t = A of { f : string; } [@@unboxed]
-       is not included in
-         type t = A of { f : string; }
-       Their internal representations differ:
-       the first declaration uses unboxed representation.
+       Try changing type "t" to
+       type t = A of { f : string; }
 |}];;
 
 module R : sig
@@ -240,12 +220,8 @@ Error: Signature mismatch:
          sig type t = A of { f : string; } end
        is not included in
          sig type t = A of { f : string; } [@@unboxed] end
-       Type declarations do not match:
-         type t = A of { f : string; }
-       is not included in
-         type t = A of { f : string; } [@@unboxed]
-       Their internal representations differ:
-       the second declaration uses unboxed representation.
+       Try changing type "t" to
+       type t = A of { f : string; } [@@unboxed]
 |}];;
 
 
@@ -307,12 +283,8 @@ Error: Signature mismatch:
          sig type t = A of float [@@unboxed] type u = { f1 : t; f2 : t; } end
        is not included in
          sig type t type u = { f1 : t; f2 : t; } end
-       Type declarations do not match:
-         type u = { f1 : t; f2 : t; }
-       is not included in
-         type u = { f1 : t; f2 : t; }
-       Their internal representations differ:
-       the first declaration uses unboxed float representation.
+       Try changing type "u" to
+       type u = { f1 : t; f2 : t; }
 |}];;
 
 (* implementing [@@immediate] with [@@ocaml.unboxed]: this works because the

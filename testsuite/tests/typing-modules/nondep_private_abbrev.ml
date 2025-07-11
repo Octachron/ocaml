@@ -121,13 +121,8 @@ Error: Signature mismatch:
          sig type s = t end
        is not included in
          sig type s = private [ `Bar of int | `Foo of 'a -> int ] as 'a end
-       Type declarations do not match:
-         type s = t
-       is not included in
-         type s = private [ `Bar of int | `Foo of 'a -> int ] as 'a
-       The type "[ `Bar of int | `Foo of t -> int ]" is not equal to the type
-         "[ `Bar of int | `Foo of 'a -> int ] as 'a"
-       Types for tag "`Foo" are incompatible
+       Try changing type "s" to
+       type s = private [ `Bar of int | `Foo of 'a -> int ] as 'a
 |}]
 
 (* nondep_type_decl + nondep_type_rec *)

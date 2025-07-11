@@ -21,11 +21,8 @@ Error: Signature mismatch:
          sig type t = X.t = A | B val f : t -> int end
        is not included in
          sig type t = int * bool end
-       Type declarations do not match:
-         type t = X.t = A | B
-       is not included in
-         type t = int * bool
-       The type "X.t" is not equal to the type "int * bool"
+       Try changing type "t" to
+       type t = int * bool
 |}];;
 
 
@@ -142,13 +139,6 @@ Error: Signature mismatch:
          sig type t = Foo : int -> t end
        is not included in
          sig type t = Foo of int end
-       Type declarations do not match:
-         type t = Foo : int -> t
-       is not included in
-         type t = Foo of int
-       Constructors do not match:
-         "Foo : int -> t"
-       is not the same as:
-         "Foo of int"
-       The first has explicit return type and the second doesn't.
+       Try changing type "t" to
+       type t = Foo of int
 |}]

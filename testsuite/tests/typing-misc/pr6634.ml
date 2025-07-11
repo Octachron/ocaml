@@ -19,15 +19,12 @@ Error: Signature mismatch:
          sig type t = [ `T of t ] end
        is not included in
          sig type t = [ `T of t/2 ] end
-       Type declarations do not match:
-         type t = [ `T of t ]
-       is not included in
-         type t = [ `T of t/3 ]
-       The type "[ `T of t ]" is not equal to the type "[ `T of t/2 ]"
-       Type "t" = "[ `T of t ]" is not equal to type "t/2" = "int"
-       Types for tag "`T" are incompatible
-       Line 4, characters 2-20:
-         Definition of type "t"
-       Line 1, characters 0-12:
-         Definition of type "t/2"
+       Try changing type "t" to
+       type t = [ `T of t/3 ]
+Line 1, characters 0-12:
+  Definition of type "t"
+Line 1, characters 0-12:
+  Definition of type "t/2"
+Line 1, characters 0-12:
+  Definition of type "t/3"
 |}]

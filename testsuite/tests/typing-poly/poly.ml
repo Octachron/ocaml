@@ -1348,16 +1348,10 @@ Error: Signature mismatch:
          sig
            val f : < m : 'b. 'b * ('b * < m : 'c. 'c * 'a > as 'a) > -> unit
          end
-       Values do not match:
-         val f : (< m : 'a. 'a * ('a * 'b) > as 'b) -> unit
-       is not included in
-         val f : < m : 'b. 'b * ('b * < m : 'c. 'c * 'a > as 'a) > -> unit
-       The type "(< m : 'a. 'a * ('a * 'd) > as 'd) -> unit"
-       is not compatible with the type
-         "< m : 'b. 'b * ('b * < m : 'c. 'c * 'e > as 'e) > -> unit"
-       The method "m" has type "'a. 'a * ('a * < m : 'a. 'f >) as 'f",
-       but the expected method type was "'c. 'c * ('b * < m : 'c. 'g >) as 'g"
-       The universal variable "'b" would escape its scope
+       Try changing value "f" to be a "< m : 'b.
+                                            'b *
+                                            ('b * < m : 'c. 'c * 'a > as 'a) > ->
+                                    unit"
 |}];;
 module M
 : sig type t = <m : 'b. 'b * ('b * <m:'c. 'c * 'bar> as 'bar)> end
@@ -1371,15 +1365,8 @@ Error: Signature mismatch:
          sig type t = < m : 'a. 'a * ('a * 'b) > as 'b end
        is not included in
          sig type t = < m : 'b. 'b * ('b * < m : 'c. 'c * 'a > as 'a) > end
-       Type declarations do not match:
-         type t = < m : 'a. 'a * ('a * 'b) > as 'b
-       is not included in
-         type t = < m : 'b. 'b * ('b * < m : 'c. 'c * 'a > as 'a) >
-       The type "< m : 'a. 'a * ('a * 'd) > as 'd" is not equal to the type
-         "< m : 'b. 'b * ('b * < m : 'c. 'c * 'e > as 'e) >"
-       The method "m" has type "'a. 'a * ('a * < m : 'a. 'f >) as 'f",
-       but the expected method type was "'c. 'c * ('b * < m : 'c. 'g >) as 'g"
-       The universal variable "'b" would escape its scope
+       Try changing type "t" to
+       type t = < m : 'b. 'b * ('b * < m : 'c. 'c * 'a > as 'a) >
 |}];;
 
 module M : sig type 'a t type u = <m: 'a. 'a t> end

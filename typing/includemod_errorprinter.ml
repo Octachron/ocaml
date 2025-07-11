@@ -731,12 +731,49 @@ let core env id x =
         !Oprint.out_sig_item t2
         (Includeclass.report_error_doc Type_scheme) symptom
 
-let missing_field ppf item =
-  let id, loc, kind =  Includemod.item_ident_name item in
-  Fmt.fprintf ppf "The %s %a is required but not provided%a"
+let suggest_adding_field ppf item =
+  let id, _, kind = Includemod.item_ident_name item in
+  Fmt.fprintf ppf "Try adding a %s %a"
     (Includemod.kind_of_field_desc kind)
-    (Style.as_inline_code Printtyp.ident) id
-    (show_loc "Expected declaration") loc
+    Style.inline_code (Ident.name id)
+
+
+let suggest_renaming_field ppf (item, suggested_name) =
+  let current_id, _, kind = Includemod.item_ident_name item in
+  Fmt.fprintf ppf "@{<hint>Hint@}: Try renaming %s %a to %a"
+    (Includemod.kind_of_field_desc kind)
+    Style.inline_code (Ident.name current_id)
+    Style.inline_code suggested_name
+
+let suggest_changing_type_of_value ppf (item, suggested_type) =
+  let id, _, _ = Includemod.item_ident_name item in
+  Fmt.fprintf ppf "Try changing value %a to be a %a"
+    Style.inline_code (Ident.name id)
+    (Style.as_inline_code Printtyp.type_expr) suggested_type
+
+let suggest_changing_type_of_module ppf (item, suggested_type) =
+  let id, _, _ = Includemod.item_ident_name item in
+  Fmt.fprintf ppf "Try changing module %a to be a@ %a"
+    Style.inline_code (Ident.name id)
+   Printtyp.modtype suggested_type
+
+let suggest_changing_type_of_class ppf (item, suggested_type) =
+  let id, _, _ = Includemod.item_ident_name item in
+  Fmt.fprintf ppf "Try changing class %a to be a@ %a"
+    Style.inline_code (Ident.name id)
+    (Printtyp.class_declaration id) suggested_type
+
+let suggest_changing_type ppf (item, suggested_type) =
+  let id, _, _ = Includemod.item_ident_name item in
+  Fmt.fprintf ppf "Try changing type %a to@ %a"
+    Style.inline_code (Ident.name id)
+    (Printtyp.type_declaration id) suggested_type
+
+let suggest_changing_module_type ppf (item, suggested_type) =
+  let id, _, _ = Includemod.item_ident_name item in
+  Fmt.fprintf ppf "Try changing module type %a to@ %a"
+    Style.inline_code (Ident.name id)
+    (Printtyp.modtype_declaration id) suggested_type
 
 let module_types {Err.got=mty1; expected=mty2} =
   Fmt.dprintf
@@ -751,13 +788,6 @@ let eq_module_types {Err.got=mty1; expected=mty2} =
      %a@;<1 -2>is not equal to@ %a@]"
     !Oprint.out_module_type (Out_type.tree_of_modtype mty1)
     !Oprint.out_module_type (Out_type.tree_of_modtype mty2)
-
-let module_type_declarations id {Err.got=d1 ; expected=d2} =
-  Fmt.dprintf
-    "@[<hv 2>Module type declarations do not match:@ \
-     %a@;<1 -2>does not match@ %a@]"
-    !Oprint.out_sig_item (Out_type.tree_of_modtype_declaration id d1)
-    !Oprint.out_sig_item (Out_type.tree_of_modtype_declaration id d2)
 
 let interface_mismatch ppf (diff: _ Err.diff) =
   Fmt.fprintf ppf
@@ -878,61 +908,39 @@ and functor_symptom ~expansion_token ~env ~before ~ctx = function
       module_type ~expansion_token ~eqmode:false ~env ~before ~ctx res
   | Params d -> functor_params ~expansion_token ~env ~before ~ctx d
 
-and signature ~expansion_token ~env:_ ~before ~ctx sgs =
+and signature ~expansion_token ~env:_ ~before ~ctx:_ sgs =
+  let suggestion_text suggestion =
+    let open Includemod_modulediffer.Suggestion in
+    match suggestion.alteration with
+    | Add_item ->
+        Location.msg "%a" suggest_adding_field suggestion.subject
+    | Rename_item suggested_ident ->
+        let suggested_name = Ident.name suggested_ident in
+        Location.msg "%a" suggest_renaming_field
+          (suggestion.subject, suggested_name)
+    | Change_type_of_value suggested_type ->
+        Location.msg "%a" suggest_changing_type_of_value
+          (suggestion.subject, suggested_type)
+    | Change_type_of_module suggested_type ->
+        Location.msg "%a" suggest_changing_type_of_module
+          (suggestion.subject, suggested_type)
+    | Change_type_of_class suggested_type ->
+        Location.msg "%a" suggest_changing_type_of_class
+          (suggestion.subject, suggested_type)
+    | Change_type suggested_type ->
+        Location.msg "%a" suggest_changing_type
+          (suggestion.subject, suggested_type)
+    | Change_module_type suggested_type ->
+        Location.msg "%a" suggest_changing_module_type
+          (suggestion.subject, suggested_type)
+  in
   Printtyp.wrap_printing_env ~error:true sgs.env (fun () ->
-      match sgs.missings, sgs.incompatibles with
-      | _ :: _ as missings, _ ->
-          if expansion_token then
-            let init_missings, last_missing = Misc.split_last missings in
-            List.map (Location.msg "%a" missing_field) init_missings
-            @ with_context ctx missing_field last_missing
-            :: before
-          else
-            before
-      | [], a :: _ ->
-          let env = {i_env=sgs.env; i_subst=sgs.subst } in
-          sigitem ~expansion_token ~env ~before ~ctx a
-      | [], [] -> assert false
+      if expansion_token then
+        let suggestions = Includemod_modulediffer.suggest sgs in
+        List.map suggestion_text suggestions @ before
+      else
+        before
     )
-and sigitem ~expansion_token ~env ~before ~ctx (name,s) = match s with
-  | Core c ->
-      dwith_context ctx (core env.i_env (Types.signature_item_id name) c)
-      :: before
-  | Module_type diff ->
-      module_type ~expansion_token ~eqmode:false ~env ~before
-        ~ctx:(Context.Module (Types.signature_item_id name) :: ctx) diff
-  | Module_type_declaration diff ->
-      module_type_decl ~expansion_token ~env ~before ~ctx name diff
-and module_type_decl ~expansion_token ~env ~before ~ctx id diff =
-  let next =
-    dwith_context_and_elision ctx (module_type_declarations @@ Types.signature_item_id id) diff in
-  let before = next :: before in
-  match diff.symptom with
-  | Not_less_than mts ->
-      let before =
-        Location.msg "The first module type is not included in the second"
-        :: before
-      in
-      module_type ~expansion_token ~eqmode:true ~before ~env
-        ~ctx:(Context.Modtype (Types.signature_item_id id) :: ctx) mts
-  | Not_greater_than mts ->
-      let before =
-        Location.msg "The second module type is not included in the first"
-        :: before in
-      module_type ~expansion_token ~eqmode:true ~before ~env
-        ~ctx:(Context.Modtype (Types.signature_item_id id) :: ctx) mts
-  | Incomparable mts ->
-      module_type ~expansion_token ~eqmode:true ~env ~before
-        ~ctx:(Context.Modtype (Types.signature_item_id id) :: ctx) mts.less_than
-  | Illegal_permutation c ->
-      begin match diff.got.Types.mtd_type with
-      | None -> assert false
-      | Some mty ->
-          with_context (Modtype (Types.signature_item_id id)::ctx)
-            (Runtime_coercion.illegal_permutation Context.alt_pp env.i_env)
-            (mty,c)
-          :: before
-      end
 
 and functor_arg_diff ~expansion_token env (patch: _ Diffing.change) =
   match patch with

@@ -178,11 +178,8 @@ Error: Signature mismatch:
          sig type t end
        is not included in
          sig type t = external "foo" end
-       Type declarations do not match:
-         type t
-       is not included in
-         type t = external "foo"
-       The first is abstract, but the second is external "foo".
+       Try changing type "t" to
+       type t = external "foo"
 |}]
 
 module M : sig
@@ -201,11 +198,8 @@ Error: Signature mismatch:
          sig type t = external "bar" end
        is not included in
          sig type t = external "foo" end
-       Type declarations do not match:
-         type t = external "bar"
-       is not included in
-         type t = external "foo"
-       The first is external "bar", but the second is external "foo".
+       Try changing type "t" to
+       type t = external "foo"
 |}]
 
 

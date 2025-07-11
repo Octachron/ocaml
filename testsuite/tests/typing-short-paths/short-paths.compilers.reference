@@ -96,11 +96,8 @@ Line 1, characters 26-32:
                               ^^^^^^
 Error: Signature mismatch:
        Modules do not match: sig type t = int end is not included in PR6566
-       Type declarations do not match:
-         type t = int
-       is not included in
-         type t = string
-       The type t is not equal to the type string
+       Try changing type t to
+       type t = string
 module A : sig module B : sig type t = T end end
 module M2 : sig type u = A.B.t type foo = int type v = u end
 
