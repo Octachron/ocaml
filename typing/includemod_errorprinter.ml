@@ -910,7 +910,7 @@ and functor_symptom ~expansion_token ~env ~before ~ctx = function
 
 and signature ~expansion_token ~env:_ ~before ~ctx:_ sgs =
   let suggestion_text suggestion =
-    let open Includemod_modulediffer.Suggestion in
+    let open Signature_diff.Suggestion in
     match suggestion.alteration with
     | Add_item ->
         Location.msg "%a" suggest_adding_field suggestion.subject
@@ -936,7 +936,7 @@ and signature ~expansion_token ~env:_ ~before ~ctx:_ sgs =
   in
   Printtyp.wrap_printing_env ~error:true sgs.env (fun () ->
       if expansion_token then
-        let suggestions = Includemod_modulediffer.suggest sgs in
+        let suggestions = Signature_diff.suggest sgs in
         List.map suggestion_text suggestions @ before
       else
         before

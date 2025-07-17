@@ -13,6 +13,293 @@
 (*                                                                        *)
 (**************************************************************************)
 
+
+module Trie = struct
+  let new_uid =
+    let counter = ref 0 in
+    fun () ->
+      incr counter;
+      !counter
+
+  type 'a t = {
+    uid : int;
+    mutable leaf_data : 'a option;
+    strict_suffixes : (char, 'a t) Hashtbl.t;
+    mutable subtrie_count : int;
+        (** The total number of subtries this trie contains (including
+            itself). *)
+    mutable shortest_suffix : (int * 'a) option;
+        (** The length and associated data of a shortest suffix, if any. *)
+    mutable longest_suffix : (int * 'a) option;
+        (** The length and associated data of a longest suffix, if any. *)
+  }
+
+  let create () =
+    {
+      uid = new_uid ();
+      leaf_data = None;
+      strict_suffixes = Hashtbl.create 1;
+      subtrie_count = 1;
+      shortest_suffix = None;
+      longest_suffix = None;
+    }
+
+  let add trie string data =
+    let rec aux s length trie =
+      (trie.shortest_suffix <-
+        match trie.shortest_suffix with
+        | Some (l, d) when l <= length -> Some (l, d)
+        | _ -> Some (length, data));
+      (trie.longest_suffix <-
+        match trie.longest_suffix with
+        | Some (l, d) when l >= length -> Some (l, d)
+        | _ -> Some (length, data));
+      match s () with
+      | Seq.Nil ->
+          trie.leaf_data <- Some data
+      | Seq.Cons (c, next) ->
+          match Hashtbl.find_opt trie.strict_suffixes c with
+          | None ->
+              let new_child = create () in
+              aux next (length - 1) new_child;
+              Hashtbl.add trie.strict_suffixes c new_child;
+              trie.subtrie_count <- trie.subtrie_count + new_child.subtrie_count
+          | Some child ->
+              let subtries_without_child =
+                trie.subtrie_count - child.subtrie_count
+              in
+              aux next (length - 1) child;
+              trie.subtrie_count <- subtries_without_child + child.subtrie_count
+    in
+    aux (String.to_seq string) (String.length string) trie
+
+  let of_seq entries =
+    let trie = create () in
+    Seq.iter (fun (string, data) -> add trie string data) entries;
+    trie
+
+  module Levenshtein_state(T : sig type a end) = struct
+    (** A state of a Levenshtein automaton. *)
+
+    type nonrec t = {
+      trie : T.a t;  (** The remaining suffixes we can match against. *)
+      remaining_length : int;
+          (** The remaining length of the string we are trying to match. *)
+      distance : int;
+          (** The current distance to the string we are trying to match. *)
+      remaining_distance_estimation : int;
+          (** An estimation of the remaining distance. *)
+    }
+
+    let priority state = state.distance + state.remaining_distance_estimation
+    let compare s s' = compare (priority s) (priority s')
+
+    (** An admissible heuristic for A* (as in, it always under-estimates the
+        true remainign distance). *)
+    let estimate_remaining_distance
+      ~insertion_cost
+      ~deletion_cost
+      remaining_length
+      trie
+    =
+      match (trie.shortest_suffix, trie.longest_suffix) with
+      | Some (shortest_length, _), _
+      when remaining_length <= shortest_length ->
+          Some ((shortest_length - remaining_length) * insertion_cost)
+      | _, Some (longest_length, _) when remaining_length >= longest_length ->
+          Some ((remaining_length - longest_length) * deletion_cost)
+      | None, None -> None
+      | _, _ -> Some 0
+
+    let make ~insertion_cost ~deletion_cost trie remaining_length distance =
+      match
+        estimate_remaining_distance
+          ~insertion_cost
+          ~deletion_cost
+          remaining_length
+          trie
+      with
+      | Some remaining_distance_estimation ->
+          Some
+            {
+              trie;
+              remaining_length;
+              distance;
+              remaining_distance_estimation
+            }
+      | None -> None
+
+    (** Computes a list of all possible states after performing a single
+        operation. *)
+    let transitions
+      ~insertion_cost
+      ~deletion_cost
+      ~substitution_cost
+      text
+      state
+    =
+      let n = String.length text in
+      []
+      (* Deletion. *)
+      |> (fun transitions ->
+          if state.remaining_length > 0 then
+            match
+              make
+                ~insertion_cost
+                ~deletion_cost
+                state.trie
+                (state.remaining_length - 1)
+                (state.distance + deletion_cost)
+            with
+            | None -> transitions
+            | Some transition -> transition :: transitions
+          else
+            transitions)
+      (* Insertions. *)
+      |> Hashtbl.fold
+          (fun _ suffix_trie transitions ->
+            match
+              make
+                ~insertion_cost
+                ~deletion_cost
+                suffix_trie
+                state.remaining_length
+                (state.distance + insertion_cost)
+            with
+            | None -> transitions
+            | Some transition -> transition :: transitions)
+          state.trie.strict_suffixes
+      (* Substitutions. *)
+      |> Hashtbl.fold
+          (fun c suffix_trie transitions ->
+            if state.remaining_length > 0 then
+              let substitution_cost_here =
+                if c = text.[n - state.remaining_length] then
+                  0
+                else
+                  substitution_cost
+              in
+              match
+                make
+                  ~insertion_cost
+                  ~deletion_cost
+                  suffix_trie
+                  (state.remaining_length - 1)
+                  (state.distance + substitution_cost_here)
+              with
+              | None -> transitions
+              | Some transition -> transition :: transitions
+            else
+              transitions)
+          state.trie.strict_suffixes
+  end
+
+
+  let (%>%) (x:int) (y:int option) =
+    match y with
+    | None -> false
+    | Some y -> x > y
+
+  let compute_preferences (type a) ?(deletion_cost = 1) ?(insertion_cost = 1)
+      ?(substitution_cost = 1) ?(cutoff : int option) (trie : a t)
+      (string : string) : (a * int) Seq.t =
+
+      let module State = Levenshtein_state(struct type nonrec a = a end) in
+      let module PriorityQueue = Pqueue.MakeMin (State) in
+
+
+    let rec compute queue seen_states = fun () ->
+      match PriorityQueue.pop_min queue with
+      | None -> Seq.Nil
+      | Some state ->
+          if State.priority state %>% cutoff then
+            Seq.Nil
+          else
+            let state_id = state.trie.uid, state.State.remaining_length in
+            if Hashtbl.mem seen_states state_id then
+              compute queue seen_states ()
+            else (
+              Hashtbl.add seen_states state_id ();
+              List.iter
+                  (fun transition -> PriorityQueue.add queue transition)
+                  (State.transitions
+                    ~insertion_cost ~deletion_cost ~substitution_cost
+                    string
+                    state);
+              match state with
+              | {
+                State.trie = { leaf_data = Some data; _ };
+                remaining_length = 0;
+                distance;
+                _;
+              } ->
+                  Seq.Cons ((data, distance), compute queue seen_states)
+              | _ -> compute queue seen_states ()
+            )
+    in
+
+    let n = String.length string in
+    let queue = PriorityQueue.create () in
+    Option.iter
+      (fun state -> PriorityQueue.add queue state)
+      (State.make ~insertion_cost ~deletion_cost trie n 0);
+    let seen_states = Hashtbl.create trie.subtrie_count in
+    compute queue seen_states
+
+  let compute_preference_layers (type a) ?(deletion_cost = 1)
+      ?(insertion_cost = 1) ?(substitution_cost = 1) ?(cutoff : int option)
+      ?(max_elements : int option) (trie : a t) (string : string)
+      : (a list * int) Seq.t =
+
+    (* [current_distance = None] iff [acc = []]. *)
+    let rec compute seq current_distance acc = fun () ->
+      match current_distance, seq () with
+      | None, Seq.Nil ->
+          Seq.Nil
+      | Some current_distance, Seq.Nil ->
+          Seq.Cons ((acc, current_distance), Seq.empty)
+      | None, Seq.Cons ((data, distance), next) ->
+          compute next (Some distance) [ data ] ()
+      | Some current_distance, Seq.Cons ((data, distance), next) ->
+          if distance = current_distance then
+            compute next (Some current_distance) (data :: acc) ()
+          else
+            let kont = compute next (Some distance) [ data ] in
+            Seq.Cons ((acc, current_distance), kont)
+    in
+
+    let preferences =
+      compute_preferences
+        ~deletion_cost
+        ~insertion_cost
+        ~substitution_cost
+        ?cutoff
+        trie
+        string
+    in
+    let seq =
+      match max_elements with
+      | Some n -> Seq.take n preferences
+      | None -> preferences
+    in
+    compute seq None []
+end
+
+
+
+type 'a diff = {
+  delete : 'a list;
+  add : 'a list;
+  substitute : ('a * 'a) list;
+}
+
+let reverse_diff d =
+  {
+    delete = d.add;
+    add = d.delete;
+    substitute = List.map (fun (right, left) -> (left, right)) d.substitute;
+  }
+
 module Field = struct
   type ('v, 't) t = {
     item : Types.signature_item;
@@ -35,131 +322,6 @@ module Field = struct
   let ident field = Types.signature_item_id field.item
   let name field = Ident.name (ident field)
 end
-
-module Item_id = struct
-  type item_kind =
-    | Value
-    | Module
-    | Class
-    | Type
-    | Module_type
-    | Class_type
-    | Type_ext
-
-  type t = item_kind * string
-
-  let kind_of_item item =
-    let open Types in
-    match item with
-    | Sig_value (_, _, _) -> Value
-    | Sig_type (_, _, _, _) -> Type
-    | Sig_typext (_, _, _, _) -> Type_ext
-    | Sig_module (_, _, _, _, _) -> Module
-    | Sig_modtype (_, _, _) -> Module_type
-    | Sig_class (_, _, _, _) -> Class
-    | Sig_class_type (_, _, _, _) -> Class_type
-
-  let of_item item =
-    let open Types in
-    match item with
-    | Sig_value (id, _, _) -> Value, Ident.name id
-    | Sig_type (id, _, _, _) -> Type, Ident.name id
-    | Sig_typext (id, _, _, _) -> Type_ext, Ident.name id
-    | Sig_module (id, _, _, _, _) -> Module, Ident.name id
-    | Sig_modtype (id, _, _) -> Module_type, Ident.name id
-    | Sig_class (id, _, _, _) -> Class, Ident.name id
-    | Sig_class_type (id, _, _, _) -> Class_type, Ident.name id
-
-  let compare = compare
-end
-module AffectedItemSet = Set.Make (Item_id)
-
-module Suggestion = struct
-  type alteration =
-    | Add_item
-    | Rename_item of Ident.t
-    | Change_type_of_value of Types.type_expr
-    | Change_type_of_module of Types.module_type
-    | Change_type_of_class of Types.class_declaration
-    | Change_type of Types.type_declaration
-    | Change_module_type of Types.modtype_declaration
-
-  type t = {
-    affects : Item_id.t;
-    subject : Types.signature_item;
-    alteration : alteration;
-  }
-
-  let add item = {
-    affects = Item_id.of_item item;
-    subject = item;
-    alteration = Add_item;
-  }
-
-  let rename item ident = {
-    affects = Item_id.kind_of_item item, Ident.name ident;
-    subject = item;
-    alteration = Rename_item ident;
-  }
-
-  let change_type_of_value item ty = {
-    affects = Item_id.of_item item;
-    subject = item;
-    alteration = Change_type_of_value ty;
-  }
-
-  let change_type_of_module item mty = {
-    affects = Item_id.of_item item;
-    subject = item;
-    alteration = Change_type_of_module mty;
-  }
-
-  let change_type_of_class item cty = {
-    affects = Item_id.of_item item;
-    subject = item;
-    alteration = Change_type_of_class cty;
-  }
-
-  let change_type item ty = {
-    affects = Item_id.of_item item;
-    subject = item;
-    alteration = Change_type ty;
-  }
-
-  let change_module_type item mty = {
-    affects = Item_id.of_item item;
-    subject = item;
-    alteration = Change_module_type mty;
-  }
-
-  let apply subst suggestion =
-    match suggestion with
-    | {
-      subject = Sig_type (id, _, _, _);
-      alteration = Rename_item suggested_ident;
-    } ->
-        let path = Path.Pident id in
-        Subst.add_type suggested_ident path subst
-    | {
-      subject = Sig_modtype (id, _, _);
-      alteration = Rename_item suggested_ident;
-    } ->
-        Subst.add_modtype suggested_ident (Path.Pident id) subst
-    | _ -> subst
-end
-
-type 'a diff = {
-  delete : 'a list;
-  add : 'a list;
-  substitute : ('a * 'a) list;
-}
-
-let reverse_diff d =
-  {
-    delete = d.add;
-    add = d.delete;
-    substitute = List.map (fun (right, left) -> (left, right)) d.substitute;
-  }
 
 (** An implementation (in [diff]) of Zoltan Kiraly's "New Algorithm," presented
     in "Linear Time Local Approximation Algorithm for Maximum Stable Marriage":
@@ -229,13 +391,13 @@ module Stable_marriage_diff = struct
         left
         |> Array.to_seq
         |> Seq.mapi (fun j field -> (Field.name field, j))
-        |> Misc.Trie.of_seq
+        |> Trie.of_seq
       in
       Array.map
         (fun right_field ->
           let name = Field.name right_field in
           let sequence =
-            Misc.Trie.compute_preference_layers
+            Trie.compute_preference_layers
               ~cutoff:(cutoff name)
               ?max_elements
               left_trie
@@ -401,6 +563,11 @@ module Stable_marriage_diff = struct
     }
 end
 
+let (%<%) (x:int option) (y:int option) = match x, y with
+  | None , _ -> false
+  | _, None -> true
+  | Some x, Some y -> x < y
+
 let greedy_matching ~compatibility_test ~cutoff missings additions =
   let rec list_extract predicate l =
     match l with
@@ -421,9 +588,9 @@ let greedy_matching ~compatibility_test ~cutoff missings additions =
           (Field.name added_field)
           (cutoff expected_name)
       in
-      Misc.Maybe_infinite.of_option distance
+      distance
     else
-      Misc.Maybe_infinite.Infinity ()
+      None
   in
 
   let remaining_added_fields = ref additions in
@@ -437,22 +604,19 @@ let greedy_matching ~compatibility_test ~cutoff missings additions =
         match
           list_extract
             (fun added_field ->
-              compute_distance missing_field added_field
-                < Misc.Maybe_infinite.Finite (cutoff missing_name))
+              (compute_distance missing_field added_field)
+                %<% Some (cutoff missing_name))
             !remaining_added_fields
         with
         | None -> true
         | Some (added_field, additions) ->
-            let name_change =
-              Suggestion.rename added_field.Field.item missing_id
-            in
+            let name_change = added_field, missing_field in
             name_changes := name_change :: !name_changes;
             remaining_added_fields := additions;
             false)
-    |> List.map (fun missing -> Suggestion.add missing.Field.item)
   in
 
-  actually_missing @ !name_changes
+  actually_missing, !name_changes
 
 let fuzzy_match_names compatibility_test missings additions =
   (* The edit distance between an existing name and a suggested rename must be
@@ -469,235 +633,8 @@ let fuzzy_match_names compatibility_test missings additions =
         (Array.of_list additions)
         (Array.of_list missings)
     in
-
-    let missings =
-      List.map (fun field -> Suggestion.add field.Field.item) diff.add
-    in
-
-    let name_changes =
-      List.map
-        (fun (got, expected) ->
-          Suggestion.rename got.Field.item (Field.ident expected))
-        diff.substitute
-    in
-
-    missings @ name_changes
+    diff.add, diff.substitute
 
   else
     (* Greedy. *)
     greedy_matching ~compatibility_test ~cutoff missings additions
-
-let compute_signature_diff env subst sig1 sig2 =
-  try
-    let _ = Includemod.signatures env ~subst ~mark:false sig1 sig2 in
-    None
-  with
-  | Includemod.Error (_, Includemod.Error.In_Signature reason) -> Some reason
-
-let is_modtype_eq get (sgs : Includemod.Error.signature_symptom)
-    got expected =
-  let expected = Subst.modtype Keep sgs.subst (get expected) in
-  Includemod.is_modtype_equiv
-    sgs.env
-    (get got)
-    expected
-
-let compute_suggestions
-    (sgs : Includemod.Error.signature_symptom)
-    destructor
-    compatibility_test
-    incompatibility_destructor
-=
-  let missing_fields = List.filter_map destructor sgs.missings in
-  let added_fields = List.filter_map destructor sgs.additions in
-
-  let general_suggestions =
-    fuzzy_match_names compatibility_test missing_fields added_fields
-  in
-
-  let content_changes =
-    List.filter_map incompatibility_destructor sgs.incompatibles
-  in
-
-  general_suggestions @ content_changes
-
-let compute_second_order_suggestions sgs =
-  let open Includemod.Error in
-
-  let module_suggestions =
-    compute_suggestions
-      sgs
-      (fun item ->
-        match item with
-        | Types.Sig_module (_, _, decl, _, _) ->
-            Some (Field.first_order item decl decl.md_type)
-        | _ -> None)
-      (is_modtype_eq (fun x -> x.Field.type_) sgs)
-      (function
-        | item, Module_type {expected; _} ->
-            Some (Suggestion.change_type_of_module item expected)
-        | _ -> None)
-  in
-
-  let type_suggestions =
-    compute_suggestions
-      sgs
-      (fun item ->
-        match item with
-        | Types.Sig_type  (_, decl, _, _) ->
-            Some (Field.second_order item decl)
-        | _ -> None)
-      (fun expected got ->
-        let id, loc, _ = Includemod.item_ident_name got.item in
-        match
-          Includemod.Item.type_declarations
-           ~loc
-            sgs.env sgs.subst id
-            got.value expected.value
-        with
-        | Ok _ -> true
-        | Error _ -> false)
-      (function
-        | item, Core (Type_declarations {expected; _}) ->
-            Some (Suggestion.change_type item expected)
-        | _ -> None)
-  in
-
-  let module_type_suggestions =
-    let get x = x.Field.value.Types.mtd_type in
-    let compare e g =  match get g, get e with
-      | _, None -> true
-      | None, Some _ -> false
-      | Some g, Some e ->
-          is_modtype_eq Fun.id sgs e g
-    in
-    compute_suggestions
-      sgs
-      (fun item ->
-        match item with
-        | Types.Sig_modtype (_, decl, _) ->
-            Some (Field.second_order item decl)
-        | _ -> None)
-      compare
-      (function
-        | item, Module_type_declaration {expected; _} ->
-            Some (Suggestion.change_module_type item expected)
-        | _ -> None)
-  in
-
-  let class_type_suggestions =
-    compute_suggestions
-      sgs
-      (fun item ->
-        match item with
-        | Types.Sig_class_type (_, decl, _, _) ->
-            Some (Field.second_order item decl)
-        | _ -> None)
-      (fun expected got ->
-        let id, loc, _ = Includemod.item_ident_name got.Field.item in
-        match
-          Includemod.Item.class_type_declarations
-            ~loc sgs.env sgs.subst
-            id got.Field.value expected.Field.value
-        with
-        | Ok _ -> true
-        | Error _ -> false)
-      (fun _ -> None)
-  in
-
-  List.rev (
-    class_type_suggestions
-    @ module_type_suggestions
-    @ type_suggestions
-    @ module_suggestions)
-
-let compute_first_order_suggestions sgs =
-  let open Includemod.Error in
-
-  let value_suggestions =
-    compute_suggestions
-      sgs
-      (fun item ->
-        match item with
-        | Types.Sig_value (_, desc, _) ->
-            Some (Field.first_order item desc desc.val_type)
-        | _ -> None)
-      (fun expected got ->
-        let id, loc, _ = Includemod.item_ident_name got.Field.item in
-        match
-          Includemod.Item.value_descriptions
-            ~loc sgs.env sgs.subst
-            id got.value expected.value
-        with
-        | Ok _ -> true
-        | Error _ -> false)
-      (function
-        | item, Core (Value_descriptions {expected; _}) ->
-            Some (Suggestion.change_type_of_value item expected.val_type)
-        | _ -> None)
-  in
-
-  let class_suggestions =
-    compute_suggestions
-      sgs
-      (fun item ->
-        match item with
-        | Types.Sig_class (_, decl, _, _) ->
-            Some (Field.first_order item decl decl.cty_type)
-        | _ -> None)
-      (fun expected got ->
-        match
-          let id, loc, _ = Includemod.item_ident_name got.Field.item in
-          Includemod.Item.class_declarations
-            sgs.env sgs.subst ~loc
-            id expected.value got.value
-        with
-        | Ok _ -> true
-        | Error _ -> false)
-      (function
-        | item, Core (Class_declarations {expected; _}) ->
-            Some (Suggestion.change_type_of_class item expected)
-        | _ -> None)
-  in
-
-  List.rev (class_suggestions @ value_suggestions)
-
-let suggest sgs =
-  let open Includemod.Error in
-
-  let rec iterate f sgs fioul =
-    if fioul = 0 then ([], Some sgs) else
-
-    let suggestions = f sgs in
-
-    if List.is_empty suggestions then
-      (suggestions, Some sgs)
-    else
-      let subst = List.fold_left Suggestion.apply sgs.subst suggestions in
-      match compute_signature_diff sgs.env subst sgs.sig1 sgs.sig2 with
-      | None ->
-          (suggestions, None)
-      | Some sgs' ->
-          let new_suggestions, sgs'' = iterate f sgs' (fioul - 1) in
-          (new_suggestions @ suggestions, sgs'')
-  in
-
-  let all_suggestions =
-    match iterate compute_second_order_suggestions sgs 5 with
-    | second_order_suggestions, None ->
-        second_order_suggestions
-    | second_order_suggestions, Some sgs' ->
-        let first_order_suggestions = compute_first_order_suggestions sgs' in
-        second_order_suggestions @ first_order_suggestions
-  in
-
-  all_suggestions
-  |> List.fold_left
-    (fun (acc, affected_items) suggestion ->
-      if AffectedItemSet.mem suggestion.Suggestion.affects affected_items then
-        acc, affected_items
-      else
-        (suggestion :: acc,
-        AffectedItemSet.add suggestion.Suggestion.affects affected_items))
-    ([], AffectedItemSet.empty)
-  |> fst
