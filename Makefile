@@ -167,7 +167,7 @@ typing_SOURCES = \
   typing/value_rec_check.mli typing/value_rec_check.ml \
   typing/typecore.mli typing/typecore.ml \
   typing/typeclass.mli typing/typeclass.ml \
-  typing/typemod.mli typing/typemod.ml
+  typing/typemod.mli typing/typemod.ml \
 
 lambda_SOURCES = $(addprefix lambda/, \
   debuginfo.mli debuginfo.ml \

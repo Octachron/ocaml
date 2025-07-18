@@ -1211,8 +1211,6 @@ module Signature_names : sig
     ?info:info -> t -> Location.t -> Signature_group.rec_group -> unit
 
   val simplify: Env.t -> t -> Types.signature -> Types.signature
-  val classify: Types.signature_item ->
-    Shape.Sig_component_kind.t * Ident.t * Location.t
 end = struct
 
   type shadowable =
@@ -1344,17 +1342,6 @@ end = struct
   let check_class_type ?(info=`Exported) t loc id =
     check Sig_component_kind.Class_type t loc id info
 
-  let classify component =
-    let open Sig_component_kind in
-    match component with
-    | Sig_value(id, v, _) -> Value, id, v.val_loc
-    | Sig_type (id, td, _, _) -> Type, id, td.type_loc
-    | Sig_typext (id, te, _, _) -> Extension_constructor, id, te.ext_loc
-    | Sig_module (id, _, md, _, _) -> Module, id, md.md_loc
-    | Sig_modtype (id, mtd, _) -> Module_type, id, mtd.mtd_loc
-    | Sig_class (id, c, _, _) -> Class, id, c.cty_loc
-    | Sig_class_type (id, ct, _, _) -> Class_type, id, ct.clty_loc
-
   let check_item ?info names loc kind id ids =
     let info =
       match info with
@@ -1365,7 +1352,9 @@ end = struct
 
   let check_sig_item ?info names loc (item:Signature_group.rec_group) =
     let check ?info names loc item =
-      let all = List.map classify (Signature_group.flatten item) in
+      let all =
+        List.map Types.classify_signature_item (Signature_group.flatten item)
+      in
       let group = List.map (fun (_,id,_) -> id) all in
       List.iter (fun (kind,id,_) -> check_item ?info names loc kind id group)
         all
@@ -1395,7 +1384,9 @@ end = struct
       ) to_remove.hide []
     in
     let simplify_item (component: Types.signature_item) =
-      let user_kind, user_id, user_loc = classify component in
+      let user_kind, user_id, user_loc =
+        Types.classify_signature_item component
+      in
       if Ident.Map.mem user_id to_remove.hide then
         None
       else begin

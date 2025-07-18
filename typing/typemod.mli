@@ -26,8 +26,6 @@ module Signature_names : sig
   type t
 
   val simplify: Env.t -> t -> signature -> signature
-  val classify:
-    Types.signature_item -> Shape.Sig_component_kind.t * Ident.t * Location.t
 end
 
 val type_module:
