@@ -1430,22 +1430,25 @@ let check_modtype_equiv ~loc env id mty1 mty2 =
             )
 
 module Item = struct
+  type 'a compatibility_test = Env.t -> Subst.t -> 'a -> 'a -> bool
   open Core_inclusion
-  let value_descriptions ~loc env subst id v1 v2 =
+  let value_descriptions env subst v1 v2 =
+    let loc = Location.none and id = Ident.create_local "*dummy*" in
     let direction = Directionality.unknown ~mark:false in
-    Result.map ignore @@ value_descriptions ~loc ~direction env subst id v1 v2
+    Result.is_ok @@ value_descriptions ~loc ~direction env subst id v1 v2
 
-  let type_declarations ~loc env subst id t1 t2 =
+  let type_declarations env subst t1 t2 =
+    let loc = Location.none and id = Ident.create_local "*dummy*" in
     let direction = Directionality.unknown ~mark:false in
-    Result.map ignore @@ type_declarations ~loc ~direction env subst id t1 t2
+    Result.is_ok @@ type_declarations ~loc ~direction env subst id t1 t2
 
-  let class_type_declarations ~loc env subst id ct1 ct2 =
+  let class_type_declarations env subst ct1 ct2 =
+    let loc = Location.none and id = Ident.create_local "*dummy*" in
     let direction = Directionality.unknown ~mark:false in
-    Result.map ignore @@
-      class_type_declarations ~loc ~direction env subst id ct1 ct2
+    Result.is_ok @@ class_type_declarations ~loc ~direction env subst id ct1 ct2
 
-  let class_declarations ~loc env subst id c1 c2 =
+  let class_declarations env subst c1 c2 =
+    let loc = Location.none and id = Ident.create_local "*dummy*" in
     let direction = Directionality.unknown ~mark:false in
-    Result.map ignore @@
-      class_declarations ~loc ~direction env subst id c1 c2
+    Result.is_ok @@ class_declarations ~loc ~direction env subst id c1 c2
 end

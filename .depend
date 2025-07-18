@@ -186,6 +186,13 @@ utils/profile.cmx : \
     utils/misc.cmx \
     utils/profile.cmi
 utils/profile.cmi :
+utils/stable_matching.cmo : \
+    utils/misc.cmi \
+    utils/stable_matching.cmi
+utils/stable_matching.cmx : \
+    utils/misc.cmx \
+    utils/stable_matching.cmi
+utils/stable_matching.cmi :
 utils/strongly_connected_components.cmo : \
     utils/numbers.cmi \
     utils/misc.cmi \
@@ -1040,7 +1047,6 @@ typing/includemod.cmx : \
     typing/btype.cmx \
     typing/includemod.cmi
 typing/includemod.cmi : \
-    utils/warnings.cmi \
     typing/types.cmi \
     typing/typedtree.cmi \
     typing/subst.cmi \
@@ -1516,7 +1522,7 @@ typing/shape_reduce.cmi : \
 typing/signature_diff.cmo : \
     typing/types.cmi \
     typing/subst.cmi \
-    typing/stable_matching.cmi \
+    utils/stable_matching.cmi \
     typing/path.cmi \
     typing/includemod.cmi \
     typing/ident.cmi \
@@ -1524,7 +1530,7 @@ typing/signature_diff.cmo : \
 typing/signature_diff.cmx : \
     typing/types.cmx \
     typing/subst.cmx \
-    typing/stable_matching.cmx \
+    utils/stable_matching.cmx \
     typing/path.cmx \
     typing/includemod.cmx \
     typing/ident.cmx \
@@ -1545,19 +1551,6 @@ typing/signature_group.cmx : \
     typing/signature_group.cmi
 typing/signature_group.cmi : \
     typing/types.cmi
-typing/stable_matching.cmo : \
-    typing/types.cmi \
-    utils/misc.cmi \
-    typing/ident.cmi \
-    typing/stable_matching.cmi
-typing/stable_matching.cmx : \
-    typing/types.cmx \
-    utils/misc.cmx \
-    typing/ident.cmx \
-    typing/stable_matching.cmi
-typing/stable_matching.cmi : \
-    typing/types.cmi \
-    typing/ident.cmi
 typing/stypes.cmo : \
     typing/typedtree.cmi \
     typing/printtyp.cmi \

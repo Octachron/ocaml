@@ -278,23 +278,9 @@ end
 
 (* Typechecking *)
 module Item: sig
-  val value_descriptions :
-    loc:Warnings.loc -> Env.t -> Subst.t
-    -> Ident.t -> Types.value_description -> Types.value_description ->
-    (unit, Error.sigitem_symptom) result
-
-  val type_declarations :
-    loc:Warnings.loc -> Env.t -> Subst.t ->
-    Ident.t -> Types.type_declaration -> Types.type_declaration ->
-    (unit, Error.sigitem_symptom) result
-
-  val class_type_declarations :
-    loc:Warnings.loc ->  Env.t -> Subst.t ->
-    Ident.t -> Types.class_type_declaration -> Types.class_type_declaration ->
-    (unit, Error.sigitem_symptom) result
-
-  val class_declarations :
-    loc:Warnings.loc -> Env.t  -> Subst.t ->
-    Ident.t -> Types.class_declaration -> Types.class_declaration ->
-    (unit, Error.sigitem_symptom) result
+  type 'a compatibility_test = Env.t -> Subst.t -> 'a -> 'a -> bool
+  val value_descriptions : Types.value_description compatibility_test
+  val type_declarations : Types.type_declaration compatibility_test
+  val class_type_declarations : Types.class_type_declaration compatibility_test
+  val class_declarations : Types.class_declaration compatibility_test
 end

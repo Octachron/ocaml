@@ -300,27 +300,17 @@ let reverse_diff d =
     substitute = List.map (fun (right, left) -> (left, right)) d.substitute;
   }
 
-module Field = struct
-  type ('v, 't) t = {
-    item : Types.signature_item;
-    value : 'v;
-    type_ : 't;
+module Item = struct
+  type ('v, 'k) t = {
+    name: string;
+    item: 'v;
+    kind: 'k;
   }
 
-  let first_order item value type_ = {
-    item;
-    value;
-    type_;
-  }
+  let name f = f.name
+  let item f = f.item
+  let kind i = i.kind
 
-  let second_order item value = {
-    item;
-    value;
-    type_ = ();
-  }
-
-  let ident field = Types.signature_item_id field.item
-  let name field = Ident.name (ident field)
 end
 
 (** An implementation (in [diff]) of Zoltan Kiraly's "New Algorithm," presented
@@ -371,7 +361,7 @@ module Stable_marriage_diff = struct
     | Right_closed
 
   let rec diff
-    ~cutoff ?max_elements ~compatibility_test
+    ~cutoff ?max_elements ~compatibility
     left right
   =
     let n = Array.length left in
@@ -380,7 +370,7 @@ module Stable_marriage_diff = struct
     if m > n then
       diff
         ~cutoff ?max_elements
-        ~compatibility_test:(fun a b -> compatibility_test b a)
+        ~compatibility:(fun a b -> compatibility b a)
         right left
       |> reverse_diff
     else
@@ -390,12 +380,12 @@ module Stable_marriage_diff = struct
       let left_trie =
         left
         |> Array.to_seq
-        |> Seq.mapi (fun j field -> (Field.name field, j))
+        |> Seq.mapi (fun j field -> (Item.name field, j))
         |> Trie.of_seq
       in
       Array.map
         (fun right_field ->
-          let name = Field.name right_field in
+          let name = Item.name right_field in
           let sequence =
             Trie.compute_preference_layers
               ~cutoff:(cutoff name)
@@ -516,7 +506,8 @@ module Stable_marriage_diff = struct
         | Right_available right_phase ->
             ok := false;
             let (j, d) = get_preferred_candidate right_phase in
-            if compatibility_test right.(i) left.(j) && propose i j d then (
+            if compatibility (Item.kind left.(j)) (Item.kind right.(i))
+            && propose i j d then (
               (* Unpair [j]. *)
               (match left_states.(j) with
               | Left_paired (i', _) ->
@@ -568,7 +559,9 @@ let (%<%) (x:int option) (y:int option) = match x, y with
   | _, None -> true
   | Some x, Some y -> x < y
 
-let greedy_matching ~compatibility_test ~cutoff missings additions =
+type 'a matching = { missings: 'a list; renamings : ('a * 'a) list }
+
+let greedy_matching ~compatibility ~cutoff missings additions =
   let rec list_extract predicate l =
     match l with
     | [] -> None
@@ -580,12 +573,12 @@ let greedy_matching ~compatibility_test ~cutoff missings additions =
   in
 
   let compute_distance expected_field added_field =
-    if compatibility_test expected_field added_field then
+    if compatibility (Item.kind added_field) (Item.kind expected_field) then
       let distance =
-        let expected_name = Field.name expected_field in
+        let expected_name = Item.name expected_field in
         Misc.edit_distance
           expected_name
-          (Field.name added_field)
+          (Item.name added_field)
           (cutoff expected_name)
       in
       distance
@@ -597,10 +590,10 @@ let greedy_matching ~compatibility_test ~cutoff missings additions =
   let name_changes = ref [] in
   let actually_missing =
     missings
-    |> List.filter
+    |> List.filter_map
       (fun missing_field ->
-        let missing_id = Field.ident missing_field in
-        let missing_name = Ident.name missing_id in
+        let missing_id = missing_field in
+        let missing_name = Item.name missing_id in
         match
           list_extract
             (fun added_field ->
@@ -608,17 +601,17 @@ let greedy_matching ~compatibility_test ~cutoff missings additions =
                 %<% Some (cutoff missing_name))
             !remaining_added_fields
         with
-        | None -> true
+        | None -> Some (Item.item missing_field)
         | Some (added_field, additions) ->
-            let name_change = added_field, missing_field in
+            let name_change = Item.item added_field, Item.item missing_field in
             name_changes := name_change :: !name_changes;
             remaining_added_fields := additions;
-            false)
+            None)
   in
 
-  actually_missing, !name_changes
+  { missings=actually_missing; renamings= !name_changes }
 
-let fuzzy_match_names compatibility_test missings additions =
+let fuzzy_match_names ~compatibility missings additions =
   (* The edit distance between an existing name and a suggested rename must be
      at most half the length of the name. *)
   let cutoff name = String.length name / 2 in
@@ -629,12 +622,14 @@ let fuzzy_match_names compatibility_test missings additions =
     (* Stable marriages. *)
     let diff =
       Stable_marriage_diff.diff
-        ~cutoff ~max_elements:10 ~compatibility_test
+        ~cutoff ~max_elements:10 ~compatibility
         (Array.of_list additions)
         (Array.of_list missings)
     in
-    diff.add, diff.substitute
-
+    { missings = List.map Item.item diff.add;
+      renamings =
+        List.map (fun (x,y) -> Item.(item x, item y)) diff.substitute
+    }
   else
     (* Greedy. *)
-    greedy_matching ~compatibility_test ~cutoff missings additions
+    greedy_matching ~compatibility ~cutoff missings additions

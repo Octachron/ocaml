@@ -50,17 +50,18 @@ module Trie : sig
       Each node of the sequence should be called at most once. *)
 end
 
-module Field: sig
-  type ('v, 't) t = {
-    item : Types.signature_item;
-    value : 'v;
-    type_ : 't;
+module Item: sig
+  type ('v, 'k) t = {
+    name: string;
+    item : 'v;
+    kind : 'k;
   }
-  val ident: ('v,'t) t -> Ident.t
-  val first_order: Types.signature_item -> 'v -> 't -> ('v,'t) t
-  val second_order: Types.signature_item -> 'v -> ('v,unit) t
+  val item: ('v,'k) t -> 'v
 end
 
+
+type 'a matching = { missings:'a list; renamings:('a * 'a) list  }
+
 val fuzzy_match_names:
-  ( (('a,'b) Field.t as 'f) -> 'f -> bool) -> 'f list -> 'f list
-  -> 'f list * ('f * 'f) list
+  compatibility:('k -> 'k -> bool)
+  -> ('v, 'k) Item.t list -> ('v, 'k) Item.t list -> 'v matching
