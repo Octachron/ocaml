@@ -449,6 +449,18 @@ let signature_item_id = function
   | Sig_class_type (id, _, _, _)
     -> id
 
+  let classify_signature_item =
+    let open Shape.Sig_component_kind in
+    function
+    | Sig_value(id, v, _) -> Value, id, v.val_loc
+    | Sig_type (id, td, _, _) -> Type, id, td.type_loc
+    | Sig_typext (id, te, _, _) -> Extension_constructor, id, te.ext_loc
+    | Sig_module (id, _, md, _, _) -> Module, id, md.md_loc
+    | Sig_modtype (id, mtd, _) -> Module_type, id, mtd.mtd_loc
+    | Sig_class (id, c, _, _) -> Class, id, c.cty_loc
+    | Sig_class_type (id, ct, _, _) -> Class_type, id, ct.clty_loc
+
+
 (**** Definitions for backtracking ****)
 
 type change =
