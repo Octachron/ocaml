@@ -135,33 +135,32 @@ let compute_signature_diff env subst sig1 sig2 =
   with
   | Includemod.Error (_, Includemod.Error.In_Signature reason) -> Some reason
 
-let is_modtype_eq get (sgs : Includemod.Error.signature_symptom)
-    got expected =
-  let expected = Subst.modtype Keep sgs.subst (get expected) in
-  Includemod.is_modtype_equiv
-    sgs.env
-    (get got)
-    expected
+let is_modtype_eq (sgs : Includemod.Error.signature_symptom) got expected =
+  let expected = Subst.modtype Keep sgs.subst expected in
+  Includemod.is_modtype_equiv sgs.env got expected
 
-
-module Field = Stable_matching.Field
+module Field = struct
+  open Stable_matching.Item
+  let name item = Ident.name @@ Types.signature_item_id item
+  let make item kind = { name = name item; kind; item }
+end
 
 let compute_suggestions
     (sgs : Includemod.Error.signature_symptom)
     destructor
-    compatibility_test
+    ~compatibility
     incompatibility_destructor
 =
   let missing_fields = List.filter_map destructor sgs.missings in
   let added_fields = List.filter_map destructor sgs.additions in
 
-  let missings, renamings =
-    Stable_matching.fuzzy_match_names compatibility_test
+  let { Stable_matching.missings; renamings } =
+    Stable_matching.fuzzy_match_names ~compatibility
       missing_fields added_fields
   in
   let general_suggestions =
-    List.map (fun x -> Suggestion.add x.Field.item) missings @
-    List.map (fun (x,y) -> Suggestion.rename x.Field.item (Field.ident y))
+    List.map Suggestion.add missings @
+    List.map (fun (x,y) -> Suggestion.rename x @@ Types.signature_item_id y)
       renamings
   in
   let content_changes =
@@ -179,9 +178,9 @@ let compute_second_order_suggestions sgs =
       (fun item ->
         match item with
         | Types.Sig_module (_, _, decl, _, _) ->
-            Some (Field.first_order item decl decl.md_type)
+            Some (Field.make item decl.md_type)
         | _ -> None)
-      (is_modtype_eq (fun x -> x.Field.type_) sgs)
+      ~compatibility:(is_modtype_eq sgs)
       (function
         | item, Module_type {expected; _} ->
             Some (Suggestion.change_type_of_module item expected)
@@ -191,21 +190,10 @@ let compute_second_order_suggestions sgs =
   let type_suggestions =
     compute_suggestions
       sgs
-      (fun item ->
-        match item with
-        | Types.Sig_type  (_, decl, _, _) ->
-            Some (Field.second_order item decl)
+      (function
+        | Types.Sig_type (_,decl,_,_) as item -> Some (Field.make item decl)
         | _ -> None)
-      (fun expected got ->
-        let id, loc, _ = Includemod.item_ident_name got.item in
-        match
-          Includemod.Item.type_declarations
-           ~loc
-            sgs.env sgs.subst id
-            got.value expected.value
-        with
-        | Ok _ -> true
-        | Error _ -> false)
+      ~compatibility:(Includemod.Item.type_declarations sgs.env sgs.subst)
       (function
         | item, Core (Type_declarations {expected; _}) ->
             Some (Suggestion.change_type item expected)
@@ -213,21 +201,19 @@ let compute_second_order_suggestions sgs =
   in
 
   let module_type_suggestions =
-    let get x = x.Field.value.Types.mtd_type in
-    let compare e g =  match get g, get e with
+    let compatibility g e =  match g, e with
       | _, None -> true
       | None, Some _ -> false
-      | Some g, Some e ->
-          is_modtype_eq Fun.id sgs e g
+      | Some g, Some e -> is_modtype_eq sgs g e
     in
     compute_suggestions
       sgs
       (fun item ->
         match item with
         | Types.Sig_modtype (_, decl, _) ->
-            Some (Field.second_order item decl)
+            Some (Field.make item decl.Types.mtd_type)
         | _ -> None)
-      compare
+      ~compatibility
       (function
         | item, Module_type_declaration {expected; _} ->
             Some (Suggestion.change_module_type item expected)
@@ -240,17 +226,11 @@ let compute_second_order_suggestions sgs =
       (fun item ->
         match item with
         | Types.Sig_class_type (_, decl, _, _) ->
-            Some (Field.second_order item decl)
+            Some (Field.make item decl)
         | _ -> None)
-      (fun expected got ->
-        let id, loc, _ = Includemod.item_ident_name got.Field.item in
-        match
-          Includemod.Item.class_type_declarations
-            ~loc sgs.env sgs.subst
-            id got.Field.value expected.Field.value
-        with
-        | Ok _ -> true
-        | Error _ -> false)
+      ~compatibility:(
+        Includemod.Item.class_type_declarations sgs.env sgs.subst
+      )
       (fun _ -> None)
   in
 
@@ -269,17 +249,9 @@ let compute_first_order_suggestions sgs =
       (fun item ->
         match item with
         | Types.Sig_value (_, desc, _) ->
-            Some (Field.first_order item desc desc.val_type)
+            Some (Field.make item desc)
         | _ -> None)
-      (fun expected got ->
-        let id, loc, _ = Includemod.item_ident_name got.Field.item in
-        match
-          Includemod.Item.value_descriptions
-            ~loc sgs.env sgs.subst
-            id got.value expected.value
-        with
-        | Ok _ -> true
-        | Error _ -> false)
+      ~compatibility:(Includemod.Item.value_descriptions sgs.env sgs.subst)
       (function
         | item, Core (Value_descriptions {expected; _}) ->
             Some (Suggestion.change_type_of_value item expected.val_type)
@@ -292,17 +264,9 @@ let compute_first_order_suggestions sgs =
       (fun item ->
         match item with
         | Types.Sig_class (_, decl, _, _) ->
-            Some (Field.first_order item decl decl.cty_type)
+            Some (Field.make item decl)
         | _ -> None)
-      (fun expected got ->
-        match
-          let id, loc, _ = Includemod.item_ident_name got.Field.item in
-          Includemod.Item.class_declarations
-            sgs.env sgs.subst ~loc
-            id expected.value got.value
-        with
-        | Ok _ -> true
-        | Error _ -> false)
+      ~compatibility:(Includemod.Item.class_declarations sgs.env sgs.subst)
       (function
         | item, Core (Class_declarations {expected; _}) ->
             Some (Suggestion.change_type_of_class item expected)

@@ -85,6 +85,7 @@ utils_SOURCES = $(addprefix utils/, \
   lazy_backtrack.mli lazy_backtrack.ml \
   diffing.mli diffing.ml \
   diffing_with_keys.mli diffing_with_keys.ml \
+  stable_matching.mli stable_matching.ml \
   compression.mli compression.ml)
 
 parsing_SOURCES = $(addprefix parsing/, \
@@ -150,7 +151,6 @@ typing_SOURCES = \
   typing/cmt2annot.mli typing/cmt2annot.ml \
   typing/untypeast.mli typing/untypeast.ml \
   typing/includemod.mli typing/includemod.ml \
-  typing/stable_matching.mli typing/stable_matching.ml \
   typing/signature_diff.mli typing/signature_diff.ml \
   typing/includemod_errorprinter.mli typing/includemod_errorprinter.ml \
   typing/typetexp.mli typing/typetexp.ml \
