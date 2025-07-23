@@ -53,6 +53,16 @@
 static_assert(sizeof(struct stack_info) == Stack_ctx_words * sizeof(value), "");
 
 static _Atomic int64_t fiber_id = 0;
+static _Atomic int64_t fiber_memory = 0;
+static _Atomic int64_t active_fiber_memory = 0;
+
+value caml_fiber_memory (value unit) {
+  return Val_int (fiber_memory);
+}
+
+value caml_active_fiber_memory (value unit) {
+  return Val_int (active_fiber_memory);
+}
 
 uintnat caml_get_init_stack_wsize (void)
 {
@@ -121,6 +131,8 @@ Caml_inline struct stack_info* alloc_for_stack (mlsize_t wosize)
   len = stack_len + (16 - 1) + sizeof(struct stack_handler);
 #endif
 
+  atomic_fetch_add(&fiber_memory,wosize);
+
 #ifdef USE_MMAP_MAP_STACK
   struct stack_info* si;
   si = mmap(NULL, len, PROT_WRITE | PROT_READ,
@@ -165,6 +177,7 @@ alloc_size_class_stack_noexc(mlsize_t wosize, int cache_bucket, value hval,
   static_assert(sizeof(struct stack_info) % sizeof(value) == 0, "");
   static_assert(sizeof(struct stack_handler) % sizeof(value) == 0, "");
 
+  atomic_fetch_add(&active_fiber_memory,wosize);
   CAMLassert(cache != NULL);
 
   if (cache_bucket != -1 &&
@@ -548,12 +561,18 @@ void caml_free_stack (struct stack_info* stack)
   if (stack->cache_bucket != -1) {
     stack->exception_ptr =
       (void*)(cache[stack->cache_bucket]);
+    atomic_fetch_add(&active_fiber_memory,
+                     -(caml_fiber_wsz<< stack->cache_bucket));
     cache[stack->cache_bucket] = stack;
 #ifdef DEBUG
     memset(Stack_base(stack), 0x42,
            (Stack_high(stack)-Stack_base(stack))*sizeof(value));
 #endif
   } else {
+    atomic_fetch_add(&fiber_memory, Stack_base(stack) - Stack_high(stack));
+    atomic_fetch_add(&active_fiber_memory,
+                     (Stack_base(stack) - Stack_high(stack)));;
+
 #ifdef DEBUG
     memset(stack, 0x42, (char*)stack->handler - (char*)stack);
 #endif
