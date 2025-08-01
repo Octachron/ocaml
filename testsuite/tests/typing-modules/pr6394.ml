@@ -20,6 +20,9 @@ Error: Signature mismatch:
          sig type t = X.t = A | B val f : t -> int end
        is not included in
          sig type t = int * bool end
-       Try changing type "t" to
-       type t = int * bool
+       Type declarations do not match:
+         type t = X.t = A | B
+       is not included in
+         type t = int * bool
+       The type "X.t" is not equal to the type "int * bool"
 |}];;

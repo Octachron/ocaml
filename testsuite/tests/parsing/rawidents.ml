@@ -45,8 +45,11 @@ Error: Signature mismatch:
          sig type \#and = string end
        is not included in
          sig type \#and = int end
-       Try changing type "and" to
-       type \#and = int
+       Type declarations do not match:
+         type \#and = string
+       is not included in
+         type \#and = int
+       The type "string" is not equal to the type "int"
 |}]
 
 let x = (`\#let `\#and : [ `\#let of [ `\#and ] ])

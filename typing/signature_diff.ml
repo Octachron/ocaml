@@ -23,29 +23,38 @@ module Suggestion = struct
   type alteration =
     | Add_item
     | Rename_item of Ident.t
-    | Change_type_of_value of Types.type_expr
-    | Change_type_of_module of Types.module_type
-    | Change_type_of_class of Types.class_declaration
-    | Change_type of Types.type_declaration
-    | Change_module_type of Types.modtype_declaration
 
-  type t = {
+  type 'a t = {
     subject : Types.signature_item;
-    alteration : alteration;
+    alteration : 'a;
   }
 
-  let add subject = { subject; alteration = Add_item }
-  let rename subject ident = { subject; alteration = Rename_item ident }
+  type report = {
+    alterations: alteration t list;
+    incompatibles: Includemod.Error.sigitem_symptom t list
+  }
 
-  let change_type_of_value subject ty =
-    { subject; alteration = Change_type_of_value ty }
-  let change_type_of_module subject mty =
-    { subject; alteration = Change_type_of_module mty }
-  let change_type_of_class subject cty =
-    { subject; alteration = Change_type_of_class cty }
-  let change_type subject ty = { subject; alteration = Change_type ty }
-  let change_module_type subject mty =
-    { subject; alteration = Change_module_type mty }
+  let empty = { alterations = []; incompatibles = [] }
+
+  let merge r1 r2 = {
+    alterations = r1.alterations @ r2.alterations;
+    incompatibles = r1.incompatibles @ r2.incompatibles
+  }
+
+  let merge_rename r1 r2 =
+    let is_rename = function
+      | { alteration=Rename_item _; _} -> true
+      | _ -> false
+    in
+    {
+      alterations = r1.alterations @ List.filter is_rename r2.alterations;
+      incompatibles = r1.incompatibles
+    }
+
+
+  let add subject = { subject; alteration = Add_item }
+  let rename subject id  = { subject; alteration = Rename_item id }
+  let incompatible (subject, symptom) = { subject; alteration=symptom }
 
   let apply subst { subject; alteration } =
     match alteration, subject with
@@ -87,17 +96,14 @@ let compute_suggestions
     (sgs : Includemod.Error.signature_symptom)
     destructor
     ~compatibility
-    incompatibility_destructor
 =
   let missing_fields = List.filter_map destructor sgs.missings in
   let added_fields = List.filter_map destructor sgs.additions in
-  let general_suggestions =
+  let alterations =
     fuzzy_match_suggestions ~compatibility missing_fields added_fields
   in
-  let content_changes =
-    List.filter_map incompatibility_destructor sgs.incompatibles
-  in
-  general_suggestions @ content_changes
+  let incompatibles = List.map Suggestion.incompatible sgs.incompatibles in
+  { Suggestion.alterations; incompatibles }
 
 type signature_symptom = Includemod.Error.signature_symptom
 
@@ -108,10 +114,6 @@ let module_suggestions (sgs:signature_symptom) =
           Some (Field.make item decl.md_type)
       | _ -> None)
     ~compatibility:(is_modtype_eq sgs)
-    (function
-      | item, Module_type {expected; _} ->
-          Some (Suggestion.change_type_of_module item expected)
-      | _ -> None)
 
 let type_suggestions (sgs:signature_symptom) =
   compute_suggestions sgs
@@ -119,10 +121,6 @@ let type_suggestions (sgs:signature_symptom) =
       | Types.Sig_type (_,decl,_,_) as item -> Some (Field.make item decl)
       | _ -> None)
     ~compatibility:(Includemod.Item.type_declarations sgs.env sgs.subst)
-    (function
-      | item, Core (Type_declarations {expected; _}) ->
-          Some (Suggestion.change_type item expected)
-      | _ -> None)
 
 let module_type_suggestions (sgs:signature_symptom) =
   let compatibility g e =  match g, e with
@@ -136,10 +134,6 @@ let module_type_suggestions (sgs:signature_symptom) =
           Some (Field.make item decl.mtd_type)
       | _ -> None)
     ~compatibility
-    (function
-      | item, Module_type_declaration {expected; _} ->
-          Some (Suggestion.change_module_type item expected)
-      | _ -> None)
 
  let class_type_suggestions (sgs:signature_symptom) =
     compute_suggestions sgs
@@ -150,7 +144,6 @@ let module_type_suggestions (sgs:signature_symptom) =
       ~compatibility:(
         Includemod.Item.class_type_declarations sgs.env sgs.subst
       )
-      (fun _ -> None)
 
 let value_suggestions (sgs:signature_symptom) =
   compute_suggestions sgs
@@ -159,10 +152,6 @@ let value_suggestions (sgs:signature_symptom) =
           Some (Field.make item desc)
       | _ -> None)
     ~compatibility:(Includemod.Item.value_descriptions sgs.env sgs.subst)
-    (function
-      | item, Core (Value_descriptions {expected; _}) ->
-          Some (Suggestion.change_type_of_value item expected.val_type)
-      | _ -> None)
 
   let class_suggestions (sgs:signature_symptom) =
     compute_suggestions sgs
@@ -171,34 +160,33 @@ let value_suggestions (sgs:signature_symptom) =
             Some (Field.make item decl)
         | _ -> None)
       ~compatibility:(Includemod.Item.class_declarations sgs.env sgs.subst)
-      (function
-        | item, Core (Class_declarations {expected; _}) ->
-            Some (Suggestion.change_type_of_class item expected)
-        | _ -> None)
 
 let compute_second_order_suggestions sgs =
-  List.rev (
-    class_type_suggestions sgs
-    @ module_type_suggestions sgs
-    @ type_suggestions sgs
-    @ module_suggestions sgs)
+    Suggestion.merge (class_type_suggestions sgs) @@
+    Suggestion.merge (module_type_suggestions sgs) @@
+    Suggestion.merge (type_suggestions sgs) (module_suggestions sgs)
 
 let compute_first_order_suggestions sgs =
-  List.rev (class_suggestions sgs @ value_suggestions sgs)
+  Suggestion.merge (class_suggestions sgs) (value_suggestions sgs)
 
 let rec iterate f previous_suggestions (sgs:signature_symptom) fuel =
   if fuel = 0 then (previous_suggestions, Some sgs) else
     let suggestions = f sgs in
-    if List.is_empty suggestions then
+    if suggestions = Suggestion.empty then
       previous_suggestions, Some sgs
     else
-      let subst = List.fold_left Suggestion.apply sgs.subst suggestions in
-      let suggestions = suggestions @ previous_suggestions in
+      let subst =
+        let alterations = suggestions.Suggestion.alterations in
+        List.fold_left Suggestion.apply sgs.subst alterations
+      in
+      let suggestions =
+        Suggestion.merge_rename suggestions previous_suggestions
+      in
       match compute_signature_diff sgs.env subst sgs.sig1 sgs.sig2 with
       | None -> suggestions, None
       | Some sgs -> iterate f suggestions sgs (fuel - 1)
 
-let deduplicate suggestions =
+let _deduplicate suggestions =
   let add_item (unique_suggestions, affected_items) suggestion =
     let key =
       let kind, ident, _ =
@@ -219,12 +207,12 @@ let deduplicate suggestions =
 let suggest sgs =
   let all_suggestions =
     let type_suggestions, remaining =
-      iterate compute_second_order_suggestions [] sgs 5
+      iterate compute_second_order_suggestions Suggestion.empty sgs 5
     in
     match remaining with
     | None -> type_suggestions
     | Some remaining ->
         let value_suggestions = compute_first_order_suggestions remaining in
-        type_suggestions @ value_suggestions
+        Suggestion.merge type_suggestions value_suggestions
   in
- deduplicate all_suggestions
+ all_suggestions

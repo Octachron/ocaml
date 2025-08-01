@@ -26,6 +26,9 @@ Error: Signature mismatch:
          sig type _ t val f : 'a -> unit end
        is not included in
          sig type (_, _) t val f : ('a, 'b) t -> unit end
-       Try changing type "t" to
-       type (_, _) t
+       Type declarations do not match:
+         type _ t
+       is not included in
+         type (_, _) t
+       They have different arities.
 |}]

@@ -50,8 +50,15 @@ Error: Signature mismatch:
          sig module type x = c12 end
        is not included in
          expected
-       Try changing module type "x" to
-       module type x = s
+       Module type declarations do not match:
+         module type x = c12
+       does not match
+         module type x = s
+       At position "module type x = <here>"
+       Illegal permutation of runtime components in a module type.
+         For example,
+         the class "two" and the value "one" are not in the same order
+         in the expected and actual module types.
 |}]
 
 module B: expected = struct module type x = c123 end
@@ -64,8 +71,15 @@ Error: Signature mismatch:
          sig module type x = c123 end
        is not included in
          expected
-       Try changing module type "x" to
-       module type x = s
+       Module type declarations do not match:
+         module type x = c123
+       does not match
+         module type x = s
+       At position "module type x = <here>"
+       Illegal permutation of runtime components in a module type.
+         For example,
+         the exception "Three" and the value "one" are not in the same order
+         in the expected and actual module types.
 |}]
 
 
@@ -120,9 +134,29 @@ Error: Signature mismatch:
                val e : int
              end
          end
-       Try changing module type "x" to
-       module type x =
-         sig val a : int val b : int val c : int val d : int val e : int end
+       Module type declarations do not match:
+         module type x =
+           sig
+             val a : int
+             val b : int
+             val e : int
+             val d : int
+             val c : int
+           end
+       does not match
+         module type x =
+           sig
+             val a : int
+             val b : int
+             val c : int
+             val d : int
+             val e : int
+           end
+       At position "module type x = <here>"
+       Illegal permutation of runtime components in a module type.
+         For example,
+         the value "e" and the value "c" are not in the same order
+         in the expected and actual module types.
 |}]
 
 module Confusing: sig
@@ -149,8 +183,15 @@ Error: Signature mismatch:
          sig module type x = sig val x : int class x : ct end end
        is not included in
          sig module type x = sig class x : ct val x : int end end
-       Try changing module type "x" to
-       module type x = sig class x : ct val x : int end
+       Module type declarations do not match:
+         module type x = sig val x : int class x : ct end
+       does not match
+         module type x = sig class x : ct val x : int end
+       At position "module type x = <here>"
+       Illegal permutation of runtime components in a module type.
+         For example,
+         the value "x" and the class "x" are not in the same order
+         in the expected and actual module types.
 |}]
 
 module MT: sig
@@ -189,9 +230,27 @@ Error: Signature mismatch:
            module type a =
              sig module type b = sig val x : int val y : int end end
          end
-       Try changing module type "a" to
-       module type a =
+       Module type declarations do not match:
+         module type a =
+           sig module type b = sig val y : int val x : int end end
+       does not match
+         module type a =
+           sig module type b = sig val x : int val y : int end end
+       At position "module type a = <here>"
+       Module types do not match:
+         sig module type b = sig val y : int val x : int end end
+       is not equal to
          sig module type b = sig val x : int val y : int end end
+       At position "module type a = <here>"
+       Module type declarations do not match:
+         module type b = sig val y : int val x : int end
+       does not match
+         module type b = sig val x : int val y : int end
+       At position "module type a = sig module type b = <here> end"
+       Illegal permutation of runtime components in a module type.
+         For example,
+         the value "y" and the value "x" are not in the same order
+         in the expected and actual module types.
 |}]
 
 class type ct = object end
@@ -220,8 +279,15 @@ Error: Signature mismatch:
          sig module type x = sig class b : ct class a : ct end end
        is not included in
          sig module type x = sig class a : ct class b : ct end end
-       Try changing module type "x" to
-       module type x = sig class a : ct class b : ct end
+       Module type declarations do not match:
+         module type x = sig class b : ct class a : ct end
+       does not match
+         module type x = sig class a : ct class b : ct end
+       At position "module type x = <here>"
+       Illegal permutation of runtime components in a module type.
+         For example,
+         the class "b" and the class "a" are not in the same order
+         in the expected and actual module types.
 |}]
 
 module Ext: sig
@@ -248,8 +314,15 @@ Error: Signature mismatch:
          sig module type x = sig type exn += B type exn += A end end
        is not included in
          sig module type x = sig type exn += A type exn += B end end
-       Try changing module type "x" to
-       module type x = sig type exn += A type exn += B end
+       Module type declarations do not match:
+         module type x = sig type exn += B type exn += A end
+       does not match
+         module type x = sig type exn += A type exn += B end
+       At position "module type x = <here>"
+       Illegal permutation of runtime components in a module type.
+         For example,
+         the exception "B" and the exception "A" are not in the same order
+         in the expected and actual module types.
 |}]
 
 
@@ -281,8 +354,15 @@ Error: Signature mismatch:
          sig module type x = w21 end
        is not included in
          sig module type x = w end
-       Try changing module type "x" to
-       module type x = w
+       Module type declarations do not match:
+         module type x = w21
+       does not match
+         module type x = w
+       At position "module type x = <here>"
+       Illegal permutation of runtime components in a module type.
+         For example,
+         the module "Two" and the module "One" are not in the same order
+         in the expected and actual module types.
 |}]
 
 module D: sig module type x = w end = struct module type x = wOne21 end
@@ -295,8 +375,15 @@ Error: Signature mismatch:
          sig module type x = wOne21 end
        is not included in
          sig module type x = w end
-       Try changing module type "x" to
-       module type x = w
+       Module type declarations do not match:
+         module type x = wOne21
+       does not match
+         module type x = w
+       At position "module type x = <here>"
+       Illegal permutation of runtime components in a module type.
+         For example, in module "One",
+         the class "two" and the value "one" are not in the same order
+         in the expected and actual module types.
 |}]
 
 module F1: sig module type x = functor(X:s) -> s end =
@@ -313,8 +400,15 @@ Error: Signature mismatch:
          sig module type x = (X : c12) -> s end
        is not included in
          sig module type x = (X : s) -> s end
-       Try changing module type "x" to
-       module type x = (X : s) -> s
+       Module type declarations do not match:
+         module type x = (X : c12) -> s
+       does not match
+         module type x = (X : s) -> s
+       At position "module type x = <here>"
+       Illegal permutation of runtime components in a module type.
+         For example, at position "(X : <here>) -> ...",
+         the class "two" and the value "one" are not in the same order
+         in the expected and actual module types.
 |}]
 
 module F2: sig module type x = functor(X:s) -> s end =
@@ -331,8 +425,15 @@ Error: Signature mismatch:
          sig module type x = (X : s) -> c12 end
        is not included in
          sig module type x = (X : s) -> s end
-       Try changing module type "x" to
-       module type x = (X : s) -> s
+       Module type declarations do not match:
+         module type x = (X : s) -> c12
+       does not match
+         module type x = (X : s) -> s
+       At position "module type x = <here>"
+       Illegal permutation of runtime components in a module type.
+         For example, at position "(X) -> <here>",
+         the class "two" and the value "one" are not in the same order
+         in the expected and actual module types.
 |}]
 
 module Nested: sig
@@ -451,32 +552,79 @@ Error: Signature mismatch:
                  end
              end
          end
-       Try changing module type "x" to
-       module type x =
-         sig
-           module A :
+       Module type declarations do not match:
+         module type x =
+           sig
+             module A :
+               sig
+                 module B :
+                   sig
+                     module C :
+                       (X : sig end) (Y : sig end)
+                       (Z : sig
+                              module D :
+                                sig
+                                  module E :
+                                    sig
+                                      module F :
+                                        (X : sig end)
+                                        (Arg : sig
+                                                 val two : int
+                                                 val one : int
+                                               end)
+                                          -> sig end
+                                    end
+                                end
+                            end)
+                         -> sig end
+                   end
+               end
+           end
+       does not match
+         module type x =
+           sig
+             module A :
+               sig
+                 module B :
+                   sig
+                     module C :
+                       (X : sig end) (Y : sig end)
+                       (Z : sig
+                              module D :
+                                sig
+                                  module E :
+                                    sig
+                                      module F :
+                                        (X : sig end)
+                                        (Arg : sig
+                                                 val one : int
+                                                 val two : int
+                                               end)
+                                          -> sig end
+                                    end
+                                end
+                            end)
+                         -> sig end
+                   end
+               end
+           end
+       At position "module type x = <here>"
+       Illegal permutation of runtime components in a module type.
+         For example,
+         at position
+           "module A :
              sig
                module B :
                  sig
-                   module C :
-                     (X : sig end) (Y : sig end)
-                     (Z : sig
-                            module D :
-                              sig
-                                module E :
-                                  sig
-                                    module F :
-                                      (X : sig end)
-                                      (Arg : sig
-                                               val one : int
-                                               val two : int
-                                             end)
-                                        -> sig end
-                                  end
-                              end
-                          end)
-                       -> sig end
+                   module C(X)(Y)(Z :
+                     sig
+                       module D :
+                         sig
+                           module E : sig module F(X)(Arg : <here>) : ... end
+                         end
+                     end) : ...
                  end
-             end
-         end
+             end",
+         the value "two" and the value "one" are not in the same order
+         in the expected and actual module types.
 |}]
