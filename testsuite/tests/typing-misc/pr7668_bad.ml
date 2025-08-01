@@ -83,5 +83,18 @@ Error: Signature mismatch:
                [ `A of int | `B of [ `BA | `BB of unit list ] | `C of unit ]
            val a : t -> t
          end
-       Try changing value "a" to be a "t -> t"
+       Values do not match:
+         val a :
+           [> `A of int ] ->
+           [> `B of [> `BA | `BB of int list ] | `C of unit ]
+       is not included in
+         val a : t -> t
+       The type
+         "[ `A of int | `B of [ `BA | `BB of unit list ] | `C of unit ] ->
+         [> `B of [> `BA | `BB of int list ] | `C of unit ]"
+       is not compatible with the type "t -> t"
+       Type "[> `B of [> `BA | `BB of int list ] | `C of unit ]"
+       is not compatible with type
+         "t" = "[ `A of int | `B of [ `BA | `BB of unit list ] | `C of unit ]"
+       Types for tag "`BB" are incompatible
 |}]

@@ -193,6 +193,14 @@ Error: Signature mismatch:
          end
        is not included in
          sig type x type 'b t = A constraint 'b = < x : 'a. 'a -> x > end
-       Try changing type "t" to
-       type 'b t = A constraint 'b = < x : 'a. 'a -> x >
+       Type declarations do not match:
+         type 'b t = 'b M.t = A constraint 'b = < x : 'a. 'a -> 'a >
+       is not included in
+         type 'b t = A constraint 'b = < x : 'a. 'a -> x >
+       Their parameters differ
+       The type "< x : 'a. 'a -> 'a >" is not equal to the type
+         "< x : 'a. 'a -> x >"
+       Type "'a" is not equal to type "x" = "M.x"
+       The method "x" has type "'a. 'a -> 'a", but the expected method type was
+       "'a. 'a -> x"
 |}]

@@ -88,8 +88,11 @@ Error: Signature mismatch:
          sig type +-'a t = int end
        is not included in
          sig type +!'a t end
-       Try changing type "t" to
-       type +!'a t
+       Type declarations do not match:
+         type +-'a t = int
+       is not included in
+         type +!'a t
+       Their variances do not agree.
 |}]
 
 (* Annotations in type abbreviations allow to check injectivity *)
@@ -147,8 +150,11 @@ Error: Signature mismatch:
          sig type +-'a t = < m : int > end
        is not included in
          sig type !'a t = private < m : int; .. > end
-       Try changing type "t" to
-       type !'a t
+       Type declarations do not match:
+         type +-'a t = < m : int >
+       is not included in
+         type !'a t
+       Their variances do not agree.
 |}]
 
 (* Injectivity annotations are inferred correctly for constrained parameters *)
@@ -197,8 +203,13 @@ Error: Signature mismatch:
          sig type nonrec !'a t = 'a t constraint 'a = < b : 'b > end
        is not included in
          sig type !'a t constraint 'a = < b : 'b; c : 'c > end
-       Try changing type "t" to
-       type !'a t constraint 'a = < b : 'b; c : 'c >
+       Type declarations do not match:
+         type !'a t = 'a t/3 constraint 'a = < b : 'b >
+       is not included in
+         type !'a t constraint 'a = < b : 'b; c : 'c >
+       Their parameters differ
+       The type "< b : 'a >" is not equal to the type "< b : 'b; c : 'c >"
+       The first object type has no method "c"
 |}]
 
 (* Injective bivariance in a signature is respected in its structures *)
@@ -218,8 +229,11 @@ Error: Signature mismatch:
          sig type +-'a t = int end
        is not included in
          sig type +-!'a t end
-       Try changing type "t" to
-       type +-!'a t
+       Type declarations do not match:
+         type +-'a t = int
+       is not included in
+         type +-!'a t
+       Their variances do not agree.
 |}]
 
 (* One cannot assume that abstract types are not injective *)

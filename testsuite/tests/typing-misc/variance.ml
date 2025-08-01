@@ -225,8 +225,11 @@ Error: Signature mismatch:
            val pn : 'a pos -> 'a neg
            val n : 'a neg -> 'a M.t
          end
-       Try changing type "pos" to
-       type +'a pos = private string
+       Type declarations do not match:
+         type 'a pos = 'a M.t
+       is not included in
+         type +'a pos = private string
+       Their variances do not agree.
 Unexecuted phrases: 1 phrases did not execute due to an error
 |}]
 
@@ -259,7 +262,10 @@ Error: Signature mismatch:
            val inj : 'a priv -> 'a t
            val prj : 'a t -> 'a priv
          end
-       Try changing type "t" to
-       type +-'a t = private int
+       Type declarations do not match:
+         type 'a t = 'a priv
+       is not included in
+         type +-'a t = private int
+       Their variances do not agree.
 Unexecuted phrases: 1 phrases did not execute due to an error
 |}]

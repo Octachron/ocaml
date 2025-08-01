@@ -6,6 +6,9 @@ Line 1, characters 19-20:
                        ^
 Error: Signature mismatch:
        Modules do not match: sig type 'a t = 'a end is not included in S
-       Try changing type t to
-       type t
+       Type declarations do not match:
+         type 'a t = 'a
+       is not included in
+         type t
+       They have different arities.
 

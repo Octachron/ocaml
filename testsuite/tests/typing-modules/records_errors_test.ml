@@ -30,11 +30,30 @@ Error: Signature mismatch:
              f1 : unit * unit * unit * int * unit * unit * unit;
            }
          end
-       Try changing type "t" to
-       type t = {
-         f0 : unit * unit * unit * int * unit * unit * unit;
-         f1 : unit * unit * unit * int * unit * unit * unit;
-       }
+       Type declarations do not match:
+         type t = {
+           f0 : unit * unit * unit * float * unit * unit * unit;
+           f1 : unit * unit * unit * string * unit * unit * unit;
+         }
+       is not included in
+         type t = {
+           f0 : unit * unit * unit * int * unit * unit * unit;
+           f1 : unit * unit * unit * int * unit * unit * unit;
+         }
+       1. Fields do not match:
+         "f0 : unit * unit * unit * float * unit * unit * unit;"
+       is not the same as:
+         "f0 : unit * unit * unit * int * unit * unit * unit;"
+       The type "unit * unit * unit * float * unit * unit * unit"
+       is not equal to the type "unit * unit * unit * int * unit * unit * unit"
+       Type "float" is not equal to type "int"
+       2. Fields do not match:
+         "f1 : unit * unit * unit * string * unit * unit * unit;"
+       is not the same as:
+         "f1 : unit * unit * unit * int * unit * unit * unit;"
+       The type "unit * unit * unit * string * unit * unit * unit"
+       is not equal to the type "unit * unit * unit * int * unit * unit * unit"
+       Type "string" is not equal to type "int"
 |}];;
 
 
@@ -66,11 +85,28 @@ Error: Signature mismatch:
              f1 : unit * unit * unit * int * unit * unit * unit;
            }
          end
-       Try changing type "t" to
-       type t = {
-         mutable f0 : unit * unit * unit * int * unit * unit * unit;
-         f1 : unit * unit * unit * int * unit * unit * unit;
-       }
+       Type declarations do not match:
+         type t = {
+           f0 : unit * unit * unit * float * unit * unit * unit;
+           f1 : unit * unit * unit * string * unit * unit * unit;
+         }
+       is not included in
+         type t = {
+           mutable f0 : unit * unit * unit * int * unit * unit * unit;
+           f1 : unit * unit * unit * int * unit * unit * unit;
+         }
+       1. Fields do not match:
+         "f0 : unit * unit * unit * float * unit * unit * unit;"
+       is not the same as:
+         "mutable f0 : unit * unit * unit * int * unit * unit * unit;"
+       The second is mutable and the first is not.
+       2. Fields do not match:
+         "f1 : unit * unit * unit * string * unit * unit * unit;"
+       is not the same as:
+         "f1 : unit * unit * unit * int * unit * unit * unit;"
+       The type "unit * unit * unit * string * unit * unit * unit"
+       is not equal to the type "unit * unit * unit * int * unit * unit * unit"
+       Type "string" is not equal to type "int"
 |}];;
 
 module M3 : sig
@@ -88,8 +124,11 @@ Error: Signature mismatch:
          sig type t = { f1 : unit; } end
        is not included in
          sig type t = { f0 : unit; } end
-       Try changing type "t" to
-       type t = { f0 : unit; }
+       Type declarations do not match:
+         type t = { f1 : unit; }
+       is not included in
+         type t = { f0 : unit; }
+       Fields have different names, "f1" and "f0".
 |}];;
 
 module M4 : sig
@@ -107,8 +146,11 @@ Error: Signature mismatch:
          sig type t = { f0 : unit; } end
        is not included in
          sig type t = { f0 : unit; f1 : unit; } end
-       Try changing type "t" to
-       type t = { f0 : unit; f1 : unit; }
+       Type declarations do not match:
+         type t = { f0 : unit; }
+       is not included in
+         type t = { f0 : unit; f1 : unit; }
+       A field, "f1", is missing in the first declaration.
 |}];;
 
 
@@ -131,8 +173,11 @@ Error: Signature mismatch:
          end
        is not included in
          sig type t = { a : unit; b : unit; c : unit; d : unit; } end
-       Try changing type "t" to
-       type t = { a : unit; b : unit; c : unit; d : unit; }
+       Type declarations do not match:
+         type t = { a : unit; b : unit; beta : unit; c : unit; d : unit; }
+       is not included in
+         type t = { a : unit; b : unit; c : unit; d : unit; }
+       An extra field, "beta", is provided in the first declaration.
 |}]
 
 
@@ -151,8 +196,11 @@ Error: Signature mismatch:
          sig type t = { a : unit; c : unit; d : unit; } end
        is not included in
          sig type t = { a : unit; b : unit; c : unit; d : unit; } end
-       Try changing type "t" to
-       type t = { a : unit; b : unit; c : unit; d : unit; }
+       Type declarations do not match:
+         type t = { a : unit; c : unit; d : unit; }
+       is not included in
+         type t = { a : unit; b : unit; c : unit; d : unit; }
+       A field, "b", is missing in the first declaration.
 |}]
 
 
@@ -217,16 +265,30 @@ Error: Signature mismatch:
              g : unit;
            }
          end
-       Try changing type "t" to
-       type t = {
-         a : unit;
-         b : unit;
-         c : unit;
-         d : unit;
-         e : unit;
-         f : unit;
-         g : unit;
-       }
+       Type declarations do not match:
+         type t = {
+           a : unit;
+           b : unit;
+           beta : int;
+           c : unit;
+           d : unit;
+           f : unit;
+           g : unit;
+           phi : unit;
+         }
+       is not included in
+         type t = {
+           a : unit;
+           b : unit;
+           c : unit;
+           d : unit;
+           e : unit;
+           f : unit;
+           g : unit;
+         }
+       3. An extra field, "beta", is provided in the first declaration.
+       5. A field, "e", is missing in the first declaration.
+       8. An extra field, "phi", is provided in the first declaration.
 |}]
 
 
@@ -249,8 +311,12 @@ Error: Signature mismatch:
          end
        is not included in
          sig type t = { a : int; e : int; c : int; d : int; b : int; } end
-       Try changing type "t" to
-       type t = { a : int; e : int; c : int; d : int; b : int; }
+       Type declarations do not match:
+         type t = { alpha : int; b : int; c : int; d : int; e : int; }
+       is not included in
+         type t = { a : int; e : int; c : int; d : int; b : int; }
+       1. Fields have different names, "alpha" and "a".
+       2<->5. Fields "b" and "e" have been swapped.
 |}]
 
 
@@ -281,8 +347,16 @@ Error: Signature mismatch:
              f : float;
            }
          end
-       Try changing type "t" to
-       type t = { a : int; b : int; c : int; d : int; e : int; f : float; }
+       Type declarations do not match:
+         type t = { b : int; c : int; d : int; e : int; a : int; f : int; }
+       is not included in
+         type t = { a : int; b : int; c : int; d : int; e : int; f : float; }
+       1->5. Field "a" has been moved from position 1 to 5.
+       6. Fields do not match:
+         "f : int;"
+       is not the same as:
+         "f : float;"
+       The type "int" is not equal to the type "float"
 |}]
 
 (** Existential types introduce equations that must be taken in account
@@ -305,8 +379,19 @@ Error: Signature mismatch:
          sig type t = A : { a : 'a; b : 'b; x : 'x; } -> t end
        is not included in
          sig type t = A : { a : 'a; b : 'b; x : 'a; } -> t end
-       Try changing type "t" to
-       type t = A : { a : 'a; b : 'b; x : 'a; } -> t
+       Type declarations do not match:
+         type t = A : { a : 'a; b : 'b; x : 'x; } -> t
+       is not included in
+         type t = A : { a : 'a; b : 'b; x : 'a; } -> t
+       Constructors do not match:
+         "A : { a : 'a; b : 'b; x : 'x; } -> t"
+       is not the same as:
+         "A : { a : 'a; b : 'b; x : 'a; } -> t"
+       Fields do not match:
+         "x : 'x;"
+       is not the same as:
+         "x : 'a;"
+       The type "'x" is not equal to the type "'a"
 |}]
 
 
@@ -325,8 +410,16 @@ Error: Signature mismatch:
          sig type t = A : { y : 'a; a : 'a; b : 'b; x : 'b; } -> t end
        is not included in
          sig type t = A : { x : 'a; a : 'a; b : 'b; y : 'b; } -> t end
-       Try changing type "t" to
-       type t = A : { x : 'a; a : 'a; b : 'b; y : 'b; } -> t
+       Type declarations do not match:
+         type t = A : { y : 'a; a : 'a; b : 'b; x : 'b; } -> t
+       is not included in
+         type t = A : { x : 'a; a : 'a; b : 'b; y : 'b; } -> t
+       Constructors do not match:
+         "A : { y : 'a; a : 'a; b : 'b; x : 'b; } -> t"
+       is not the same as:
+         "A : { x : 'a; a : 'a; b : 'b; y : 'b; } -> t"
+       1. Fields have different names, "y" and "x".
+       4. Fields have different names, "x" and "y".
 |}]
 
 module Swap: sig
@@ -344,8 +437,15 @@ Error: Signature mismatch:
          sig type t = A : { y : 'b; a : 'a; b : 'b; x : 'a; } -> t end
        is not included in
          sig type t = A : { x : 'a; a : 'a; b : 'b; y : 'b; } -> t end
-       Try changing type "t" to
-       type t = A : { x : 'a; a : 'a; b : 'b; y : 'b; } -> t
+       Type declarations do not match:
+         type t = A : { y : 'b; a : 'a; b : 'b; x : 'a; } -> t
+       is not included in
+         type t = A : { x : 'a; a : 'a; b : 'b; y : 'b; } -> t
+       Constructors do not match:
+         "A : { y : 'b; a : 'a; b : 'b; x : 'a; } -> t"
+       is not the same as:
+         "A : { x : 'a; a : 'a; b : 'b; y : 'b; } -> t"
+       Fields "x" and "y" have been swapped.
 |}]
 
 
@@ -364,8 +464,16 @@ Error: Signature mismatch:
          sig type t = A : { x : 'a; a : 'a; b : 'b; } -> t end
        is not included in
          sig type t = A : { a : 'a; b : 'b; x : 'b; } -> t end
-       Try changing type "t" to
-       type t = A : { a : 'a; b : 'b; x : 'b; } -> t
+       Type declarations do not match:
+         type t = A : { x : 'a; a : 'a; b : 'b; } -> t
+       is not included in
+         type t = A : { a : 'a; b : 'b; x : 'b; } -> t
+       Constructors do not match:
+         "A : { x : 'a; a : 'a; b : 'b; } -> t"
+       is not the same as:
+         "A : { a : 'a; b : 'b; x : 'b; } -> t"
+       1. An extra field, "x", is provided in the first declaration.
+       3. A field, "x", is missing in the first declaration.
 |}]
 
 
@@ -384,8 +492,15 @@ Error: Signature mismatch:
          sig type t = A : { x : 'b; a : 'a; b : 'b; } -> t end
        is not included in
          sig type t = A : { a : 'a; b : 'b; x : 'b; } -> t end
-       Try changing type "t" to
-       type t = A : { a : 'a; b : 'b; x : 'b; } -> t
+       Type declarations do not match:
+         type t = A : { x : 'b; a : 'a; b : 'b; } -> t
+       is not included in
+         type t = A : { a : 'a; b : 'b; x : 'b; } -> t
+       Constructors do not match:
+         "A : { x : 'b; a : 'a; b : 'b; } -> t"
+       is not the same as:
+         "A : { a : 'a; b : 'b; x : 'b; } -> t"
+       Field "x" has been moved from position 3 to 1.
 |}]
 
 
@@ -406,8 +521,18 @@ Error: Signature mismatch:
          end
        is not included in
          sig type t = { a : unit; b : int; } end
-       Try changing type "t" to
-       type t = { a : unit; b : int; }
+       Type declarations do not match:
+         type t = { a : unit; r : unit; c : int; s : unit; b : float; }
+       is not included in
+         type t = { a : unit; b : int; }
+       2. An extra field, "r", is provided in the first declaration.
+       3. An extra field, "c", is provided in the first declaration.
+       4. An extra field, "s", is provided in the first declaration.
+       5. Fields do not match:
+         "b : float;"
+       is not the same as:
+         "b : int;"
+       The type "float" is not equal to the type "int"
 |}]
 
 
@@ -428,6 +553,12 @@ Error: Signature mismatch:
          end
        is not included in
          sig type t = { a : unit; b : int; } end
-       Try changing type "t" to
-       type t = { a : unit; b : int; }
+       Type declarations do not match:
+         type t = { a : unit; r : unit; c : float; s : unit; d : int; }
+       is not included in
+         type t = { a : unit; b : int; }
+       2. An extra field, "r", is provided in the first declaration.
+       3. An extra field, "c", is provided in the first declaration.
+       4. An extra field, "s", is provided in the first declaration.
+       5. Fields have different names, "d" and "b".
 |}]

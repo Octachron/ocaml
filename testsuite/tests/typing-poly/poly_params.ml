@@ -320,7 +320,10 @@ Error: Signature mismatch:
          sig val f : p1 end
        is not included in
          sig val f : p2 end
-       Try changing value "f" to be a "p2"
+       Values do not match: val f : p1 is not included in val f : p2
+       The type "p1" = "('a. 'a -> 'a) -> int" is not compatible with the type
+         "p2" = "('a 'b. 'a -> 'b) -> int"
+       The universal variables "'a" and "'b" are distinct.
 |}];;
 
 let foo (f : p1) : p2 = (fun id -> f id)
@@ -361,7 +364,10 @@ Error: Signature mismatch:
          sig val f : p1 end
        is not included in
          sig val f : p2 end
-       Try changing value "f" to be a "p2"
+       Values do not match: val f : p1 is not included in val f : p2
+       The type "p1" = "(bool -> bool) -> int" is not compatible with the type
+         "p2" = "('a. 'a -> 'a) -> int"
+       Type "bool" is not compatible with type "'a"
 |}];;
 
 let foo (f : p1) : p2 = (fun id -> f id)

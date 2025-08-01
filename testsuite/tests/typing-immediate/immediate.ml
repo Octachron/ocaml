@@ -146,8 +146,11 @@ Error: Signature mismatch:
          sig type t = string end
        is not included in
          sig type t [@@immediate] end
-       Try changing type "t" to
-       type t [@@immediate]
+       Type declarations do not match:
+         type t = string
+       is not included in
+         type t [@@immediate]
+       The first is not an immediate type.
 |}];;
 
 (* Same as above but with explicit signature *)
@@ -158,8 +161,11 @@ Line 1, characters 23-49:
                            ^^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: Signature mismatch:
        Modules do not match: sig type t = string end is not included in S
-       Try changing type "t" to
-       type t [@@immediate]
+       Type declarations do not match:
+         type t = string
+       is not included in
+         type t [@@immediate]
+       The first is not an immediate type.
 |}];;
 module FM_invalid = F (struct type t = string end);;
 [%%expect{|
@@ -168,7 +174,11 @@ Line 1, characters 20-50:
                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: Modules do not match: sig type t = string end is not included in
        S
-     Try changing type "t" to type t [@@immediate]
+     Type declarations do not match:
+       type t = string
+     is not included in
+       type t [@@immediate]
+     The first is not an immediate type.
 |}];;
 
 (* Can't use a non-immediate type even if mutually recursive *)

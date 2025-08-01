@@ -487,8 +487,11 @@ Error: Signature mismatch:
          sig type t = x:int * int end
        is not included in
          sig type t = y:int * int end
-       Try changing type "t" to
-       type t = y:int * int
+       Type declarations do not match:
+         type t = x:int * int
+       is not included in
+         type t = y:int * int
+       The type "x:int * int" is not equal to the type "y:int * int"
 |}]
 
 module Int_int : sig
@@ -503,8 +506,11 @@ Error: Signature mismatch:
          sig type t = x:int * int end
        is not included in
          sig type t = int * int end
-       Try changing type "t" to
-       type t = int * int
+       Type declarations do not match:
+         type t = x:int * int
+       is not included in
+         type t = int * int
+       The type "x:int * int" is not equal to the type "int * int"
 |}]
 
 (* Recursive modules *)

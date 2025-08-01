@@ -380,8 +380,13 @@ Error: In this "with" constraint, the new definition of "M.N"
          sig type t = [ `Foo of t ] end
        is not included in
          sig type t = private [ `Foo of M.r ] end
-       Try changing type "t" to
-       type t = private [ `Foo of M.r ]
+       Type declarations do not match:
+         type t = [ `Foo of t ]
+       is not included in
+         type t = private [ `Foo of M.r ]
+       The type "[ `Foo of t ]" is not equal to the type "[ `Foo of M.r ]"
+       Type "t" = "[ `Foo of t ]" is not equal to type "M.r" = "M.N.t"
+       Types for tag "`Foo" are incompatible
 |}]
 
 (* Should succeed *)
@@ -411,8 +416,11 @@ Error: In this "with" constraint, the new definition of "M.N"
          sig type t = X.t type s = t end
        is not included in
          sig type t = M.r type s end
-       Try changing type "t" to
-       type t = M.r
+       Type declarations do not match:
+         type t = X.t
+       is not included in
+         type t = M.r
+       The type "X.t" is not equal to the type "M.r" = "M.N.s"
 |}]
 
 (* Module constraints with non-aliasable paths
@@ -838,7 +846,7 @@ Lines 3-5, characters 17-41:
 Error: In this "with" constraint, the new definition of "X1"
        does not match its original definition in the constrained signature:
        Modules do not match: sig end is not included in sig type t end
-       Try adding a type "t"
+       The type "t" is required but not provided
 |}]
 
 (** Type constraints during approximation **)
