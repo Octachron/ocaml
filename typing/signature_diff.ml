@@ -13,11 +13,12 @@
 (*                                                                        *)
 (**************************************************************************)
 
-module AffectedItemSet = Set.Make (
-    struct
-      type t = Shape.Sig_component_kind.t * string
-      let compare (x:t) (y:t) = Repr.compare x y
-    end)
+module Field = struct
+  open Stable_matching.Item
+  let name item = Ident.name @@ Types.signature_item_id item
+  let make item kind = { name = name item; kind; item }
+  let item x = x.item
+end
 
 module Suggestion = struct
   type alteration =
@@ -34,185 +35,138 @@ module Suggestion = struct
     incompatibles: Includemod.Error.sigitem_symptom t list
   }
 
-  let empty = { alterations = []; incompatibles = [] }
-
-  let merge r1 r2 = {
-    alterations = r1.alterations @ r2.alterations;
-    incompatibles = r1.incompatibles @ r2.incompatibles
-  }
-
-  let merge_rename r1 r2 =
-    let is_rename = function
-      | { alteration=Rename_item _; _} -> true
-      | _ -> false
-    in
-    {
-      alterations = r1.alterations @ List.filter is_rename r2.alterations;
-      incompatibles = r1.incompatibles
-    }
-
-
-  let add subject = { subject; alteration = Add_item }
-  let rename subject id  = { subject; alteration = Rename_item id }
+  let add subject =
+    { subject = Field.item subject; alteration = Add_item }
+  let rename (subject,target) =
+    let id = Types.signature_item_id target in
+    { subject; alteration = Rename_item id }
   let incompatible (subject, symptom) = { subject; alteration=symptom }
 
-  let apply subst { subject; alteration } =
-    match alteration, subject with
-    | Rename_item suggested_ident, Sig_type (id, _, _, _) ->
-        let path = Path.Pident id in
-        Subst.add_type suggested_ident path subst
-    | Rename_item suggested_ident, Sig_modtype (id, _, _) ->
-        Subst.add_modtype suggested_ident (Path.Pident id) subst
+  let apply_renaming subst (left, right) =
+    let right_ident = Types.signature_item_id right in
+    match (left:Types.signature_item) with
+    | Sig_type (id, _, _, _) ->
+        Subst.add_type right_ident (Path.Pident id) subst
+    | Sig_modtype (id, _, _) ->
+        Subst.add_modtype right_ident (Path.Pident id) subst
+    | Sig_module (id,_,_,_,_) ->
+        Subst.add_module right_ident (Path.Pident id) subst
     | _ -> subst
 end
 
+let fuzzy_match_suggestions env compatibility ~subst current =
+  let open Stable_matching in
+  let compatibility = compatibility env subst in
+  let matches = fuzzy_match_names ~compatibility current.left current.right in
+  match matches.pairs with
+  | [] -> false, subst, current
+  | pairs ->
+      let subst = List.fold_left Suggestion.apply_renaming subst pairs in
+      true, subst, { matches with pairs = pairs @ current.pairs }
 
+type ('a,'b,'c,'d,'v,'cl,'ext) type_kind_map =
+  {
+    module_types: 'a;
+    modules: 'b;
+    types: 'c;
+    class_types: 'd;
+    values: 'v;
+    classes: 'cl;
+    extensions: 'ext
+  }
 
-let compute_signature_diff env subst sig1 sig2 =
-  match Includemod.signatures env ~subst ~mark:false sig1 sig2
-  with
-  | _ -> None
-  | exception Includemod.(Error (_, Error.In_Signature reason)) -> Some reason
+let empty = {
+  module_types = [];
+  modules = [];
+  types = [];
+  class_types = [];
+  values = [];
+  classes = [];
+  extensions = [];
+}
 
-let is_modtype_eq (sgs : Includemod.Error.signature_symptom) got expected =
-  let expected = Subst.modtype Keep sgs.subst expected in
-  Includemod.is_modtype_equiv sgs.env got expected
+let classify map = function
+  | Types.Sig_module (_, _, decl, _, _) as item ->
+      { map with modules = Field.make item decl :: map.modules }
+  | Types.Sig_type (_,decl,_,_) as item ->
+      { map with types = Field.make item decl :: map.types }
+  | Types.Sig_modtype (_, decl, _) as item ->
+      let module_types = Field.make item decl :: map.module_types in
+      { map with module_types }
+  | Types.Sig_class_type (_, decl, _, _) as item ->
+      { map with class_types = Field.make item decl :: map.class_types }
+  | Types.Sig_value (_, desc, _) as item ->
+      { map with values = Field.make item desc :: map.values }
+  | Types.Sig_class (_, decl, _, _) as item ->
+      { map with classes = Field.make item decl :: map.classes }
+  | Types.Sig_typext (_,decl,_,_) as item ->
+      { map with extensions = Field.make item decl :: map.extensions }
 
-module Field = struct
-  open Stable_matching.Item
-  let name item = Ident.name @@ Types.signature_item_id item
-  let make item kind = { name = name item; kind; item }
-end
-
-let fuzzy_match_suggestions ~compatibility missing_fields added_fields =
-  let { Stable_matching.missings; renamings } =
-    Stable_matching.fuzzy_match_names ~compatibility missing_fields added_fields
+let init (sgs:Includemod.Error.signature_symptom) =
+  let left = List.fold_left classify empty sgs.additions in
+  let right = List.fold_left classify empty sgs.missings in
+  let init_kind proj =
+    { Stable_matching.left = proj left; pairs = []; right = proj right }
   in
-  List.map Suggestion.add missings @
-  List.map (fun (x,y) -> Suggestion.rename x @@ Types.signature_item_id y)
-    renamings
+  sgs.env, sgs.subst,
+  {
+    module_types = init_kind (fun x -> x.module_types);
+    modules = init_kind (fun x -> x.modules);
+    types = init_kind (fun x -> x.types);
+    class_types = init_kind (fun x -> x.class_types);
+    values = init_kind (fun x -> x.values);
+    classes = init_kind (fun x -> x.classes);
+    extensions = init_kind (fun x -> x.extensions)
+  }
 
-let compute_suggestions
+module C = Includemod.Check
+
+let rec iterate env subst lim map =
+  let fuzzy_match c ~subst items = fuzzy_match_suggestions env c ~subst items in
+  let pmty, subst, module_types =
+    fuzzy_match C.module_types ~subst map.module_types in
+  let pm, subst, modules = fuzzy_match C.modules ~subst map.modules in
+  let pty, subst, types = fuzzy_match C.types ~subst map.types in
+  let progress = pmty || pm || pty in
+  if progress || lim > 0 then
+    iterate env subst (lim-1)
+      { map with module_types; modules; types }
+  else subst, map
+
+let value_suggestions env subst map =
+  let fuzzy_match compat current =
+    let open Stable_matching in
+    let compatibility x y = compat env subst x y in
+    fuzzy_match_names ~compatibility current.left current.right
+  in
+  let values = fuzzy_match C.values map.values in
+  let classes = fuzzy_match C.classes map.classes in
+  let class_types = fuzzy_match C.class_types map.class_types in
+  let extensions = fuzzy_match C.extensions map.extensions in
+  { map with values; classes; class_types; extensions }
+
+let suggest
     (sgs : Includemod.Error.signature_symptom)
-    destructor
-    ~compatibility
 =
-  let missing_fields = List.filter_map destructor sgs.missings in
-  let added_fields = List.filter_map destructor sgs.additions in
-  let alterations =
-    fuzzy_match_suggestions ~compatibility missing_fields added_fields
+  let env, subst, start = init sgs in
+  let subst, with_types = iterate env subst 4 start in
+  let all = value_suggestions env subst with_types in
+  let collect proj l =
+    let km: _ Stable_matching.matches = proj all in
+    List.map Suggestion.rename km.pairs
+    @ List.map Suggestion.add km.right
+    @ l
   in
-  let incompatibles = List.map Suggestion.incompatible sgs.incompatibles in
-  { Suggestion.alterations; incompatibles }
-
-type signature_symptom = Includemod.Error.signature_symptom
-
-let module_suggestions (sgs:signature_symptom) =
-  compute_suggestions sgs
-    (function
-      | Types.Sig_module (_, _, decl, _, _) as item ->
-          Some (Field.make item decl.md_type)
-      | _ -> None)
-    ~compatibility:(is_modtype_eq sgs)
-
-let type_suggestions (sgs:signature_symptom) =
-  compute_suggestions sgs
-    (function
-      | Types.Sig_type (_,decl,_,_) as item -> Some (Field.make item decl)
-      | _ -> None)
-    ~compatibility:(Includemod.Item.type_declarations sgs.env sgs.subst)
-
-let module_type_suggestions (sgs:signature_symptom) =
-  let compatibility g e =  match g, e with
-    | _, None -> true
-    | None, Some _ -> false
-    | Some g, Some e -> is_modtype_eq sgs g e
-  in
-  compute_suggestions sgs
-    (function
-      | Types.Sig_modtype (_, decl, _) as item ->
-          Some (Field.make item decl.mtd_type)
-      | _ -> None)
-    ~compatibility
-
- let class_type_suggestions (sgs:signature_symptom) =
-    compute_suggestions sgs
-      (function
-        | Types.Sig_class_type (_, decl, _, _) as item ->
-            Some (Field.make item decl)
-        | _ -> None)
-      ~compatibility:(
-        Includemod.Item.class_type_declarations sgs.env sgs.subst
-      )
-
-let value_suggestions (sgs:signature_symptom) =
-  compute_suggestions sgs
-    (function
-      | Types.Sig_value (_, desc, _) as item ->
-          Some (Field.make item desc)
-      | _ -> None)
-    ~compatibility:(Includemod.Item.value_descriptions sgs.env sgs.subst)
-
-  let class_suggestions (sgs:signature_symptom) =
-    compute_suggestions sgs
-      (function
-        | Types.Sig_class (_, decl, _, _) as item ->
-            Some (Field.make item decl)
-        | _ -> None)
-      ~compatibility:(Includemod.Item.class_declarations sgs.env sgs.subst)
-
-let compute_second_order_suggestions sgs =
-    Suggestion.merge (class_type_suggestions sgs) @@
-    Suggestion.merge (module_type_suggestions sgs) @@
-    Suggestion.merge (type_suggestions sgs) (module_suggestions sgs)
-
-let compute_first_order_suggestions sgs =
-  Suggestion.merge (class_suggestions sgs) (value_suggestions sgs)
-
-let rec iterate f previous_suggestions (sgs:signature_symptom) fuel =
-  if fuel = 0 then (previous_suggestions, Some sgs) else
-    let suggestions = f sgs in
-    if suggestions = Suggestion.empty then
-      previous_suggestions, Some sgs
-    else
-      let subst =
-        let alterations = suggestions.Suggestion.alterations in
-        List.fold_left Suggestion.apply sgs.subst alterations
-      in
-      let suggestions =
-        Suggestion.merge_rename suggestions previous_suggestions
-      in
-      match compute_signature_diff sgs.env subst sgs.sig1 sgs.sig2 with
-      | None -> suggestions, None
-      | Some sgs -> iterate f suggestions sgs (fuel - 1)
-
-let _deduplicate suggestions =
-  let add_item (unique_suggestions, affected_items) suggestion =
-    let key =
-      let kind, ident, _ =
-        Types.classify_signature_item suggestion.Suggestion.subject
-      in
-      kind, Ident.name ident
-    in
-    if AffectedItemSet.mem key affected_items then
-      unique_suggestions, affected_items
-    else
-      (suggestion :: unique_suggestions, AffectedItemSet.add key affected_items)
-  in
-  let suggestions, _ =
-    List.fold_left add_item ([], AffectedItemSet.empty) suggestions
-  in
-  suggestions
-
-let suggest sgs =
-  let all_suggestions =
-    let type_suggestions, remaining =
-      iterate compute_second_order_suggestions Suggestion.empty sgs 5
-    in
-    match remaining with
-    | None -> type_suggestions
-    | Some remaining ->
-        let value_suggestions = compute_first_order_suggestions remaining in
-        Suggestion.merge type_suggestions value_suggestions
-  in
- all_suggestions
+  {
+    Suggestion.incompatibles =
+      List.map Suggestion.incompatible sgs.incompatibles;
+    alterations =
+      []
+      |> collect (fun x -> x.module_types)
+      |> collect (fun x -> x.modules)
+      |> collect (fun x -> x.types)
+      |> collect (fun x -> x.class_types)
+      |> collect (fun x -> x.classes)
+      |> collect (fun x -> x.values)
+      |> collect (fun x -> x.extensions)
+  }

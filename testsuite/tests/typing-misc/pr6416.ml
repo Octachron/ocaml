@@ -146,12 +146,12 @@ Error: Signature mismatch:
        is not included in
          sig val f : (module s) -> t -> t end
        Values do not match:
-         val f : (module s) -> t -> t
+         val f : (module s) -> t/2 -> t
        is not included in
-         val f : (module s) -> t -> t
+         val f : (module s/2) -> t/2 -> t/2
        The type "(module s) -> t/2 -> t" is not compatible with the type
          "(module s/2) -> t/2 -> t/2"
-       Modules do not match: s is not included in s/6
+       Modules do not match: s is not included in s/2
        Line 5, characters 23-33:
          Definition of type "t"
        Line 3, characters 2-12:
@@ -313,12 +313,12 @@ Error: Signature mismatch:
          class type c = object method m : t/2 end
        does not match
          class type c = object method m : t end
-       The method m has type "t/6" but is expected to have type "t"
-       Type "t/6" is not equal to type "t" = "K.t"
+       The method m has type "t/2" but is expected to have type "t"
+       Type "t/2" is not equal to type "t" = "K.t"
        Line 12, characters 4-10:
          Definition of type "t"
        Line 9, characters 2-8:
-         Definition of type "t/6"
+         Definition of type "t/2"
 |}]
 ;;
 

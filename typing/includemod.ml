@@ -958,7 +958,7 @@ and signature_components ~core ~direction ~loc old_env env subst
        in
        Sign_diff.merge first rest
 
-and module_declarations ~direction ~loc env  subst id1 md1 md2 orig_shape =
+and module_declarations ~loc env ~direction subst id1 md1 md2 orig_shape =
   Builtin_attributes.check_alerts_inclusion
     ~def:md1.md_loc
     ~use:md2.md_loc
@@ -973,7 +973,7 @@ and module_declarations ~direction ~loc env  subst id1 md1 md2 orig_shape =
 
 (* Inclusion between module type specifications *)
 
-and modtype_infos ~core ~direction ~loc env subst id info1 info2 =
+and modtype_infos ~core ~loc env ~direction subst id info1 info2 =
   Builtin_attributes.check_alerts_inclusion
     ~def:info1.mtd_loc
     ~use:info2.mtd_loc
@@ -1429,26 +1429,31 @@ let check_modtype_equiv ~loc env id mty1 mty2 =
                    Error.(In_Module_type_substitution (id,diff mty1 mty2 e)))
             )
 
-module Item = struct
+module Check = struct
   type 'a compatibility_test = Env.t -> Subst.t -> 'a -> 'a -> bool
   open Core_inclusion
-  let value_descriptions env subst v1 v2 =
-    let loc = Location.none and id = Ident.create_local "*dummy*" in
-    let direction = Directionality.unknown ~mark:false in
-    Result.is_ok @@ value_descriptions ~loc ~direction env subst id v1 v2
 
-  let type_declarations env subst t1 t2 =
+  let check_only f env subst l r =
     let loc = Location.none and id = Ident.create_local "*dummy*" in
     let direction = Directionality.unknown ~mark:false in
-    Result.is_ok @@ type_declarations ~loc ~direction env subst id t1 t2
+    f ~loc env ~direction subst id l r
 
-  let class_type_declarations env subst ct1 ct2 =
-    let loc = Location.none and id = Ident.create_local "*dummy*" in
-    let direction = Directionality.unknown ~mark:false in
-    Result.is_ok @@ class_type_declarations ~loc ~direction env subst id ct1 ct2
+  let check_ok f env subst l r = Result.is_ok (check_only f env subst l r)
 
-  let class_declarations env subst c1 c2 =
-    let loc = Location.none and id = Ident.create_local "*dummy*" in
-    let direction = Directionality.unknown ~mark:false in
-    Result.is_ok @@ class_declarations ~loc ~direction env subst id c1 c2
+  let module_types env subst mt1 mt2 =
+    check_ok (modtype_infos ~core:core_inclusion) env subst mt1 mt2
+
+  let modules env subst m1 m2 =
+    Result.is_ok @@
+    check_only (module_declarations ~core:core_inclusion) env subst m1 m2
+      Shape.leaf_for_unpack
+
+  let values env subst v1 v2 = check_ok value_descriptions env subst v1 v2
+  let types env subst t1 t2 = check_ok type_declarations env subst t1 t2
+  let classes env subst c1 c2 = check_ok class_declarations env subst c1 c2
+  let class_types env subst ct1 ct2 =
+    check_ok class_type_declarations env subst ct1 ct2
+  let extensions env subst e1 e2 =
+    check_ok extension_constructors env subst e1 e2
+
 end

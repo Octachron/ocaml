@@ -175,8 +175,15 @@ Error: Signature mismatch:
 
 module M : sig type t += C of int end = struct type t += E of int end;;
 [%%expect{|
-Uncaught exception: Typemod.Error(_, _, _)
-
+Line 1, characters 40-69:
+1 | module M : sig type t += C of int end = struct type t += E of int end;;
+                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Error: Signature mismatch:
+       Modules do not match:
+         sig type t += E of int end
+       is not included in
+         sig type t += C of int end
+       The extension constructor "C" is required but not provided
 |}];;
 
 module M : sig

@@ -59,9 +59,14 @@ module Item: sig
   val item: ('v,'k) t -> 'v
 end
 
-
-type 'a matching = { missings:'a list; renamings:('a * 'a) list  }
+type ('a,'v) matches = {
+  left: 'a list;
+  pairs:('v * 'v) list;
+  right:'a list;
+}
+type ('v,'k) item_matches =  (('v,'k) Item.t, 'v) matches
 
 val fuzzy_match_names:
   compatibility:('k -> 'k -> bool)
-  -> ('v, 'k) Item.t list -> ('v, 'k) Item.t list -> 'v matching
+  -> ('v,'k) Item.t list -> ('v,'k) Item.t list
+  -> ('v,'k) item_matches

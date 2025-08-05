@@ -277,10 +277,13 @@ module Functor_app_diff: sig
 end
 
 (* Typechecking *)
-module Item: sig
+module Check: sig
   type 'a compatibility_test = Env.t -> Subst.t -> 'a -> 'a -> bool
-  val value_descriptions : Types.value_description compatibility_test
-  val type_declarations : Types.type_declaration compatibility_test
-  val class_type_declarations : Types.class_type_declaration compatibility_test
-  val class_declarations : Types.class_declaration compatibility_test
+  val values : Types.value_description compatibility_test
+  val types: Types.type_declaration compatibility_test
+  val class_types : Types.class_type_declaration compatibility_test
+  val classes: Types.class_declaration compatibility_test
+  val modules: Types.module_declaration compatibility_test
+  val module_types: Types.modtype_declaration compatibility_test
+  val extensions: Types.extension_constructor compatibility_test
 end

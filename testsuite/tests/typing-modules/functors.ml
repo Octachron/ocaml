@@ -642,10 +642,10 @@ Error: Signature mismatch:
          Set.OrderedType
        does not include
          sig end
-       The value "compare" is required but not provided
-       File "set.mli", line 55, characters 4-31: Expected declaration
        The type "t" is required but not provided
        File "set.mli", line 52, characters 4-10: Expected declaration
+       The value "compare" is required but not provided
+       File "set.mli", line 55, characters 4-31: Expected declaration
 |}]
 
 (** Deeply nested errors *)
@@ -723,10 +723,6 @@ Error: Signature mismatch:
                $S2 = sig type yb end
              does not include
                $T2 = sig type ybb end
-             Hint: Try renaming type "ybb" to "yb"
-             Hint: Try renaming type "ybb" to "yb"
-             Hint: Try renaming type "ybb" to "yb"
-             Hint: Try renaming type "ybb" to "yb"
              Hint: Try renaming type "ybb" to "yb"
        3. Module types do not match:
             $S3 = (A : sig type za end) (B : sig type zbb end) -> sig end
@@ -869,10 +865,6 @@ Error: Signature mismatch:
                $S1 = sig type xa end
              does not include
                $T1 = sig type xaa end
-             Hint: Try renaming type "xaa" to "xa"
-             Hint: Try renaming type "xaa" to "xa"
-             Hint: Try renaming type "xaa" to "xa"
-             Hint: Try renaming type "xaa" to "xa"
              Hint: Try renaming type "xaa" to "xa"
           2. Module types $S2 and $T2 match
        2. Module types do not match:
@@ -1029,8 +1021,6 @@ Error: Signature mismatch:
             $S2 = sig type y' end
           does not include
             $T2 = sig type y end
-          Hint: Try renaming type "y" to "y'" Hint: Try renaming type "y" to "y'"
-          Hint: Try renaming type "y" to "y'" Hint: Try renaming type "y" to "y'"
           Hint: Try renaming type "y" to "y'"
        3. An argument appears to be missing with module type
               $T3 = sig type z end
@@ -1156,10 +1146,6 @@ Error: Signature mismatch:
               type meet
               type again
             end
-          Hint: Try renaming type "three" to "tree"
-          Hint: Try renaming type "three" to "tree"
-          Hint: Try renaming type "three" to "tree"
-          Hint: Try renaming type "three" to "tree"
           Hint: Try renaming type "three" to "tree"
        2. Module types do not match:
             $S2 =
@@ -2040,10 +2026,10 @@ Error: The functor application "Set.Make(Set)(A)" is ill-typed.
             end
           is not included in
             Set.OrderedType
-          The value "compare" is required but not provided
-          File "set.mli", line 55, characters 4-31: Expected declaration
           The type "t" is required but not provided
           File "set.mli", line 52, characters 4-10: Expected declaration
+          The value "compare" is required but not provided
+          File "set.mli", line 55, characters 4-31: Expected declaration
        2. The following extra argument is provided A : sig type a = A.a end
 |}]
 
