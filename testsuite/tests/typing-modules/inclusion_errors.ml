@@ -554,10 +554,10 @@ Error: Signature mismatch:
        Values do not match:
          val f : (module s) -> unit
        is not included in
-         val f : (module s) -> unit
+         val f : (module s/2) -> unit
        The type "(module s) -> unit" is not compatible with the type
          "(module s/2) -> unit"
-       Modules do not match: s is not included in s/6
+       Modules do not match: s is not included in s/2
        Line 6, characters 4-17:
          Definition of module type "s"
        Line 2, characters 2-15:
@@ -1848,9 +1848,9 @@ Error: Signature mismatch:
        is not included in
          sig type t val x : t val y : t end
        In module "N":
+       The type "t" is required but not provided
        The value "x" is required but not provided
        The value "y" is required but not provided
-       The type "t" is required but not provided
 |}];;
 
 

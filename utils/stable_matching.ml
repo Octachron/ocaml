@@ -287,17 +287,18 @@ end
 
 
 
-type 'a diff = {
-  delete : 'a list;
-  add : 'a list;
-  substitute : ('a * 'a) list;
+type ('a,'v) matches = {
+  left : 'a list;
+  pairs : ('v * 'v) list;
+  right : 'a list;
 }
 
-let reverse_diff d =
+
+let reverse_matches d =
   {
-    delete = d.add;
-    add = d.delete;
-    substitute = List.map (fun (right, left) -> (left, right)) d.substitute;
+    right = d.left;
+    left = d.right;
+    pairs = List.map (fun (right, left) -> (left, right)) d.pairs;
   }
 
 module Item = struct
@@ -310,8 +311,9 @@ module Item = struct
   let name f = f.name
   let item f = f.item
   let kind i = i.kind
-
 end
+type nonrec ('v,'k) item_matches =  (('v,'k) Item.t, 'v) matches
+
 
 (** An implementation (in [diff]) of Zoltan Kiraly's "New Algorithm," presented
     in "Linear Time Local Approximation Algorithm for Maximum Stable Marriage":
@@ -360,6 +362,12 @@ module Stable_marriage_diff = struct
     | Right_paired of right_phase
     | Right_closed
 
+  let rec rev_seq i a () =
+    if i < 0 then Seq.Nil
+    else Seq.Cons(a.(i), rev_seq (pred i) a)
+
+  let rev_seq a () = rev_seq (Array.length a -1) a ()
+
   let rec diff
     ~cutoff ?max_elements ~compatibility
     left right
@@ -372,7 +380,7 @@ module Stable_marriage_diff = struct
         ~cutoff ?max_elements
         ~compatibility:(fun a b -> compatibility b a)
         right left
-      |> reverse_diff
+      |> reverse_matches
     else
 
     let left_states = Array.make n Left_available in
@@ -526,27 +534,29 @@ module Stable_marriage_diff = struct
     done;
 
     {
-      delete =
+      left =
         left_states
-        |> Array.to_seq
-        |> Seq.zip (Array.to_seq left)
+        |> rev_seq
+        |> Seq.zip (rev_seq left)
         |> Seq.filter_map (function
           | left_field, Left_available -> Some left_field
           | _, Left_paired _ -> None)
         |> List.of_seq;
 
-      add =
+      right =
         right
-        |> Array.to_list
-        |> List.filteri (fun i _ ->
+        |> rev_seq
+        |> Seq.filteri (fun i _ ->
           match right_states.(i) with
           | Right_paired _ -> false
-          | _ -> true);
+          | _ -> true)
+        |> List.of_seq
+      ;
 
-      substitute =
+      pairs =
         left_states
-        |> Array.to_seq
-        |> Seq.zip (Array.to_seq left)
+        |> rev_seq
+        |> Seq.zip (rev_seq left)
         |> Seq.filter_map (function
           | left_field, Left_paired (i, _) -> Some (left_field, right.(i))
           | _, Left_available -> None)
@@ -558,8 +568,6 @@ let (%<%) (x:int option) (y:int option) = match x, y with
   | None , _ -> false
   | _, None -> true
   | Some x, Some y -> x < y
-
-type 'a matching = { missings: 'a list; renamings : ('a * 'a) list }
 
 let greedy_matching ~compatibility ~cutoff missings additions =
   let rec list_extract predicate l =
@@ -601,35 +609,36 @@ let greedy_matching ~compatibility ~cutoff missings additions =
                 %<% Some (cutoff missing_name))
             !remaining_added_fields
         with
-        | None -> Some (Item.item missing_field)
+        | None -> Some missing_field
         | Some (added_field, additions) ->
             let name_change = Item.item added_field, Item.item missing_field in
             name_changes := name_change :: !name_changes;
             remaining_added_fields := additions;
             None)
   in
+  {
+    left = !remaining_added_fields;
+    pairs= !name_changes;
+    right = actually_missing
+  }
 
-  { missings=actually_missing; renamings= !name_changes }
-
-let fuzzy_match_names ~compatibility missings additions =
+let fuzzy_match_names ~compatibility left right =
   (* The edit distance between an existing name and a suggested rename must be
      at most half the length of the name. *)
   let cutoff name = String.length name / 2 in
-  let m = List.length missings in
-  let n = List.length additions in
+  let m = List.length left in
+  let n = List.length right in
 
   if m < 60 && n < 60 then
     (* Stable marriages. *)
-    let diff =
+    let matches =
       Stable_marriage_diff.diff
         ~cutoff ~max_elements:10 ~compatibility
-        (Array.of_list additions)
-        (Array.of_list missings)
+        (Array.of_list left)
+        (Array.of_list right)
     in
-    { missings = List.map Item.item diff.add;
-      renamings =
-        List.map (fun (x,y) -> Item.(item x, item y)) diff.substitute
-    }
+    let pairs = List.map (fun (x,y) -> Item.(item x, item y)) matches.pairs in
+    { matches with pairs }
   else
     (* Greedy. *)
-    greedy_matching ~compatibility ~cutoff missings additions
+    greedy_matching ~compatibility ~cutoff left right
