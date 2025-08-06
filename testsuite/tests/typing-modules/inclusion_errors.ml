@@ -2035,3 +2035,68 @@ Error: Signature mismatch:
        The type "'a -> unit" is not compatible with the type "?x:int -> unit"
        A label "?x" was expected
 |}]
+
+
+module M: sig
+  module type TUVW = sig type a=A type b=B end
+  module MNJK: TUVW
+  type abcd
+  type efgh = A of abcd * MNJK.a
+  type ijkl = B of efgh * MNJK.b
+  type mnop = C of ijkl
+  val x: abcd
+  val vwxy : ijkl
+end = struct
+  module type TUVX =  sig type a=A type b=B end
+  module MNJX= struct type a = A type b = B end
+  type abcx = H
+  type efgx = A of abcx * MNJX.a
+  type ijkx = B of efgx * MNJX.b
+  type mnox = C of ijkx
+
+  let x = H
+  let vwxx = B (A(H,A),B)
+end
+[%%expect {|
+Lines 10-20, characters 6-3:
+10 | ......struct
+11 |   module type TUVX =  sig type a=A type b=B end
+12 |   module MNJX= struct type a = A type b = B end
+13 |   type abcx = H
+14 |   type efgx = A of abcx * MNJX.a
+...
+17 |
+18 |   let x = H
+19 |   let vwxx = B (A(H,A),B)
+20 | end
+Error: Signature mismatch:
+       Modules do not match:
+         sig
+           module type TUVX = sig type a = A type b = B end
+           module MNJX : sig type a = A type b = B end
+           type abcx = H
+           type efgx = A of abcx * MNJX.a
+           type ijkx = B of efgx * MNJX.b
+           type mnox = C of ijkx
+           val x : abcx
+           val vwxx : ijkx
+         end
+       is not included in
+         sig
+           module type TUVW = sig type a = A type b = B end
+           module MNJK : TUVW
+           type abcd
+           type efgh = A of abcd * MNJK.a
+           type ijkl = B of efgh * MNJK.b
+           type mnop = C of ijkl
+           val x : abcd
+           val vwxy : ijkl
+         end
+       Hint: Try renaming module type "TUVX" to "TUVW"
+       Hint: Try renaming module "MNJX" to "MNJK"
+       Hint: Try renaming type "abcx" to "abcd"
+       Hint: Try renaming type "efgx" to "efgh"
+       Hint: Try renaming type "ijkx" to "ijkl"
+       Hint: Try renaming type "mnox" to "mnop"
+       Hint: Try renaming value "vwxx" to "vwxy"
+|}]

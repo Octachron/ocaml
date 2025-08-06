@@ -120,7 +120,7 @@ let rec iterate env subst lim map =
   let pm, subst, modules = fuzzy_match C.modules ~subst map.modules in
   let pty, subst, types = fuzzy_match C.types ~subst map.types in
   let progress = pmty || pm || pty in
-  if progress || lim > 0 then
+  if progress && lim > 0 then
     iterate env subst (lim-1)
       { map with module_types; modules; types }
   else subst, map
@@ -141,12 +141,12 @@ let suggest
     (sgs : Includemod.Error.signature_symptom)
 =
   let env, subst, start = init sgs in
-  let subst, with_types = iterate env subst 4 start in
+  let subst, with_types = iterate env subst 6 start in
   let all = value_suggestions env subst with_types in
   let collect proj l =
     let km: _ Stable_matching.matches = proj all in
     List.map Suggestion.rename km.pairs
-    @ List.map Suggestion.add km.right
+    @ List.rev_map Suggestion.add km.right
     @ l
   in
   {
