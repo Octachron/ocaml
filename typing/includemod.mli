@@ -139,6 +139,7 @@ val field_desc: field_kind -> Ident.t -> field_desc
 module FieldMap: Map.S with type key = field_desc
 
 val item_ident_name: Types.signature_item -> Ident.t * Location.t * field_desc
+val item_subst: Ident.t -> Types.signature_item -> Subst.t -> Subst.t
 val is_runtime_component: Types.signature_item -> bool
 
 val modtypes:

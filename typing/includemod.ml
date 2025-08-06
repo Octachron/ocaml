@@ -505,6 +505,12 @@ type core_relation = {
   class_type_declarations: Types.class_type_declaration core_incl;
 }
 
+let item_subst id1 item2 subst =
+  match item2 with
+  | Sig_type (id2,_,_,_) -> Subst.add_type id2 (Path.Pident id1) subst
+  | Sig_module (id2,_,_,_,_) -> Subst.add_module id2 (Path.Pident id1) subst
+  | Sig_modtype (id2,_,_) -> Subst.add_modtype id2 (Path.Pident id1) subst
+  | Sig_value _ | Sig_typext _ | Sig_class _ | Sig_class_type _ -> subst
 
 let rec modtypes ~core ~direction ~loc env subst mty1 mty2 shape =
   match try_modtypes ~core ~direction ~loc env subst mty1 mty2 shape with
@@ -770,7 +776,7 @@ and signatures ~core ~direction ~loc env subst sig1 sig2 mod_shape =
                 }
         end
     | item2 :: rem ->
-        let (id2, _loc, name2) = item_ident_name item2 in
+        let (_id2, _loc, name2) = item_ident_name item2 in
         let name2, report =
           match item2, name2 with
             Sig_type (_, {type_manifest=None}, _, _), {name=s; kind=Field_type}
@@ -784,18 +790,7 @@ and signatures ~core ~direction ~loc env subst sig1 sig2 mod_shape =
         begin match FieldMap.find name2 comps1 with
         | (id1, item1, pos1) ->
           let updated_additions = FieldMap.remove name2 additions in
-          let new_subst =
-            match item2 with
-              Sig_type _ ->
-                Subst.add_type id2 (Path.Pident id1) subst
-            | Sig_module _ ->
-                Subst.add_module id2 (Path.Pident id1) subst
-            | Sig_modtype _ ->
-                Subst.add_modtype id2 (Path.Pident id1) subst
-            | Sig_value _ | Sig_typext _
-            | Sig_class _ | Sig_class_type _ ->
-                subst
-          in
+          let new_subst = item_subst id1 item2 subst in
           pair_components ~core new_subst
             ((item1, item2, pos1) :: paired) unpaired updated_additions rem
         | exception Not_found ->

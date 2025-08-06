@@ -43,15 +43,7 @@ module Suggestion = struct
   let incompatible (subject, symptom) = { subject; alteration=symptom }
 
   let apply_renaming subst (left, right) =
-    let right_ident = Types.signature_item_id right in
-    match (left:Types.signature_item) with
-    | Sig_type (id, _, _, _) ->
-        Subst.add_type right_ident (Path.Pident id) subst
-    | Sig_modtype (id, _, _) ->
-        Subst.add_modtype right_ident (Path.Pident id) subst
-    | Sig_module (id,_,_,_,_) ->
-        Subst.add_module right_ident (Path.Pident id) subst
-    | _ -> subst
+    Includemod.item_subst (Types.signature_item_id left) right subst
 end
 
 let fuzzy_match_suggestions env compatibility ~subst current =
