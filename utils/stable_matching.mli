@@ -13,6 +13,11 @@
 (*                                                                        *)
 (**************************************************************************)
 
+type cost_model = {
+  insertion:int;
+  deletion:int;
+  substitution:int;
+}
 
 module Trie : sig
   type 'a t
@@ -21,13 +26,7 @@ module Trie : sig
   val of_seq: (string * 'a) Seq.t -> 'a t
 
   val compute_preferences:
-    ?deletion_cost:int ->
-    ?insertion_cost:int ->
-    ?substitution_cost:int ->
-    ?cutoff:int ->
-    'a t ->
-    string ->
-    ('a * int) Seq.t
+    cost_model -> ?cutoff:int -> 'a t -> string -> ('a * int) Seq.t
   (** Returns a sequence that yields the data associated with the strings of the
       trie, together with the distance to the specified string, in order from
       closest to farthest.
@@ -35,14 +34,8 @@ module Trie : sig
       Each node of the sequence should be called at most once. *)
 
   val compute_preference_layers:
-    ?deletion_cost:int ->
-    ?insertion_cost:int ->
-    ?substitution_cost:int ->
-    ?cutoff:int ->
-    ?max_elements:int ->
-    'a t ->
-    string ->
-    ('a list * int) Seq.t
+    ?cost:cost_model -> ?cutoff:int -> ?max_elements:int
+    -> 'a t -> string -> ('a list * int) Seq.t
   (** Returns a sequence that yields the data associated with the strings of the
       trie, groupped by distance to the specified string, together with said
       distance, in order from closest to farthest.

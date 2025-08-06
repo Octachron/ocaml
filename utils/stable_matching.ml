@@ -14,6 +14,12 @@
 (**************************************************************************)
 
 
+type cost_model = {
+  insertion:int;
+  deletion:int;
+  substitution:int;
+}
+
 module Trie = struct
   let new_uid =
     let counter = ref 0 in
@@ -78,11 +84,11 @@ module Trie = struct
     Seq.iter (fun (string, data) -> add trie string data) entries;
     trie
 
-  module Levenshtein_state(T : sig type a end) = struct
+  module Levenshtein_state = struct
     (** A state of a Levenshtein automaton. *)
 
-    type nonrec t = {
-      trie : T.a t;  (** The remaining suffixes we can match against. *)
+    type nonrec 'a t = {
+      trie : 'a t;  (** The remaining suffixes we can match against. *)
       remaining_length : int;
           (** The remaining length of the string we are trying to match. *)
       distance : int;
@@ -96,102 +102,58 @@ module Trie = struct
 
     (** An admissible heuristic for A* (as in, it always under-estimates the
         true remainign distance). *)
-    let estimate_remaining_distance
-      ~insertion_cost
-      ~deletion_cost
-      remaining_length
-      trie
-    =
+    let estimate_remaining_distance cost remaining_length trie =
       match (trie.shortest_suffix, trie.longest_suffix) with
       | Some (shortest_length, _), _
       when remaining_length <= shortest_length ->
-          Some ((shortest_length - remaining_length) * insertion_cost)
+          Some ((shortest_length - remaining_length) * cost.insertion)
       | _, Some (longest_length, _) when remaining_length >= longest_length ->
-          Some ((remaining_length - longest_length) * deletion_cost)
+          Some ((remaining_length - longest_length) * cost.deletion)
       | None, None -> None
       | _, _ -> Some 0
 
-    let make ~insertion_cost ~deletion_cost trie remaining_length distance =
-      match
-        estimate_remaining_distance
-          ~insertion_cost
-          ~deletion_cost
-          remaining_length
-          trie
-      with
+    let make cost trie remaining_length distance =
+      match estimate_remaining_distance cost remaining_length trie with
       | Some remaining_distance_estimation ->
-          Some
-            {
-              trie;
-              remaining_length;
-              distance;
-              remaining_distance_estimation
-            }
-      | None -> None
+          [{
+            trie;
+            remaining_length;
+            distance;
+            remaining_distance_estimation
+          }]
+      | None -> []
 
     (** Computes a list of all possible states after performing a single
         operation. *)
-    let transitions
-      ~insertion_cost
-      ~deletion_cost
-      ~substitution_cost
-      text
-      state
-    =
+    let transitions cost text state =
       let n = String.length text in
-      []
-      (* Deletion. *)
-      |> (fun transitions ->
-          if state.remaining_length > 0 then
-            match
-              make
-                ~insertion_cost
-                ~deletion_cost
-                state.trie
-                (state.remaining_length - 1)
-                (state.distance + deletion_cost)
-            with
-            | None -> transitions
-            | Some transition -> transition :: transitions
-          else
-            transitions)
-      (* Insertions. *)
-      |> Hashtbl.fold
-          (fun _ suffix_trie transitions ->
-            match
-              make
-                ~insertion_cost
-                ~deletion_cost
-                suffix_trie
-                state.remaining_length
-                (state.distance + insertion_cost)
-            with
-            | None -> transitions
-            | Some transition -> transition :: transitions)
-          state.trie.strict_suffixes
-      (* Substitutions. *)
-      |> Hashtbl.fold
-          (fun c suffix_trie transitions ->
-            if state.remaining_length > 0 then
-              let substitution_cost_here =
-                if c = text.[n - state.remaining_length] then
-                  0
-                else
-                  substitution_cost
-              in
-              match
-                make
-                  ~insertion_cost
-                  ~deletion_cost
-                  suffix_trie
-                  (state.remaining_length - 1)
-                  (state.distance + substitution_cost_here)
-              with
-              | None -> transitions
-              | Some transition -> transition :: transitions
-            else
-              transitions)
-          state.trie.strict_suffixes
+      let deletions =
+        if state.remaining_length > 0 then
+          make cost state.trie
+            (state.remaining_length - 1)
+            (state.distance + cost.deletion)
+        else []
+      in
+      Hashtbl.fold
+        (fun c suffix_trie transitions ->
+           let insertion = make cost suffix_trie
+               state.remaining_length
+               (state.distance + cost.insertion)
+           in
+           let subst =
+             if state.remaining_length = 0 then [] else
+             let substitution_cost_here =
+               if c = text.[n - state.remaining_length] then
+                 0
+               else
+                 cost.substitution
+             in
+             make cost suffix_trie
+               (state.remaining_length - 1)
+               (state.distance + substitution_cost_here)
+           in
+            subst @ insertion @ transitions
+        ) state.trie.strict_suffixes deletions
   end
 
 
@@ -200,14 +162,15 @@ module Trie = struct
     | None -> false
     | Some y -> x > y
 
-  let compute_preferences (type a) ?(deletion_cost = 1) ?(insertion_cost = 1)
-      ?(substitution_cost = 1) ?(cutoff : int option) (trie : a t)
+  module State = Levenshtein_state
+
+  let default_cost = { deletion = 1; insertion=1; substitution=1 }
+
+  let compute_preferences (type a) cost ?(cutoff : int option) (trie : a t)
       (string : string) : (a * int) Seq.t =
-
-      let module State = Levenshtein_state(struct type nonrec a = a end) in
-      let module PriorityQueue = Pqueue.MakeMin (State) in
-
-
+    let module PriorityQueue =
+      Pqueue.MakeMin (struct type t = a State.t let compare = State.compare end)
+    in
     let rec compute queue seen_states = fun () ->
       match PriorityQueue.pop_min queue with
       | None -> Seq.Nil
@@ -221,11 +184,8 @@ module Trie = struct
             else (
               Hashtbl.add seen_states state_id ();
               List.iter
-                  (fun transition -> PriorityQueue.add queue transition)
-                  (State.transitions
-                    ~insertion_cost ~deletion_cost ~substitution_cost
-                    string
-                    state);
+                  (PriorityQueue.add queue)
+                  (State.transitions cost string state);
               match state with
               | {
                 State.trie = { leaf_data = Some data; _ };
@@ -240,14 +200,13 @@ module Trie = struct
 
     let n = String.length string in
     let queue = PriorityQueue.create () in
-    Option.iter
-      (fun state -> PriorityQueue.add queue state)
-      (State.make ~insertion_cost ~deletion_cost trie n 0);
+    List.iter (PriorityQueue.add queue) (State.make cost trie n 0);
     let seen_states = Hashtbl.create trie.subtrie_count in
     compute queue seen_states
 
-  let compute_preference_layers (type a) ?(deletion_cost = 1)
-      ?(insertion_cost = 1) ?(substitution_cost = 1) ?(cutoff : int option)
+
+  let compute_preference_layers (type a) ?(cost = default_cost)
+      ?(cutoff : int option)
       ?(max_elements : int option) (trie : a t) (string : string)
       : (a list * int) Seq.t =
 
@@ -268,15 +227,7 @@ module Trie = struct
             Seq.Cons ((acc, current_distance), kont)
     in
 
-    let preferences =
-      compute_preferences
-        ~deletion_cost
-        ~insertion_cost
-        ~substitution_cost
-        ?cutoff
-        trie
-        string
-    in
+    let preferences = compute_preferences cost ?cutoff trie string in
     let seq =
       match max_elements with
       | Some n -> Seq.take n preferences
