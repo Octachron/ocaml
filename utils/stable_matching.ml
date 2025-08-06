@@ -304,12 +304,6 @@ module Stable_marriage_diff = struct
     | Right_paired of right_phase
     | Right_closed
 
-  let rec rev_seq i a () =
-    if i < 0 then Seq.Nil
-    else Seq.Cons(a.(i), rev_seq (pred i) a)
-
-  let rev_seq a () = rev_seq (Array.length a -1) a ()
-
   type ('a,'b) state = { left: 'a array; right: 'b array}
 
   let has_better_choice state i =
@@ -456,7 +450,7 @@ module Stable_marriage_diff = struct
         | _ -> ()
       done
     done;
-    let left_final = Seq.zip (rev_seq left) (rev_seq state.left) in
+    let left_final = Seq.zip (Array.to_seq left) (Array.to_seq state.left) in
     let left, pairs = Seq.partition_map (fun (field, status) ->
         match status with
         | Left_available -> Either.Left field
@@ -466,7 +460,7 @@ module Stable_marriage_diff = struct
     {
       left = List.of_seq left;
       right =
-        rev_seq right
+        Array.to_seq right
         |> Seq.filteri (fun i _ ->
           match state.right.(i) with
           | Right_paired _ -> false
