@@ -310,200 +310,181 @@ module Stable_marriage_diff = struct
 
   let rev_seq a () = rev_seq (Array.length a -1) a ()
 
-  let rec diff
-    ~cutoff ?max_elements ~compatibility
-    left right
-  =
+  type ('a,'b) state = { left: 'a array; right: 'b array}
+
+  let has_better_choice state i =
+    match state.right.(i) with
+    | Right_paired
+        (First_phase {current_layer; _}
+        | Second_phase {current_layer; _}) ->
+        List.exists (fun j -> state.left.(j) = Left_available) current_layer
+    | _ -> false
+
+  let has_weak_pair state j =
+    match state.left.(j) with
+    | Left_paired (i, _) -> has_better_choice state i
+    | _ -> false
+
+  let phase state i =
+    match state.right.(i) with
+    | Right_available phase | Right_paired phase -> Some phase
+    | Right_closed -> None
+
+  let get_preferred_candidate state phase =
+    match phase with
+    | First_phase {current_layer; current_layer_distance; _}
+    | Second_phase {current_layer; current_layer_distance; _} ->
+        current_layer
+        |> List.find_opt (fun j -> state.left.(j) = Left_available)
+        |> Option.value ~default:(List.hd current_layer),
+        current_layer_distance
+
+  let propose state i j d =
+    has_weak_pair state j ||
+    match state.left.(j) with
+    | Left_available -> true
+    | Left_paired (i', d') ->
+        d < d' ||
+        d = d' &&
+        match phase state i, phase state i' with
+        | Some Second_phase _, Some First_phase _ -> true
+        | _ -> false
+
+  let create_second_phase layers =
+    match layers with
+    | [] -> assert false
+    | (layer, distance) :: tail ->
+        Second_phase {
+          previous_layers = ();
+          current_layer = layer;
+          current_layer_distance = distance;
+          next_layers = List.to_seq tail;
+        }
+
+  let remove_left_from_preferences preferences j nil_callback cons_callback =
+    match list_remove j preferences.current_layer with
+    | [] -> (
+        match preferences.next_layers () with
+        | Seq.Nil ->
+            nil_callback ()
+        | Seq.Cons ((layer, distance), next) ->
+            preferences.current_layer <- layer;
+            preferences.current_layer_distance <- distance;
+            preferences.next_layers <- next;
+            cons_callback layer distance)
+    | remaining_elements ->
+        preferences.current_layer <- remaining_elements
+
+  let remove_left state i j =
+    match phase state i with
+    | Some First_phase preferences ->
+        remove_left_from_preferences
+          preferences
+          j
+          (fun () ->
+             let phase = create_second_phase preferences.previous_layers in
+             state.right.(i) <- Right_available phase)
+          (fun layer distance ->
+             preferences.previous_layers <-
+               (layer, distance) :: preferences.previous_layers)
+    | Some Second_phase preferences ->
+        remove_left_from_preferences
+          preferences
+          j
+          (fun () -> state.right.(i) <- Right_closed)
+          (fun _ _ -> ())
+    | None ->
+        assert false
+
+  let init_trie x =
+    let name i field = Item.name field, i in
+    x |> Array.to_seq |> Seq.mapi name |> Trie.of_seq
+
+  let init_right_state ~cutoff ?max_elements left right =
+    let left_trie = init_trie left in
+    Array.map
+      (fun right_field ->
+         let name = Item.name right_field in
+         let sequence =
+           Trie.compute_preference_layers
+             ~cutoff:(cutoff name)
+             ?max_elements
+             left_trie
+             name
+         in
+         match sequence () with
+         | Seq.Nil -> Right_closed
+         | Seq.Cons ((layer, distance), tail) ->
+             Right_available (First_phase {
+                 previous_layers = [ (layer, distance) ];
+                 current_layer = layer;
+                 current_layer_distance = distance;
+                 next_layers = tail;
+               }))
+      right
+
+  let diff ~cutoff ?max_elements ~compatibility left right =
     let n = Array.length left in
     let m = Array.length right in
+    let left_state = Array.make n Left_available in
+    let right_state = init_right_state ~cutoff ?max_elements left right in
+    let state = { left=left_state; right=right_state } in
+    let ok = ref false in
+    while not !ok do
+      ok := true;
+      for i = 0 to m - 1 do
+        match state.right.(i) with
+        | Right_available right_phase ->
+            ok := false;
+            let (j, d) = get_preferred_candidate state right_phase in
+            if compatibility (Item.kind left.(j)) (Item.kind right.(i))
+            && propose state i j d then (
+              (* Unpair [j]. *)
+              (match state.left.(j) with
+              | Left_paired (i', _) ->
+                  (* [i'] is paired, so it has a phase. *)
+                  state.right.(i') <-
+                    Right_available (Option.get (phase state i'));
+                  if not (has_better_choice state i') then
+                    remove_left state  i' j
+              | _ -> ());
+              (* Pair [i] and [j]. *)
+              state.right.(i) <- Right_paired right_phase;
+              state.left.(j) <- Left_paired (i, d))
+            else
+              remove_left state i j
+        | _ -> ()
+      done
+    done;
+    let left_final = Seq.zip (rev_seq left) (rev_seq state.left) in
+    let left, pairs = Seq.partition_map (fun (field, status) ->
+        match status with
+        | Left_available -> Either.Left field
+        | Left_paired (i,_) -> Either.Right (field, right.(i))
+      ) left_final
+    in
+    {
+      left = List.of_seq left;
+      right =
+        rev_seq right
+        |> Seq.filteri (fun i _ ->
+          match state.right.(i) with
+          | Right_paired _ -> false
+          | _ -> true)
+        |> List.of_seq
+      ;
+      pairs = List.of_seq pairs;
+    }
 
-    if m > n then
+  let diff ~cutoff ?max_elements ~compatibility left right =
+    if Array.length right >  Array.length left then
       diff
         ~cutoff ?max_elements
         ~compatibility:(fun a b -> compatibility b a)
         right left
       |> reverse_matches
-    else
+    else diff ~cutoff ?max_elements ~compatibility left right
 
-    let left_states = Array.make n Left_available in
-    let right_states =
-      let left_trie =
-        left
-        |> Array.to_seq
-        |> Seq.mapi (fun j field -> (Item.name field, j))
-        |> Trie.of_seq
-      in
-      Array.map
-        (fun right_field ->
-          let name = Item.name right_field in
-          let sequence =
-            Trie.compute_preference_layers
-              ~cutoff:(cutoff name)
-              ?max_elements
-              left_trie
-              name
-          in
-          match sequence () with
-          | Seq.Nil ->
-              Right_closed
-          | Seq.Cons ((layer, distance), tail) ->
-              Right_available (First_phase {
-                previous_layers = [ (layer, distance) ];
-                current_layer = layer;
-                current_layer_distance = distance;
-                next_layers = tail;
-              }))
-        right
-    in
-
-    let has_better_choice i =
-      match right_states.(i) with
-      | Right_paired
-        (First_phase {current_layer; _}
-        | Second_phase {current_layer; _}) ->
-          List.exists (fun j -> left_states.(j) = Left_available) current_layer
-      | _ -> false
-    in
-
-    let has_weak_pair j =
-      match left_states.(j) with
-      | Left_paired (i, _) -> has_better_choice i
-      | _ -> false
-    in
-
-    let phase i =
-      match right_states.(i) with
-      | Right_available phase | Right_paired phase -> Some phase
-      | Right_closed -> None
-    in
-
-    let get_preferred_candidate phase =
-      match phase with
-      | First_phase {current_layer; current_layer_distance; _}
-      | Second_phase {current_layer; current_layer_distance; _} ->
-          current_layer
-          |> List.find_opt (fun j -> left_states.(j) = Left_available)
-          |> Option.value ~default:(List.hd current_layer),
-          current_layer_distance
-    in
-
-    let propose i j d =
-      has_weak_pair j ||
-      match left_states.(j) with
-      | Left_available -> true
-      | Left_paired (i', d') ->
-          d < d' ||
-          d = d' &&
-            match phase i, phase i' with
-            | Some Second_phase _, Some First_phase _ -> true
-            | _ -> false
-    in
-
-    let create_second_phase layers =
-      match layers with
-      | [] -> assert false
-      | (layer, distance) :: tail ->
-          Second_phase {
-            previous_layers = ();
-            current_layer = layer;
-            current_layer_distance = distance;
-            next_layers = List.to_seq tail;
-          }
-    in
-
-    let remove_left_from_preferences preferences j nil_callback cons_callback =
-      match list_remove j preferences.current_layer with
-      | [] -> (
-          match preferences.next_layers () with
-          | Seq.Nil ->
-              nil_callback ()
-          | Seq.Cons ((layer, distance), next) ->
-              preferences.current_layer <- layer;
-              preferences.current_layer_distance <- distance;
-              preferences.next_layers <- next;
-              cons_callback layer distance)
-      | remaining_elements ->
-          preferences.current_layer <- remaining_elements
-    in
-
-    let remove_left i j =
-      match phase i with
-      | Some First_phase preferences ->
-          remove_left_from_preferences
-            preferences
-            j
-            (fun () ->
-              let phase = create_second_phase preferences.previous_layers in
-              right_states.(i) <- Right_available phase)
-            (fun layer distance ->
-              preferences.previous_layers <-
-                (layer, distance) :: preferences.previous_layers)
-      | Some Second_phase preferences ->
-          remove_left_from_preferences
-            preferences
-            j
-            (fun () -> right_states.(i) <- Right_closed)
-            (fun _ _ -> ())
-      | None ->
-          assert false
-    in
-
-    let ok = ref false in
-    while not !ok do
-      ok := true;
-      for i = 0 to m - 1 do
-        match right_states.(i) with
-        | Right_available right_phase ->
-            ok := false;
-            let (j, d) = get_preferred_candidate right_phase in
-            if compatibility (Item.kind left.(j)) (Item.kind right.(i))
-            && propose i j d then (
-              (* Unpair [j]. *)
-              (match left_states.(j) with
-              | Left_paired (i', _) ->
-                  (* [i'] is paired, so it has a phase. *)
-                  right_states.(i') <- Right_available (Option.get (phase i'));
-                  if not (has_better_choice i') then
-                    remove_left i' j
-              | _ -> ());
-              (* Pair [i] and [j]. *)
-              right_states.(i) <- Right_paired right_phase;
-              left_states.(j) <- Left_paired (i, d))
-            else
-              remove_left i j
-        | _ -> ()
-      done
-    done;
-
-    {
-      left =
-        left_states
-        |> rev_seq
-        |> Seq.zip (rev_seq left)
-        |> Seq.filter_map (function
-          | left_field, Left_available -> Some left_field
-          | _, Left_paired _ -> None)
-        |> List.of_seq;
-
-      right =
-        right
-        |> rev_seq
-        |> Seq.filteri (fun i _ ->
-          match right_states.(i) with
-          | Right_paired _ -> false
-          | _ -> true)
-        |> List.of_seq
-      ;
-
-      pairs =
-        left_states
-        |> rev_seq
-        |> Seq.zip (rev_seq left)
-        |> Seq.filter_map (function
-          | left_field, Left_paired (i, _) -> Some (left_field, right.(i))
-          | _, Left_available -> None)
-        |> List.of_seq;
-    }
 end
 
 let (%<%) (x:int option) (y:int option) = match x, y with
