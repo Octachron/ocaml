@@ -13,221 +13,12 @@
 (*                                                                        *)
 (**************************************************************************)
 
-
 type cost_model = {
   insertion:int;
   deletion:int;
   substitution:int;
 }
-
-module Trie = struct
-  let new_uid =
-    let counter = ref 0 in
-    fun () ->
-      incr counter;
-      !counter
-
-  type 'a t = {
-    uid : int;
-    mutable leaf_data : 'a option;
-    strict_suffixes : (char, 'a t) Hashtbl.t;
-    mutable subtrie_count : int;
-        (** The total number of subtries this trie contains (including
-            itself). *)
-    mutable shortest_suffix : (int * 'a) option;
-        (** The length and associated data of a shortest suffix, if any. *)
-    mutable longest_suffix : (int * 'a) option;
-        (** The length and associated data of a longest suffix, if any. *)
-  }
-
-  let create () =
-    {
-      uid = new_uid ();
-      leaf_data = None;
-      strict_suffixes = Hashtbl.create 1;
-      subtrie_count = 1;
-      shortest_suffix = None;
-      longest_suffix = None;
-    }
-
-  let add trie string data =
-    let rec aux s length trie =
-      (trie.shortest_suffix <-
-        match trie.shortest_suffix with
-        | Some (l, d) when l <= length -> Some (l, d)
-        | _ -> Some (length, data));
-      (trie.longest_suffix <-
-        match trie.longest_suffix with
-        | Some (l, d) when l >= length -> Some (l, d)
-        | _ -> Some (length, data));
-      match s () with
-      | Seq.Nil ->
-          trie.leaf_data <- Some data
-      | Seq.Cons (c, next) ->
-          match Hashtbl.find_opt trie.strict_suffixes c with
-          | None ->
-              let new_child = create () in
-              aux next (length - 1) new_child;
-              Hashtbl.add trie.strict_suffixes c new_child;
-              trie.subtrie_count <- trie.subtrie_count + new_child.subtrie_count
-          | Some child ->
-              let subtries_without_child =
-                trie.subtrie_count - child.subtrie_count
-              in
-              aux next (length - 1) child;
-              trie.subtrie_count <- subtries_without_child + child.subtrie_count
-    in
-    aux (String.to_seq string) (String.length string) trie
-
-  let of_seq entries =
-    let trie = create () in
-    Seq.iter (fun (string, data) -> add trie string data) entries;
-    trie
-
-  module Levenshtein_state = struct
-    (** A state of a Levenshtein automaton. *)
-
-    type nonrec 'a t = {
-      trie : 'a t;  (** The remaining suffixes we can match against. *)
-      remaining_length : int;
-          (** The remaining length of the string we are trying to match. *)
-      distance : int;
-          (** The current distance to the string we are trying to match. *)
-      remaining_distance_estimation : int;
-          (** An estimation of the remaining distance. *)
-    }
-
-    let priority state = state.distance + state.remaining_distance_estimation
-    let compare s s' = compare (priority s) (priority s')
-
-    (** An admissible heuristic for A* (as in, it always under-estimates the
-        true remainign distance). *)
-    let estimate_remaining_distance cost remaining_length trie =
-      match (trie.shortest_suffix, trie.longest_suffix) with
-      | Some (shortest_length, _), _
-      when remaining_length <= shortest_length ->
-          Some ((shortest_length - remaining_length) * cost.insertion)
-      | _, Some (longest_length, _) when remaining_length >= longest_length ->
-          Some ((remaining_length - longest_length) * cost.deletion)
-      | None, None -> None
-      | _, _ -> Some 0
-
-    let make cost trie remaining_length distance =
-      match estimate_remaining_distance cost remaining_length trie with
-      | Some remaining_distance_estimation ->
-          [{
-            trie;
-            remaining_length;
-            distance;
-            remaining_distance_estimation
-          }]
-      | None -> []
-
-    (** Computes a list of all possible states after performing a single
-        operation. *)
-    let transitions cost text state =
-      let n = String.length text in
-      let deletions =
-        if state.remaining_length > 0 then
-          make cost state.trie
-            (state.remaining_length - 1)
-            (state.distance + cost.deletion)
-        else []
-      in
-      Hashtbl.fold
-        (fun c suffix_trie transitions ->
-           let insertion = make cost suffix_trie
-               state.remaining_length
-               (state.distance + cost.insertion)
-           in
-           let subst =
-             if state.remaining_length = 0 then [] else
-             let substitution_cost_here =
-               if c = text.[n - state.remaining_length] then
-                 0
-               else
-                 cost.substitution
-             in
-             make cost suffix_trie
-               (state.remaining_length - 1)
-               (state.distance + substitution_cost_here)
-           in
-            subst @ insertion @ transitions
-        ) state.trie.strict_suffixes deletions
-  end
-
-
-  let (%>%) (x:int) (y:int option) =
-    match y with
-    | None -> false
-    | Some y -> x > y
-
-  module State = Levenshtein_state
-
-  let default_cost = { deletion = 1; insertion=1; substitution=1 }
-
-  let compute_preferences (type a) cost ?(cutoff : int option) (trie : a t)
-      (string : string) : (a * int) Seq.t =
-    let module PriorityQueue =
-      Pqueue.MakeMin (struct type t = a State.t let compare = State.compare end)
-    in
-    let rec compute queue seen_states = fun () ->
-      match PriorityQueue.pop_min queue with
-      | None -> Seq.Nil
-      | Some state ->
-          if State.priority state %>% cutoff then
-            Seq.Nil
-          else
-            let state_id = state.trie.uid, state.State.remaining_length in
-            if Hashtbl.mem seen_states state_id then
-              compute queue seen_states ()
-            else (
-              Hashtbl.add seen_states state_id ();
-              List.iter
-                  (PriorityQueue.add queue)
-                  (State.transitions cost string state);
-              match state with
-              | {
-                State.trie = { leaf_data = Some data; _ };
-                remaining_length = 0;
-                distance;
-                _;
-              } ->
-                  Seq.Cons ((data, distance), compute queue seen_states)
-              | _ -> compute queue seen_states ()
-            )
-    in
-
-    let n = String.length string in
-    let queue = PriorityQueue.create () in
-    List.iter (PriorityQueue.add queue) (State.make cost trie n 0);
-    let seen_states = Hashtbl.create trie.subtrie_count in
-    compute queue seen_states
-
-  let rec group_ties seq current_distance acc () =
-    match seq () with
-    | Seq.Nil -> Seq.Cons ((acc, current_distance), Seq.empty)
-    | Seq.Cons ((data, distance), next) ->
-        if distance = current_distance then
-          group_ties next current_distance (data :: acc) ()
-        else
-          let next_layer = group_ties next distance [ data ] in
-          Seq.Cons ((acc, current_distance), next_layer)
-
-  let compute_preference_layers ?(cost = default_cost) ?cutoff ?max_elements
-      trie query =
-    let preferences = compute_preferences cost ?cutoff trie query in
-    let seq =
-      match max_elements with
-      | Some n -> Seq.take n preferences
-      | None -> preferences
-    in
-    match seq () with
-    | Seq.Nil -> Seq.empty
-    | Seq.Cons((data,distance), seq) -> group_ties seq distance [data]
-end
-
-
+type layer = { left_candidates: int list; pref:int }
 
 type ('a,'v) matches = {
   left : 'a list;
@@ -263,198 +54,242 @@ type nonrec ('v,'k) item_matches =  (('v,'k) Item.t, 'v) matches
     a maximum stable marriage in linear time (linear in the sum of the lengths
     of the preference lists). *)
 module Stable_marriage_diff = struct
-  let rec list_remove x list =
-    match list with
-    | [] -> []
-    | hd :: tl when hd = x -> tl
-    | hd :: tl -> hd :: list_remove x tl
 
   (* This implementation does not use the same semantics as the original paper.
      Below is a conversion from the paper's terms to the implementation's terms:
      - woman: left
      - man: right
      - engaged (woman / man): paired
-     - maiden (woman) / active (man): available
+     - maiden (woman): unpaired
+     - active (man): active
      - lad: first phase
      - bachelor: second phase
      - old bachelor: closed
-     - uncertain (man): has a better choice
+     - uncertain (man): has other choices
      - flighty (woman): has a weak pair *)
 
   type distance = int
 
-  type 'a preferences = {
-    mutable previous_layers : 'a;
-        (** Invariant: if this is a list, it is not empty. *)
-    mutable current_layer : int list; (** Invariant: this list is not empty. *)
-    mutable current_layer_distance : distance;
-    mutable next_layers : (int list * distance) Seq.t;
-  }
+  type dequeue = { front: int list; pre:bool; back:int list }
+  let next dq = match dq.front with
+    | a :: front -> Some (a, { dq with front })
+    | [] -> match List.rev dq.back with
+      | [] -> None
+      | a :: front -> Some (a, { front; pre=false; back = [] })
+  let push_back dq x = { dq with back = x :: dq.back }
+
+  let replace_front x dq = { dq with front = x :: dq.front }
+
+
 
   type left_state =
-    | Left_available
+    | Left_unpaired
     | Left_paired of int * distance
 
   type right_phase =
-    | First_phase of (int list * distance) list preferences
-    | Second_phase of unit preferences
+    | First
+    | Second
 
-  type right_state =
-    | Right_available of right_phase
-    | Right_paired of right_phase
-    | Right_closed
+  type active_right_state = {
+    mutable previous_layers : layer list;
+        (** Invariant: this list is not empty in the first phase . *)
+    mutable current_layer : dequeue; (** Invariant: this list is not empty. *)
+    mutable current_distance : distance;
+    mutable paired: bool;
+    mutable phase: right_phase;
+    mutable next_layers : layer Seq.t;
+  }
 
-  type ('a,'b) state = { left: 'a array; right: 'b array}
+  type ('a,'b) state =
+    { left: 'a array; right: 'b array; mutable reactivated:int list }
 
-  let has_better_choice state i =
-    match state.right.(i) with
-    | Right_paired
-        (First_phase {current_layer; _}
-        | Second_phase {current_layer; _}) ->
-        List.exists (fun j -> state.left.(j) = Left_available) current_layer
+  let is_never_paired state j = match state.left.(j) with
+    | Left_unpaired -> true
     | _ -> false
+
+  let rec has_alternative_choices state r =
+    let cl = r.current_layer in
+    if not cl.pre then false else
+    match cl.front with
+    | a :: b :: q ->
+       is_never_paired state b ||
+          let current_layer =
+            { front = a :: q; pre=true; back = b :: cl.back }
+          in
+          r.current_layer <- current_layer;
+          has_alternative_choices state r
+    | [_] | [] -> false
+
+  let rec skip_paired state dq =
+    assert dq.pre;
+    match next dq with
+    | None -> assert false
+    | Some (first,others) ->
+        if is_never_paired state first then
+          first, others
+        else skip_paired state (push_back others first)
 
   let has_weak_pair state j =
     match state.left.(j) with
-    | Left_paired (i, _) -> has_better_choice state i
-    | _ -> false
+    | Left_unpaired -> false
+    | Left_paired (i, _) ->
+        match state.right.(i) with
+        | None -> assert false
+        | Some r -> has_alternative_choices state r
 
   let phase state i =
+    Option.map (fun x -> x.phase) state.right.(i)
+
+  let prepare_dequeue state { left_candidates=i; pref=d} r =
+    let pre, later = List.partition (is_never_paired state) i in
+    let dequeue = { front = pre; pre=true; back = later } in
+    match state.right.(r) with
+    | None -> ()
+    | Some r ->
+        r.current_distance <- d;
+        r.current_layer <- dequeue
+
+  let second_phase state ir r =
+    let layers = List.rev r.previous_layers in
+    r.previous_layers <- [];
+    r.phase <- Second;
+    match layers with
+    | [] -> assert false
+    | layer :: q ->
+        prepare_dequeue state layer ir;
+        r.next_layers <- List.to_seq q
+
+
+  let next_layer state ir r = match r.next_layers () with
+    | Seq.Nil ->
+        begin match r.phase with
+        | First -> second_phase state ir r; true
+        | Second -> false
+        end
+    | Seq.Cons(layer, next_layers) ->
+        r.previous_layers <- layer :: r.previous_layers;
+        r.next_layers <- next_layers;
+        prepare_dequeue state layer ir;
+        true
+
+  let rec get_left_candidate state ir r =
+    assert (r.paired = false);
+    if has_alternative_choices state r then
+      let f, others = skip_paired state r.current_layer in
+      r.current_layer <- others;
+      Some f
+    else match next r.current_layer with
+      | Some (f,others) ->
+          r.current_layer <- others;
+          Some f
+      | None ->
+          if next_layer state ir r then get_left_candidate state ir r
+          else None
+
+  let rec get_compatible_left_candidate compatibility state ir r =
+    match get_left_candidate state ir r with
+    | None -> None
+    | Some l as c ->
+        if compatibility l ir then c
+        else
+          get_compatible_left_candidate compatibility state ir r
+
+  let reject state i =
     match state.right.(i) with
-    | Right_available phase | Right_paired phase -> Some phase
-    | Right_closed -> None
+    | None -> ()
+    | Some right ->
+    right.paired <- false;
+    match next right.current_layer with
+    | None -> state.right.(i) <- None
+    | Some (f,others) ->
+        let dequeue = if others.pre then
+            push_back others f
+          else others
+        in
+        right.current_layer <- dequeue;
+        state.reactivated <- i :: state.reactivated
 
-  let get_preferred_candidate state phase =
-    match phase with
-    | First_phase {current_layer; current_layer_distance; _}
-    | Second_phase {current_layer; current_layer_distance; _} ->
-        current_layer
-        |> List.find_opt (fun j -> state.left.(j) = Left_available)
-        |> Option.value ~default:(List.hd current_layer),
-        current_layer_distance
-
-  let propose state i j d =
+  let accepted_proposal state i j d =
     has_weak_pair state j ||
     match state.left.(j) with
-    | Left_available -> true
+    | Left_unpaired -> true
     | Left_paired (i', d') ->
         d < d' ||
         d = d' &&
         match phase state i, phase state i' with
-        | Some Second_phase _, Some First_phase _ -> true
+        | Some Second, Some First -> true
         | _ -> false
 
-  let create_second_phase layers =
-    match layers with
-    | [] -> assert false
-    | (layer, distance) :: tail ->
-        Second_phase {
-          previous_layers = ();
-          current_layer = layer;
-          current_layer_distance = distance;
-          next_layers = List.to_seq tail;
-        }
+  let pair state i j d =
+    begin match state.right.(i) with
+    | None -> ()
+    | Some r ->
+      r.paired <- true;
+      r.current_layer <- replace_front j r.current_layer
+    end;
+    match state.left.(j) with
+    | Left_unpaired -> state.left.(j) <- Left_paired (i, d)
+    | Left_paired (i', _) ->
+        reject state i';
+        state.left.(j) <- Left_paired (i, d)
 
-  let remove_left_from_preferences preferences j nil_callback cons_callback =
-    match list_remove j preferences.current_layer with
-    | [] -> (
-        match preferences.next_layers () with
-        | Seq.Nil ->
-            nil_callback ()
-        | Seq.Cons ((layer, distance), next) ->
-            preferences.current_layer <- layer;
-            preferences.current_layer_distance <- distance;
-            preferences.next_layers <- next;
-            cons_callback layer distance)
-    | remaining_elements ->
-        preferences.current_layer <- remaining_elements
+  let d_of_list front = { front; pre=true; back = [] }
 
-  let remove_left state i j =
-    match phase state i with
-    | Some First_phase preferences ->
-        remove_left_from_preferences
-          preferences
-          j
-          (fun () ->
-             let phase = create_second_phase preferences.previous_layers in
-             state.right.(i) <- Right_available phase)
-          (fun layer distance ->
-             preferences.previous_layers <-
-               (layer, distance) :: preferences.previous_layers)
-    | Some Second_phase preferences ->
-        remove_left_from_preferences
-          preferences
-          j
-          (fun () -> state.right.(i) <- Right_closed)
-          (fun _ _ -> ())
-    | None ->
-        assert false
-
-  let init_trie x =
-    let name i field = Item.name field, i in
-    x |> Array.to_seq |> Seq.mapi name |> Trie.of_seq
-
-  let init_right_state ~cutoff ?max_elements left right =
-    let left_trie = init_trie left in
+  let init_right_state ~preferences right =
     Array.map
       (fun right_field ->
          let name = Item.name right_field in
-         let sequence =
-           Trie.compute_preference_layers
-             ~cutoff:(cutoff name)
-             ?max_elements
-             left_trie
-             name
-         in
+         let sequence = preferences name in
          match sequence () with
-         | Seq.Nil -> Right_closed
-         | Seq.Cons ((layer, distance), tail) ->
-             Right_available (First_phase {
-                 previous_layers = [ (layer, distance) ];
-                 current_layer = layer;
-                 current_layer_distance = distance;
-                 next_layers = tail;
-               }))
+         | Seq.Nil -> None
+         | Seq.Cons (layer, tail) ->
+             Some {
+               paired = false;
+               phase = First;
+               current_distance = layer.pref;
+               current_layer = d_of_list layer.left_candidates;
+               previous_layers = [layer];
+               next_layers = tail;
+             }
+      )
       right
 
-  let diff ~cutoff ?max_elements ~compatibility left right =
+
+  let rec proposals compatibility state i right =
+    match get_compatible_left_candidate compatibility state i right with
+    | None -> ()
+    | Some j ->
+        if accepted_proposal state i j right.current_distance then
+          pair state i j right.current_distance
+        else
+          proposals compatibility state i right
+
+  let diff ~preferences ~compatibility left right =
     let n = Array.length left in
     let m = Array.length right in
-    let left_state = Array.make n Left_available in
-    let right_state = init_right_state ~cutoff ?max_elements left right in
-    let state = { left=left_state; right=right_state } in
-    let ok = ref false in
-    while not !ok do
-      ok := true;
-      for i = 0 to m - 1 do
+    let left_state = Array.make n Left_unpaired in
+    let right_state = init_right_state ~preferences right in
+    let state = { left=left_state; reactivated = []; right=right_state } in
+    let rec loop = function
+      | [] ->
+          begin  match state.reactivated with
+          | [] -> ()
+          | l -> state.reactivated <- []; loop l
+          end
+      | i :: l ->
         match state.right.(i) with
-        | Right_available right_phase ->
-            ok := false;
-            let (j, d) = get_preferred_candidate state right_phase in
-            if compatibility (Item.kind left.(j)) (Item.kind right.(i))
-            && propose state i j d then (
-              (* Unpair [j]. *)
-              (match state.left.(j) with
-              | Left_paired (i', _) ->
-                  (* [i'] is paired, so it has a phase. *)
-                  state.right.(i') <-
-                    Right_available (Option.get (phase state i'));
-                  if not (has_better_choice state i') then
-                    remove_left state  i' j
-              | _ -> ());
-              (* Pair [i] and [j]. *)
-              state.right.(i) <- Right_paired right_phase;
-              state.left.(j) <- Left_paired (i, d))
-            else
-              remove_left state i j
-        | _ -> ()
-      done
-    done;
+          | None -> loop l
+          | Some right ->
+              proposals compatibility state i right;
+              loop l
+    in
+    loop (List.init m Fun.id);
     let left_final = Seq.zip (Array.to_seq left) (Array.to_seq state.left) in
     let left, pairs = Seq.partition_map (fun (field, status) ->
         match status with
-        | Left_available -> Either.Left field
-        | Left_paired (i,_) -> Either.Right (field, right.(i))
+        | Left_unpaired -> Either.Left field
+        | Left_paired (i,_) ->
+            Either.Right (field, right.(i))
       ) left_final
     in
     {
@@ -463,21 +298,21 @@ module Stable_marriage_diff = struct
         Array.to_seq right
         |> Seq.filteri (fun i _ ->
           match state.right.(i) with
-          | Right_paired _ -> false
-          | _ -> true)
+          | Some r -> not r.paired
+          | None -> true)
         |> List.of_seq
       ;
       pairs = List.of_seq pairs;
     }
 
-  let diff ~cutoff ?max_elements ~compatibility left right =
+  let diff ~compatibility ~preferences left right =
     if Array.length right >  Array.length left then
       diff
-        ~cutoff ?max_elements
+        ~preferences:(preferences right)
         ~compatibility:(fun a b -> compatibility b a)
         right left
       |> reverse_matches
-    else diff ~cutoff ?max_elements ~compatibility left right
+    else diff ~preferences:(preferences left) ~compatibility left right
 
 end
 
@@ -539,23 +374,56 @@ let greedy_matching ~compatibility ~cutoff missings additions =
     right = actually_missing
   }
 
-let fuzzy_match_names ~compatibility left right =
+let preferences ~cutoff left name =
+  let cutoff = 1 + cutoff name in
+  let a =
+    Array.of_seq
+    @@ Seq.filter (fun (_,d) -> d < cutoff)
+    @@ Seq.mapi (fun i r ->
+        i, String.edit_distance ~limit:cutoff name @@ Item.name r)
+    @@ Array.to_seq left in
+  let () = Array.sort (fun (_,n) (_,n') -> Int.compare n n') a in
+  let rec group_by current acc pos () =
+    if pos >= Array.length a then
+      match acc with
+      | [] -> Seq.Nil
+      | _ -> Seq.Cons ({ left_candidates=acc; pref=current }, Seq.empty)
+    else
+      let x, dist = a.(pos) in
+      if dist = current then
+        group_by current (x::acc) (pos+1) ()
+      else if acc = [] then
+        group_by dist [x] (pos+1) ()
+      else
+        Seq.Cons (
+          {left_candidates=acc; pref=current}, group_by dist [x] (pos+1)
+        )
+  in
+  group_by 0 [] 0
+
+let fuzzy_match_names ~compatibility left0 right =
   (* The edit distance between an existing name and a suggested rename must be
      at most half the length of the name. *)
-  let cutoff name = String.length name / 2 in
-  let m = List.length left in
-  let n = List.length right in
-
-  if m < 60 && n < 60 then
+  let cutoff name =
+    let len = String.length name in
+    len/2
+  in
+  if (*  *List.length left < 60 && List.length right < 60 *) true then
     (* Stable marriages. *)
+    let left = Array.of_list left0 in
+    let right = Array.of_list right in
+    let compatibility i j =
+      compatibility (Item.kind left.(i)) (Item.kind right.(j))
+    in
+    let preferences = preferences ~cutoff in
     let matches =
       Stable_marriage_diff.diff
-        ~cutoff ~max_elements:10 ~compatibility
-        (Array.of_list left)
-        (Array.of_list right)
+        ~preferences ~compatibility
+        left
+        right
     in
     let pairs = List.map (fun (x,y) -> Item.(item x, item y)) matches.pairs in
     { matches with pairs }
   else
     (* Greedy. *)
-    greedy_matching ~compatibility ~cutoff left right
+    greedy_matching ~compatibility ~cutoff left0 right

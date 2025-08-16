@@ -759,7 +759,6 @@ let eq_module_types {Err.got=mty1; expected=mty2} =
     !Oprint.out_module_type (Out_type.tree_of_modtype mty1)
     !Oprint.out_module_type (Out_type.tree_of_modtype mty2)
 
-
 let module_type_declarations id {Err.got=d1 ; expected=d2} =
   Fmt.dprintf
     "@[<hv 2>Module type declarations do not match:@ \
@@ -897,10 +896,9 @@ and signature ~expansion_token ~env:_ ~before ~ctx sgs =
   in
   Printtyp.wrap_printing_env ~error:true sgs.env (fun () ->
       if expansion_token then
-        let suggestions = Signature_diff.suggest sgs in
-        match suggestions with
-        | { alterations = _ :: _; _  } ->
-            let init, last = Misc.split_last suggestions.alterations in
+        match Signature_diff.suggest sgs with
+        | { alterations = _ :: _ as alts ; _  }  ->
+            let init, last = Misc.split_last alts in
             List.map (Location.msg "%a" suggestion_text) init
             @ with_context ctx suggestion_text last
             :: before
