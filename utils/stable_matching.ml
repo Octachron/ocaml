@@ -543,10 +543,7 @@ let fuzzy_match_names ~compatibility left right =
   (* The edit distance between an existing name and a suggested rename must be
      at most half the length of the name. *)
   let cutoff name = String.length name / 2 in
-  let m = List.length left in
-  let n = List.length right in
-
-  if m < 60 && n < 60 then
+  if (*  *List.length left < 60 && List.length right < 60 *) true then
     (* Stable marriages. *)
     let matches =
       Stable_marriage_diff.diff
