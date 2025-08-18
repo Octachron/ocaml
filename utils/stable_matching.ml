@@ -565,8 +565,56 @@ let simple_preferences ~cutoff left name =
   in
   group_by 0 [] 0
 
+module BK_tree = struct
+  module Int_map = Map.Make(Int)
 
-let fuzzy_match_names ~compatibility left right =
+  type 'a t = { root: 'a; name:string; children: 'a t Int_map.t }
+
+  let rec slice inf sup acc ts =
+    if inf > sup then acc
+    else match Int_map.find_opt inf ts with
+      | None -> slice (inf+1) sup acc ts
+      | Some t -> slice (inf+1) sup (t::acc) ts
+
+
+  let rec query results stack cutoff name t =
+    let dist = String.edit_distance name t.name in
+    let results =
+      if dist <= cutoff then Int_map.add_to_list dist t.root results
+      else results
+    in
+    let children = slice (max 0 (dist - cutoff)) (dist+cutoff) [] t.children in
+    query_children results stack cutoff name children
+  and query_children result stack cutoff name children =
+    match children, stack with
+    | [], [] -> result
+    | [], a :: q -> query_children result q cutoff name a
+    | a :: q, _  -> query result (q::stack) cutoff name a
+
+  let rec make = function
+    | [] -> invalid_arg "Empty lexicon"
+    | (root_name,root) :: q ->
+        let dist_map = List.fold_left (fun map (name,_ as x) ->
+            let dist = String.edit_distance root_name name in
+            Int_map.add_to_list dist x map
+          ) Int_map.empty q
+        in
+        let children = Int_map.map make dist_map in
+        { root; name=root_name; children }
+
+  let preferences ?max_elements:_ ~cutoff d =
+    let d = List.mapi (fun i item -> Item.name item, i) d in
+    match d with
+    | [] -> Fun.const Seq.empty
+    | _ ->
+        let tree = make d in
+        fun name ->
+          let results = query Int_map.empty [] (cutoff name) name tree in
+          Seq.map (fun (x,y) -> (y,x)) (Int_map.to_seq results)
+
+end
+
+let fuzzy_match_names ~compatibility left0 right =
   (* The edit distance between an existing name and a suggested rename must be
      at most half the length of the name. *)
   let cutoff name =
@@ -575,13 +623,14 @@ let fuzzy_match_names ~compatibility left right =
   in
   if (*  *List.length left < 60 && List.length right < 60 *) true then
     (* Stable marriages. *)
-    let left = Array.of_list left in
+    let left = Array.of_list left0 in
     let right = Array.of_list right in
     let matches =
       let preferences = match Sys.getenv_opt "OPREF" with
         | Some "T" -> Stable_marriage_diff.trie_preferences ~cutoff left
-        | None| Some "S" | Some _ ->
-          simple_preferences ~cutoff left
+        | Some "B" -> BK_tree.preferences ~cutoff left0
+        | Some "S" -> simple_preferences ~cutoff left
+        |  _ -> BK_tree.preferences ~cutoff left0
       in
       Stable_marriage_diff.diff
         ~preferences ~compatibility
@@ -592,4 +641,4 @@ let fuzzy_match_names ~compatibility left right =
     { matches with pairs }
   else
     (* Greedy. *)
-    greedy_matching ~compatibility ~cutoff left right
+    greedy_matching ~compatibility ~cutoff left0 right
