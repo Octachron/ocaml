@@ -897,10 +897,15 @@ and signature ~expansion_token ~env:_ ~before ~ctx sgs =
   in
   Printtyp.wrap_printing_env ~error:true sgs.env (fun () ->
       if expansion_token then
-        let time = Sys.time () in
-        let suggestions = Signature_diff.suggest sgs in
-        let diff = Sys.time () -. time in
-        Format.printf "%f@." diff;
+        let suggestions =
+          if Sys.getenv_opt "PPROF" <> None then
+            let time = Sys.time () in
+            let suggestions = Signature_diff.suggest sgs in
+            let diff = Sys.time () -. time in
+            Format.printf "%f@." diff;
+            suggestions
+          else  Signature_diff.suggest sgs
+        in
         match suggestions with
         | { alterations = _ :: _; _  } ->
             let init, last = Misc.split_last suggestions.alterations in

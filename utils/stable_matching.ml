@@ -390,22 +390,21 @@ module Stable_marriage_diff = struct
     | None ->
         assert false
 
-  let init_trie x =
+  let trie_preferences ?max_elements ~cutoff x =
     let name i field = Item.name field, i in
-    x |> Array.to_seq |> Seq.mapi name |> Trie.of_seq
+    let left_trie = x |> Array.to_seq |> Seq.mapi name |> Trie.of_seq in
+    fun name ->
+      Trie.compute_preference_layers
+        ~cutoff:(cutoff name)
+        ?max_elements
+        left_trie
+        name
 
-  let init_right_state ~cutoff ?max_elements left right =
-    let left_trie = init_trie left in
+  let init_right_state ~preferences right =
     Array.map
       (fun right_field ->
          let name = Item.name right_field in
-         let sequence =
-           Trie.compute_preference_layers
-             ~cutoff:(cutoff name)
-             ?max_elements
-             left_trie
-             name
-         in
+         let sequence = preferences name in
          match sequence () with
          | Seq.Nil -> Right_closed
          | Seq.Cons ((layer, distance), tail) ->
@@ -417,11 +416,11 @@ module Stable_marriage_diff = struct
                }))
       right
 
-  let diff ~cutoff ?max_elements ~compatibility left right =
+  let diff ~preferences ~compatibility left right =
     let n = Array.length left in
     let m = Array.length right in
     let left_state = Array.make n Left_available in
-    let right_state = init_right_state ~cutoff ?max_elements left right in
+    let right_state = init_right_state ~preferences right in
     let state = { left=left_state; right=right_state } in
     let ok = ref false in
     while not !ok do
@@ -470,14 +469,14 @@ module Stable_marriage_diff = struct
       pairs = List.of_seq pairs;
     }
 
-  let diff ~cutoff ?max_elements ~compatibility left right =
+  let diff ~compatibility ~preferences left right =
     if Array.length right >  Array.length left then
       diff
-        ~cutoff ?max_elements
+        ~preferences
         ~compatibility:(fun a b -> compatibility b a)
         right left
       |> reverse_matches
-    else diff ~cutoff ?max_elements ~compatibility left right
+    else diff ~preferences ~compatibility left right
 
 end
 
@@ -539,17 +538,55 @@ let greedy_matching ~compatibility ~cutoff missings additions =
     right = actually_missing
   }
 
+let simple_preferences ~cutoff left name =
+  let cutoff = 1 + cutoff name in
+  let a =
+    Array.of_seq
+    @@ Seq.filter (fun (_,d) -> d < cutoff)
+    @@ Seq.mapi (fun i r ->
+        i, String.edit_distance ~limit:cutoff name @@ Item.name r)
+    @@ Array.to_seq left in
+  let () = Array.sort (fun (_,n) (_,n') -> Int.compare n n') a in
+  let rec group_by current acc pos () =
+    if pos >= Array.length a then
+      match acc with
+      | [] -> Seq.Nil
+      | _ -> Seq.Cons ((acc,current), Seq.empty)
+    else
+      let x, dist = a.(pos) in
+      if dist = current then
+        group_by current (x::acc) (pos+1) ()
+      else if acc = [] then
+        group_by dist [x] (pos+1) ()
+      else
+        Seq.Cons (
+          (acc,current), group_by dist [x] (pos+1)
+        )
+  in
+  group_by 0 [] 0
+
+
 let fuzzy_match_names ~compatibility left right =
   (* The edit distance between an existing name and a suggested rename must be
      at most half the length of the name. *)
-  let cutoff name = String.length name / 2 in
+  let cutoff name =
+    let len = String.length name in
+    len/2
+  in
   if (*  *List.length left < 60 && List.length right < 60 *) true then
     (* Stable marriages. *)
+    let left = Array.of_list left in
+    let right = Array.of_list right in
     let matches =
+      let preferences = match Sys.getenv_opt "OPREF" with
+        | Some "T" -> Stable_marriage_diff.trie_preferences ~cutoff left
+        | None| Some "S" | Some _ ->
+          simple_preferences ~cutoff left
+      in
       Stable_marriage_diff.diff
-        ~cutoff ~max_elements:10 ~compatibility
-        (Array.of_list left)
-        (Array.of_list right)
+        ~preferences ~compatibility
+        left
+        right
     in
     let pairs = List.map (fun (x,y) -> Item.(item x, item y)) matches.pairs in
     { matches with pairs }
