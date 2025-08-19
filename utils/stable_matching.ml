@@ -570,26 +570,52 @@ module BK_tree = struct
 
   type 'a t = { root: 'a; name:string; children: 'a t Int_map.t }
 
-  let rec slice inf sup acc ts =
-    if inf > sup then acc
-    else match Int_map.find_opt inf ts with
-      | None -> slice (inf+1) sup acc ts
-      | Some t -> slice (inf+1) sup (t::acc) ts
-
-
   let rec query results stack cutoff name t =
     let dist = String.edit_distance name t.name in
     let results =
       if dist <= cutoff then Int_map.add_to_list dist t.root results
       else results
     in
-    let children = slice (max 0 (dist - cutoff)) (dist+cutoff) [] t.children in
-    query_children results stack cutoff name children
-  and query_children result stack cutoff name children =
+    query_children results stack cutoff name dist t.children
+  and query_children result stack cutoff name dist children =
+    let children =
+      if cutoff = 0 then Option.to_list (Int_map.find_opt dist children)
+      else
+        let left = if dist - cutoff < 0
+          then None
+          else Int_map.find_opt (dist-cutoff) children
+        in
+        let right = Int_map.find_opt (dist+cutoff) children in
+        Option.to_list left @ Option.to_list right
+    in
     match children, stack with
     | [], [] -> result
-    | [], a :: q -> query_children result q cutoff name a
-    | a :: q, _  -> query result (q::stack) cutoff name a
+    | [], a :: q -> query result q cutoff name a
+    | a :: q, _  ->
+        let stack = q @ stack in
+        query result stack cutoff name a
+
+  let rec layer_seq result cutoff target_dist dist children name () =
+    if target_dist > cutoff then Seq.Nil
+    else
+      let r = query_children result [] target_dist name dist children in
+      let at_dist =
+        Option.value ~default:[] (Int_map.find_opt target_dist r)
+      in
+      match at_dist with
+      | [] -> layer_seq r cutoff (target_dist+1) dist children name ()
+      | _ ->
+          let next = layer_seq r cutoff (target_dist+1) dist children name in
+          Seq.Cons( (at_dist,target_dist), next)
+
+  let layers cutoff (t: int t) name =
+    let cutoff = cutoff name in
+    let dist = String.edit_distance t.name name in
+    let results =
+      if dist <= cutoff then Int_map.singleton dist [t.root]
+      else Int_map.empty
+    in
+    layer_seq results cutoff 0 dist t.children name
 
   let rec make = function
     | [] -> invalid_arg "Empty lexicon"
@@ -606,12 +632,7 @@ module BK_tree = struct
     let d = List.mapi (fun i item -> Item.name item, i) d in
     match d with
     | [] -> Fun.const Seq.empty
-    | _ ->
-        let tree = make d in
-        fun name ->
-          let results = query Int_map.empty [] (cutoff name) name tree in
-          Seq.map (fun (x,y) -> (y,x)) (Int_map.to_seq results)
-
+    | _ -> layers cutoff (make d)
 end
 
 let fuzzy_match_names ~compatibility left0 right =
