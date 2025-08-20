@@ -19,30 +19,6 @@ type cost_model = {
   substitution:int;
 }
 
-module Trie : sig
-  type 'a t
-
-  val add: 'a t -> string -> 'a -> unit
-  val of_seq: (string * 'a) Seq.t -> 'a t
-
-  val compute_preferences:
-    cost_model -> ?cutoff:int -> 'a t -> string -> ('a * int) Seq.t
-  (** Returns a sequence that yields the data associated with the strings of the
-      trie, together with the distance to the specified string, in order from
-      closest to farthest.
-
-      Each node of the sequence should be called at most once. *)
-
-  val compute_preference_layers:
-    ?cost:cost_model -> ?cutoff:int -> ?max_elements:int
-    -> 'a t -> string -> ('a list * int) Seq.t
-  (** Returns a sequence that yields the data associated with the strings of the
-      trie, groupped by distance to the specified string, together with said
-      distance, in order from closest to farthest.
-
-      Each node of the sequence should be called at most once. *)
-end
-
 module Item: sig
   type ('v, 'k) t = {
     name: string;
