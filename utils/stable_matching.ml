@@ -20,14 +20,6 @@ type cost_model = {
   substitution:int;
 }
 type layer = { left_candidates: int list; pref:int }
-let debugf fmt =
-  match Sys.getenv_opt "ODEBUG" with
-  | None ->Format.ifprintf Format.err_formatter fmt
-  | Some _ -> Format.kfprintf (fun ppf -> Format.pp_print_newline ppf ())
-                Format.err_formatter fmt
-let pp_list elt =
-  Format.pp_print_list ~pp_sep:(fun ppf () -> Format.fprintf  ppf "@, ") elt
-let pp_int = Format.pp_print_int
 
 module Trie = struct
   let new_uid =
@@ -290,10 +282,6 @@ module Stable_marriage_diff = struct
   type distance = int
 
   type dequeue = { front: int list; pre:bool; back:int list }
-  let pp_dequeue ppf d =
-    let pp_sep ppf () = Format.fprintf ppf ",@ " in
-    let pp_l = Format.pp_print_list ~pp_sep Format.pp_print_int in
-    Format.fprintf ppf "{%a|%B|%a}" pp_l d.front d.pre pp_l (List.rev d.back)
   let next dq = match dq.front with
     | a :: front -> Some (a, { dq with front })
     | [] -> match List.rev dq.back with
@@ -335,13 +323,10 @@ module Stable_marriage_diff = struct
     if not cl.pre then false else
     match cl.front with
     | a :: b :: q ->
-        if is_never_paired state b then
-          (debugf "left %d is never paired" b; true)
-        else
+       is_never_paired state b ||
           let current_layer =
             { front = a :: q; pre=true; back = b :: cl.back }
           in
-          debugf "left %d moved back in priority" b;
           r.current_layer <- current_layer;
           has_alternative_choices state r
     | [_] | [] -> false
@@ -353,10 +338,7 @@ module Stable_marriage_diff = struct
     | Some (first,others) ->
         if is_never_paired state first then
           first, others
-        else begin
-          debugf "left %d moved back during skip in priority" first;
-          skip_paired state (push_back others first)
-        end
+        else skip_paired state (push_back others first)
 
   let has_weak_pair state j =
     match state.left.(j) with
@@ -372,7 +354,6 @@ module Stable_marriage_diff = struct
   let prepare_dequeue state { left_candidates=i; pref=d} r =
     let pre, later = List.partition (is_never_paired state) i in
     let dequeue = { front = pre; pre=true; back = later } in
-    debugf "right %d, preference at %d: %a" r d pp_dequeue dequeue;
     match state.right.(r) with
     | None -> ()
     | Some r ->
@@ -380,7 +361,6 @@ module Stable_marriage_diff = struct
         r.current_layer <- dequeue
 
   let second_phase state ir r =
-    debugf "Reactivate right %d" ir;
     let layers = List.rev r.previous_layers in
     r.previous_layers <- [];
     r.phase <- Second;
@@ -395,18 +375,15 @@ module Stable_marriage_diff = struct
     | Seq.Nil ->
         begin match r.phase with
         | First -> second_phase state ir r; true
-        | Second -> debugf "right %d is now inactive" ir; false
+        | Second -> false
         end
     | Seq.Cons(layer, next_layers) ->
-        debugf "right %d moving to the next layer" ir;
         r.previous_layers <- layer :: r.previous_layers;
         r.next_layers <- next_layers;
         prepare_dequeue state layer ir;
         true
 
   let rec get_left_candidate state ir r =
-    debugf "right %d choosing at %d from %a"
-      ir r.current_distance  pp_dequeue r.current_layer;
     assert (r.paired = false);
     if has_alternative_choices state r then
       let f, others = skip_paired state r.current_layer in
@@ -424,12 +401,9 @@ module Stable_marriage_diff = struct
     match get_left_candidate state ir r with
     | None -> None
     | Some l as c ->
-        debugf "right %d test %d" ir l;
         if compatibility l ir then c
-        else begin
-          debugf "right %d incompatible with %d" ir l;
+        else
           get_compatible_left_candidate compatibility state ir r
-        end
 
   let reject state i =
     match state.right.(i) with
@@ -458,7 +432,6 @@ module Stable_marriage_diff = struct
         | _ -> false
 
   let pair state i j d =
-    debugf "right %d paired with %d" i j;
     begin match state.right.(i) with
     | None -> ()
     | Some r ->
@@ -468,7 +441,6 @@ module Stable_marriage_diff = struct
     match state.left.(j) with
     | Left_unpaired -> state.left.(j) <- Left_paired (i, d)
     | Left_paired (i', _) ->
-        debugf "right %d is rejected by %d" i' j;
         reject state i';
         state.left.(j) <- Left_paired (i, d)
 
@@ -492,7 +464,7 @@ module Stable_marriage_diff = struct
          match sequence () with
          | Seq.Nil -> None
          | Seq.Cons (layer, tail) ->
-             let r = {
+             Some {
                paired = false;
                phase = First;
                current_distance = layer.pref;
@@ -500,21 +472,14 @@ module Stable_marriage_diff = struct
                previous_layers = [layer];
                next_layers = tail;
              }
-             in
-             debugf "%s: at %d, preferences %a" name
-               r.current_distance pp_dequeue r.current_layer;
-             Some r
       )
       right
 
 
   let rec proposals compatibility state i right =
     match get_compatible_left_candidate compatibility state i right with
-    | None ->
-        debugf "right %d does not have valid pairing anymore" i;
-        ()
+    | None -> ()
     | Some j ->
-        debugf "right %d considers %d" i j;
         if accepted_proposal state i j right.current_distance then
           pair state i j right.current_distance
         else
@@ -535,14 +500,11 @@ module Stable_marriage_diff = struct
           end
       | i :: l ->
         match state.right.(i) with
-          | None ->
-              debugf "right %d is closed" i;
-              loop l
+          | None -> loop l
           | Some right ->
               proposals compatibility state i right;
               loop l
     in
-    debugf "%d right elements" m;
     loop (List.init m Fun.id);
     let left_final = Seq.zip (Array.to_seq left) (Array.to_seq state.left) in
     let left, pairs = Seq.partition_map (fun (field, status) ->
@@ -692,7 +654,6 @@ module BK_tree = struct
         query result stack ~cutoff ~max_dist name a
 
   let rec layer_seq result ~cutoff ~max_dist dist children name () =
-    debugf "Searching for %s at max distance %d" name max_dist;
     if max_dist > cutoff then Seq.Nil
     else
       let r = query_children result []  ~cutoff ~max_dist name dist children in
@@ -702,7 +663,6 @@ module BK_tree = struct
       match at_dist with
       | [] -> layer_seq r ~cutoff ~max_dist:(max_dist+1) dist children name ()
       | _ ->
-          debugf "layer at %d, %a" max_dist (pp_list pp_int) at_dist;
           let next =
             layer_seq r ~cutoff ~max_dist:(max_dist+1) dist children name in
           Seq.Cons( {left_candidates=at_dist; pref=max_dist}, next)
@@ -727,23 +687,12 @@ module BK_tree = struct
         let children = Int_map.map make dist_map in
         { root; name=root_name; children }
 
-  let rec pp ppf x =
-    let children = Int_map.bindings x.children in
-    match children with
-    | [] -> Format.fprintf ppf "%s(%d)" x.name x.root
-    | _ ->
-        let pp_b ppf (i,d) = Format.fprintf ppf "dist=%d,@ %a@]" i pp d in
-        Format.fprintf ppf "@[<2>%s(%d)@ @[[%a]@]"
-          x.name x.root (pp_list pp_b) children
-
   let preferences ?max_elements:_ ~cutoff d =
     let d = List.mapi (fun i item -> Item.name item, i) d in
     match d with
     | [] -> Fun.const Seq.empty
     | _ ->
-        let t = make d in
-        debugf "@[BK tree@, %a" pp t;
-        layers cutoff t
+        layers cutoff (make d)
 end
 
 let fuzzy_match_names ~compatibility left0 right =
@@ -757,11 +706,6 @@ let fuzzy_match_names ~compatibility left0 right =
     (* Stable marriages. *)
     let left = Array.of_list left0 in
     let right = Array.of_list right in
-    let pp_comma ppf () = Format.fprintf ppf ",@ " in
-    let pp_elt ppf i = Format.fprintf ppf "%s" (Item.name i) in
-    let pp_a = Format.pp_print_array ~pp_sep:pp_comma pp_elt in
-    if Array.length left > 0 && Array.length right > 0 then
-      debugf "@[<v>@[%a@]@,@[%a@]@]" pp_a left pp_a right;
     let compatibility i j =
       compatibility (Item.kind left.(i)) (Item.kind right.(j))
     in
