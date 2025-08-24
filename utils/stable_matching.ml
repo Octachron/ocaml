@@ -318,6 +318,64 @@ module Stable_marriage_diff = struct
 
 end
 
+let (%<%) (x:int option) (y:int option) = match x, y with
+  | None , _ -> false
+  | _, None -> true
+  | Some x, Some y -> x < y
+
+let greedy_matching ~compatibility ~cutoff missings additions =
+  let rec list_extract predicate l =
+    match l with
+    | [] -> None
+    | hd :: tl when predicate hd -> Some (hd, tl)
+    | hd :: tl -> (
+        match list_extract predicate tl with
+        | None -> None
+        | Some (x, tl') -> Some (x, hd :: tl'))
+  in
+
+  let compute_distance expected_field added_field =
+    if compatibility (Item.kind added_field) (Item.kind expected_field) then
+      let distance =
+        let expected_name = Item.name expected_field in
+        Misc.edit_distance
+          expected_name
+          (Item.name added_field)
+          (cutoff expected_name)
+      in
+      distance
+    else
+      None
+  in
+
+  let remaining_added_fields = ref additions in
+  let name_changes = ref [] in
+  let actually_missing =
+    missings
+    |> List.filter_map
+      (fun missing_field ->
+        let missing_id = missing_field in
+        let missing_name = Item.name missing_id in
+        match
+          list_extract
+            (fun added_field ->
+              (compute_distance missing_field added_field)
+                %<% Some (cutoff missing_name))
+            !remaining_added_fields
+        with
+        | None -> Some missing_field
+        | Some (added_field, additions) ->
+            let name_change = Item.item added_field, Item.item missing_field in
+            name_changes := name_change :: !name_changes;
+            remaining_added_fields := additions;
+            None)
+  in
+  {
+    left = !remaining_added_fields;
+    pairs= !name_changes;
+    right = actually_missing
+  }
+
 module BK_tree = struct
   module Int_map = Map.Make(Int)
 
@@ -390,25 +448,29 @@ module BK_tree = struct
         layers cutoff (make d)
 end
 
-let fuzzy_match_names ~compatibility ?(lim=50)left0 right =
+let fuzzy_match_names ~compatibility left0 right =
   (* The edit distance between an existing name and a suggested rename must be
      at most half the length of the name. *)
   let cutoff name =
     let len = String.length name in
     len/2
   in
-  let left0 = List.take lim left0 in
-  let left = Array.of_list left0 in
-  let right = Array.of_list right in
-  let compatibility i j =
-    compatibility (Item.kind left.(i)) (Item.kind right.(j))
-  in
-  let matches =
-    let preferences = BK_tree.preferences ~cutoff left0 in
-    Stable_marriage_diff.diff
-      ~preferences ~compatibility
-      left
-      right
-  in
-  let pairs = List.map (fun (x,y) -> Item.(item x, item y)) matches.pairs in
-  { matches with pairs }
+  if (*  *List.length left < 60 && List.length right < 60 *) true then
+    (* Stable marriages. *)
+    let left = Array.of_list left0 in
+    let right = Array.of_list right in
+    let compatibility i j =
+      compatibility (Item.kind left.(i)) (Item.kind right.(j))
+    in
+    let matches =
+      let preferences = BK_tree.preferences ~cutoff left0 in
+      Stable_marriage_diff.diff
+        ~preferences ~compatibility
+        left
+        right
+    in
+    let pairs = List.map (fun (x,y) -> Item.(item x, item y)) matches.pairs in
+    { matches with pairs }
+  else
+    (* Greedy. *)
+    greedy_matching ~compatibility ~cutoff left0 right
