@@ -21,6 +21,216 @@ type cost_model = {
 }
 type layer = { left_candidates: int list; pref:int }
 
+module Trie = struct
+  let new_uid =
+    let counter = ref 0 in
+    fun () ->
+      incr counter;
+      !counter
+
+  type 'a t = {
+    uid : int;
+    mutable leaf_data : 'a option;
+    strict_suffixes : (char, 'a t) Hashtbl.t;
+    mutable subtrie_count : int;
+        (** The total number of subtries this trie contains (including
+            itself). *)
+    mutable shortest_suffix : (int * 'a) option;
+        (** The length and associated data of a shortest suffix, if any. *)
+    mutable longest_suffix : (int * 'a) option;
+        (** The length and associated data of a longest suffix, if any. *)
+  }
+
+  let create () =
+    {
+      uid = new_uid ();
+      leaf_data = None;
+      strict_suffixes = Hashtbl.create 1;
+      subtrie_count = 1;
+      shortest_suffix = None;
+      longest_suffix = None;
+    }
+
+  let add trie string data =
+    let rec aux s length trie =
+      (trie.shortest_suffix <-
+        match trie.shortest_suffix with
+        | Some (l, d) when l <= length -> Some (l, d)
+        | _ -> Some (length, data));
+      (trie.longest_suffix <-
+        match trie.longest_suffix with
+        | Some (l, d) when l >= length -> Some (l, d)
+        | _ -> Some (length, data));
+      match s () with
+      | Seq.Nil ->
+          trie.leaf_data <- Some data
+      | Seq.Cons (c, next) ->
+          match Hashtbl.find_opt trie.strict_suffixes c with
+          | None ->
+              let new_child = create () in
+              aux next (length - 1) new_child;
+              Hashtbl.add trie.strict_suffixes c new_child;
+              trie.subtrie_count <- trie.subtrie_count + new_child.subtrie_count
+          | Some child ->
+              let subtries_without_child =
+                trie.subtrie_count - child.subtrie_count
+              in
+              aux next (length - 1) child;
+              trie.subtrie_count <- subtries_without_child + child.subtrie_count
+    in
+    aux (String.to_seq string) (String.length string) trie
+
+  let of_seq entries =
+    let trie = create () in
+    Seq.iter (fun (string, data) -> add trie string data) entries;
+    trie
+
+  module Levenshtein_state = struct
+    (** A state of a Levenshtein automaton. *)
+
+    type nonrec 'a t = {
+      trie : 'a t;  (** The remaining suffixes we can match against. *)
+      remaining_length : int;
+          (** The remaining length of the string we are trying to match. *)
+      distance : int;
+          (** The current distance to the string we are trying to match. *)
+      remaining_distance_estimation : int;
+          (** An estimation of the remaining distance. *)
+    }
+
+    let priority state = state.distance + state.remaining_distance_estimation
+    let compare s s' = compare (priority s) (priority s')
+
+    (** An admissible heuristic for A* (as in, it always under-estimates the
+        true remainign distance). *)
+    let estimate_remaining_distance cost remaining_length trie =
+      match (trie.shortest_suffix, trie.longest_suffix) with
+      | Some (shortest_length, _), _
+      when remaining_length <= shortest_length ->
+          Some ((shortest_length - remaining_length) * cost.insertion)
+      | _, Some (longest_length, _) when remaining_length >= longest_length ->
+          Some ((remaining_length - longest_length) * cost.deletion)
+      | None, None -> None
+      | _, _ -> Some 0
+
+    let make cost trie remaining_length distance =
+      match estimate_remaining_distance cost remaining_length trie with
+      | Some remaining_distance_estimation ->
+          [{
+            trie;
+            remaining_length;
+            distance;
+            remaining_distance_estimation
+          }]
+      | None -> []
+
+    (** Computes a list of all possible states after performing a single
+        operation. *)
+    let transitions cost text state =
+      let n = String.length text in
+      let deletions =
+        if state.remaining_length > 0 then
+          make cost state.trie
+            (state.remaining_length - 1)
+            (state.distance + cost.deletion)
+        else []
+      in
+      Hashtbl.fold
+        (fun c suffix_trie transitions ->
+           let insertion = make cost suffix_trie
+               state.remaining_length
+               (state.distance + cost.insertion)
+           in
+           let subst =
+             if state.remaining_length = 0 then [] else
+             let substitution_cost_here =
+               if c = text.[n - state.remaining_length] then
+                 0
+               else
+                 cost.substitution
+             in
+             make cost suffix_trie
+               (state.remaining_length - 1)
+               (state.distance + substitution_cost_here)
+           in
+            subst @ insertion @ transitions
+        ) state.trie.strict_suffixes deletions
+  end
+
+
+  let (%>%) (x:int) (y:int option) =
+    match y with
+    | None -> false
+    | Some y -> x > y
+
+  module State = Levenshtein_state
+
+  let default_cost = { deletion = 1; insertion=1; substitution=1 }
+
+  let compute_preferences (type a) cost ?(cutoff : int option) (trie : a t)
+      (string : string) : (a * int) Seq.t =
+    let module PriorityQueue =
+      Pqueue.MakeMin (struct type t = a State.t let compare = State.compare end)
+    in
+    let rec compute queue seen_states = fun () ->
+      match PriorityQueue.pop_min queue with
+      | None -> Seq.Nil
+      | Some state ->
+          if State.priority state %>% cutoff then
+            Seq.Nil
+          else
+            let state_id = state.trie.uid, state.State.remaining_length in
+            if Hashtbl.mem seen_states state_id then
+              compute queue seen_states ()
+            else (
+              Hashtbl.add seen_states state_id ();
+              List.iter
+                  (PriorityQueue.add queue)
+                  (State.transitions cost string state);
+              match state with
+              | {
+                State.trie = { leaf_data = Some data; _ };
+                remaining_length = 0;
+                distance;
+                _;
+              } ->
+                  Seq.Cons ((data, distance), compute queue seen_states)
+              | _ -> compute queue seen_states ()
+            )
+    in
+
+    let n = String.length string in
+    let queue = PriorityQueue.create () in
+    List.iter (PriorityQueue.add queue) (State.make cost trie n 0);
+    let seen_states = Hashtbl.create trie.subtrie_count in
+    compute queue seen_states
+
+  let rec group_ties seq current_distance acc () =
+    match seq () with
+    | Seq.Nil ->
+        Seq.Cons ({ left_candidates=acc; pref=current_distance }, Seq.empty)
+    | Seq.Cons ((data, distance), next) ->
+        if distance = current_distance then
+          group_ties next current_distance (data :: acc) ()
+        else
+          let next_layer = group_ties next distance [ data ] in
+          Seq.Cons ({left_candidates=acc; pref=current_distance}, next_layer)
+
+  let compute_preference_layers ?(cost = default_cost) ?cutoff ?max_elements
+      trie query =
+    let preferences = compute_preferences cost ?cutoff trie query in
+    let seq =
+      match max_elements with
+      | Some n -> Seq.take n preferences
+      | None -> preferences
+    in
+    match seq () with
+    | Seq.Nil -> Seq.empty
+    | Seq.Cons((data,distance), seq) -> group_ties seq distance [data]
+end
+
+
+
 type ('a,'v) matches = {
   left : 'a list;
   pairs : ('v * 'v) list;
@@ -234,6 +444,16 @@ module Stable_marriage_diff = struct
         reject state i';
         state.left.(j) <- Left_paired (i, d)
 
+  let trie_preferences ?max_elements ~cutoff x =
+    let name i field = Item.name field, i in
+    let left_trie = x |> Array.to_seq |> Seq.mapi name |> Trie.of_seq in
+    fun name ->
+      Trie.compute_preference_layers
+        ~cutoff:(cutoff name)
+        ?max_elements
+        left_trie
+        name
+
   let d_of_list front = { front; pre=true; back = [] }
 
   let init_right_state ~preferences right =
@@ -376,6 +596,172 @@ let greedy_matching ~compatibility ~cutoff missings additions =
     right = actually_missing
   }
 
+let simple_preferences ~cutoff left name =
+  let cutoff = 1 + cutoff name in
+  let a =
+    Array.of_seq
+    @@ Seq.filter (fun (_,d) -> d < cutoff)
+    @@ Seq.mapi (fun i r ->
+        i, String.edit_distance ~limit:cutoff name @@ Item.name r)
+    @@ Array.to_seq left in
+  let () = Array.sort (fun (_,n) (_,n') -> Int.compare n n') a in
+  let rec group_by current acc pos () =
+    if pos >= Array.length a then
+      match acc with
+      | [] -> Seq.Nil
+      | _ -> Seq.Cons ({ left_candidates=acc; pref=current }, Seq.empty)
+    else
+      let x, dist = a.(pos) in
+      if dist = current then
+        group_by current (x::acc) (pos+1) ()
+      else if acc = [] then
+        group_by dist [x] (pos+1) ()
+      else
+        Seq.Cons (
+          {left_candidates=acc; pref=current}, group_by dist [x] (pos+1)
+        )
+  in
+  group_by 0 [] 0
+
+module BK_tree_hm = struct
+  type 'a t = { root: 'a; name:string; children: (int,'a t) Hashtbl.t  }
+
+  let rec query results stack ~cutoff ~max_dist name t =
+    let dist = String.edit_distance name t.name in
+    if dist <= cutoff then Hashtbl.add results dist t.root;
+    query_children results stack ~cutoff ~max_dist name dist t.children
+  and query_children result stack ~cutoff ~max_dist name dist children =
+    let children =
+      if max_dist = 0 then Option.to_list (Hashtbl.find_opt children dist)
+      else
+        let left =Hashtbl.find_opt children (dist-max_dist) in
+        let right = Hashtbl.find_opt children (dist+max_dist) in
+        Option.to_list left @ Option.to_list right
+    in
+    match children, stack with
+    | [], [] -> result
+    | [], a :: q -> query result q ~cutoff ~max_dist name a
+    | a :: q, _  ->
+        let stack = q @ stack in
+        query result stack ~cutoff ~max_dist name a
+
+  let rec layer_seq result ~cutoff ~max_dist dist children name () =
+    if max_dist > cutoff then Seq.Nil
+    else
+      let r = query_children result []  ~cutoff ~max_dist name dist children in
+      let at_dist = Hashtbl.find_all r max_dist in
+      match at_dist with
+      | [] -> layer_seq r ~cutoff ~max_dist:(max_dist+1) dist children name ()
+      | _ ->
+          let next =
+            layer_seq r ~cutoff ~max_dist:(max_dist+1) dist children name in
+          Seq.Cons( {left_candidates=at_dist; pref=max_dist}, next)
+
+  let layers cutoff (t: int t) name =
+    let cutoff = cutoff name in
+    let dist = String.edit_distance t.name name in
+    let results = Hashtbl.create 17 in
+    if dist <= cutoff then Hashtbl.add results dist t.root;
+    layer_seq results ~cutoff ~max_dist:0 dist t.children name
+
+  let rec make = function
+    | [] -> invalid_arg "Empty lexicon"
+    | (root_name,root) :: q ->
+        let tbl = Hashtbl.create 4 in
+        List.iter (fun (name,_ as x) ->
+            let dist = String.edit_distance root_name name in
+            let v= Option.value ~default:[] @@ Hashtbl.find_opt tbl dist in
+            Hashtbl.replace tbl dist (x::v)
+          ) q;
+        let children = Hashtbl.of_seq
+          @@ Seq.map (fun (k,l) -> k, make l)
+          @@ Hashtbl.to_seq tbl
+        in
+        { root; name=root_name; children }
+
+  let preferences ?max_elements:_ ~cutoff d =
+    let d = List.mapi (fun i item -> Item.name item, i) d in
+    match d with
+    | [] -> Fun.const Seq.empty
+    | _ ->
+        layers cutoff (make d)
+end
+
+
+module BK_tree_da = struct
+  type 'a t = { root: 'a; name:string; children: 'a t option Dynarray.t  }
+
+  let (.?()) da n = if n >= Dynarray.length da || n <= 0 then None else
+      Dynarray.get da n
+
+
+  let (.$()<-) da n x =
+    if n < Dynarray.length da then Dynarray.set da n (x::Dynarray.get da n)
+    else
+      let diff = 1 + n - Dynarray.length da in
+      Dynarray.append_seq da Seq.(take diff @@ repeat []);
+      Dynarray.set da n [x]
+
+  let rec query results stack ~cutoff ~max_dist name t =
+    let dist = String.edit_distance name t.name in
+    if dist <= cutoff then Hashtbl.add results dist t.root;
+    query_children results stack ~cutoff ~max_dist name dist t.children
+  and query_children result stack ~cutoff ~max_dist name dist children =
+    let children =
+      if max_dist = 0 then Option.to_list children.?(dist)
+      else
+        let left = children.?(dist-max_dist) in
+        let right = children.?(dist+max_dist) in
+        Option.to_list left @ Option.to_list right
+    in
+    match children, stack with
+    | [], [] -> result
+    | [], a :: q -> query result q ~cutoff ~max_dist name a
+    | a :: q, _  ->
+        let stack = q @ stack in
+        query result stack ~cutoff ~max_dist name a
+
+  let rec layer_seq result ~cutoff ~max_dist dist children name () =
+    if max_dist > cutoff then Seq.Nil
+    else
+      let r = query_children result [] ~cutoff ~max_dist name dist children in
+      let at_dist = Hashtbl.find_all r max_dist in
+      match at_dist with
+      | [] -> layer_seq r ~cutoff ~max_dist:(max_dist+1) dist children name ()
+      | _ ->
+          let next =
+            layer_seq r ~cutoff ~max_dist:(max_dist+1) dist children name in
+          Seq.Cons( {left_candidates=at_dist; pref=max_dist}, next)
+
+  let layers cutoff (t: int t) name =
+    let cutoff = cutoff name in
+    let dist = String.edit_distance t.name name in
+    let results = Hashtbl.create 17 in
+    if dist <= cutoff then Hashtbl.add results dist t.root;
+    layer_seq results ~cutoff ~max_dist:0 dist t.children name
+
+  let rec make = function
+    | [] -> invalid_arg "Empty lexicon"
+    | (root_name,root) :: q ->
+        let da = Dynarray.create () in
+        List.iter (fun (name,_ as x) ->
+            let dist = String.edit_distance root_name name in
+            da.$(dist) <- x
+          ) q;
+        let children =
+          Dynarray.map (function [] -> None | l -> Some(make l)) da in
+        { root; name=root_name; children }
+
+  let preferences ?max_elements:_ ~cutoff d =
+    let d = List.mapi (fun i item -> Item.name item, i) d in
+    match d with
+    | [] -> Fun.const Seq.empty
+    | _ ->
+        layers cutoff (make d)
+end
+
+
+
 module BK_tree = struct
   module Int_map = Map.Make(Int)
 
@@ -463,7 +849,14 @@ let fuzzy_match_names ~compatibility left0 right =
       compatibility (Item.kind left.(i)) (Item.kind right.(j))
     in
     let matches =
-      let preferences = BK_tree.preferences ~cutoff left0 in
+      let preferences = match Sys.getenv_opt "OPREF" with
+        | Some "T" -> Stable_marriage_diff.trie_preferences ~cutoff left
+        | Some "B" -> BK_tree.preferences ~cutoff left0
+        | Some "H" -> BK_tree_hm.preferences ~cutoff left0
+        | Some "D" -> BK_tree_da.preferences ~cutoff left0
+        | Some "S" -> simple_preferences ~cutoff left
+        |  _ -> BK_tree_da.preferences ~cutoff left0
+      in
       Stable_marriage_diff.diff
         ~preferences ~compatibility
         left
