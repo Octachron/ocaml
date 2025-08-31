@@ -21,212 +21,225 @@ type cost_model = {
 }
 type layer = { left_candidates: int list; pref:int }
 
-module Trie = struct
-  let new_uid =
-    let counter = ref 0 in
-    fun () ->
-      incr counter;
-      !counter
+module Int_map = Map.Make(Int)
 
-  type 'a t = {
-    uid : int;
-    mutable leaf_data : 'a option;
-    strict_suffixes : (char, 'a t) Hashtbl.t;
-    mutable subtrie_count : int;
-        (** The total number of subtries this trie contains (including
-            itself). *)
-    mutable shortest_suffix : (int * 'a) option;
-        (** The length and associated data of a shortest suffix, if any. *)
-    mutable longest_suffix : (int * 'a) option;
-        (** The length and associated data of a longest suffix, if any. *)
+
+module Trie = struct
+
+ module Uchar_map = Map.Make(Uchar)
+ type 'data t = {
+    leaf : 'data option;
+    strict_suffixes : 'data path Uchar_map.t;
+  }
+  and 'data path = { path:string; subtree: 'data t }
+
+
+  let empty = { leaf = None; strict_suffixes = Uchar_map.empty }
+  let leaf x = { leaf = Some x; strict_suffixes = Uchar_map.empty}
+
+  type diff =
+    | At_pos of {offset:int; l:Uchar.t option;  r:Uchar.t }
+    | Same of int
+
+  let rec find_difference ~llen ~lpos l ~rlen ~offset r =
+    match lpos = llen, offset = rlen with
+    | true, true -> Same lpos
+    | true, false ->
+        let r = Uchar.utf_decode_uchar (String.get_utf_8_uchar r offset) in
+        At_pos { offset; l = None; r }
+    | false, true -> Same lpos
+    | false, false ->
+        let ld = String.get_utf_8_uchar l lpos in
+        let rd = String.get_utf_8_uchar r offset in
+        if ld <> rd then
+          let l = Some (Uchar.utf_decode_uchar ld) in
+          At_pos { offset; l; r = Uchar.utf_decode_uchar rd }
+        else
+          let diff = Uchar.utf_decode_length ld in
+          find_difference
+            ~llen ~lpos:(lpos+diff) l
+            ~rlen ~offset:(offset+diff) r
+
+  let add (s,k) trie =
+    let rec aux k len pos s trie =
+      if pos = len then { trie with leaf = Some k } else
+        let decode = String.get_utf_8_uchar s pos in
+        let char = Uchar.utf_decode_uchar decode in
+        let diff = Uchar.utf_decode_length decode in
+        let new_sub = match Uchar_map.find char trie.strict_suffixes with
+          | exception Not_found -> {
+              path = String.sub s pos (String.length s - pos);
+              subtree = leaf k
+            }
+          | { path; subtree } ->
+              match find_difference ~llen:len ~lpos:(pos+diff) s
+                      ~rlen:(String.length path) ~offset:diff path
+              with
+              | Same lpos -> { path; subtree = aux k len lpos s subtree }
+              | At_pos {offset;l;r} ->
+                  let common = String.sub path 0 offset in
+                  let right =
+                    let path =
+                      String.sub path offset (String.length path - offset)
+                    in
+                    Uchar_map.singleton r { path ; subtree }
+                  in
+                  let subtree = match l with
+                    | None -> { leaf = Some k; strict_suffixes = right }
+                    | Some l ->
+                        let path =
+                          String.sub s offset (String.length s - offset)
+                        in
+                        let strict_suffixes =
+                          Uchar_map.add l {path; subtree=leaf k} right
+                        in
+                        { leaf = None; strict_suffixes }
+                  in
+                  { path = common; subtree }
+        in
+        let strict_suffixes = Uchar_map.add char new_sub trie.strict_suffixes in
+        { trie with strict_suffixes }
+    in
+    aux k (String.length s) 0 s trie
+
+  let of_seq s = Seq.fold_left (fun t x -> add x t) empty s
+
+  let comma ppf () = Format.fprintf ppf ",@ "
+  let pp_uchar ppf u =
+    let u =
+      let b = Buffer.create 2 in Buffer.add_utf_8_uchar b u; Buffer.contents b
+    in
+    Format.pp_print_string ppf u
+
+  let[@warning "-32"] rec pp_trie pp_leaf ppf m =
+    Format.fprintf ppf "@[<v 2>%a [%a]@]" pp_leaf m.leaf
+      (Format.pp_print_seq ~pp_sep:comma @@ pp_binding pp_leaf)
+      (Uchar_map.to_seq m.strict_suffixes)
+  and[@warning "-32"] pp_binding pp_leaf ppf (u,p) =
+    Format.fprintf ppf "(%a)%s %a" pp_uchar u p.path (pp_trie pp_leaf) p.subtree
+
+  type column = { char:Uchar.t; score: int Array.t }
+
+  type frontier = { col_minus_1:column; col:column }
+  let copy c = { c with score = Array.copy c.score }
+
+  type 'a state = {
+    matrix:frontier;
+    best_score:int;
+    trie: 'a t
   }
 
-  let create () =
-    {
-      uid = new_uid ();
-      leaf_data = None;
-      strict_suffixes = Hashtbl.create 1;
-      subtrie_count = 1;
-      shortest_suffix = None;
-      longest_suffix = None;
-    }
-
-  let add trie string data =
-    let rec aux s length trie =
-      (trie.shortest_suffix <-
-        match trie.shortest_suffix with
-        | Some (l, d) when l <= length -> Some (l, d)
-        | _ -> Some (length, data));
-      (trie.longest_suffix <-
-        match trie.longest_suffix with
-        | Some (l, d) when l >= length -> Some (l, d)
-        | _ -> Some (length, data));
-      match s () with
-      | Seq.Nil ->
-          trie.leaf_data <- Some data
-      | Seq.Cons (c, next) ->
-          match Hashtbl.find_opt trie.strict_suffixes c with
-          | None ->
-              let new_child = create () in
-              aux next (length - 1) new_child;
-              Hashtbl.add trie.strict_suffixes c new_child;
-              trie.subtrie_count <- trie.subtrie_count + new_child.subtrie_count
-          | Some child ->
-              let subtries_without_child =
-                trie.subtrie_count - child.subtrie_count
-              in
-              aux next (length - 1) child;
-              trie.subtrie_count <- subtries_without_child + child.subtrie_count
-    in
-    aux (String.to_seq string) (String.length string) trie
-
-  let of_seq entries =
-    let trie = create () in
-    Seq.iter (fun (string, data) -> add trie string data) entries;
-    trie
-
-  module Levenshtein_state = struct
-    (** A state of a Levenshtein automaton. *)
-
-    type nonrec 'a t = {
-      trie : 'a t;  (** The remaining suffixes we can match against. *)
-      remaining_length : int;
-          (** The remaining length of the string we are trying to match. *)
-      distance : int;
-          (** The current distance to the string we are trying to match. *)
-      remaining_distance_estimation : int;
-          (** An estimation of the remaining distance. *)
-    }
-
-    let priority state = state.distance + state.remaining_distance_estimation
-    let compare s s' = compare (priority s) (priority s')
-
-    (** An admissible heuristic for A* (as in, it always under-estimates the
-        true remainign distance). *)
-    let estimate_remaining_distance cost remaining_length trie =
-      match (trie.shortest_suffix, trie.longest_suffix) with
-      | Some (shortest_length, _), _
-      when remaining_length <= shortest_length ->
-          Some ((shortest_length - remaining_length) * cost.insertion)
-      | _, Some (longest_length, _) when remaining_length >= longest_length ->
-          Some ((remaining_length - longest_length) * cost.deletion)
-      | None, None -> None
-      | _, _ -> Some 0
-
-    let make cost trie remaining_length distance =
-      match estimate_remaining_distance cost remaining_length trie with
-      | Some remaining_distance_estimation ->
-          [{
-            trie;
-            remaining_length;
-            distance;
-            remaining_distance_estimation
-          }]
-      | None -> []
-
-    (** Computes a list of all possible states after performing a single
-        operation. *)
-    let transitions cost text state =
-      let n = String.length text in
-      let deletions =
-        if state.remaining_length > 0 then
-          make cost state.trie
-            (state.remaining_length - 1)
-            (state.distance + cost.deletion)
-        else []
-      in
-      Hashtbl.fold
-        (fun c suffix_trie transitions ->
-           let insertion = make cost suffix_trie
-               state.remaining_length
-               (state.distance + cost.insertion)
-           in
-           let subst =
-             if state.remaining_length = 0 then [] else
-             let substitution_cost_here =
-               if c = text.[n - state.remaining_length] then
-                 0
-               else
-                 cost.substitution
-             in
-             make cost suffix_trie
-               (state.remaining_length - 1)
-               (state.distance + substitution_cost_here)
-           in
-            subst @ insertion @ transitions
-        ) state.trie.strict_suffixes deletions
-  end
+  module QState = Pqueue.MakeMinPoly(struct
+      type 'a t = 'a state
+      let compare x y = compare x.best_score y.best_score
+    end)
 
 
-  let (%>%) (x:int) (y:int option) =
-    match y with
-    | None -> false
-    | Some y -> x > y
+  let score st = st.matrix.col.score.(Array.length st.matrix.col.score - 1)
+  let best_future_score x = Array.fold_left min Int.max_int x.col.score
 
-  module State = Levenshtein_state
 
-  let default_cost = { deletion = 1; insertion=1; substitution=1 }
+  let add_leaf result_map state =
+    match state.trie.leaf with
+    | Some index ->  Int_map.add_to_list (score state) index result_map
+    | None -> result_map
 
-  let compute_preferences (type a) cost ?(cutoff : int option) (trie : a t)
-      (string : string) : (a * int) Seq.t =
-    let module PriorityQueue =
-      Pqueue.MakeMin (struct type t = a State.t let compare = State.compare end)
-    in
-    let rec compute queue seen_states = fun () ->
-      match PriorityQueue.pop_min queue with
-      | None -> Seq.Nil
-      | Some state ->
-          if State.priority state %>% cutoff then
-            Seq.Nil
-          else
-            let state_id = state.trie.uid, state.State.remaining_length in
-            if Hashtbl.mem seen_states state_id then
-              compute queue seen_states ()
-            else (
-              Hashtbl.add seen_states state_id ();
-              List.iter
-                  (PriorityQueue.add queue)
-                  (State.transitions cost string state);
-              match state with
-              | {
-                State.trie = { leaf_data = Some data; _ };
-                remaining_length = 0;
-                distance;
-                _;
-              } ->
-                  Seq.Cons ((data, distance), compute queue seen_states)
-              | _ -> compute queue seen_states ()
-            )
-    in
+  let next_char pos s =
+    let d = String.get_utf_8_uchar s pos in
+    let len = Uchar.utf_decode_length d in
+    let u = Uchar.utf_decode_uchar d in
+    pos + len, u
 
-    let n = String.length string in
-    let queue = PriorityQueue.create () in
-    List.iter (PriorityQueue.add queue) (State.make cost trie n 0);
-    let seen_states = Hashtbl.create trie.subtrie_count in
-    compute queue seen_states
-
-  let rec group_ties seq current_distance acc () =
-    match seq () with
-    | Seq.Nil ->
-        Seq.Cons ({ left_candidates=acc; pref=current_distance }, Seq.empty)
-    | Seq.Cons ((data, distance), next) ->
-        if distance = current_distance then
-          group_ties next current_distance (data :: acc) ()
+  let rec col_edit_distance ~left ~rlen ~rpos ~right
+      ~col_minus_1
+      ~col
+    =
+    if rpos >= rlen then { col_minus_1; col } else
+    let rpos, rchar = next_char rpos right in
+    let l = Array.length col.score in
+    for i = l - 1 downto 0 do
+      let addition = col.score.(i) + 1 in
+      let subst =
+        if i = 0 then Int.max_int
+        else if rchar = left.(i-1) then col.score.(i-1)
+        else 1 + col.score.(i-1) in
+      let transpose =
+        if i >=2 && rchar = left.(i-2) && col.char = left.(i-1) then
+          1 + col_minus_1.score.(i-2)
         else
-          let next_layer = group_ties next distance [ data ] in
-          Seq.Cons ({left_candidates=acc; pref=current_distance}, next_layer)
+          Int.max_int
+      in
+      col_minus_1.score.(i) <- min transpose (min addition subst)
+    done;
+    for i = 1 to l - 1 do
+      col_minus_1.score.(i) <-
+        min col_minus_1.score.(i) (1+col_minus_1.score.(i-1))
+    done;
+    let new_col = { score = col_minus_1.score; char = rchar } in
+    col_edit_distance ~left ~rlen ~rpos ~right
+    ~col:new_col ~col_minus_1:col
 
-  let compute_preference_layers ?(cost = default_cost) ?cutoff ?max_elements
-      trie query =
-    let preferences = compute_preferences cost ?cutoff trie query in
-    let seq =
-      match max_elements with
-      | Some n -> Seq.take n preferences
-      | None -> preferences
-    in
-    match seq () with
-    | Seq.Nil -> Seq.empty
-    | Seq.Cons((data,distance), seq) -> group_ties seq distance [data]
+
+  let rec query_next score word result_map queue =
+    match QState.pop_min queue with
+    | None -> result_map
+    | Some st ->
+        if st.best_score > score then result_map
+        else
+          query_children score word result_map queue st st.trie.strict_suffixes
+    and query_children score word result_map queue st children =
+      if Uchar_map.is_empty children then
+        query_next score word result_map queue
+      else
+        let u, first = Uchar_map.choose children in
+        let rest = Uchar_map.remove u children in
+        let trie = { st.trie with strict_suffixes = rest } in
+        let () = QState.add queue { st with trie } in
+        query_path score word result_map queue st first
+
+    and query_path score word result_map queue st p =
+      let cols = col_edit_distance
+          ~left:word ~rlen:(String.length p.path) ~right:p.path ~rpos:0
+          ~col_minus_1:(copy st.matrix.col_minus_1)
+          ~col:(copy st.matrix.col)
+      in
+      let best_score = best_future_score cols in
+      let state = { matrix=cols; best_score; trie = p.subtree } in
+      let result_map = add_leaf result_map state in
+      if best_score <= score then
+        query_children score word result_map queue st st.trie.strict_suffixes
+      else
+        query_next score word result_map queue
+
+    let uchar_array word =
+      let d = Dynarray.create () in
+      let pos = ref 0 in
+      let len = String.length word in
+      while !pos < len do
+        let npos, char = next_char !pos word in
+        Dynarray.add_last d char;
+        pos := npos
+      done;
+      Dynarray.to_array d
+
+    let rec query rmap cutoff queue name () =
+        match QState.min_elt queue with
+        | None -> Seq.Nil
+        | Some st ->
+            let layer = st.best_score in
+            if layer > cutoff then
+              Seq.Nil
+            else
+              let rmap = query_next layer name rmap queue in
+              match Int_map.find_opt layer rmap with
+              | None | Some [] -> query rmap cutoff queue name ()
+              | Some l ->
+                  Seq.Cons( {left_candidates=l; pref=layer},
+                            query rmap cutoff queue name)
+
+    let compute_preference_layers ?max_elements:_ ~cutoff _trie name =
+      query Int_map.empty cutoff (QState.create ()) (uchar_array name)
+
 end
 
 
@@ -763,7 +776,6 @@ end
 
 
 module BK_tree = struct
-  module Int_map = Map.Make(Int)
 
   type 'a t = { root: 'a; name:string; children: 'a t Int_map.t }
 
