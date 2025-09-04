@@ -60,6 +60,25 @@ module Trie = struct
             ~llen ~lpos:(lpos+diff) l
             ~rlen ~offset:(offset+diff) r
 
+  let comma ppf () = Format.fprintf ppf ",@ "
+  let pp_uchar ppf u =
+    let u =
+      let b = Buffer.create 2 in Buffer.add_utf_8_uchar b u; Buffer.contents b
+    in
+    Format.pp_print_string ppf u
+
+  let[@warning "-32"] rec pp_trie pp_leaf ppf m =
+    let pp_oleaf ppf = function
+      | None -> Format.fprintf ppf "()"
+      | Some leaf -> Format.fprintf ppf "(%a)" pp_leaf leaf
+    in
+    Format.fprintf ppf "@[<v 2>%a [%a]@]" pp_oleaf m.leaf
+      (Format.pp_print_seq ~pp_sep:comma @@ pp_binding pp_leaf)
+      (Uchar_map.to_seq m.strict_suffixes)
+  and[@warning "-32"] pp_binding pp_leaf ppf (u,p) =
+    Format.fprintf ppf "(%a)%s %a" pp_uchar u p.path (pp_trie pp_leaf) p.subtree
+
+
   let add (s,k) trie =
     let rec aux k len pos s trie =
       if pos = len then { trie with leaf = Some k } else
@@ -88,7 +107,8 @@ module Trie = struct
                     | None -> { leaf = Some k; strict_suffixes = right }
                     | Some l ->
                         let path =
-                          String.sub s offset (String.length s - offset)
+                          let pos = pos + offset in
+                          String.sub s pos (String.length s - pos)
                         in
                         let strict_suffixes =
                           Uchar_map.add l {path; subtree=leaf k} right
@@ -100,23 +120,14 @@ module Trie = struct
         let strict_suffixes = Uchar_map.add char new_sub trie.strict_suffixes in
         { trie with strict_suffixes }
     in
-    aux k (String.length s) 0 s trie
+    let new_trie = aux k (String.length s) 0 s trie in
+    Format.eprintf "@[<v 2>%a@ -(%s)>@ %a@]@."
+      (pp_trie Format.pp_print_int) trie s
+      (pp_trie Format.pp_print_int) new_trie;
+    new_trie
 
   let of_seq s = Seq.fold_left (fun t x -> add x t) empty s
 
-  let comma ppf () = Format.fprintf ppf ",@ "
-  let pp_uchar ppf u =
-    let u =
-      let b = Buffer.create 2 in Buffer.add_utf_8_uchar b u; Buffer.contents b
-    in
-    Format.pp_print_string ppf u
-
-  let[@warning "-32"] rec pp_trie pp_leaf ppf m =
-    Format.fprintf ppf "@[<v 2>%a [%a]@]" pp_leaf m.leaf
-      (Format.pp_print_seq ~pp_sep:comma @@ pp_binding pp_leaf)
-      (Uchar_map.to_seq m.strict_suffixes)
-  and[@warning "-32"] pp_binding pp_leaf ppf (u,p) =
-    Format.fprintf ppf "(%a)%s %a" pp_uchar u p.path (pp_trie pp_leaf) p.subtree
 
   type column = { char:Uchar.t; score: int Array.t }
 
@@ -141,7 +152,9 @@ module Trie = struct
 
   let add_leaf result_map state =
     match state.trie.leaf with
-    | Some index ->  Int_map.add_to_list (score state) index result_map
+    | Some index ->
+        Format.eprintf "found leaf %d, score = %d@." index (score state);
+        Int_map.add_to_list (score state) index result_map
     | None -> result_map
 
   let next_char pos s =
@@ -181,20 +194,27 @@ module Trie = struct
 
 
   let rec query_next score word result_map queue =
-    match QState.pop_min queue with
-    | None -> result_map
+    match QState.min_elt queue with
+    | None -> Format.eprintf "No elements in the queue@."; result_map
     | Some st ->
         if st.best_score > score then result_map
-        else
+        else begin
+          QState.remove_min queue;
+          Format.eprintf "Processing children@.";
           query_children score word result_map queue st st.trie.strict_suffixes
+        end
     and query_children score word result_map queue st children =
       if Uchar_map.is_empty children then
-        query_next score word result_map queue
+        (Format.eprintf "No children left@.";
+         query_next score word result_map queue
+        )
       else
         let u, first = Uchar_map.choose children in
         let rest = Uchar_map.remove u children in
+        Format.eprintf "Looking at %s@." first.path;
         let trie = { st.trie with strict_suffixes = rest } in
-        let () = QState.add queue { st with trie } in
+        let st = { st with trie } in
+        let () = QState.add queue st in
         query_path score word result_map queue st first
 
     and query_path score word result_map queue st p =
@@ -204,11 +224,12 @@ module Trie = struct
           ~col:(copy st.matrix.col)
       in
       let best_score = best_future_score cols in
-      let state = { matrix=cols; best_score; trie = p.subtree } in
-      let result_map = add_leaf result_map state in
+      let st = { matrix=cols; best_score; trie = p.subtree } in
+      let result_map = add_leaf result_map st in
       if best_score <= score then
         query_children score word result_map queue st st.trie.strict_suffixes
       else
+        let () = QState.add queue st in
         query_next score word result_map queue
 
     let uchar_array word =
@@ -223,22 +244,53 @@ module Trie = struct
       Dynarray.to_array d
 
     let rec query rmap cutoff queue name () =
-        match QState.min_elt queue with
-        | None -> Seq.Nil
-        | Some st ->
-            let layer = st.best_score in
+      let next_score =
+        match QState.min_elt queue, Int_map.choose_opt rmap with
+        | None, None -> None
+        | Some {best_score=s; _ }, None | None, Some (s,_) -> Some s
+        | Some q, Some (m,_) -> Some (min q.best_score m)
+      in
+      match next_score with
+      | None ->
+            Format.eprintf "No children nor result left@.";
+            Seq.Nil
+      | Some layer ->
+            Format.eprintf "Looking at layer=%d@." layer;
             if layer > cutoff then
               Seq.Nil
             else
               let rmap = query_next layer name rmap queue in
               match Int_map.find_opt layer rmap with
-              | None | Some [] -> query rmap cutoff queue name ()
+              | None | Some [] ->
+                  Format.eprintf "Moving to next layer@.";
+                  query rmap cutoff queue name ()
               | Some l ->
+                  let rmap = Int_map.remove layer rmap in
+                  Format.eprintf "%d candidates at distance %d@."
+                    (List.length l) layer;
                   Seq.Cons( {left_candidates=l; pref=layer},
                             query rmap cutoff queue name)
 
-    let compute_preference_layers ?max_elements:_ ~cutoff _trie name =
-      query Int_map.empty cutoff (QState.create ()) (uchar_array name)
+    let init name trie =
+      let queue = QState.create () in
+      let len = Array.length name + 1 in
+      let col_minus_1 =
+        { char = Uchar.rep; score = Array.make len Int.max_int } in
+      let col = { char = Uchar.rep; score = Array.init len Fun.id } in
+      QState.add queue {
+        best_score=0;
+        trie;
+        matrix = { col; col_minus_1 }
+      };
+      queue
+
+
+    let compute_preference_layers ?max_elements:_ ~cutoff trie name =
+      Format.eprintf "@[<v 2> looking for %s in trie:@,%a@]@."
+        name
+        (pp_trie Format.pp_print_int) trie;
+      let uchar_name = uchar_array name in
+      query Int_map.empty cutoff (init uchar_name trie) uchar_name
 
 end
 
