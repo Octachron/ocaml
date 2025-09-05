@@ -120,14 +120,9 @@ module Trie = struct
         let strict_suffixes = Uchar_map.add char new_sub trie.strict_suffixes in
         { trie with strict_suffixes }
     in
-    let new_trie = aux k (String.length s) 0 s trie in
-    Format.eprintf "@[<v 2>%a@ -(%s)>@ %a@]@."
-      (pp_trie Format.pp_print_int) trie s
-      (pp_trie Format.pp_print_int) new_trie;
-    new_trie
+    aux k (String.length s) 0 s trie
 
   let of_seq s = Seq.fold_left (fun t x -> add x t) empty s
-
 
   type column = { char:Uchar.t; score: int Array.t }
 
@@ -142,7 +137,7 @@ module Trie = struct
 
   module QState = Pqueue.MakeMinPoly(struct
       type 'a t = 'a state
-      let compare x y = compare x.best_score y.best_score
+      let compare x y = Int.compare x.best_score y.best_score
     end)
 
 
@@ -152,9 +147,7 @@ module Trie = struct
 
   let add_leaf result_map state =
     match state.trie.leaf with
-    | Some index ->
-        Format.eprintf "found leaf %d, score = %d@." index (score state);
-        Int_map.add_to_list (score state) index result_map
+    | Some index -> Int_map.add_to_list (score state) index result_map
     | None -> result_map
 
   let next_char pos s =
@@ -163,7 +156,7 @@ module Trie = struct
     let u = Uchar.utf_decode_uchar d in
     pos + len, u
 
-  let rec col_edit_distance ~left ~rlen ~rpos ~right
+  let rec col_edit_distance ~(left:Uchar.t array) ~rlen ~rpos ~(right:String.t)
       ~col_minus_1
       ~col
     =
@@ -173,20 +166,20 @@ module Trie = struct
     for i = l - 1 downto 0 do
       let addition = col.score.(i) + 1 in
       let subst =
-        if i = 0 then Int.max_int
-        else if rchar = left.(i-1) then col.score.(i-1)
-        else 1 + col.score.(i-1) in
+        if i = 0 then addition
+        else if rchar = left.(i-1) then min addition col.score.(i-1)
+        else Int.min addition (1 + col.score.(i-1)) in
       let transpose =
         if i >=2 && rchar = left.(i-2) && col.char = left.(i-1) then
-          1 + col_minus_1.score.(i-2)
+         Int.min subst (1 + col_minus_1.score.(i-2))
         else
-          Int.max_int
+          subst
       in
-      col_minus_1.score.(i) <- min transpose (min addition subst)
+      col_minus_1.score.(i) <- transpose
     done;
     for i = 1 to l - 1 do
       col_minus_1.score.(i) <-
-        min col_minus_1.score.(i) (1+col_minus_1.score.(i-1))
+        Int.min col_minus_1.score.(i) (1+col_minus_1.score.(i-1))
     done;
     let new_col = { score = col_minus_1.score; char = rchar } in
     col_edit_distance ~left ~rlen ~rpos ~right
@@ -195,23 +188,19 @@ module Trie = struct
 
   let rec query_next score word result_map queue =
     match QState.min_elt queue with
-    | None -> Format.eprintf "No elements in the queue@."; result_map
+    | None -> result_map
     | Some st ->
         if st.best_score > score then result_map
         else begin
           QState.remove_min queue;
-          Format.eprintf "Processing children@.";
           query_children score word result_map queue st st.trie.strict_suffixes
         end
     and query_children score word result_map queue st children =
       if Uchar_map.is_empty children then
-        (Format.eprintf "No children left@.";
          query_next score word result_map queue
-        )
       else
         let u, first = Uchar_map.choose children in
         let rest = Uchar_map.remove u children in
-        Format.eprintf "Looking at %s@." first.path;
         let trie = { st.trie with strict_suffixes = rest } in
         let st = { st with trie } in
         let () = QState.add queue st in
@@ -251,25 +240,18 @@ module Trie = struct
         | Some q, Some (m,_) -> Some (min q.best_score m)
       in
       match next_score with
-      | None ->
-            Format.eprintf "No children nor result left@.";
-            Seq.Nil
+      | None -> Seq.Nil
       | Some layer ->
-            Format.eprintf "Looking at layer=%d@." layer;
-            if layer > cutoff then
-              Seq.Nil
-            else
-              let rmap = query_next layer name rmap queue in
-              match Int_map.find_opt layer rmap with
-              | None | Some [] ->
-                  Format.eprintf "Moving to next layer@.";
-                  query rmap cutoff queue name ()
-              | Some l ->
-                  let rmap = Int_map.remove layer rmap in
-                  Format.eprintf "%d candidates at distance %d@."
-                    (List.length l) layer;
-                  Seq.Cons( {left_candidates=l; pref=layer},
-                            query rmap cutoff queue name)
+          if layer > cutoff then
+            Seq.Nil
+          else
+            let rmap = query_next layer name rmap queue in
+            match Int_map.find_opt layer rmap with
+            | None | Some [] -> query rmap cutoff queue name ()
+            | Some left_candidates ->
+                let rmap = Int_map.remove layer rmap in
+                let pref_layer = { left_candidates; pref = layer } in
+                Seq.Cons(pref_layer, query rmap cutoff queue name)
 
     let init name trie =
       let queue = QState.create () in
@@ -286,9 +268,6 @@ module Trie = struct
 
 
     let compute_preference_layers ?max_elements:_ ~cutoff trie name =
-      Format.eprintf "@[<v 2> looking for %s in trie:@,%a@]@."
-        name
-        (pp_trie Format.pp_print_int) trie;
       let uchar_name = uchar_array name in
       query Int_map.empty cutoff (init uchar_name trie) uchar_name
 
