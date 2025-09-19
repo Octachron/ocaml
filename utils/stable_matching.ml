@@ -23,6 +23,91 @@ type layer = { left_candidates: int list; pref:int }
 
 module Int_map = Map.Make(Int)
 
+module Automaton = struct
+  module Pos: sig
+    type t = private int
+    val read:t -> int
+    val errs:t -> int
+    val add_read: t -> int -> t
+    val add_error: t -> int -> t
+    val make: read:int -> error:int -> t
+end = struct
+    type t = int
+    let read x = x lsr 8
+    let errs x = x land 0xFF
+    let make ~read ~error = error land 8 + read lsl 8
+    let add_error x err = make ~read:(read x) ~error:(errs x + err)
+    let add_read x r = x + r lsl 8
+end
+open Pos
+
+let subsume ~x_err ~x_pos ~y_err ~y_pos =
+  let diff = x_err - y_err in
+  diff < 0 && abs (x_pos - y_pos) <= diff
+
+type pos_layer = { errs: int; read:int list }
+type state = pos_layer list
+
+let rec add_pos pos = function
+  | [] -> [pos]
+  | a :: q as l  ->
+     if a < pos then pos :: l
+     else if a = pos then l
+     else a :: add_pos pos q
+
+let rec add ~pos ~errs l = match l with
+  | [] -> [ { errs; read = [pos] } ]
+  | a :: q ->
+     if a.errs < errs then
+       { errs; read = [pos] } :: l
+     else if a.errs = errs then
+       [{ errs; read = add_pos pos a.read }]
+     else a :: add ~pos ~errs q
+
+let filter_layer ~x_err ~x_pos { errs; read } = {
+    errs;
+    read =
+         List.filter (fun y_pos ->
+             not (subsume ~x_pos ~x_err ~y_err:errs ~y_pos)
+           ) read
+  }
+
+let rec normalize = function
+  | [] | [_] as x -> x
+  | ({ errs; read } as l) :: q ->
+     let q =
+       List.fold_left (fun x_pos -> List.map (filter_layer ~x_err:errs ~x_pos) q) read
+     in
+     l :: normalize q
+
+   let rec map_layer f r err = function
+     | [] -> r
+     | a :: q ->
+        let points = f l.errs a in
+        let r = List.fold_left add r points in
+        map_layer f r err q
+   let rec map f r = function
+     | [] -> r
+     | a :: q ->
+        map f (map_layer f r a.err a.read) q
+
+   let map f r l = normmalize (map f [] l)
+
+   let rec profile last map dyn pos s =
+     if pos >= String.length s then Dynarray.to_array dyn
+     else
+       let decode = String.get_utf_8_uchar s pos in
+       let char = Uchar.decode_uchar decode in
+       let l = Uchar.decode_len decode in
+       match Uchar_map.find_opt l map with
+       | None ->
+          let last = last+1 in
+          let map = Uchar_map.add char last in
+          let () = Dynarray.push_back dyn last in
+          profile last map dyn (pos+1) s
+
+end
+
 
 module Trie = struct
 
