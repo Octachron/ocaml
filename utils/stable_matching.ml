@@ -22,96 +22,110 @@ type cost_model = {
 type layer = { left_candidates: int list; pref:int }
 
 module Int_map = Map.Make(Int)
+module Uchar_map = Map.Make(Uchar)
 
 module Automaton = struct
-  module Pos: sig
-    type t = private int
-    val read:t -> int
-    val errs:t -> int
-    val add_read: t -> int -> t
-    val add_error: t -> int -> t
-    val make: read:int -> error:int -> t
-end = struct
-    type t = int
-    let read x = x lsr 8
-    let errs x = x land 0xFF
-    let make ~read ~error = error land 8 + read lsl 8
-    let add_error x err = make ~read:(read x) ~error:(errs x + err)
-    let add_read x r = x + r lsl 8
-end
-open Pos
 
-let subsume ~x_err ~x_pos ~y_err ~y_pos =
-  let diff = x_err - y_err in
-  diff < 0 && abs (x_pos - y_pos) <= diff
+(* For a position i^e (i character read, e-error ), a valid state contains only
+   one position by diagonal i-e *)
+type diagonal = { read_minus_error:int; error:int }
+type state = diagonal list
 
-type pos_layer = { errs: int; read:int list }
-type state = pos_layer list
+let read diag = diag.read_minus_error + diag.error
 
-let rec add_pos pos = function
-  | [] -> [pos]
-  | a :: q as l  ->
-     if a < pos then pos :: l
-     else if a = pos then l
-     else a :: add_pos pos q
 
-let rec add ~pos ~errs l = match l with
-  | [] -> [ { errs; read = [pos] } ]
+(* i^d subsumes the cone rooted in this position   *)
+let subsumed diag1 diag2 =
+  let read1 = read diag1 and read2 = read diag2 in
+  if read1 >= read2 then false
+  else abs (diag1.error - diag2.error) <= read2 - read1
+
+let rec normalization prev_diags new_diag normalized_diags =
+  match prev_diags with
+  | [] -> normalized_diags
   | a :: q ->
-     if a.errs < errs then
-       { errs; read = [pos] } :: l
-     else if a.errs = errs then
-       [{ errs; read = add_pos pos a.read }]
-     else a :: add ~pos ~errs q
+      if subsumed a new_diag then normalization q new_diag normalized_diags
+      else normalization q (new_diag) (a::normalized_diags)
 
-let filter_layer ~x_err ~x_pos { errs; read } = {
-    errs;
-    read =
-         List.filter (fun y_pos ->
-             not (subsume ~x_pos ~x_err ~y_err:errs ~y_pos)
-           ) read
-  }
+let rec add prev_diags diag = function
+  | [] -> List.rev prev_diags
+  | a :: q as l  ->
+      if a.read_minus_error = diag.read_minus_error then
+      begin
+        if diag.error < a.error then
+          normalization prev_diags diag q
+        else
+          List.rev_append prev_diags l
+      end
+      else if a.read_minus_error < diag.read_minus_error then
+        add (a::prev_diags) diag q
+      else
+        normalization prev_diags diag (diag::l)
 
-let rec normalize = function
-  | [] | [_] as x -> x
-  | ({ errs; read } as l) :: q ->
-     let q =
-       List.fold_left (fun x_pos -> List.map (filter_layer ~x_err:errs ~x_pos) q) read
-     in
-     l :: normalize q
+let add x l = add [] x l
 
-   let rec map_layer f r err = function
-     | [] -> r
-     | a :: q ->
-        let points = f l.errs a in
-        let r = List.fold_left add r points in
-        map_layer f r err q
-   let rec map f r = function
-     | [] -> r
-     | a :: q ->
-        map f (map_layer f r a.err a.read) q
+let map f l = List.fold_left (fun m p ->
+    List.fold_left (fun m x -> add x m) m (f p)
+  ) [] l
 
-   let map f r l = normmalize (map f [] l)
+let rec profile last map dyn pos s =
+  if pos >= String.length s then Dynarray.to_array dyn
+  else
+    let decode = String.get_utf_8_uchar s pos in
+    let char = Uchar.utf_decode_uchar decode in
+    let l = Uchar.utf_decode_length decode in
+    match Uchar_map.find_opt char map with
+    | None ->
+        let map = Uchar_map.add char last map in
+        let () = Dynarray.add_last dyn last in
+        profile (last+1) map dyn (pos+l) s
+    | Some c ->
+        let () = Dynarray.add_last dyn c in
+        profile last map dyn (pos+l) s
 
-   let rec profile last map dyn pos s =
-     if pos >= String.length s then Dynarray.to_array dyn
-     else
-       let decode = String.get_utf_8_uchar s pos in
-       let char = Uchar.decode_uchar decode in
-       let l = Uchar.decode_len decode in
-       match Uchar_map.find_opt l map with
-       | None ->
-          let last = last+1 in
-          let map = Uchar_map.add char last in
-          let () = Dynarray.push_back dyn last in
-          profile last map dyn (pos+1) s
+let profile s = profile 0 Uchar_map.empty (Dynarray.create ()) 0 s
+
+let base_error ~emax ~rmax { read_minus_error = re; error = e } =
+  let error = e + 1 in
+  if error > emax then []
+  else if re + error > rmax then
+    [ { error; read_minus_error = re - 1 }]
+  else
+    [ {error; read_minus_error = re}; { error; read_minus_error = re - 1}]
+
+let transition_other ~emax ~rmax m = map (base_error ~emax ~rmax) m
+
+let rec index nchar pos a =
+  if pos >= Array.length a then None
+  else if a.(pos) = nchar then
+    Some pos
+  else index (nchar) (pos + 1) a
+
+let transition_uchar emax profile nchar m =
+  let rmax = Array.length profile in
+  let f d =
+    let r = read d in
+    if profile.(r) = nchar then begin
+      if r >= rmax then []
+      else [ { read_minus_error = d.read_minus_error + 1; error = d.error} ]
+    end else
+      let base = base_error ~emax ~rmax d in
+      match index nchar (r+1) profile with
+      | None -> base
+      | Some j ->
+          let diff = j - r in
+          let error = d.error + diff in
+          if error > emax then base
+          else
+          { read_minus_error = d.read_minus_error + 1 ; error } :: base
+  in
+  map f m
 
 end
 
 
 module Trie = struct
 
- module Uchar_map = Map.Make(Uchar)
  type 'data t = {
     leaf : 'data option;
     strict_suffixes : 'data path Uchar_map.t;
