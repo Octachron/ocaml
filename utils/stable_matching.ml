@@ -405,8 +405,12 @@ let fuzzy_match_names ~compatibility left0 right =
   (* The edit distance between an existing name and a suggested rename must be
      at most half the length of the name. *)
   let cutoff name =
-    let len = String.length name in
-    len/2
+    match String.length name with
+    | 0 | 1 -> 0
+    | 2 | 3 | 4 -> 1
+    | 5 | 6 | 7 | 8 -> 2
+    | 9 | 10 | 11 -> 3
+    | len -> len/4
   in
   if (*  *List.length left < 60 && List.length right < 60 *) true then
     (* Stable marriages. *)
