@@ -740,10 +740,20 @@ let missing_field ppf item =
 
 let suggest_renaming_field ppf (item, suggested_name) =
   let current_id, _, kind = Includemod.item_ident_name item in
-  Fmt.fprintf ppf "@{<hint>Hint@}: Try renaming %s %a to %a"
-    (Includemod.kind_of_field_desc kind)
-    Style.inline_code (Ident.name current_id)
-    Style.inline_code suggested_name
+  let main =
+    Fmt.doc_printf "The %s@{<ralign> @}%a is required but not provided."
+      (Includemod.kind_of_field_desc kind)
+      Style.inline_code (Ident.name current_id)
+  in
+  let hint =
+    Fmt.doc_printf
+      "@{<hint>Hint@}: @{<ralign>@}%a is provided, and a close match."
+      Style.inline_code suggested_name
+  in
+  let main, hint = Misc.align_hint ~prefix:"" ~main ~hint in
+  Fmt.pp_doc ppf main;
+  Fmt.pp_print_cut ppf ();
+  Fmt.pp_doc ppf hint
 
 let module_types {Err.got=mty1; expected=mty2} =
   Fmt.dprintf

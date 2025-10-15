@@ -187,10 +187,8 @@ utils/profile.cmx : \
     utils/profile.cmi
 utils/profile.cmi :
 utils/stable_matching.cmo : \
-    utils/misc.cmi \
     utils/stable_matching.cmi
 utils/stable_matching.cmx : \
-    utils/misc.cmx \
     utils/stable_matching.cmi
 utils/stable_matching.cmi :
 utils/strongly_connected_components.cmo : \
