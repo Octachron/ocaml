@@ -734,7 +734,7 @@ let core env id x =
 let missing_field ppf item =
   let id, loc, kind =  Includemod.item_ident_name item in
   Fmt.fprintf ppf "The %s %a is required but not provided%a"
-     (Includemod.kind_of_field_desc kind)
+    (Includemod.kind_of_field_desc kind)
     (Style.as_inline_code Printtyp.ident) id
     (show_loc "Expected declaration") loc
 
@@ -768,7 +768,6 @@ let eq_module_types {Err.got=mty1; expected=mty2} =
      %a@;<1 -2>is not equal to@ %a@]"
     !Oprint.out_module_type (Out_type.tree_of_modtype mty1)
     !Oprint.out_module_type (Out_type.tree_of_modtype mty2)
-
 
 let module_type_declarations id {Err.got=d1 ; expected=d2} =
   Fmt.dprintf
@@ -907,23 +906,15 @@ and signature ~expansion_token ~env:_ ~before ~ctx sgs =
   in
   Printtyp.wrap_printing_env ~error:true sgs.env (fun () ->
       if expansion_token then
-        let suggestions =
-          if Sys.getenv_opt "PPROF" <> None then
-            let time = Sys.time () in
-            let suggestions = Signature_diff.suggest sgs in
-            let diff = Sys.time () -. time in
-            Format.printf "%f@." diff;
-            suggestions
-          else  Signature_diff.suggest sgs
-        in
-        match suggestions with
-        | { alterations = _ :: _; _  } ->
-            let init, last = Misc.split_last suggestions.alterations in
+        match Signature_diff.suggest sgs with
+        | { alterations = _ :: _ as alts ; _  }  ->
+            let init, last = Misc.split_last alts in
             List.map (Location.msg "%a" suggestion_text) init
             @ with_context ctx suggestion_text last
             :: before
         | { alterations= []; incompatibles = a :: _  } ->
-            sigitem ~expansion_token ~env:sgs.env ~before ~ctx
+            let env = { i_env = sgs.env; i_subst = sgs.subst } in
+            sigitem ~expansion_token ~env ~before ~ctx
               (Types.signature_item_id a.subject, a.alteration)
         | { alterations = []; incompatibles = [] } -> assert false
       else
@@ -932,7 +923,7 @@ and signature ~expansion_token ~env:_ ~before ~ctx sgs =
 
 and sigitem ~expansion_token ~env ~before ~ctx (name,s) = match s with
   | Core c ->
-      dwith_context ctx (core env name c) :: before
+      dwith_context ctx (core env.i_env name c) :: before
   | Module_type diff ->
       module_type ~expansion_token ~eqmode:false ~env ~before
         ~ctx:(Context.Module name :: ctx) diff
@@ -964,7 +955,8 @@ and module_type_decl ~expansion_token ~env ~before ~ctx id diff =
       | None -> assert false
       | Some mty ->
           with_context (Modtype id::ctx)
-            (Runtime_coercion.illegal_permutation Context.alt_pp env) (mty,c)
+            (Runtime_coercion.illegal_permutation Context.alt_pp env.i_env)
+            (mty,c)
           :: before
       end
 
