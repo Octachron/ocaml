@@ -13,11 +13,6 @@
 (*                                                                        *)
 (**************************************************************************)
 
-type cost_model = {
-  insertion:int;
-  deletion:int;
-  substitution:int;
-}
 type layer = { left_candidates: int list; pref:int }
 
 type ('a,'v) matches = {
@@ -25,7 +20,6 @@ type ('a,'v) matches = {
   pairs : ('v * 'v) list;
   right : 'a list;
 }
-
 
 let reverse_matches d =
   {
@@ -79,8 +73,6 @@ module Stable_marriage_diff = struct
   let push_back dq x = { dq with back = x :: dq.back }
 
   let replace_front x dq = { dq with front = x :: dq.front }
-
-
 
   type left_state =
     | Left_unpaired
@@ -159,7 +151,6 @@ module Stable_marriage_diff = struct
         prepare_dequeue state layer ir;
         r.next_layers <- List.to_seq q
 
-
   let next_layer state ir r = match r.next_layers () with
     | Seq.Nil ->
         begin match r.phase with
@@ -198,16 +189,16 @@ module Stable_marriage_diff = struct
     match state.right.(i) with
     | None -> ()
     | Some right ->
-    right.paired <- false;
-    match next right.current_layer with
-    | None -> state.right.(i) <- None
-    | Some (f,others) ->
-        let dequeue = if others.pre then
-            push_back others f
-          else others
-        in
-        right.current_layer <- dequeue;
-        state.reactivated <- i :: state.reactivated
+        right.paired <- false;
+        match next right.current_layer with
+        | None -> state.right.(i) <- None
+        | Some (f,others) ->
+            let dequeue = if others.pre then
+                push_back others f
+              else others
+            in
+            right.current_layer <- dequeue;
+            state.reactivated <- i :: state.reactivated
 
   let accepted_proposal state i j d =
     has_weak_pair state j ||
@@ -351,10 +342,11 @@ let rec cut_at before pos l =
 
 let fuzzy_match_names ~compatibility left right =
   (* The edit distance between an existing name and a suggested rename must be
-     at most half the length of the name. *)
+     at most a quarter of the length of the name for large names. For small
+     names, we use a hand-chosen smaller cutoff.*)
   let cutoff name =
     match String.length name with
-    | 0 | 1 -> 0
+    | 0 | 1 -> 0 (* Proposing to rename "x" to "y" is dubious. *)
     | 2 | 3 | 4 -> 1
     | 5 | 6 | 7 | 8 -> 2
     | 9 | 10 | 11 -> 3

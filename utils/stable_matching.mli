@@ -13,12 +13,6 @@
 (*                                                                        *)
 (**************************************************************************)
 
-type cost_model = {
-  insertion:int;
-  deletion:int;
-  substitution:int;
-}
-
 module Item: sig
   type ('v, 'k) t = {
     name: string;
