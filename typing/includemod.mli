@@ -181,9 +181,6 @@ val check_modtype_inclusion :
 val check_modtype_equiv:
   loc:Location.t -> Env.t -> Ident.t -> module_type -> module_type -> unit
 
-val is_modtype_equiv:
-  Env.t -> module_type -> module_type -> bool
-
 val signatures:
   Env.t -> ?subst:Subst.t -> mark:bool ->
   signature -> signature -> module_coercion

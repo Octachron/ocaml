@@ -1404,15 +1404,6 @@ let expand_module_alias ~strengthen env path =
   | Result.Error _ ->
       raise (Error(env,In_Expansion(Error.Unbound_module_path path)))
 
-let is_modtype_equiv env mty1 mty2 =
-  let loc = Warnings.ghost_loc_in_file "dummy" in
-  let direction = Directionality.unknown ~mark:false in
-  match
-    check_modtype_equiv ~core:core_inclusion ~direction ~loc env mty1 mty2
-  with
-  | Ok _ -> true
-  | Error _ -> false
-
 let check_modtype_equiv ~loc env id mty1 mty2 =
   let direction = Directionality.unknown ~mark:true in
   match
