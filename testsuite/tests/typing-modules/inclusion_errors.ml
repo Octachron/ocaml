@@ -2092,11 +2092,18 @@ Error: Signature mismatch:
            val x : abcd
            val vwxy : ijkl
          end
-       Hint: Try renaming module type "TUVX" to "TUVW"
-       Hint: Try renaming module "MNJX" to "MNJK"
-       Hint: Try renaming type "abcx" to "abcd"
-       Hint: Try renaming type "efgx" to "efgh"
-       Hint: Try renaming type "ijkx" to "ijkl"
-       Hint: Try renaming type "mnox" to "mnop"
-       Hint: Try renaming value "vwxx" to "vwxy"
+       The module type "TUVX" is required but not provided.
+       Hint:           "TUVW" is provided, and a close match.
+       The module "MNJX" is required but not provided.
+       Hint:      "MNJK" is provided, and a close match.
+       The type "abcx" is required but not provided.
+       Hint:    "abcd" is provided, and a close match.
+       The type "efgx" is required but not provided.
+       Hint:    "efgh" is provided, and a close match.
+       The type "ijkx" is required but not provided.
+       Hint:    "ijkl" is provided, and a close match.
+       The type "mnox" is required but not provided.
+       Hint:    "mnop" is provided, and a close match.
+       The value "vwxx" is required but not provided.
+       Hint:     "vwxy" is provided, and a close match.
 |}]
