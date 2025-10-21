@@ -340,7 +340,7 @@ let rec cut_at before pos l =
     | [] -> List.rev before, []
     | a :: q -> cut_at (a::before) (pos-1) q
 
-let fuzzy_match_names ~compatibility left right =
+let fuzzy_match_names ~compatibility ~max_right_items left right =
   (* The edit distance between an existing name and a suggested rename must be
      at most a quarter of the length of the name for large names. For small
      names, we use a hand-chosen smaller cutoff.*)
@@ -352,9 +352,8 @@ let fuzzy_match_names ~compatibility left right =
     | 9 | 10 | 11 -> 3
     | len -> len/4
   in
-  let left_pairing, left_rest =  cut_at [] 20 left in
-  let right_pairing, right_rest = cut_at [] 20 right in
-  let left = Array.of_list left_pairing in
+  let right_pairing, right_rest = cut_at [] max_right_items right in
+  let left = Array.of_list left in
   let right = Array.of_list right_pairing in
     let compatibility i j =
       compatibility (Item.kind left.(i)) (Item.kind right.(j))
@@ -368,6 +367,6 @@ let fuzzy_match_names ~compatibility left right =
     in
     {
       pairs = List.map (fun (x,y) -> Item.(item x, item y)) matches.pairs;
-      left = matches.left @ left_rest;
+      left = matches.left;
       right = matches.right @ right_rest
     }

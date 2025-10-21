@@ -46,10 +46,14 @@ module Suggestion = struct
     Includemod.item_subst (Types.signature_item_id left) right subst
 end
 
+let max_right_items = 20
+
 let fuzzy_match_suggestions env compatibility ~subst current =
   let open Stable_matching in
   let compatibility = compatibility env subst in
-  let matches = fuzzy_match_names ~compatibility current.left current.right in
+  let matches =
+    fuzzy_match_names ~max_right_items ~compatibility current.left current.right
+  in
   match matches.pairs with
   | [] -> false, subst, current
   | pairs ->
@@ -129,7 +133,7 @@ let value_suggestions env subst map =
   let fuzzy_match compat current =
     let open Stable_matching in
     let compatibility x y = compat env subst x y in
-    fuzzy_match_names ~compatibility current.left current.right
+    fuzzy_match_names ~max_right_items ~compatibility current.left current.right
   in
   let values = fuzzy_match C.values map.values in
   let classes = fuzzy_match C.classes map.classes in
