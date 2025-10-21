@@ -1061,7 +1061,7 @@ typing/includemod_errorprinter.cmo : \
     typing/types.cmi \
     typing/typedtree.cmi \
     typing/subst.cmi \
-    typing/signature_diff.cmi \
+    typing/signature_matching.cmi \
     typing/printtyp.cmi \
     typing/primitive.cmi \
     typing/path.cmi \
@@ -1082,7 +1082,7 @@ typing/includemod_errorprinter.cmx : \
     typing/types.cmx \
     typing/typedtree.cmx \
     typing/subst.cmx \
-    typing/signature_diff.cmx \
+    typing/signature_matching.cmx \
     typing/printtyp.cmx \
     typing/primitive.cmx \
     typing/path.cmx \
@@ -1519,19 +1519,19 @@ typing/shape_reduce.cmx : \
 typing/shape_reduce.cmi : \
     typing/shape.cmi \
     typing/env.cmi
-typing/signature_diff.cmo : \
+typing/signature_matching.cmo : \
     typing/types.cmi \
     utils/stable_matching.cmi \
     typing/includemod.cmi \
     typing/ident.cmi \
-    typing/signature_diff.cmi
-typing/signature_diff.cmx : \
+    typing/signature_matching.cmi
+typing/signature_matching.cmx : \
     typing/types.cmx \
     utils/stable_matching.cmx \
     typing/includemod.cmx \
     typing/ident.cmx \
-    typing/signature_diff.cmi
-typing/signature_diff.cmi : \
+    typing/signature_matching.cmi
+typing/signature_matching.cmi : \
     typing/types.cmi \
     typing/includemod.cmi \
     typing/ident.cmi

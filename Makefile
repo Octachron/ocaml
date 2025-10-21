@@ -151,7 +151,7 @@ typing_SOURCES = \
   typing/cmt2annot.mli typing/cmt2annot.ml \
   typing/untypeast.mli typing/untypeast.ml \
   typing/includemod.mli typing/includemod.ml \
-  typing/signature_diff.mli typing/signature_diff.ml \
+  typing/signature_matching.mli typing/signature_matching.ml \
   typing/includemod_errorprinter.mli typing/includemod_errorprinter.ml \
   typing/typetexp.mli typing/typetexp.ml \
   typing/printpat.mli typing/printpat.ml \

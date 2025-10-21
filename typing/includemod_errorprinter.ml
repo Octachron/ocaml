@@ -897,7 +897,7 @@ and functor_symptom ~expansion_token ~env ~before ~ctx = function
 
 and signature ~expansion_token ~env:_ ~before ~ctx sgs =
   let suggestion_text ppf suggestion =
-    let open Signature_diff.Suggestion in
+    let open Signature_matching.Suggestion in
     match suggestion.alteration with
     | Add_item -> missing_field ppf suggestion.subject
     | Rename_item suggested_ident ->
@@ -906,7 +906,7 @@ and signature ~expansion_token ~env:_ ~before ~ctx sgs =
   in
   Printtyp.wrap_printing_env ~error:true sgs.env (fun () ->
       if expansion_token then
-        match Signature_diff.suggest sgs with
+        match Signature_matching.suggest sgs with
         | { alterations = _ :: _ as alts ; _  }  ->
             let init, last = Misc.split_last alts in
             List.map (Location.msg "%a" suggestion_text) init
