@@ -1314,7 +1314,7 @@ Error: Signature mismatch:
          type t = private int * (int * int)
        The type "int * !(q)" is not equal to the type "int * (int !(*) int)"
        Type "q" = "int * !(w)" is not equal to type "int * !(int)"
-       Type "!(w)" = "!(float)" is not equal to type "!(int)"
+       Type "w" = "!(float)" is not equal to type "!(int)"
 |}];;
 
 type s = private int

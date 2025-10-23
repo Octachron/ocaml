@@ -40,11 +40,14 @@ module Style = Misc.Style
 type 'a diff = 'a Out_type.diff = Same of 'a | Diff of 'a * 'a
 
 let look_ahead tr expl_tr =
-  let some x = Errortrace.map_diff (fun x -> Some x.Errortrace.ty) x in
+  let some x =
+    Errortrace.map_diff
+      (fun x -> Some (Out_type.Highlighted_type x.Errortrace.ty)) x
+  in
   let none = { Errortrace.expected=None; got=None} in
   let last = match expl_tr with
     | None -> [none]
-    | Some a -> [some a]
+    | Some a -> [Errortrace.map_diff (fun x -> Some x) a]
   in
   match tr with
   | [] -> []
@@ -114,7 +117,6 @@ let wip: type a b. (a,b) Errortrace.explanation -> bool =
   let open Errortrace in function
 
     | Out_of_scope_univar -> true
-    | Type_constructor_mismatch
     | Type_constructor_arity_mismatch -> true
     | _ -> false
 
@@ -123,6 +125,7 @@ let transparent: type a b. (a,b) Errortrace.explanation -> bool =
     | Decl _ -> true
     | Incompatible -> true
     | Kind_mismatch -> true
+    | Type_constructor_mismatch _ -> true
     | _ -> false
 
 
@@ -151,12 +154,17 @@ let rec partition_subtrace main shadow = function
       else partition_subtrace (a::main) shadow q
   | [] -> List.rev main, shadow
 
-let highlight shadow expl = match shadow with
-  | Some _ as x -> x
+let highlight shadow expl =
+  let do_highlight f d = Some (Errortrace.map_diff f d) in
+  match shadow with
+  | Some x ->
+      do_highlight (fun e -> Out_type.Highlighted_type e.Errortrace.ty) x
   | None ->
     match expl with
     | [Errortrace.Moregen_occur d | Errortrace.Univar_mismatch {diff=d}] ->
-        Some Errortrace.(map_diff trivial_expansion d)
+        do_highlight (fun ty -> Out_type.Highlighted_type ty) d
+    | [Errortrace.Type_constructor_mismatch diff] ->
+        do_highlight (fun ty -> Out_type.Highlighted_path ty) diff
     | _ -> None
 
 let rec split_last =
@@ -574,9 +582,10 @@ let explanation (type variety) intro
            is not compatible with the universal type variable %a.@]"
         (Style.as_inline_code prepared_type_expr) diff.got
         (Style.as_inline_code prepared_type_expr) diff.expected
-    | Errortrace.Type_constructor_arity_mismatch -> None
-    | Errortrace.Type_constructor_mismatch -> None
 
+    (* Transparent explanation *)
+    | Errortrace.Type_constructor_arity_mismatch -> None
+    | Errortrace.Type_constructor_mismatch _ -> None
     | Errortrace.Incompatible -> None
     | Errortrace.Decl _ -> None
 

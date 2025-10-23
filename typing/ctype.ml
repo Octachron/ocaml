@@ -2957,7 +2957,8 @@ and unify3 uenv t1 t1' t2 t2' =
           reify uenv t2';
           mcomp (get_env uenv) t1' t2';
           record_equation uenv t1' t2'
-      | Tconstr _, Tconstr _ -> raise_for Unify Type_constructor_mismatch
+      | Tconstr (got,_,_), Tconstr (expected,_,_) ->
+          raise_for Unify (Type_constructor_mismatch {got; expected})
       | (Tobject (fi1, nm1), Tobject (fi2, _)) ->
           unify_fields uenv fi1 fi2;
           (* Type [t2'] may have been instantiated by [unify_fields] *)
@@ -4271,8 +4272,8 @@ let rec eqtype rename type_pairs subst env t1 t2 =
           | (Tconstr (p1, tl1, _), Tconstr (p2, tl2, _))
                 when Path.same p1 p2 ->
               eqtype_list_same_length rename type_pairs subst env tl1 tl2
-          | (Tconstr (_, _, _), Tconstr (_, _, _)) ->
-             raise_for Equality Type_constructor_mismatch
+          | (Tconstr (got, _, _), Tconstr (expected, _, _)) ->
+             raise_for Equality (Type_constructor_mismatch {got;expected})
           | (Tpackage pack1, Tpackage pack2) ->
               eqtype_package rename type_pairs subst env
                 (get_level t1') pack1 (get_level t2') pack2

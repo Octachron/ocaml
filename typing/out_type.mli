@@ -115,8 +115,12 @@ val prepared_type_expr: type_expr printer
 val type_expr_with_reserved_names: type_expr printer
 
 type 'a diff = Same of 'a | Diff of 'a * 'a
+
+type highlight_target =
+  | Highlighted_type of Types.type_expr
+  | Highlighted_path of Path.t
 val trees_of_type_expansion:
-   type_or_scheme -> Types.type_expr option -> Errortrace.expanded_type
+   type_or_scheme -> highlight_target option -> Errortrace.expanded_type
    -> out_type diff
 val prepare_expansion: Errortrace.expanded_type -> Errortrace.expanded_type
 val pp_type_expansion: out_type diff printer

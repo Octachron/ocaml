@@ -149,7 +149,7 @@ type ('a, 'variety) explanation =
   | Rec_occur : type_expr * type_expr -> ('a, _) explanation
 
  (* Unification *)
-  | Type_constructor_mismatch: (_,_) explanation
+  | Type_constructor_mismatch of Path.t diff
   | Type_constructor_arity_mismatch: (_,_) explanation
 
 (* NEW *)
@@ -223,7 +223,7 @@ let map_elt (type a b variety) f:
   | Incompatible_fields _
   | Rec_occur (_, _) | First_class_module _ | Univar_mismatch _
   | Kind_mismatch | Out_of_scope_univar
-  | Type_constructor_mismatch | Type_constructor_arity_mismatch
+  | Type_constructor_mismatch _ | Type_constructor_arity_mismatch
   | Decl _ as x -> x
   | Incompatible as x -> x
   | Parameter_mismatch _ as x -> x

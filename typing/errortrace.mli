@@ -136,7 +136,7 @@ type ('a, 'variety) explanation =
   (* Unification & Moregen; included in Equality for simplicity *)
   | Rec_occur : type_expr * type_expr -> ('a, _) explanation
   (* Unification *)
-  | Type_constructor_mismatch: (_,_) explanation
+  | Type_constructor_mismatch of Path.t diff
   | Type_constructor_arity_mismatch: (_,_) explanation
 
   (* New *)

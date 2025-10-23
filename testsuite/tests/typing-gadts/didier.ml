@@ -70,7 +70,7 @@ Line 4, characters 11-16:
 4 |   | Int -> x > 0
                ^^^^^
 Error: This expression has type "!(bool)" but an expression was expected of type
-         "!(t)" = "!(int)"
+         "t" = "!(int)"
 |}, Principal{|
 Line 4, characters 11-16:
 4 |   | Int -> x > 0

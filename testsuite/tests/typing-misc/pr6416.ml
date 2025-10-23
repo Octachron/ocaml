@@ -314,7 +314,7 @@ Error: Signature mismatch:
        does not match
          class type c = object method m : t end
        The method m has type "!(t/2)" but is expected to have type "!(t)"
-       Type "!(t/2)" is not equal to type "!(t)" = "!(K.t)"
+       Type "!(t/2)" is not equal to type "t" = "!(K.t)"
        Line 12, characters 4-10:
          Definition of type "t"
        Line 9, characters 2-8:
@@ -338,7 +338,7 @@ Error: Signature mismatch:
          type a = M.t
        is not included in
          type a = M/2.t
-       The type "!(M.t)" = "!(M/2.M.t)" is not equal to the type "!(M/2.t)"
+       The type "M.t" = "!(M/2.M.t)" is not equal to the type "!(M/2.t)"
        Line 2, characters 14-42:
          Definition of module "M"
        File "_none_", line 1:

@@ -403,6 +403,16 @@ let rewrite_double_underscore_paths env p =
   else
     rewrite_double_underscore_paths env p
 
+type highlight_target =
+  | Highlighted_type of Types.type_expr
+  | Highlighted_path of Path.t
+
+let highlight_path htarget p op =
+  match htarget with
+  | None | Some (Highlighted_type _) -> op
+  | Some (Highlighted_path p') ->
+      if Path.same p p' then Oide_highlight op else op
+
 let rec tree_of_path ?(disambiguation=true) namespace p =
   let tree_of_path namespace p = tree_of_path ~disambiguation namespace p in
   let namespace = if disambiguation then namespace else None in
@@ -427,10 +437,12 @@ let rec tree_of_path ?(disambiguation=true) namespace p =
           tree_of_path None p
     end
 
-let tree_of_path ?disambiguation namespace p =
-  tree_of_path ?disambiguation namespace
-    (rewrite_double_underscore_paths !printing_env p)
-
+let tree_of_path ?disambiguation namespace highlight p =
+  let op =
+    tree_of_path ?disambiguation namespace
+      (rewrite_double_underscore_paths !printing_env p)
+  in
+  highlight_path highlight p op
 
 (* Print a recursive annotation *)
 
@@ -634,9 +646,9 @@ let best_type_path p =
 (* When building a tree for a best type path, we should not disambiguate
    identifiers whenever the short-path algorithm detected a better path than
    the original one.*)
-let tree_of_best_type_path p p' =
-  if Path.same p p' then tree_of_path (Some Type) p'
-  else tree_of_path ~disambiguation:false None p'
+let tree_of_best_type_path highlight p p' =
+  if Path.same p p' then tree_of_path (Some Type) highlight p'
+  else tree_of_path ~disambiguation:false None highlight p'
 
 (* Print a type expression *)
 
@@ -734,7 +746,7 @@ end = struct
               | Existential constr ->
                   let prev = String.Map.find_opt constr acc in
                   let prev = Option.value ~default:[] prev in
-                  String.Map.add constr (tree_of_path None p :: prev) acc
+                  String.Map.add constr (tree_of_path None None p :: prev) acc
               | Definition | Rec_check_regularity -> acc)
         !names String.Map.empty
     in
@@ -1035,8 +1047,8 @@ let alias_nongen_row mode px ty =
 
 let highlight_focus next ty oty =
    match next with
-    | None -> oty
-    | Some next ->
+    | None | Some (Highlighted_path _) -> oty
+    | Some (Highlighted_type next) ->
         if Types.eq_type ty next then Otyp_highlight oty else oty
 
 let rec tree_of_typexp next mode ty =
@@ -1077,7 +1089,7 @@ let rec tree_of_typexp next mode ty =
         else begin
           Internal_names.add p';
           Otyp_constr (
-            tree_of_best_type_path p p',
+            tree_of_best_type_path next p p',
             tree_of_typlist next mode tyl'
           )
         end
@@ -1103,7 +1115,7 @@ let rec tree_of_typexp next mode ty =
         begin match name with
         | Some(p, tyl) when nameable_row row ->
             let (p', s) = best_type_path p in
-            let id = tree_of_best_type_path p p' in
+            let id = tree_of_best_type_path next p p' in
             let args = tree_of_typlist next mode (apply_subst s tyl) in
             let out_variant =
               if is_nth s then List.hd args else Otyp_constr (id, args) in
@@ -1214,7 +1226,7 @@ and tree_of_typobject next mode fi nm =
       let args = tree_of_typlist next mode tyl in
       let (p', s) = best_type_path p in
       assert (s = Id);
-      Otyp_class (tree_of_best_type_path p p', args)
+      Otyp_class (tree_of_best_type_path next p p', args)
   | _ ->
       fatal_error "Out_type.tree_of_typobject"
   end
@@ -1234,7 +1246,7 @@ and tree_of_typfields next mode rest = function
       (field :: fields, rest)
 
 and tree_of_package next mode {pack_path; pack_cstrs} =
-  { opack_path = tree_of_path (Some Module_type) pack_path;
+  { opack_path = tree_of_path (Some Module_type) next pack_path;
     opack_cstrs =
       let lhs li = plain (String.concat "." li) in
       List.map
@@ -1648,7 +1660,7 @@ let rec tree_of_class_type mode params =
       else
         let namespace = Namespace.best_class_namespace p' in
         Octy_constr (
-          tree_of_path namespace p',
+          tree_of_path namespace None p',
           tree_of_typlist None Type_scheme tyl
         )
   | Cty_signature sign ->
@@ -1852,7 +1864,7 @@ let add_sigitem env x =
 
 let rec tree_of_modtype ?(ellipsis=false) = function
   | Mty_ident p ->
-      Omty_ident (tree_of_path (Some Module_type) p)
+      Omty_ident (tree_of_path (Some Module_type) None p)
   | Mty_signature sg ->
       Omty_signature (if ellipsis then [Osig_ellipsis]
                       else tree_of_signature sg)
@@ -1863,7 +1875,7 @@ let rec tree_of_modtype ?(ellipsis=false) = function
       let res = wrap_env env (tree_of_modtype ~ellipsis) ty_res in
       Omty_functor (param, res)
   | Mty_alias p ->
-      Omty_alias (tree_of_path (Some Module) p)
+      Omty_alias (tree_of_path (Some Module) None p)
 
 and tree_of_functor_parameter = function
   | Unit ->
@@ -2021,8 +2033,8 @@ let prepare_expansion Errortrace.{ty; expanded} =
 
 
 (* Adapt functions to exposed interface *)
-let namespaced_tree_of_path n = tree_of_path (Some n)
-let tree_of_path ?disambiguation p = tree_of_path ?disambiguation None p
+let namespaced_tree_of_path n = tree_of_path (Some n) None
+let tree_of_path ?disambiguation p = tree_of_path ?disambiguation None None p
 let tree_of_modtype = tree_of_modtype ~ellipsis:false
 let tree_of_type_declaration ident td rs =
   with_hidden_items [{hide=true; ident}]
@@ -2034,6 +2046,6 @@ let prepare_class_type cty = prepare_class_type [] cty
 let tree_of_type_path p =
   let (p', s) = best_type_path p in
   let p'' = if (s = Id) then p' else p in
-  tree_of_best_type_path p p''
+  tree_of_best_type_path None p p''
 
 let tree_of_typexp mode typ = tree_of_typexp None mode typ

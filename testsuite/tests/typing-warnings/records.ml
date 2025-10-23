@@ -408,8 +408,8 @@ Warning 41 [ambiguous-name]: "y" belongs to several types: "NM.foo" "NM.bar".
 Line 1, characters 19-23:
 1 | let r = {MN.x = 3; NM.y = 4};; (* error: type would change with order *)
                        ^^^^
-Error: The record field "NM.y" belongs to the type "!(NM.foo)" = "!(M.foo)"
-       but is mixed here with fields of type "!(MN.bar)" = "!(N.bar)"
+Error: The record field "NM.y" belongs to the type "NM.foo" = "!(M.foo)"
+       but is mixed here with fields of type "MN.bar" = "!(N.bar)"
 |}]
 
 (* Lpw25 *)
