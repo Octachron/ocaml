@@ -948,6 +948,8 @@ Line 1, characters 50-59:
                                                       ^^^^^^^^^
 Error: Constraints are not satisfied in this type.
        Type "('a, 'b) !(t)" should be an instance of "('c, 'c) !(t)"
+       The distinct type parameters "'b" and "'a" cannot be both an instance
+       of "'c".
 |}];;
 
 (* Full polymorphism if we do not expand *)
@@ -968,6 +970,7 @@ Line 2, characters 26-32:
                               ^^^^^^
 Error: Constraints are not satisfied in this type.
        Type "'a u !(t)" should be an instance of "int !(t)"
+       The parameter "'a" is not an instance of "int".
 |}];;
 
 (* Behaviour is unstable *)

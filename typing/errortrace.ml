@@ -127,6 +127,10 @@ type polyfy_error =
   | Non_universal_row
   | Not_a_variable
 
+type parameter_error =
+  | Not_a_variable_param of type_expr * type_expr
+  | Bound_multiple_times of type_expr * type_expr * type_expr
+
 type ('a, 'variety) explanation =
   (* Common *)
   | Variant : 'variety variant -> ('a, 'variety) explanation
@@ -155,7 +159,7 @@ type ('a, 'variety) explanation =
   | Univar_quantification_mismatch:
       (polyfy_error * type_expr) list -> ('a, unification) explanation
 
-  | Mismatched_type_variables: ('a, unification) explanation
+  | Parameter_mismatch: parameter_error  -> ('a, unification) explanation
   | Moregen_occur of type_expr diff
 
 type ('a,'variety) explanation_segment = {
@@ -222,7 +226,7 @@ let map_elt (type a b variety) f:
   | Type_constructor_mismatch | Type_constructor_arity_mismatch
   | Decl _ as x -> x
   | Incompatible as x -> x
-  | Mismatched_type_variables as x -> x
+  | Parameter_mismatch _ as x -> x
   | Univar_quantification_mismatch x ->
     Univar_quantification_mismatch x
   | Moregen_occur _ as x -> x

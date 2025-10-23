@@ -4158,14 +4158,27 @@ let rigidify ty =
   with_type_mark (fun mark -> rigidify_rec mark vars ty);
   TypeSet.elements !vars
 
-let all_distinct_vars env vars =
-  let tys = ref TypeSet.empty in
-  List.for_all
+let find_merged_vars env vars =
+  let tym = ref TypeMap.empty in
+  List.find_map
     (fun ty ->
-      let ty = expand_head env ty in
-      if TypeSet.mem ty !tys then false else
-      (tys := TypeSet.add ty !tys; is_Tvar ty))
+       let ty = expand_head env ty in
+       match TypeMap.find ty !tym with
+       | x ->
+           let repr = Types.Transient_expr.(type_expr @@ repr ty) in
+           Some (Bound_multiple_times (ty,x,repr))
+       | exception Not_found ->
+           tym := TypeMap.add ty ty !tym;
+           if is_Tvar ty then None else
+             let repr = Types.Transient_expr.(type_expr @@ repr ty) in
+             Some (Not_a_variable_param (ty,repr))
+    )
     vars
+
+let all_distinct_vars env vars =
+  match find_merged_vars env vars with
+  | None -> true
+  | Some _ -> false
 
 let matches ~expand_error_trace env ty ty' =
   let snap = snapshot () in
@@ -4173,17 +4186,18 @@ let matches ~expand_error_trace env ty ty' =
   cleanup_abbrev ();
   match unify env ty ty' with
   | () ->
-      if not (all_distinct_vars env vars) then begin
-        backtrack snap;
-        let d =
-          if expand_error_trace
-          then expanded_diff env ~got:ty ~expected:ty'
-          else unexpanded_diff ~got:ty ~expected:ty'
-        in
-        let trace = diff d (root_explanation Mismatched_type_variables) in
+      begin match find_merged_vars env vars with
+      | None -> backtrack snap
+      | Some err ->
+          backtrack snap;
+          let d =
+            if expand_error_trace
+            then expanded_diff env ~got:ty ~expected:ty'
+            else unexpanded_diff ~got:ty ~expected:ty'
+          in
+          let trace = diff d (root_explanation @@ Parameter_mismatch err) in
         raise (Matches_failure (env, unification_error ~trace))
-      end;
-      backtrack snap
+      end
   | exception Unify err ->
       backtrack snap;
       raise (Matches_failure (env, err))

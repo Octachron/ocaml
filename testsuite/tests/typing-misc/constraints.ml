@@ -104,6 +104,13 @@ Line 3, characters 7-9:
            ^^
 Error: Constraints are not satisfied in this type.
        Type "'l !(is_an_object)" should be an instance of "< .. > !(is_an_object)"
+|}, Principal{|
+Line 3, characters 7-9:
+3 |   and ('k,'l) abs = 'l constraint 'k = 'l is_an_object
+           ^^
+Error: Constraints are not satisfied in this type.
+       Type "'l !(is_an_object)" should be an instance of "< .. > !(is_an_object)"
+       The parameter "'l" is not an instance of "< .. >".
 |}]
 
 module PR6505a = struct

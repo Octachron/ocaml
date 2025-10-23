@@ -112,7 +112,6 @@ let is_structural d =
 
 let wip: type a b. (a,b) Errortrace.explanation -> bool =
   let open Errortrace in function
-    | Mismatched_type_variables -> true
 
     | Out_of_scope_univar -> true
     | Type_constructor_mismatch
@@ -518,7 +517,24 @@ let explanation (type variety) intro
              )
 
     | Errortrace.Decl GADT_mismatched_return_type -> None
-    | Errortrace.Mismatched_type_variables -> None
+    | Errortrace.Parameter_mismatch (Bound_multiple_times (ty1,ty2,ty3)) ->
+        add_type_to_preparation ty1;
+        add_type_to_preparation ty2;
+        explainf
+          "@,@[The distinct type parameters@ %a@ and@ %a@ cannot@ be@ \
+           both@ an@ instance@ of %a.@]"
+          (Style.as_inline_code prepared_type_expr) ty1
+          (Style.as_inline_code prepared_type_expr) ty2
+          (Style.as_inline_code prepared_type_expr) ty3
+    | Errortrace.Parameter_mismatch (Not_a_variable_param (ty1,ty2)) ->
+        if not (Btype.is_Tvar ty1) then None else begin
+        add_type_to_preparation ty1;
+        add_type_to_preparation ty2;
+        explainf
+            "@,@[The parameter %a is not an instance of %a.@]"
+            (Style.as_inline_code prepared_type_expr) ty1
+            (Style.as_inline_code prepared_type_expr) ty2
+      end
     | Errortrace.Univar_quantification_mismatch l ->
         let qp ppf x = Style.as_inline_code prepared_type_expr ppf x in
         let pp ppf (kind,ty) =
