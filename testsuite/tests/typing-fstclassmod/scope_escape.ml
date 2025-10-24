@@ -48,8 +48,8 @@ Lines 2-6, characters 2-22:
 4 |     type t = K.t
 5 |   end : S
 6 |     with type t = K.t)
-Error: This expression has type "(module !(S) with type t = A.t)"
-       but an expression was expected of type "!('a)"
+Error: This expression has type "(module S with type t = !(A.t))"
+       but an expression was expected of type "'a"
        The type constructor "A.t" would escape its scope
 |}];;
 

@@ -1302,7 +1302,7 @@ type u = private [< t ]
 Line 6, characters 9-21:
 6 | fun x -> (x : v :> u);;
              ^^^^^^^^^^^^
-Error: Type "!(v)" = "[!(> )`A | `B ]" is not a subtype of "!(u)" = "[!(< )`A | `B ]"
+Error: Type "v" = "[!(> )`A | `B ]" is not a subtype of "u" = "[!(< )`A | `B ]"
 |}];;
 
 let f1 x =
@@ -1660,7 +1660,7 @@ Line 3, characters 19-22:
 3 |   if b then x else M.A;;
                        ^^^
 Error: The constructor "M.A" has type "!(M.t)"
-       but an expression was expected of type "!('x)"
+       but an expression was expected of type "'x"
        The type constructor "M.t" would escape its scope
 |}];;
 

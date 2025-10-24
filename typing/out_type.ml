@@ -1978,17 +1978,21 @@ let same_path t t' =
 
 type 'a diff = Same of 'a | Diff of 'a * 'a
 
-let highlight_top next ty oty =
-  match next, Types.get_desc ty with
-  | None, (Tconstr _ | Tvar _) -> Otyp_highlight oty
-  | _ -> oty
+(*
+let pp_highlight ppf = function
+  | Highlighted_path p -> Fmt.fprintf ppf "path=%a" Path.print p
+  | Highlighted_type ty ->
+      Fmt.fprintf ppf "ty=%a" (Fmt.deprecated Rawprinttyp.type_expr) ty
+
+let pp_diff p ppf x = Fmt.fprintf ppf "{got=%a;expected=%a}"
+    p x.Errortrace.got
+    p x.Errortrace.expected
+*)
 
 let trees_of_type_expansion mode next Errortrace.{ty = t; expanded = t'} =
   Aliases.reset ();
   Aliases.mark_loops t;
-  let tree next mode t =
-    highlight_top next t @@ tree_of_typexp next mode t
-  in
+  let tree next mode t = tree_of_typexp next mode t in
   if same_path t t'
   then begin Aliases.add_delayed (proxy t); Same (tree next mode t) end
   else begin

@@ -78,6 +78,7 @@ type 'variety variant =
   | No_intersection : unification variant
   | Fixed_row :
       position * fixed_row_case * fixed_explanation -> unification variant
+
   (* Equality & Moregen *)
   | Presence_not_guaranteed_for : position * string -> comparison variant
   | Openness : position (* Always [Second] for Moregen *) -> comparison variant
@@ -106,9 +107,7 @@ type first_class_module =
       }
 
 (** Definition related error *)
-type decl =
-  | GADT_mismatched_return_type
-  | Type_variable_already_bound
+type decl =  GADT_mismatched_return_type
 
 type polyfy_error =
   | Already_bound
@@ -120,13 +119,17 @@ type parameter_error =
   | Not_a_variable_param of type_expr * type_expr
   | Bound_multiple_times of type_expr * type_expr * type_expr
 
+type type_constructor_mismatch =
+  | Constructor_path_mismatch of Path.t
+  | Other_mismatch of type_expr
+
 type ('a, 'variety) explanation =
   (* Common *)
   | Variant : 'variety variant -> ('a, 'variety) explanation
   | Obj : 'variety obj -> ('a, 'variety) explanation
   | Escape : 'a escape -> ('a, _) explanation
   | Decl: decl -> ('a,_) explanation
-  | Incompatible: ('a,unification) explanation
+  | Incompatible: type_expr diff -> ('a,unification) explanation
   | Function_label_mismatch of Asttypes.arg_label diff
   | Tuple_label_mismatch of string option diff
   | Incompatible_fields :
@@ -136,7 +139,7 @@ type ('a, 'variety) explanation =
   (* Unification & Moregen; included in Equality for simplicity *)
   | Rec_occur : type_expr * type_expr -> ('a, _) explanation
   (* Unification *)
-  | Type_constructor_mismatch of Path.t diff
+  | Type_constructor_mismatch of type_constructor_mismatch diff
   | Type_constructor_arity_mismatch: (_,_) explanation
 
   (* New *)
@@ -146,8 +149,10 @@ type ('a, 'variety) explanation =
       (polyfy_error * type_expr) list -> ('a, unification) explanation
 
   | Parameter_mismatch: parameter_error  -> ('a, unification) explanation
-
   | Moregen_occur of type_expr diff
+
+  (* Equality *)
+  | Var_mismatch of type_expr diff
 
 
 

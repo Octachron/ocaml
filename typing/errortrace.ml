@@ -117,9 +117,7 @@ type first_class_module =
       }
 
 (** Definition related error *)
-type decl =
-  | GADT_mismatched_return_type
-  | Type_variable_already_bound
+type decl = GADT_mismatched_return_type
 
 type polyfy_error =
   | Already_bound
@@ -131,13 +129,17 @@ type parameter_error =
   | Not_a_variable_param of type_expr * type_expr
   | Bound_multiple_times of type_expr * type_expr * type_expr
 
+type type_constructor_mismatch =
+  | Constructor_path_mismatch of Path.t
+  | Other_mismatch of type_expr
+
 type ('a, 'variety) explanation =
   (* Common *)
   | Variant : 'variety variant -> ('a, 'variety) explanation
   | Obj : 'variety obj -> ('a, 'variety) explanation
   | Escape : 'a escape -> ('a, _) explanation
   | Decl: decl -> ('a,_) explanation
-  | Incompatible: ('a,unification) explanation
+  | Incompatible: type_expr diff -> ('a,unification) explanation
   | Function_label_mismatch of Asttypes.arg_label diff
   | Tuple_label_mismatch of string option diff
   | Incompatible_fields :
@@ -149,7 +151,7 @@ type ('a, 'variety) explanation =
   | Rec_occur : type_expr * type_expr -> ('a, _) explanation
 
  (* Unification *)
-  | Type_constructor_mismatch of Path.t diff
+  | Type_constructor_mismatch of type_constructor_mismatch diff
   | Type_constructor_arity_mismatch: (_,_) explanation
 
 (* NEW *)
@@ -161,6 +163,9 @@ type ('a, 'variety) explanation =
 
   | Parameter_mismatch: parameter_error  -> ('a, unification) explanation
   | Moregen_occur of type_expr diff
+
+  (* Equality *)
+  | Var_mismatch of type_expr diff
 
 type ('a,'variety) explanation_segment = {
   explanation: ('a,'variety) explanation;
@@ -225,11 +230,12 @@ let map_elt (type a b variety) f:
   | Kind_mismatch | Out_of_scope_univar
   | Type_constructor_mismatch _ | Type_constructor_arity_mismatch
   | Decl _ as x -> x
-  | Incompatible as x -> x
+  | Incompatible _ as x -> x
   | Parameter_mismatch _ as x -> x
   | Univar_quantification_mismatch x ->
     Univar_quantification_mismatch x
   | Moregen_occur _ as x -> x
+  | Var_mismatch _ as x -> x
 
 let map_segment f s = {
   explanation = map_elt f s.explanation;
@@ -267,6 +273,9 @@ let swap_elt (type variety):
       in
       First_class_module c
   | Moregen_occur x -> Moregen_occur (swap_diff x)
+  | Type_constructor_mismatch x -> Type_constructor_mismatch (swap_diff x)
+  | Incompatible d -> Incompatible (swap_diff d)
+  | Var_mismatch d -> Var_mismatch (swap_diff d)
   | x -> x
 
 let swap_explanation_segment s = {

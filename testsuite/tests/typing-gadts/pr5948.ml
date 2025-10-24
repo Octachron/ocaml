@@ -45,7 +45,7 @@ Line 25, characters 23-27:
 Error: The value "intA" has type "!([< `TagA of 'a ]) -> 'a"
        but an expression was expected of type "!(a) -> int"
        Type "[< `TagA of 'a ]" is not compatible with type
-         "!(a)" = "[< `TagA of int | !(`TagB) ]"
+         "a" = "[< `TagA of int | !(`TagB) ]"
        The first variant type does not allow tag(s) "`TagB"
 |}];;
 

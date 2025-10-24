@@ -207,9 +207,7 @@ and syntactic_package_highlight l r =
   Otyp_module { r with opack_cstrs = opack_cstrs' }
 
 let syntactic_highlight l r = match l, r with
-  | Otyp_highlight _ as x, (Otyp_highlight _ as y) -> x, y
-  | Otyp_highlight _ as x, y -> x, Otyp_highlight y
-  | x, (Otyp_highlight _ as y) -> Otyp_highlight x, y
+  | Otyp_highlight _ as x, y | x, (Otyp_highlight _ as y) -> x, y
   | x, y -> syntactic_highlight x y
 
 

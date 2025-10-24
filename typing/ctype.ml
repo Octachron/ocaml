@@ -2591,7 +2591,7 @@ let compatible env t1 t2 =
 
 let mcomp env t1 t2 =
   try mcomp (TypePairs.create 4) env t1 t2 with
-  | Incompatible -> raise_for Unify Incompatible
+  | Incompatible -> raise_for Unify (Incompatible { got=t1; expected = t2})
 
 
 (* Real unification *)
@@ -2717,6 +2717,14 @@ let compare_package env unify lv1 pack1 lv2 pack2 =
   else Result.bind
       (!package_subtype env pack1 pack2)
       (fun () -> !package_subtype env pack2 pack1)
+
+let type_constructor_mismatch mode t1 d1 t2 d2 =
+  let wrap t d = match d with
+    | Tconstr(p,_,_) -> Constructor_path_mismatch p
+    | _ -> Other_mismatch t
+  in
+  raise_for mode
+    (Type_constructor_mismatch { got = wrap t1 d1; expected = wrap t2 d2})
 
 (* force unification in Reither when one side has a non-conjunctive type *)
 (* Code smell: this could also be put in unification_environment.
@@ -2957,8 +2965,6 @@ and unify3 uenv t1 t1' t2 t2' =
           reify uenv t2';
           mcomp (get_env uenv) t1' t2';
           record_equation uenv t1' t2'
-      | Tconstr (got,_,_), Tconstr (expected,_,_) ->
-          raise_for Unify (Type_constructor_mismatch {got; expected})
       | (Tobject (fi1, nm1), Tobject (fi2, _)) ->
           unify_fields uenv fi1 fi2;
           (* Type [t2'] may have been instantiated by [unify_fields] *)
@@ -3010,6 +3016,8 @@ and unify3 uenv t1 t1' t2 t2' =
           raise_for Unify (Obj (Abstract_row Second))
       | (Tconstr _,  Tnil ) ->
           raise_for Unify (Obj (Abstract_row First))
+      | Tconstr _, _ | _, Tconstr _ ->
+          type_constructor_mismatch Unify t1 d1 t2 d2
       | (_, _) -> raise_for Unify Kind_mismatch
       end;
       (* XXX Commentaires + changer "create_recursion"
@@ -3876,7 +3884,7 @@ let rec moregen inst_nongen type_pairs env t1 t2 =
           | (Ttuple tl1, Ttuple tl2) ->
               moregen_labeled_list inst_nongen type_pairs env tl1 tl2
           | (Tconstr (p1, tl1, _), Tconstr (p2, tl2, _))
-                when Path.same p1 p2 ->
+            when Path.same p1 p2 ->
               moregen_list inst_nongen type_pairs env tl1 tl2
           | (Tpackage pack1, Tpackage pack2) ->
               moregen_package inst_nongen type_pairs env (get_level t1') pack1
@@ -3899,6 +3907,8 @@ let rec moregen inst_nongen type_pairs env t1 t2 =
                 (moregen inst_nongen type_pairs env)
           | (Tunivar _, Tunivar _) ->
               unify_univar_for Moregen t1' t2' !univar_pairs
+          | Tconstr _ as d1, d2 | d1, (Tconstr _ as d2) ->
+              type_constructor_mismatch Moregen t1 d1 t2 d2
           | (_, _) ->
               raise_for Moregen Kind_mismatch
         end
@@ -4225,7 +4235,7 @@ let eqtype_subst type_pairs subst t1 t2 =
         let found2 = eq_type t2 t' in
         if found1 && found2 then true else
         if found1 || found2 then
-          raise_for Equality (Decl Type_variable_already_bound)
+          raise_for Equality (Var_mismatch {got=t1;expected=t2})
         else false)
       !subst
   then ()
@@ -4272,8 +4282,6 @@ let rec eqtype rename type_pairs subst env t1 t2 =
           | (Tconstr (p1, tl1, _), Tconstr (p2, tl2, _))
                 when Path.same p1 p2 ->
               eqtype_list_same_length rename type_pairs subst env tl1 tl2
-          | (Tconstr (got, _, _), Tconstr (expected, _, _)) ->
-             raise_for Equality (Type_constructor_mismatch {got;expected})
           | (Tpackage pack1, Tpackage pack2) ->
               eqtype_package rename type_pairs subst env
                 (get_level t1') pack1 (get_level t2') pack2
@@ -4297,6 +4305,10 @@ let rec eqtype rename type_pairs subst env t1 t2 =
                 (eqtype rename type_pairs subst env)
           | (Tunivar _, Tunivar _) ->
               unify_univar_for Equality t1' t2' !univar_pairs
+          | Tconstr _ as d1, d2 | d1 , (Tconstr _ as d2) ->
+              type_constructor_mismatch Equality t1 d1 t2 d2
+          | Tvar _ , _ | _, Tvar _ ->
+              raise_for Equality (Var_mismatch {got=t1;expected=t2})
           | (_, _) ->
               raise_for Equality Kind_mismatch
         end

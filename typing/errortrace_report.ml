@@ -44,14 +44,9 @@ let look_ahead tr expl_tr =
     Errortrace.map_diff
       (fun x -> Some (Out_type.Highlighted_type x.Errortrace.ty)) x
   in
-  let none = { Errortrace.expected=None; got=None} in
-  let last = match expl_tr with
-    | None -> [none]
-    | Some a -> [Errortrace.map_diff (fun x -> Some x) a]
-  in
   match tr with
   | [] -> []
-  | _ :: q -> List.map some q @ last
+  | _ :: q -> List.map some q @ [expl_tr]
 
 let syntactic_diff_highlight d =
   let syntactic_highlight l r = Oprint.syntactic_highlight l r in
@@ -123,9 +118,10 @@ let wip: type a b. (a,b) Errortrace.explanation -> bool =
 let transparent: type a b. (a,b) Errortrace.explanation -> bool =
   let open Errortrace in function
     | Decl _ -> true
-    | Incompatible -> true
+    | Incompatible _ -> true
     | Kind_mismatch -> true
     | Type_constructor_mismatch _ -> true
+    | Var_mismatch _ -> true
     | _ -> false
 
 
@@ -154,18 +150,33 @@ let rec partition_subtrace main shadow = function
       else partition_subtrace (a::main) shadow q
   | [] -> List.rev main, shadow
 
-let highlight shadow expl =
-  let do_highlight f d = Some (Errortrace.map_diff f d) in
+let highlight (type a) shadow (expl: (_,a) Errortrace.explanation list) =
+  let map f d = Errortrace.map_diff (fun x -> Some (f x)) d in
+  let both_side x = { Errortrace.got = Some x; expected = Some x } in
   match shadow with
-  | Some x ->
-      do_highlight (fun e -> Out_type.Highlighted_type e.Errortrace.ty) x
+  | Some x -> map (fun e -> Out_type.Highlighted_type e.Errortrace.ty) x
   | None ->
     match expl with
     | [Errortrace.Moregen_occur d | Errortrace.Univar_mismatch {diff=d}] ->
-        do_highlight (fun ty -> Out_type.Highlighted_type ty) d
+        map (fun ty -> Out_type.Highlighted_type ty) d
     | [Errortrace.Type_constructor_mismatch diff] ->
-        do_highlight (fun ty -> Out_type.Highlighted_path ty) diff
-    | _ -> None
+        map (function
+            | Errortrace.Constructor_path_mismatch p ->
+                Out_type.Highlighted_path p
+            | Errortrace.Other_mismatch ty ->
+                Out_type.Highlighted_type ty)
+          diff
+    | [Errortrace.Escape { kind = Constructor p|Module_type p; _ }] ->
+       both_side (Out_type.Highlighted_path p)
+    | [Errortrace.Escape { kind = Equation e; _ }] ->
+       both_side (Out_type.Highlighted_type e.Errortrace.expanded)
+    | [Errortrace.Rec_occur (l,_)] ->
+        both_side (Out_type.Highlighted_type l)
+    | [Errortrace.Incompatible d] ->
+        map (fun x -> Out_type.Highlighted_type x) d
+    | [Errortrace.Var_mismatch d] ->
+        map (fun x -> Out_type.Highlighted_type x) d
+    | _ -> { Errortrace.got = None; expected=None }
 
 let rec split_last =
   let open Errortrace in
@@ -586,11 +597,11 @@ let explanation (type variety) intro
     (* Transparent explanation *)
     | Errortrace.Type_constructor_arity_mismatch -> None
     | Errortrace.Type_constructor_mismatch _ -> None
-    | Errortrace.Incompatible -> None
-    | Errortrace.Decl _ -> None
-
-    | Errortrace.Out_of_scope_univar -> None
+    | Errortrace.Incompatible _ -> None
+    | Errortrace.Out_of_scope_univar ->
+        assert false
     | Errortrace.Kind_mismatch -> None
+    | Errortrace.Var_mismatch _ -> None
 
 let explanations intro env last_diff l =
   match List.filter_map (explanation intro) l with
@@ -724,6 +735,8 @@ module Subtype = struct
         ~more:Format_doc.Doc.empty ppf tr
     )
 
+  let no_explanation = {Errortrace.got = None; expected = None }
+
   let error
         ppf
         env
@@ -734,18 +747,23 @@ module Subtype = struct
       let tr_sub, _, _ = simplify_subtype_trace prepare_expansion tr_sub in
       let tr_unif, e_unif, last =
         simplify_unification_trace prepare_expansion tr_unif in
-      fprintf ppf "@[<v>%t" (trace true txt1 tr_sub None);
-      if tr_unif = [] && e_unif = [] then fprintf ppf "@]" else
-        let mis =
-          explanations (doc_printf "Within this type") env
-            (last_opt tr_unif) e_unif
-        in
-        let space _ppf () = () in
-        fprintf ppf "%t%a%t@]"
-          (trace  false "is not compatible with type" tr_unif last)
-          (pp_print_list pp_doc ~pp_sep:space) mis
-          Ident_conflicts.err_print
-    )
+      let space _ppf () = () in
+      let mis =
+        explanations (doc_printf "Within this type") env
+          (last_opt tr_unif) e_unif
+      in
+      match tr_unif with
+      | [] ->
+          fprintf ppf "@[<v>%t%a@]"
+            (trace true txt1 tr_sub last)
+            (pp_print_list pp_doc ~pp_sep:space) mis
+      | _ ->
+          fprintf ppf "@[<v>%t%t%a%t@]"
+            (trace true txt1 tr_sub no_explanation)
+            (trace  false "is not compatible with type" tr_unif last)
+            (pp_print_list pp_doc ~pp_sep:space) mis
+            Ident_conflicts.err_print
+      )
 end
 
 let subtype = Subtype.error
