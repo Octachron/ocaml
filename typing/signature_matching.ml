@@ -47,12 +47,20 @@ module Suggestion = struct
 end
 
 let max_right_items = 20
+let cutoff name =
+  match String.length name with
+  | 0 | 1 -> 0 (* Proposing to rename "x" to "y" is dubious. *)
+  | 2 | 3 | 4 -> 1
+  | 5 | 6 | 7 | 8 -> 2
+  | 9 | 10 | 11 -> 3
+  | len -> len/4
 
 let fuzzy_match_suggestions env compatibility ~subst current =
   let open Stable_matching in
   let compatibility = compatibility env subst in
   let matches =
-    fuzzy_match_names ~max_right_items ~compatibility current.left current.right
+    fuzzy_match_names ~max_right_items ~cutoff ~compatibility
+      current.left current.right
   in
   match matches.pairs with
   | [] -> false, subst, current
@@ -133,7 +141,8 @@ let value_suggestions env subst map =
   let fuzzy_match compat current =
     let open Stable_matching in
     let compatibility x y = compat env subst x y in
-    fuzzy_match_names ~max_right_items ~compatibility current.left current.right
+    fuzzy_match_names ~max_right_items ~cutoff ~compatibility
+      current.left current.right
   in
   let values = fuzzy_match C.values map.values in
   let classes = fuzzy_match C.classes map.classes in

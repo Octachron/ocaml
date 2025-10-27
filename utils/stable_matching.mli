@@ -32,5 +32,6 @@ type ('v,'k) item_matches =  (('v,'k) Item.t, 'v) matches
 val fuzzy_match_names:
   compatibility:('k -> 'k -> bool)
   -> max_right_items:int
+  -> cutoff:(string -> int)
   -> ('v,'k) Item.t list -> ('v,'k) Item.t list
   -> ('v,'k) item_matches
