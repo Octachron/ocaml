@@ -22,8 +22,8 @@ end
 
 module Suggestion = struct
   type alteration =
-    | Add_item
-    | Rename_item of Ident.t
+    | Missing_item
+    | Possible_match of Ident.t Location.loc
 
   type 'a t = {
     subject : Types.signature_item;
@@ -35,11 +35,11 @@ module Suggestion = struct
     incompatibles: Includemod.Error.sigitem_symptom t list
   }
 
-  let add subject =
-    { subject = Field.item subject; alteration = Add_item }
-  let rename (subject,target) =
-    let id = Types.signature_item_id target in
-    { subject; alteration = Rename_item id }
+  let missing subject =
+    { subject = Field.item subject; alteration = Missing_item }
+  let possible_match (left, right) =
+    let _ , id, loc = Types.classify_signature_item left in
+    { subject = right; alteration = Possible_match { Location.txt = id; loc } }
   let incompatible (subject, symptom) = { subject; alteration=symptom }
 
   let apply_renaming subst (left, right) =
@@ -158,8 +158,8 @@ let suggest
   let all = value_suggestions env subst with_types in
   let collect proj l =
     let km: _ Stable_matching.matches = proj all in
-    List.map Suggestion.rename km.pairs
-    @ List.rev_map Suggestion.add km.right
+    List.map Suggestion.possible_match km.pairs
+    @ List.rev_map Suggestion.missing km.right
     @ l
   in
   {

@@ -738,17 +738,20 @@ let missing_field ppf item =
     (Style.as_inline_code Printtyp.ident) id
     (show_loc "Expected declaration") loc
 
-let suggest_renaming_field ppf (item, suggested_name) =
-  let current_id, _, kind = Includemod.item_ident_name item in
+let suggest_renaming_field ppf (suggested_name, item) =
+  let {Location.txt = left_id; loc = left_loc} = suggested_name in
+  let right_id, right_loc, kind = Includemod.item_ident_name item in
   let main =
     Fmt.doc_printf "The %s@{<ralign> @}%a is required but not provided."
       (Includemod.kind_of_field_desc kind)
-      Style.inline_code (Ident.name current_id)
+      Style.inline_code (Ident.name right_id)
   in
   let hint =
     Fmt.doc_printf
-      "@{<hint>Hint@}: @{<ralign>@}%a is provided, and a close match."
-      Style.inline_code suggested_name
+      "@{<hint>Hint@}: @{<ralign>@}%a is a close match.%a%a"
+      Style.inline_code (Ident.name left_id)
+      (show_loc "Expected declaration") right_loc
+      (show_loc "Possible match") left_loc
   in
   let main, hint = Misc.align_hint ~prefix:"" ~main ~hint in
   Fmt.pp_doc ppf main;
@@ -899,10 +902,9 @@ and signature ~expansion_token ~env:_ ~before ~ctx sgs =
   let suggestion_text ppf suggestion =
     let open Signature_matching.Suggestion in
     match suggestion.alteration with
-    | Add_item -> missing_field ppf suggestion.subject
-    | Rename_item suggested_ident ->
-        let suggested_name = Ident.name suggested_ident in
-        suggest_renaming_field ppf (suggestion.subject, suggested_name)
+    | Missing_item -> missing_field ppf suggestion.subject
+    | Possible_match suggested_ident ->
+        suggest_renaming_field ppf (suggested_ident, suggestion.subject)
   in
   Printtyp.wrap_printing_env ~error:true sgs.env (fun () ->
       if expansion_token then

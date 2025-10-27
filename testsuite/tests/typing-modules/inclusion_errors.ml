@@ -2092,18 +2092,59 @@ Error: Signature mismatch:
            val x : abcd
            val vwxy : ijkl
          end
-       The module type "TUVX" is required but not provided.
-       Hint:           "TUVW" is provided, and a close match.
-       The module "MNJX" is required but not provided.
-       Hint:      "MNJK" is provided, and a close match.
-       The type "abcx" is required but not provided.
-       Hint:    "abcd" is provided, and a close match.
-       The type "efgx" is required but not provided.
-       Hint:    "efgh" is provided, and a close match.
-       The type "ijkx" is required but not provided.
-       Hint:    "ijkl" is provided, and a close match.
-       The type "mnox" is required but not provided.
-       Hint:    "mnop" is provided, and a close match.
-       The value "vwxx" is required but not provided.
-       Hint:     "vwxy" is provided, and a close match.
+       The module type "TUVW" is required but not provided.
+       Hint:           "TUVX" is a close match.
+       The module "MNJK" is required but not provided.
+       Hint:      "MNJX" is a close match.
+       The type "abcd" is required but not provided.
+       Hint:    "abcx" is a close match.
+       The type "efgh" is required but not provided.
+       Hint:    "efgx" is a close match.
+       The type "ijkl" is required but not provided.
+       Hint:    "ijkx" is a close match.
+       The type "mnop" is required but not provided.
+       Hint:    "mnox" is a close match.
+       The value "vwxy" is required but not provided.
+       Hint:     "vwxx" is a close match.
+|}]
+
+
+  (** 3/2 stable matching
+
+The lists of preferences at cutoff 2 are:
+
+- xxx_aaa: [1, [xxx_ada];  2, [xxx_adaa]; ]
+- xxx_abc: [2, [xxx_ada]]
+
+The optimal stable matching is
+    xxx_aaa <-> xxx_adaa
+    xxx_abc <-> xxx_ada
+and we want to avoid the non-optimal but weakly stable
+    xxx_aaa <-> xxx_ada
+    xxx_abc
+               xxx_adaa
+
+*)
+module M: sig
+  type xxx_aaa
+  type xxx_abc
+end = struct
+  type xxx_adaa
+  type xxx_ada
+end
+[%%expect {|
+Lines 4-7, characters 6-3:
+4 | ......struct
+5 |   type xxx_adaa
+6 |   type xxx_ada
+7 | end
+Error: Signature mismatch:
+       Modules do not match:
+         sig type xxx_adaa type xxx_ada end
+       is not included in
+         sig type xxx_aaa type xxx_abc end
+       The type "xxx_abc" is required but not provided.
+       Hint:    "xxx_ada" is a close match.
+       The type "xxx_aaa" is required but not provided.
+       Hint:    "xxx_adaa" is a close match.
 |}]

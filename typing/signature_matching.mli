@@ -15,8 +15,8 @@
 
 module Suggestion : sig
   type alteration =
-    | Add_item
-    | Rename_item of Ident.t
+    | Missing_item
+    | Possible_match of Ident.t Location.loc
 
   type 'a t = {
     subject : Types.signature_item;
