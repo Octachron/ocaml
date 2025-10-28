@@ -1989,6 +1989,148 @@ let pp_diff p ppf x = Fmt.fprintf ppf "{got=%a;expected=%a}"
     p x.Errortrace.expected
 *)
 
+
+let (#/) x y () =
+  if x.item = y.item then
+    Some { item = x.item; highlighted = x.highlighted || y.highlighted }
+  else None
+
+
+let (#//) x y () = if x = y then Some x else None
+
+let ($) f x = match f with
+  | None -> None
+  | Some f -> match x () with
+    | Some x -> Some (f x)
+    | None -> None
+
+let ($$) f x = (Some f) $ x
+
+let pair l r (l1,r1) (l2,r2) () =
+  match l l1 l2 () with
+  | None -> None
+  | Some l ->
+      match r r1 r2 () with
+      | None -> None
+      | Some r -> Some (l,r)
+
+
+let rec list diff xs ys () = match xs, ys with
+  | [], [] -> Some []
+  | x :: xs, y :: ys ->
+      begin match diff x y () with
+      | Some m ->
+          begin match list diff xs ys () with
+          | Some ms -> Some (m :: ms)
+          | None -> None
+          end
+      | None -> None
+      end
+  | _ :: _, [] | [], _ :: _ -> None
+
+let option merge o1 o2 () = match o1, o2 with
+  | Some o1, Some o2 -> Option.map (fun x -> Some x) @@ merge o1 o2 ()
+  | _ -> None
+
+let mhigh merge h1 h2 () = match merge h1.item h2.item () with
+  | None -> None
+  | Some item ->
+      Some { highlighted = h1.highlighted || h2.highlighted; item }
+
+let iapply f x = Oide_apply (f,x)
+let idot i s = Oide_dot (i,s)
+let ident i = Oide_ident i
+let ihigh = function
+  | Oide_highlight _ as h -> h
+  | x -> Oide_highlight x
+
+let rec mid x y () = match x, y with
+  | Oide_apply (f1,x1), Oide_apply (f2,x2 ) ->
+      iapply $$ mid f1 f2 $ mid x1 x2
+  | Oide_dot (i1,s1), Oide_dot (i2,s2) ->
+      idot $$ mid i1 i2 $ s1 #// s2
+  | Oide_ident i1, Oide_ident i2 ->
+      ident $$ i1#//i2
+  | Oide_highlight i1, Oide_highlight i2 ->
+      ihigh $$ mid i1 i2
+  | Oide_highlight i1, i2 | i1, Oide_highlight i2 ->
+      ihigh $$ mid i1 i2
+  | _ -> None
+
+let alias non_gen aliased alias = Otyp_alias { non_gen; aliased; alias}
+let arrow l a r = Otyp_arrow (l,a,r)
+let class' id args = Otyp_class(id,args)
+let constr x y = Otyp_constr (x,y)
+let tuple x = Otyp_tuple x
+let object' fields open_row  = Otyp_object { fields; open_row }
+let var x y = Otyp_var (x,y)
+let variant fields closed presents = Otyp_variant { fields; closed; presents }
+let fields f = Ovar_fields f
+let field name constant argument_conjunction =
+  { name; constant; argument_conjunction }
+let poly u t = Otyp_poly (u,t)
+let module' opack_path opack_cstrs  = Otyp_module { opack_path; opack_cstrs }
+let attribute x y = Otyp_attribute (x,y)
+let highlight x = match x with
+  | Otyp_highlight _ as h -> h
+  | x -> Otyp_highlight x
+
+let rec (#=) x y () = match x, y with
+  | Otyp_abstract, Otyp_abstract
+  | Otyp_open, Otyp_open -> Some x
+  | (Otyp_stuff sx, Otyp_stuff sy | Otyp_external sx, Otyp_external sy)
+    when sx = sy -> Some x
+  | Otyp_alias x, Otyp_alias y ->
+      alias $$ x.non_gen#/y.non_gen $ x.aliased#=y.aliased $ x.alias#//y.alias
+  | Otyp_arrow (l1,a1,r1), Otyp_arrow (l2,a2,r2) ->
+      arrow $$ l1#/l2 $ a1#=a2 $ r1#=r2
+  | Otyp_class (i1,a1), Otyp_class (i2,a2) ->
+      class' $$ mid i1 i2 $ list (#=) a1 a2
+  | Otyp_constr (i1,a1), Otyp_constr (i2,a2) ->
+      constr $$ mid i1 i2 $ list (#=) a1 a2
+  | Otyp_object o1, Otyp_object o2 ->
+      object'
+      $$ list (pair (#/) (#=)) o1.fields o2.fields
+      $ o1.open_row#/o2.open_row
+  | Otyp_record _, _ | _, Otyp_record _
+  | Otyp_manifest _, Otyp_manifest _
+  | Otyp_sum _, _ | _, Otyp_sum _  -> None
+  | Otyp_tuple t1, Otyp_tuple t2 ->
+      tuple $$ list (pair (#/) (#=)) t1 t2
+  | Otyp_var (w1,n1), Otyp_var (w2,n2) ->
+      var $$ w1 #/ w2 $ n1 #// n2
+  | Otyp_variant v1, Otyp_variant v2 ->
+      variant
+      $$ mvariant v1.fields v2.fields
+      $ v1.closed #/ v2.closed
+      $ option (list (#/)) v1.presents v2.presents
+  | Otyp_poly (u1,t1), Otyp_poly (u2,t2) ->
+      poly $$ u1#//u2 $ t1 #=t2
+  | Otyp_module p1, Otyp_module p2 ->
+      module'
+      $$ mid p1.opack_path p2.opack_path
+      $ list (pair (#/) (#=)) p1.opack_cstrs p2.opack_cstrs
+  | Otyp_attribute (t1,a1), Otyp_attribute (t2,a2) ->
+      attribute $$ t1#=t2 $ a1#//a2
+  | Otyp_highlight x1, Otyp_highlight x2 ->
+      highlight $$ x1#=x2
+  | Otyp_highlight x1, x2 | x1, Otyp_highlight x2 ->
+      highlight $$ x1#=x2
+  | _, _ -> None
+
+and mvariant v1 v2 () = match v1, v2 with
+  | Ovar_typ t1, Ovar_typ t2 -> (fun x -> Ovar_typ x) $$ t1 #= t2
+  | Ovar_fields f1, Ovar_fields f2 ->
+      fields $$ list (mhigh mfield) f1 f2
+  | _ -> None
+
+and mfield f1 f2 () =
+  field
+  $$ f1.name #/ f2.name
+  $ f1.constant #/ f2.constant
+  $ list (#=) f1.argument_conjunction f2.argument_conjunction
+
+
 let trees_of_type_expansion mode next Errortrace.{ty = t; expanded = t'} =
   Aliases.reset ();
   Aliases.mark_loops t;
@@ -2002,8 +2144,9 @@ let trees_of_type_expansion mode next Errortrace.{ty = t; expanded = t'} =
        e.g. when printing object types *)
     let first = tree next mode t in
     let second = tree next mode t' in
-    if first = second then Same first
-    else Diff(first,second)
+    match first #= second () with
+    | Some same -> Same same
+    | None -> Diff(first,second)
   end
 
 let pp_type ppf t =
