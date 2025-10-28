@@ -24,6 +24,6 @@ Line 3, characters 2-26:
 3 |   (module struct end: M.t)
       ^^^^^^^^^^^^^^^^^^^^^^^^
 Error: This expression has type "(module !(M.t))"
-       but an expression was expected of type "!('a)"
+       but an expression was expected of type "'a"
        The module type "M.t" would escape its scope
 |}]

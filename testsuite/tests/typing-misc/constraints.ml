@@ -441,7 +441,7 @@ and r = [s cstr t | `Bar]
 Line 1, characters 0-12:
 1 | type s = int
     ^^^^^^^^^^^^
-Error: This type constructor expands to type "!(s)" = "!(int)"
+Error: This type constructor expands to type "s" = "!(int)"
        but is used here with type "!(float)"
 |}]
 

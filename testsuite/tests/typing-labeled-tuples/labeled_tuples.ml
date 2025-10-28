@@ -174,7 +174,7 @@ and b = 2, ~lbl:a
 Line 2, characters 16-17:
 2 | and b = 2, ~lbl:a
                     ^
-Error: The value "a" has type "int !(*) lbl:(int * lbl:'a)"
+Error: The value "a" has type "int * lbl:(int * lbl:!('a))"
        but an expression was expected of type "!('a)"
        The type variable "'a" occurs inside "int * lbl:(int * lbl:'a)"
 |}]

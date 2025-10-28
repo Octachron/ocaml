@@ -229,7 +229,7 @@ Error: Signature mismatch:
          val r : '_weak1 list ref
        is not included in
          val r : T.t list ref
-       The type "'_weak1 list !(ref)" is not compatible with the type "T.t list !(ref)"
+       The type "'_weak1 list ref" is not compatible with the type "!(T.t) list ref"
        This instance of "T.t" is ambiguous:
        it would escape the scope of its equation
 |}]

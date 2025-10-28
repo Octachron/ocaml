@@ -90,7 +90,7 @@ Line 1, characters 16-21:
                     ^^^^^
 Error: This pattern matches values of type "(!($'a) M.p * a, !($'a) M.p * a) Type.eq"
        but a pattern was expected which matches values of type
-         "($'a M.p * a, 'b M.p * int) Type.eq"
+         "(!($'a) M.p * a, 'b M.p * int) Type.eq"
        The type constructor "$'a" would escape its scope
 |}]
 

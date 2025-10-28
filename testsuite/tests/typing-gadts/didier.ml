@@ -75,8 +75,8 @@ Error: This expression has type "!(bool)" but an expression was expected of type
 Line 4, characters 11-16:
 4 |   | Int -> x > 0
                ^^^^^
-Error: This expression has type "!(bool)" but an expression was expected of type
-         "!(t)" = "!(int)"
+Error: This expression has type "bool" but an expression was expected of type
+         "t" = "!(int)"
        This instance of "int" is ambiguous:
        it would escape the scope of its equation
 |}];;

@@ -500,8 +500,8 @@ Error: Modules do not match:
        val r : '_weak1 list ref ref
      is not included in
        val r : Choice.t list ref ref
-     The type "'_weak1 list ref !(ref)" is not compatible with the type
-       "Choice.t list ref !(ref)"
+     The type "'_weak1 list ref ref" is not compatible with the type
+       "!(Choice.t) list ref ref"
      The type constructor "Choice.t" would escape its scope
 |}];;
 
@@ -589,7 +589,7 @@ Error: Signature mismatch:
          val f : s -> s
        The type "!(< m : int >) -> < m : int >" is not compatible with the type
          "!(s) -> s"
-       Type "< m : int >" is not compatible with type "!(s)" = "< m : int; !(..) >"
+       Type "< m : int >" is not compatible with type "s" = "< m : int; !(..) >"
        The second object type has an abstract row, it cannot be closed
 |}];;
 
@@ -658,7 +658,7 @@ Error: Signature mismatch:
          val r : '_weak3 list ref
        is not included in
          val r : t list ref
-       The type "'_weak3 list !(ref)" is not compatible with the type "t list !(ref)"
+       The type "'_weak3 list ref" is not compatible with the type "!(t) list ref"
        The type constructor "t" would escape its scope
 |}];;
 
@@ -701,7 +701,7 @@ Error: Signature mismatch:
          val r : '_weak4 list ref
        is not included in
          val r : T.t list ref
-       The type "'_weak4 list !(ref)" is not compatible with the type "T.t list !(ref)"
+       The type "'_weak4 list ref" is not compatible with the type "!(T.t) list ref"
        This instance of "T.t" is ambiguous:
        it would escape the scope of its equation
 |}];;

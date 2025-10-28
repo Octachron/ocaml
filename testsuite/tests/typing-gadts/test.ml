@@ -466,7 +466,7 @@ let test : type a. a t -> a = fun x ->
 Line 2, characters 30-42:
 2 |   let r = match x with Int -> ky 1 (1 : a)  (* fails *)
                                   ^^^^^^^^^^^^
-Error: This expression has type "!(int)" but an expression was expected of type "!('a)"
+Error: This expression has type "!(int)" but an expression was expected of type "'a"
        This instance of "int" is ambiguous:
        it would escape the scope of its equation
 |}];;
@@ -579,7 +579,7 @@ val either : 'a -> 'a -> 'a = <fun>
 Line 3, characters 44-45:
 3 |   match v with Int -> let y = either 1 x in y
                                                 ^
-Error: The value "y" has type "!(int)" but an expression was expected of type "!('a)"
+Error: The value "y" has type "!(int)" but an expression was expected of type "'a"
        This instance of "int" is ambiguous:
        it would escape the scope of its equation
 |}];;
@@ -752,7 +752,7 @@ Line 4, characters 44-45:
                                                 ^
 Error: The value "o" has type "< m : !(a) >" but an expression was expected of type
          "< m : !(b) >"
-       Type "!(a)" is not compatible with type "!(b)" = "!(a)"
+       Type "a" is not compatible with type "b" = "!(a)"
        This instance of "a" is ambiguous:
        it would escape the scope of its equation
 |}];;
@@ -852,7 +852,7 @@ Line 4, characters 49-50:
                                                      ^
 Error: The value "o" has type "[ `A of !(a) | `B ]"
        but an expression was expected of type "[ `A of !(b) | `B ]"
-       Type "!(a)" is not compatible with type "!(b)" = "!(a)"
+       Type "a" is not compatible with type "b" = "!(a)"
        This instance of "a" is ambiguous:
        it would escape the scope of its equation
 |}];;
@@ -1071,7 +1071,7 @@ Line 10, characters 3-4:
         ^
 Error: The value "x" has type "t" = "< foo : int; !(..) >"
        but an expression was expected of type "< foo : int >"
-       Type "!($0)" = "< !(bar) : int; !(..) >" is not compatible with type "<  >"
+       Type "$0" = "< !(bar) : int; !(..) >" is not compatible with type "<  >"
        The second object type has no method "bar"
 |}];;
 
@@ -1129,7 +1129,7 @@ Line 3, characters 5-10:
 3 |   x, x#foo, x#bar
          ^^^^^
 Error: The method call "x#foo" has type "!(int)"
-       but an expression was expected of type "!('a)"
+       but an expression was expected of type "'a"
        This instance of "int" is ambiguous:
        it would escape the scope of its equation
 |}];;
@@ -1349,8 +1349,8 @@ module M :
 Line 9, characters 4-5:
 9 |     z#b
         ^
-Error: This expression has type "$a" = "< b : bool >"
-       but an expression was expected of type "< b : 'a; !(..) >"
+Error: This expression has type "$a" = "!(< b : bool >)"
+       but an expression was expected of type "< b : 'a; .. >"
        This instance of "< b : bool >" is ambiguous:
        it would escape the scope of its equation
        Hint: "$a" is an existential type bound by the constructor "C".
@@ -1377,8 +1377,8 @@ module M :
 Line 9, characters 4-5:
 9 |     z#b
         ^
-Error: This expression has type "$a" = "< b : bool >"
-       but an expression was expected of type "< b : 'a; !(..) >"
+Error: This expression has type "$a" = "!(< b : bool >)"
+       but an expression was expected of type "< b : 'a; .. >"
        This instance of "< b : bool >" is ambiguous:
        it would escape the scope of its equation
        Hint: "$a" is an existential type bound by the constructor "C".
