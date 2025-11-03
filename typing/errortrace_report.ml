@@ -599,7 +599,7 @@ let explanation (type variety) intro
                 qp ty
           | Errortrace.Not_a_variable ->
               Fmt.fprintf ppf
-                "@[The type %a is not a type variable@]"
+                "@,@[The type %a is not a type variable@]"
                 qp ty
         in
 
