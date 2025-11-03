@@ -1056,7 +1056,7 @@ let rec tree_of_typexp next mode ty =
   if Aliases.is_printed_proxy px && not (Aliases.is_delayed px) then
    let non_gen = is_non_gen mode (Transient_expr.type_expr px) in
    let name = Variable_names.(name_of_type (new_var_name ~non_gen ty)) px in
-   Otyp_var (plain non_gen, name) else
+    highlight_focus next ty @@ Otyp_var (plain non_gen, name) else
 
   let pr_typ () =
     let tty = Transient_expr.repr ty in
@@ -1176,7 +1176,9 @@ let rec tree_of_typexp next mode ty =
     (* add_printed_alias chose a name, thus the name generator
        doesn't matter.*)
     let alias = Variable_names.(name_of_type (new_var_name ~non_gen ty)) px in
-    Otyp_alias {non_gen=plain non_gen;  aliased = pr_typ (); alias } end
+    highlight_focus next ty @@
+    Otyp_alias {non_gen=plain non_gen;  aliased = pr_typ (); alias }
+  end
   else
     highlight_focus next ty (pr_typ ())
 
