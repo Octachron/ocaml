@@ -26,11 +26,15 @@
     rewritten on the fly to avoid name collisions *)
 type out_name = { mutable printed_name: string }
 
+type highlight_kind =
+  | Paired
+  | Independent
+
 type out_ident =
   | Oide_apply of out_ident * out_ident
   | Oide_dot of out_ident * string
   | Oide_ident of out_name
-  | Oide_highlight of out_ident
+  | Oide_highlight of highlight_kind * out_ident
 
 type out_string =
   | Ostr_string
@@ -96,7 +100,7 @@ type out_type =
   | Otyp_module of out_package
   | Otyp_attribute of out_type * out_attribute
   | Otyp_external of string
-  | Otyp_highlight of out_type
+  | Otyp_highlight of highlight_kind * out_type
 
 and out_label = {
   olab_name: string;

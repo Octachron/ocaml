@@ -79,15 +79,19 @@ let rec highlight_map2 ~mismatch f x y = match x, y with
       let lq, rq = highlight_map2 ~mismatch f lq rq in
       lh :: lq, rh :: rq
 
+let hty ty = Otyp_highlight (Independent, ty)
+
 let rec syntactic_highlight l r = match l, r with
-  | Otyp_highlight _ as x, (Otyp_highlight _ as y)
-  | (Otyp_highlight _ as x), y | x, (Otyp_highlight _ as y) -> x, y
+  | Otyp_highlight (Independent, _) as x, y
+  | x, (Otyp_highlight (Independent,_) as y) -> x, y
+  | (Otyp_highlight (Paired, _) as x), (Otyp_highlight (Paired, _) as y) -> x, y
+  | Otyp_highlight (Paired, x), y | x, Otyp_highlight (Paired, y) -> x, y
   | (Otyp_abstract | Otyp_open | Otyp_stuff _ | Otyp_manifest _
     | Otyp_record _ | Otyp_sum _ | Otyp_external _ ), _
   | _ , (Otyp_abstract | Otyp_open | Otyp_stuff _ | Otyp_manifest _
         | Otyp_record _ | Otyp_sum _ | Otyp_external _ ) -> l, r
-
-  | (Otyp_var _ | Otyp_constr _), _ | _, (Otyp_var _ | Otyp_constr _) -> l, r
+  | (Otyp_var _ | Otyp_constr _ as l), r
+  | l, (Otyp_var _ | Otyp_constr _ as r) -> l, r
   | Otyp_class _ , _ | _, Otyp_class _ -> l, r
   | Otyp_poly (b,ty), Otyp_poly (b',ty') ->
       let ty, ty' = syntactic_highlight ty ty' in
@@ -115,7 +119,7 @@ let rec syntactic_highlight l r = match l, r with
      let arg, arg' = syntactic_highlight arg arg' in
      let ret, ret' = syntactic_highlight ret ret' in
      Otyp_arrow (label,arg,ret), Otyp_arrow (label',arg',ret')
-  | Otyp_arrow _, _ | _, Otyp_arrow _ -> Otyp_highlight l, Otyp_highlight r
+  | Otyp_arrow _, _ | _, Otyp_arrow _ -> hty l, hty r
   | Otyp_object l, Otyp_object r ->
       let open_row, open_row' = highlight_diff l.open_row r.open_row in
       let diff lbl (_,ty) (_,ty') =
@@ -129,7 +133,7 @@ let rec syntactic_highlight l r = match l, r with
       in
       Otyp_object { fields; open_row },
       Otyp_object { fields = fields'; open_row=open_row'}
-  | Otyp_object _, _ | _, Otyp_object _ -> Otyp_highlight l, Otyp_highlight r
+  | Otyp_object _, _ | _, Otyp_object _ -> hty l, hty r
   | Otyp_tuple l, Otyp_tuple r ->
       let elt (lbl,ty) (lbl',ty') =
         let lbl, lbl' = highlight_diff lbl lbl' in
@@ -138,11 +142,11 @@ let rec syntactic_highlight l r = match l, r with
       in
       let mismatch (lbl,ty) =
         if lbl.item <> None then (highlighting_on lbl, ty)
-        else (lbl, Otyp_highlight ty)
+        else (lbl, hty ty)
       in
       let l, r = highlight_map2 ~mismatch elt l r in
       Otyp_tuple l, Otyp_tuple r
-  | Otyp_tuple _, _ | _, Otyp_tuple _ -> Otyp_highlight l, Otyp_highlight r
+  | Otyp_tuple _, _ | _, Otyp_tuple _ -> hty l, hty r
 
   | Otyp_attribute (l,att), r ->
       let l, r = syntactic_highlight l r in
@@ -163,7 +167,7 @@ let rec syntactic_highlight l r = match l, r with
       let fields, fields' = syntactic_variant_diff l.fields r.fields in
       Otyp_variant { fields; closed; presents },
       Otyp_variant { fields = fields'; closed = closed'; presents = presents' }
-  | Otyp_variant _, _ | _, Otyp_variant _ -> Otyp_highlight l, Otyp_highlight r
+  | Otyp_variant _, _ | _, Otyp_variant _ -> hty l, hty r
   | Otyp_module l, Otyp_module r -> syntactic_package_highlight l r
 
 and syntactic_variant_diff x y =
@@ -224,7 +228,7 @@ let rec print_ident ppf =
       print_ident ppf id; pp_print_char ppf '.'; print_lident ppf s
   | Oide_apply (id1, id2) ->
       fprintf ppf "%a(%a)" print_ident id1 print_ident id2
-  | Oide_highlight id -> Style.highlight print_ident ppf id
+  | Oide_highlight (_,id) -> Style.highlight print_ident ppf id
 
 let out_ident = ref print_ident
 
@@ -508,7 +512,7 @@ let rec print_out_type ?(highlight=false) ppf =
         pr_vars sl
         (print_out_type ~highlight:false) ty;
       highlight_close_if ppf highlight;
-  | Otyp_highlight x -> print_out_type ~highlight:true ppf x
+  | Otyp_highlight (_,x) -> print_out_type ~highlight:true ppf x
   | ty ->
       print_out_type_1 ~highlight ppf ty
 
@@ -523,7 +527,7 @@ and print_out_type_1 ?(highlight=false) ppf =
       pp_print_space ppf ();
       print_out_type_1 ppf ty2;
       pp_close_box ppf ()
-  | Otyp_highlight x -> print_out_type_1 ~highlight:true ppf x
+  | Otyp_highlight (_,x) -> print_out_type_1 ~highlight:true ppf x
   | ty -> print_out_type_2 ~arg:false ~highlight ppf ty
 and print_out_type_2 ~arg ?(highlight=false) ppf =
   function
@@ -545,7 +549,7 @@ and print_out_type_2 ~arg ?(highlight=false) ppf =
       fprintf ppf "@[<0>%a@]"
         (print_typlist print_elem (prod_sep ~highlight)) tyl;
       if parens then pp_print_char ppf ')'
-  | Otyp_highlight x -> print_out_type_2 ~arg ~highlight:true ppf x
+  | Otyp_highlight (_,x) -> print_out_type_2 ~arg ~highlight:true ppf x
   | ty -> print_simple_out_type ~highlight ppf ty
 and print_simple_out_type ?(highlight=false) ppf =
   function
@@ -596,7 +600,7 @@ and print_simple_out_type ?(highlight=false) ppf =
   | Otyp_attribute (t, attr) ->
       fprintf ppf "@[<1>(%a [@@%s])@]"
         (print_out_type ~highlight) t attr.oattr_name
-  | Otyp_highlight x -> print_simple_out_type ~highlight:true ppf x
+  | Otyp_highlight (_,x) -> print_simple_out_type ~highlight:true ppf x
 and print_package ~highlight ppf pack =
   fprintf ppf "%a" (highlight_if highlight print_ident) pack.opack_path;
   let first = ref true in

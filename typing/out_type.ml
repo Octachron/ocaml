@@ -409,10 +409,12 @@ type highlight_target =
 
 let highlight_path htarget p op =
   let same_path = function
-    | Highlighted_path p' -> Path.same p p'
-    | _ -> false
+    | Highlighted_path p', k -> if Path.same p p' then Some k else None
+    | _ -> None
   in
-  if List.exists same_path htarget then Oide_highlight op else op
+  match List.find_map same_path htarget with
+  | Some kind -> Oide_highlight (kind,op)
+  | None -> op
 
 let rec tree_of_path ?(disambiguation=true) namespace p =
   let tree_of_path namespace p = tree_of_path ~disambiguation namespace p in
@@ -1047,11 +1049,13 @@ let alias_nongen_row mode px ty =
 
 
 let highlight_focus next ty oty =
-  let eq = function
-    | Highlighted_type ty' -> Types.eq_type ty ty'
-    | _ -> false
+  let ty_kind = function
+    | Highlighted_type ty', k -> if Types.eq_type ty ty' then Some k else None
+    | _ -> None
   in
-  if List.exists eq next then Otyp_highlight oty else oty
+  match List.find_map ty_kind next with
+  | Some kind -> Otyp_highlight (kind, oty)
+  | _ -> oty
 
 let rec tree_of_typexp next mode ty =
   let px = proxy ty in
@@ -2044,9 +2048,13 @@ let mhigh merge h1 h2 () = match merge h1.item h2.item () with
 let iapply f x = Oide_apply (f,x)
 let idot i s = Oide_dot (i,s)
 let ident i = Oide_ident i
-let ihigh = function
+
+let hmax x y = match x, y with
+  | Independent, _ | _, Independent -> Independent
+  | Paired, Paired -> Paired
+let ihigh k = function
   | Oide_highlight _ as h -> h
-  | x -> Oide_highlight x
+  | x -> Oide_highlight (k, x)
 
 let rec mid x y () = match x, y with
   | Oide_apply (f1,x1), Oide_apply (f2,x2 ) ->
@@ -2055,10 +2063,10 @@ let rec mid x y () = match x, y with
       idot $$ mid i1 i2 $ s1 #// s2
   | Oide_ident i1, Oide_ident i2 ->
       ident $$ i1#//i2
-  | Oide_highlight i1, Oide_highlight i2 ->
-      ihigh $$ mid i1 i2
-  | Oide_highlight i1, i2 | i1, Oide_highlight i2 ->
-      ihigh $$ mid i1 i2
+  | Oide_highlight (k1, i1), Oide_highlight (k2, i2) ->
+      ihigh (hmax k1 k2) $$ mid i1 i2
+  | Oide_highlight (k, i1), i2 | i1, Oide_highlight (k, i2) ->
+      ihigh k $$ mid i1 i2
   | _ -> None
 
 let alias non_gen aliased alias = Otyp_alias { non_gen; aliased; alias}
@@ -2075,9 +2083,9 @@ let field name constant argument_conjunction =
 let poly u t = Otyp_poly (u,t)
 let module' opack_path opack_cstrs  = Otyp_module { opack_path; opack_cstrs }
 let attribute x y = Otyp_attribute (x,y)
-let highlight x = match x with
-  | Otyp_highlight _ as h -> h
-  | x -> Otyp_highlight x
+let highlight k x = match x with
+  | Otyp_highlight (k',i)  -> Otyp_highlight (hmax k k', i)
+  | x -> Otyp_highlight (k,x)
 
 let rec (#=) x y () = match x, y with
   | Otyp_abstract, Otyp_abstract
@@ -2116,10 +2124,10 @@ let rec (#=) x y () = match x, y with
       $ list (pair (#/) (#=)) p1.opack_cstrs p2.opack_cstrs
   | Otyp_attribute (t1,a1), Otyp_attribute (t2,a2) ->
       attribute $$ t1#=t2 $ a1#//a2
-  | Otyp_highlight x1, Otyp_highlight x2 ->
-      highlight $$ x1#=x2
-  | Otyp_highlight x1, x2 | x1, Otyp_highlight x2 ->
-      highlight $$ x1#=x2
+  | Otyp_highlight (k1, x1), Otyp_highlight (k2, x2) ->
+      highlight (hmax k1 k2) $$ x1#=x2
+  | Otyp_highlight (k,x1), x2 | x1, Otyp_highlight (k,x2) ->
+      highlight k $$ x1#=x2
   | _, _ -> None
 
 and mvariant v1 v2 () = match v1, v2 with

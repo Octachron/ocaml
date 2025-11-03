@@ -121,7 +121,8 @@ type highlight_target =
   | Highlighted_path of Path.t
 
 val trees_of_type_expansion:
-   type_or_scheme -> highlight_target list -> Errortrace.expanded_type
+   type_or_scheme -> (highlight_target * highlight_kind) list
+   -> Errortrace.expanded_type
    -> out_type diff
 val prepare_expansion: Errortrace.expanded_type -> Errortrace.expanded_type
 val pp_type_expansion: out_type diff printer

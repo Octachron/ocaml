@@ -42,7 +42,8 @@ type 'a diff = 'a Out_type.diff = Same of 'a | Diff of 'a * 'a
 let look_ahead tr expl_tr =
   let one x =
     Errortrace.map_diff
-      (fun x -> [Out_type.Highlighted_type x.Errortrace.ty]) x
+      (fun x ->[Out_type.Highlighted_type x.Errortrace.ty, Outcometree.Paired])
+      x
   in
   match tr with
   | [] -> []
@@ -152,10 +153,17 @@ let rec partition_subtrace main shadow = function
 
 let no_explanation = {Errortrace.got = []; expected = [] }
 
+type highlight_kind = Outcometree.highlight_kind =
+  | Paired
+  | Independent
+
 let highlight (type a) shadow (expl: (_,a) Errortrace.explanation list) =
-  let map f d = Errortrace.map_diff (fun x -> [f x]) d in
+  let map f d = Errortrace.map_diff (fun x -> [f x, Outcometree.Paired]) d in
   let hty x = Out_type.Highlighted_type x in
-  let both_side x = { Errortrace.got = x; expected = x } in
+  let independent l = List.map (fun x -> x, Outcometree.Independent) l in
+  let both_side x =
+    { Errortrace.got = independent x; expected = independent x }
+  in
   match shadow with
   | Some x -> map (fun e -> hty e.Errortrace.ty) x
   | None ->
@@ -178,9 +186,14 @@ let highlight (type a) shadow (expl: (_,a) Errortrace.explanation list) =
       | [Errortrace.Rec_occur (l,_)] ->
           both_side [hty l]
       | [Errortrace.Parameter_mismatch (Not_a_variable_param (got,expected))] ->
-          { Errortrace.got = [hty got]; expected = [hty expected]}
+          {
+            Errortrace.got = [hty got, Independent];
+            expected = [hty expected, Independent]
+          }
       | [Errortrace.Parameter_mismatch (Bound_multiple_times (a,b,x))] ->
-          { Errortrace.got = [ hty a; hty b ]; expected = [ hty x ] }
+          { Errortrace.got = [ hty a, Independent; hty b, Independent ];
+            expected = [ hty x, Independent ]
+          }
       | [Errortrace.Univar_quantification_mismatch l] ->
          both_side (List.map (fun (_,ty) -> hty ty) l)
       | _ -> no_explanation
