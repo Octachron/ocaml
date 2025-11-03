@@ -81,7 +81,7 @@ let rec highlight_map2 ~mismatch f x y = match x, y with
 
 let rec syntactic_highlight l r = match l, r with
   | Otyp_highlight _ as x, (Otyp_highlight _ as y)
-  | Otyp_highlight x, y | x, Otyp_highlight y -> x, y
+  | (Otyp_highlight _ as x), y | x, (Otyp_highlight _ as y) -> x, y
   | (Otyp_abstract | Otyp_open | Otyp_stuff _ | Otyp_manifest _
     | Otyp_record _ | Otyp_sum _ | Otyp_external _ ), _
   | _ , (Otyp_abstract | Otyp_open | Otyp_stuff _ | Otyp_manifest _
@@ -89,8 +89,15 @@ let rec syntactic_highlight l r = match l, r with
 
   | (Otyp_var _ | Otyp_constr _), _ | _, (Otyp_var _ | Otyp_constr _) -> l, r
   | Otyp_class _ , _ | _, Otyp_class _ -> l, r
-
-
+  | Otyp_poly (b,ty), Otyp_poly (b',ty') ->
+      let ty, ty' = syntactic_highlight ty ty' in
+      Otyp_poly (b,ty), Otyp_poly (b',ty')
+  | Otyp_poly (b,l), r ->
+      let l, r = syntactic_highlight l r in
+      Otyp_poly (b,l), r
+  | l, Otyp_poly (b,r) ->
+      let l, r = syntactic_highlight l r in
+      l, Otyp_poly (b,r)
   | Otyp_alias l, Otyp_alias r ->
       let non_gen_l, non_gen_r = highlight_diff l.non_gen r.non_gen in
       let aliased_l, aliased_r = syntactic_highlight l.aliased r.aliased in
@@ -157,12 +164,6 @@ let rec syntactic_highlight l r = match l, r with
       Otyp_variant { fields; closed; presents },
       Otyp_variant { fields = fields'; closed = closed'; presents = presents' }
   | Otyp_variant _, _ | _, Otyp_variant _ -> Otyp_highlight l, Otyp_highlight r
-
-  | Otyp_poly (b,ty), Otyp_poly (b',ty') ->
-      let ty, ty' = syntactic_highlight ty ty' in
-      Otyp_poly (b,ty), Otyp_poly (b',ty')
-  | Otyp_poly _, _ | _, Otyp_poly _ -> Otyp_highlight l, Otyp_highlight r
-
   | Otyp_module l, Otyp_module r -> syntactic_package_highlight l r
 
 and syntactic_variant_diff x y =

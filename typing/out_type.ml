@@ -408,10 +408,11 @@ type highlight_target =
   | Highlighted_path of Path.t
 
 let highlight_path htarget p op =
-  match htarget with
-  | None | Some (Highlighted_type _) -> op
-  | Some (Highlighted_path p') ->
-      if Path.same p p' then Oide_highlight op else op
+  let same_path = function
+    | Highlighted_path p' -> Path.same p p'
+    | _ -> false
+  in
+  if List.exists same_path htarget then Oide_highlight op else op
 
 let rec tree_of_path ?(disambiguation=true) namespace p =
   let tree_of_path namespace p = tree_of_path ~disambiguation namespace p in
@@ -746,7 +747,7 @@ end = struct
               | Existential constr ->
                   let prev = String.Map.find_opt constr acc in
                   let prev = Option.value ~default:[] prev in
-                  String.Map.add constr (tree_of_path None None p :: prev) acc
+                  String.Map.add constr (tree_of_path None [] p :: prev) acc
               | Definition | Rec_check_regularity -> acc)
         !names String.Map.empty
     in
@@ -1046,10 +1047,11 @@ let alias_nongen_row mode px ty =
 
 
 let highlight_focus next ty oty =
-   match next with
-    | None | Some (Highlighted_path _) -> oty
-    | Some (Highlighted_type next) ->
-        if Types.eq_type ty next then Otyp_highlight oty else oty
+  let eq = function
+    | Highlighted_type ty' -> Types.eq_type ty ty'
+    | _ -> false
+  in
+  if List.exists eq next then Otyp_highlight oty else oty
 
 let rec tree_of_typexp next mode ty =
   let px = proxy ty in
@@ -1256,7 +1258,7 @@ and tree_of_package next mode {pack_path; pack_cstrs} =
         pack_cstrs }
 
 let typexp mode ppf ty =
-  !Oprint.out_type ppf (tree_of_typexp None mode ty)
+  !Oprint.out_type ppf (tree_of_typexp [] mode ty)
 
 let prepared_type_expr ppf ty = typexp Type ppf ty
 
@@ -1277,8 +1279,8 @@ let tree_of_constraints params =
     (fun ty list ->
        let ty' = unalias ty in
        if proxy ty != proxy ty' then
-         let tr = tree_of_typexp None Type_scheme ty in
-         (tr, tree_of_typexp None Type_scheme ty') :: list
+         let tr = tree_of_typexp [] Type_scheme ty in
+         (tr, tree_of_typexp [] Type_scheme ty') :: list
        else list)
     params []
 
@@ -1305,16 +1307,16 @@ let tree_of_label l =
     olab_name = Ident.name l.ld_id;
     olab_mut = l.ld_mutable;
     olab_atomic = l.ld_atomic;
-    olab_type = tree_of_typexp None Type l.ld_type;
+    olab_type = tree_of_typexp [] Type l.ld_type;
   }
 
 let tree_of_constructor_arguments = function
-  | Cstr_tuple l -> tree_of_typlist None Type l
+  | Cstr_tuple l -> tree_of_typlist [] Type l
   | Cstr_record l -> [ Otyp_record (List.map tree_of_label l) ]
 
 let tree_of_single_constructor cd =
   let name = Ident.name cd.cd_id in
-  let ret = Option.map (tree_of_typexp None Type) cd.cd_res in
+  let ret = Option.map (tree_of_typexp [] Type) cd.cd_res in
   let args = tree_of_constructor_arguments cd.cd_args in
   {
       ocstr_name = name;
@@ -1431,13 +1433,13 @@ let tree_of_type_decl id decl =
         decl.type_params decl.type_variance
     in
     (Ident.name id,
-     List.map2 (fun ty cocn -> type_param cocn (tree_of_typexp None Type ty))
+     List.map2 (fun ty cocn -> type_param cocn (tree_of_typexp [] Type ty))
        params vari)
   in
   let tree_of_manifest ty1 =
     match ty_manifest with
     | None -> ty1
-    | Some ty -> Otyp_manifest (tree_of_typexp None Type ty, ty1)
+    | Some ty -> Otyp_manifest (tree_of_typexp [] Type ty, ty1)
   in
   let (name, args) = type_defined decl in
   let constraints = tree_of_constraints params in
@@ -1447,7 +1449,7 @@ let tree_of_type_decl id decl =
         begin match ty_manifest with
         | None -> (Otyp_abstract, Public, false)
         | Some ty ->
-            tree_of_typexp None Type ty, decl.type_private, false
+            tree_of_typexp [] Type ty, decl.type_private, false
         end
     | Type_variant (cstrs, rep) ->
         tree_of_manifest
@@ -1532,7 +1534,7 @@ let add_extension_constructor_to_preparation ext =
   Option.iter prepare_type ext.ext_ret_type
 
 let extension_constructor_args_and_ret_type_subtree ext_args ext_ret_type =
-  let ret = Option.map (tree_of_typexp None Type) ext_ret_type in
+  let ret = Option.map (tree_of_typexp [] Type) ext_ret_type in
   let args = tree_of_constructor_arguments ext_args in
   (args, ret)
 
@@ -1559,7 +1561,7 @@ let prepared_tree_of_extension_constructor
     param_scope
       (fun () ->
          List.iter (Aliases.add_printed ~non_gen:false) ty_params;
-         List.map (fun ty -> type_param (tree_of_typexp None Type ty)) ty_params
+         List.map (fun ty -> type_param (tree_of_typexp [] Type ty)) ty_params
       )
   in
   let name = Ident.name id in
@@ -1599,7 +1601,7 @@ let tree_of_value_description id decl =
   (* Format.eprintf "@[%a@]@." raw_type_expr decl.val_type; *)
   let id = Ident.name id in
   let () = prepare_for_printing [decl.val_type] in
-  let ty = tree_of_typexp None Type_scheme decl.val_type in
+  let ty = tree_of_typexp [] Type_scheme decl.val_type in
   let vd =
     { oval_name = id;
       oval_type = ty;
@@ -1626,7 +1628,7 @@ let prepare_method _lab (priv, _virt, ty) =
 
 let tree_of_method mode (lab, priv, virt, ty) =
   let (ty, tyl) = method_type priv ty in
-  let tty = tree_of_typexp None mode ty in
+  let tty = tree_of_typexp [] mode ty in
   Variable_names.remove_names (List.map Transient_expr.repr tyl);
   let priv = priv <> Mpublic in
   let virt = virt = Virtual in
@@ -1662,8 +1664,8 @@ let rec tree_of_class_type mode params =
       else
         let namespace = Namespace.best_class_namespace p' in
         Octy_constr (
-          tree_of_path namespace None p',
-          tree_of_typlist None Type_scheme tyl
+          tree_of_path namespace [] p',
+          tree_of_typlist [] Type_scheme tyl
         )
   | Cty_signature sign ->
       let px = proxy sign.csig_self_row in
@@ -1687,7 +1689,7 @@ let rec tree_of_class_type mode params =
       let csil =
         List.fold_left
           (fun csil (l, m, v, t) ->
-            Ocsg_value (l, m = Mutable, v = Virtual, tree_of_typexp None mode t)
+            Ocsg_value (l, m = Mutable, v = Virtual, tree_of_typexp [] mode t)
             :: csil)
           csil all_vars
       in
@@ -1711,16 +1713,16 @@ let rec tree_of_class_type mode params =
        if is_optional l then
          match get_desc ty with
          | Tconstr(path, [ty], _) when Path.same path Predef.path_option ->
-             tree_of_typexp None mode ty
+             tree_of_typexp [] mode ty
          | _ -> Otyp_stuff "<hidden>"
-       else tree_of_typexp None mode ty in
+       else tree_of_typexp [] mode ty in
       Octy_arrow (lab, tr, tree_of_class_type mode params cty)
 
 
 let tree_of_class_param param variance =
   let ot_variance =
     if is_Tvar param then Asttypes.(NoVariance, NoInjectivity) else variance in
-  match tree_of_typexp None Type_scheme param with
+  match tree_of_typexp [] Type_scheme param with
     Otyp_var (ot_non_gen, ot_name) ->
       {ot_non_gen=ot_non_gen.item; ot_name; ot_variance}
   | _ -> {ot_non_gen=false; ot_name="?"; ot_variance}
@@ -1866,7 +1868,7 @@ let add_sigitem env x =
 
 let rec tree_of_modtype ?(ellipsis=false) = function
   | Mty_ident p ->
-      Omty_ident (tree_of_path (Some Module_type) None p)
+      Omty_ident (tree_of_path (Some Module_type) [] p)
   | Mty_signature sg ->
       Omty_signature (if ellipsis then [Osig_ellipsis]
                       else tree_of_signature sg)
@@ -1877,7 +1879,7 @@ let rec tree_of_modtype ?(ellipsis=false) = function
       let res = wrap_env env (tree_of_modtype ~ellipsis) ty_res in
       Omty_functor (param, res)
   | Mty_alias p ->
-      Omty_alias (tree_of_path (Some Module) None p)
+      Omty_alias (tree_of_path (Some Module) [] p)
 
 and tree_of_functor_parameter = function
   | Unit ->
@@ -2182,8 +2184,8 @@ let prepare_expansion Errortrace.{ty; expanded} =
 
 
 (* Adapt functions to exposed interface *)
-let namespaced_tree_of_path n = tree_of_path (Some n) None
-let tree_of_path ?disambiguation p = tree_of_path ?disambiguation None None p
+let namespaced_tree_of_path n = tree_of_path (Some n) []
+let tree_of_path ?disambiguation p = tree_of_path ?disambiguation None [] p
 let tree_of_modtype = tree_of_modtype ~ellipsis:false
 let tree_of_type_declaration ident td rs =
   with_hidden_items [{hide=true; ident}]
@@ -2195,6 +2197,6 @@ let prepare_class_type cty = prepare_class_type [] cty
 let tree_of_type_path p =
   let (p', s) = best_type_path p in
   let p'' = if (s = Id) then p' else p in
-  tree_of_best_type_path None p p''
+  tree_of_best_type_path [] p p''
 
-let tree_of_typexp mode typ = tree_of_typexp None mode typ
+let tree_of_typexp mode typ = tree_of_typexp [] mode typ

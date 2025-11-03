@@ -27,13 +27,11 @@ module Doc = struct
   let ident ppf id = Fmt.pp_print_string ppf
       (Out_name.print (ident_name None id))
 
-
-
   let typexp mode ppf ty =
     !Oprint.out_type ppf (tree_of_typexp mode ty)
 
   let type_expansion k ppf e =
-    pp_type_expansion ppf (trees_of_type_expansion k None e)
+    pp_type_expansion ppf (trees_of_type_expansion k [] e)
 
   let type_declaration id ppf decl =
     !Oprint.out_sig_item ppf (tree_of_type_declaration id decl Trec_first)

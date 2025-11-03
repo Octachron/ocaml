@@ -40,13 +40,13 @@ module Style = Misc.Style
 type 'a diff = 'a Out_type.diff = Same of 'a | Diff of 'a * 'a
 
 let look_ahead tr expl_tr =
-  let some x =
+  let one x =
     Errortrace.map_diff
-      (fun x -> Some (Out_type.Highlighted_type x.Errortrace.ty)) x
+      (fun x -> [Out_type.Highlighted_type x.Errortrace.ty]) x
   in
   match tr with
   | [] -> []
-  | _ :: q -> List.map some q @ [expl_tr]
+  | _ :: q -> List.map one q @ [expl_tr]
 
 let syntactic_diff_highlight d =
   let syntactic_highlight l r = Oprint.syntactic_highlight l r in
@@ -150,33 +150,40 @@ let rec partition_subtrace main shadow = function
       else partition_subtrace (a::main) shadow q
   | [] -> List.rev main, shadow
 
+let no_explanation = {Errortrace.got = []; expected = [] }
+
 let highlight (type a) shadow (expl: (_,a) Errortrace.explanation list) =
-  let map f d = Errortrace.map_diff (fun x -> Some (f x)) d in
-  let both_side x = { Errortrace.got = Some x; expected = Some x } in
+  let map f d = Errortrace.map_diff (fun x -> [f x]) d in
+  let hty x = Out_type.Highlighted_type x in
+  let both_side x = { Errortrace.got = x; expected = x } in
   match shadow with
-  | Some x -> map (fun e -> Out_type.Highlighted_type e.Errortrace.ty) x
+  | Some x -> map (fun e -> hty e.Errortrace.ty) x
   | None ->
-    match expl with
-    | [Errortrace.Moregen_occur d | Errortrace.Univar_mismatch {diff=d}] ->
-        map (fun ty -> Out_type.Highlighted_type ty) d
-    | [Errortrace.Type_constructor_mismatch diff] ->
-        map (function
-            | Errortrace.Constructor_path_mismatch p ->
-                Out_type.Highlighted_path p
-            | Errortrace.Other_mismatch ty ->
-                Out_type.Highlighted_type ty)
-          diff
-    | [Errortrace.Escape { kind = Constructor p|Module_type p; _ }] ->
-       both_side (Out_type.Highlighted_path p)
-    | [Errortrace.Escape { kind = Equation e; _ }] ->
-       both_side (Out_type.Highlighted_type e.Errortrace.expanded)
-    | [Errortrace.Rec_occur (l,_)] ->
-        both_side (Out_type.Highlighted_type l)
-    | [Errortrace.Incompatible d] ->
-        map (fun x -> Out_type.Highlighted_type x) d
-    | [Errortrace.Var_mismatch d] ->
-        map (fun x -> Out_type.Highlighted_type x) d
-    | _ -> { Errortrace.got = None; expected=None }
+      match expl with
+      | [Errortrace.Moregen_occur d
+        | Errortrace.Univar_mismatch {diff=d}
+        | Errortrace.Incompatible d
+        | Errortrace.Var_mismatch d
+        ] -> map hty d
+      | [Errortrace.Type_constructor_mismatch diff] ->
+          map (function
+              | Errortrace.Constructor_path_mismatch p ->
+                  Out_type.Highlighted_path p
+              | Errortrace.Other_mismatch ty -> hty ty)
+            diff
+      | [Errortrace.Escape { kind = Constructor p | Module_type p; _ }] ->
+          both_side [Out_type.Highlighted_path p]
+      | [Errortrace.Escape { kind = Equation e; _ }] ->
+          both_side [hty e.Errortrace.expanded]
+      | [Errortrace.Rec_occur (l,_)] ->
+          both_side [hty l]
+      | [Errortrace.Parameter_mismatch (Not_a_variable_param (got,expected))] ->
+          { Errortrace.got = [hty got]; expected = [hty expected]}
+      | [Errortrace.Parameter_mismatch (Bound_multiple_times (a,b,x))] ->
+          { Errortrace.got = [ hty a; hty b ]; expected = [ hty x ] }
+      | [Errortrace.Univar_quantification_mismatch l] ->
+         both_side (List.map (fun (_,ty) -> hty ty) l)
+      | _ -> no_explanation
 
 let rec split_last =
   let open Errortrace in
@@ -735,7 +742,6 @@ module Subtype = struct
         ~more:Format_doc.Doc.empty ppf tr
     )
 
-  let no_explanation = {Errortrace.got = None; expected = None }
 
   let error
         ppf
