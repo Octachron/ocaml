@@ -3215,8 +3215,7 @@ and unify_row uenv row1 row2 =
       (fun (l,f1,f2) ->
         try unify_row_field uenv fixed1 fixed2 rm1 rm2 l f1 f2
         with Unify_trace trace ->
-          raise_trace_for Unify
-            (late_explanation (Variant (Incompatible_types_for l)) trace)
+          raise_trace_for Unify (in_tag ~name:l trace)
       )
       pairs;
     if static_row row1 then begin
@@ -3260,7 +3259,7 @@ and unify_row_field uenv fixed1 fixed2 rm1 rm2 l f1 f2 =
         begin match tl1 @ tl2 with [] -> false
         | t1 :: tl ->
             if no_arg then
-              raise_for Unify (Variant (Incompatible_types_for l));
+              raise_for Unify Errortrace.(Variant (Arity_mismatch l));
             Types.changed_row_field_exts [f1;f2] (fun () ->
                 List.iter (unify uenv t1) tl
               )
@@ -3707,10 +3706,12 @@ let unify_self_types env sign1 sign2 =
   match unify env self_type1 self_type2 with
   | () -> ()
   | exception Unify err -> begin
-      match Errortrace.pop_explanation err.trace with
-      | Some (Errortrace.Incompatible_fields f, trace) ->
-          let err = Errortrace.unification_error ~trace in
-          let failure = Method (f.name, Type_mismatch err) in
+      match err.trace.context with
+      | Errortrace.Diff _ :: Errortrace.Diff_in_method {name; _} :: context ->
+          let err =
+            Errortrace.unification_error ~trace:{ err.trace with context }
+          in
+          let failure = Method (name, Type_mismatch err) in
           raise (Inherit_class_signature_failed failure)
       | _ ->
           raise (Inherit_class_signature_failed (Self_type_mismatch err))
@@ -4023,7 +4024,7 @@ and moregen_row inst_nongen type_pairs env row1 row2 =
                moregen inst_nongen type_pairs env t1 t2
              with Moregen_trace trace ->
                raise_trace_for Moregen
-                 (late_explanation (Variant (Incompatible_types_for l)) trace)
+                 (in_tag ~name:l trace)
            end
          | Rpresent None, Rpresent None -> ()
          (* Both [Reither] *)
@@ -4046,8 +4047,7 @@ and moregen_row inst_nongen type_pairs env row1 row2 =
                              raise_for Moregen (Variant Invalid_conjunction)
                end
              with Moregen_trace trace ->
-               raise_trace_for Moregen
-                 (late_explanation (Variant (Incompatible_types_for l)) trace)
+               raise_trace_for Moregen (in_tag ~name:l trace)
            end
          (* Generalizing [Reither] *)
          | Reither(false, tl1, _), Rpresent(Some t2) when may_inst -> begin
@@ -4057,8 +4057,7 @@ and moregen_row inst_nongen type_pairs env row1 row2 =
                  (fun t1 -> moregen inst_nongen type_pairs env t1 t2)
                  tl1
              with Moregen_trace trace ->
-               raise_trace_for Moregen
-                 (late_explanation (Variant (Incompatible_types_for l)) trace)
+               raise_trace_for Moregen (in_tag ~name:l trace)
            end
          | Reither(true, [], _), Rpresent None when may_inst ->
              link_row_field_ext ~inside:f1 f2
@@ -4069,7 +4068,7 @@ and moregen_row inst_nongen type_pairs env row1 row2 =
          (* Mismatched constructor arguments *)
          | Rpresent (Some _), Rpresent None
          | Rpresent None, Rpresent (Some _) ->
-             raise_for Moregen (Variant (Incompatible_types_for l))
+             raise_for Moregen (Variant (Arity_mismatch l))
          (* Mismatched presence *)
          | Reither _, Rpresent _ ->
              raise_for Moregen
@@ -4415,8 +4414,7 @@ and eqtype_row rename type_pairs subst env row1 row2 =
            try
              eqtype rename type_pairs subst env t1 t2
            with Equality_trace trace ->
-             raise_trace_for Equality
-               (late_explanation (Variant (Incompatible_types_for l)) trace)
+             raise_trace_for Equality (in_tag ~name:l trace)
          end
        | Rpresent None, Rpresent None -> ()
        (* Both matching [Reither]s *)
@@ -4435,8 +4433,7 @@ and eqtype_row rename type_pairs subst env row1 row2 =
                  (fun t1 -> eqtype rename type_pairs subst env t1 t2) tl1
              end
            with Equality_trace trace ->
-             raise_trace_for Equality
-               (late_explanation (Variant (Incompatible_types_for l)) trace)
+             raise_trace_for Equality (in_tag ~name:l trace)
          end
        (* Both [Rabsent]s *)
        | Rabsent, Rabsent -> ()
@@ -4444,7 +4441,7 @@ and eqtype_row rename type_pairs subst env row1 row2 =
        | Rpresent (Some _), Rpresent None
        | Rpresent None, Rpresent (Some _)
        | Reither _, Reither _ ->
-           raise_for Equality (Variant (Incompatible_types_for l))
+           raise_for Equality (Variant (Arity_mismatch l))
        (* Mismatched presence *)
        | Reither _, Rpresent _ ->
            raise_for Equality
@@ -5119,12 +5116,15 @@ let rec subtype_rec env trace t1 t2 cstrs =
   end
 
 and subtype_labeled_list env trace labeled_tl1 labeled_tl2 cstrs =
+  let syntactic_mismatch =
+    Errortrace.{ context = []; explanation = Kind_mismatch }
+  in
   if 0 <> List.compare_lengths labeled_tl1 labeled_tl2 then
-    subtype_error ~env ~trace ~unification_trace:empty;
+    subtype_error ~env ~trace ~unification_trace:syntactic_mismatch;
   List.fold_left2
     (fun cstrs (label1, ty1) (label2, ty2) ->
       if not (Option.equal String.equal label1 label2) then
-        subtype_error ~env ~trace ~unification_trace:empty;
+        subtype_error ~env ~trace ~unification_trace:syntactic_mismatch;
       subtype_rec
         env
         (Subtype.Diff { got = ty1; expected = ty2 } :: trace)
@@ -5235,7 +5235,7 @@ and subtype_row env trace row1 row2 cstrs =
           | Rabsent, _ -> cstrs
           | Rpresent None, Rpresent (Some _)
           | Rpresent (Some _), Rpresent None ->
-              let err =root_explanation (Variant (Incompatible_types_for l)) in
+              let err =root_explanation (Variant (Arity_mismatch l)) in
               subtype_error ~env ~trace ~unification_trace:err
           | _ ->
               raise Exit)

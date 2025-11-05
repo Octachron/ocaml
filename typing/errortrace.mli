@@ -72,7 +72,6 @@ type fixed_row_case =
 
 type 'variety variant =
   (* Common *)
-  | Incompatible_types_for : string -> _ variant
   | No_tags : position * (Asttypes.label * row_field) list -> _ variant
   (* Unification *)
   | No_intersection : unification variant
@@ -132,8 +131,6 @@ type ('a, 'variety) explanation =
   | Incompatible: type_expr diff -> ('a,unification) explanation
   | Function_label_mismatch of Asttypes.arg_label diff
   | Tuple_label_mismatch of string option diff
-  | Incompatible_fields :
-      { name:string; diff: type_expr diff } -> ('a, _) explanation
   | First_class_module: first_class_module -> ('a,_) explanation
   | Univar_mismatch of { order:order; diff:type_expr diff }
   (* Unification & Moregen; included in Equality for simplicity *)
@@ -154,35 +151,25 @@ type ('a, 'variety) explanation =
   (* Equality *)
   | Var_mismatch of type_expr diff
 
+type 'a trace_elt =
+  | Diff of 'a diff
+  | In_tag of string
+  | Diff_in_method of { name:string; diff:'a diff}
 
+type ('a, 'variety) t = {
+  context: 'a trace_elt list;
+  explanation: ('a,'variety) explanation
+}
 
-   (* Compatibibility *)
-
-type ('a,'variety) explanation_segment =
-  {
-    explanation: ('a,'variety) explanation;
-    subtrace: 'a diff list;
-  }
-type ('a, 'variety) t =
-  {
-    context: 'a diff list;
-    explanations: ('a,'variety) explanation_segment list
-  }
-
-val explanation: ('a,'variety) t -> ('a,'variety) explanation_segment option
+val explanation: ('a,'variety) t -> ('a,'variety) explanation
 val narrowest_diff: ('a,'variety) t -> 'a diff option
 
 val diff2: got:'a -> expected:'a -> ('a,'variety) t -> ('a,'variety) t
 val diff: 'a diff -> ('a,'variety) t -> ('a,'variety) t
 
-val late_explanation:
-  ('a,'variety) explanation -> ('a,'variety) t -> ('a,'variety) t
 val root_explanation: ('a,'variety) explanation -> ('a,'variety) t
 val variant: 'v variant -> ('a,'v) t
 val escape: Types.type_expr escape -> (expanded_type,'variety) t
-val pop_explanation: ('a,'v) t -> (('a,'v) explanation * ('a,'v) t) option
-
-val empty: ('a,'variety) t
 
 type 'variety trace = (type_expr,     'variety) t
 type 'variety error = (expanded_type, 'variety) t
@@ -192,6 +179,8 @@ val map : ('a -> 'b) -> ('a, 'variety) t -> ('b, 'variety) t
 val incompatible_fields :
   name:string -> got:type_expr -> expected:type_expr -> (type_expr, 'v) t
   -> (type_expr, 'v) t
+
+val in_tag: name:string -> (type_expr,'v) t -> (type_expr,'v) t
 
 val swap_trace : ('a, 'variety) t -> ('a, 'variety) t
 

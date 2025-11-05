@@ -109,7 +109,7 @@ let is_structural d =
     during printing *)
 
 
-let wip: type a b. (a,b) Errortrace.explanation -> bool =
+let _wip: type a b. (a,b) Errortrace.explanation -> bool =
   let open Errortrace in function
 
     | Out_of_scope_univar -> true
@@ -145,10 +145,12 @@ let clean_trace f tr empty_expl =
       f a :: clean f empty_expl q
 
 let rec partition_subtrace main shadow = function
-  | a :: q ->
+  | Errortrace.Diff a :: q ->
       if is_row_constr a then partition_subtrace main shadow q
-      else if is_structural a then partition_subtrace main (Some a) q
+      else if is_structural a then partition_subtrace (a::main) None q
       else partition_subtrace (a::main) shadow q
+  | _ :: q ->
+      partition_subtrace main shadow q
   | [] -> List.rev main, shadow
 
 let no_explanation = {Errortrace.got = []; expected = [] }
@@ -157,7 +159,7 @@ type highlight_kind = Outcometree.highlight_kind =
   | Paired
   | Independent
 
-let highlight (type a) shadow (expl: (_,a) Errortrace.explanation list) =
+let highlight (type a) shadow (expl: (_,a) Errortrace.explanation) =
   let map f d = Errortrace.map_diff (fun x -> [f x, Outcometree.Paired]) d in
   let hty x = Out_type.Highlighted_type x in
   let independent l = List.map (fun x -> x, Outcometree.Independent) l in
@@ -168,65 +170,42 @@ let highlight (type a) shadow (expl: (_,a) Errortrace.explanation list) =
   | Some x -> map (fun e -> hty e.Errortrace.ty) x
   | None ->
       match expl with
-      | [Errortrace.Moregen_occur d
-        | Errortrace.Univar_mismatch {diff=d}
-        | Errortrace.Incompatible d
-        | Errortrace.Var_mismatch d
-        ] -> map hty d
-      | [Errortrace.Type_constructor_mismatch diff] ->
+      | Errortrace.Moregen_occur d
+      | Errortrace.Univar_mismatch {diff=d}
+      | Errortrace.Incompatible d
+      | Errortrace.Var_mismatch d
+        -> map hty d
+      | Errortrace.Type_constructor_mismatch diff ->
           map (function
               | Errortrace.Constructor_path_mismatch p ->
                   Out_type.Highlighted_path p
               | Errortrace.Other_mismatch ty -> hty ty)
             diff
-      | [Errortrace.Escape { kind = Constructor p | Module_type p; _ }] ->
+      | Errortrace.Escape { kind = Constructor p | Module_type p; _ } ->
           both_side [Out_type.Highlighted_path p]
-      | [Errortrace.Escape { kind = Equation e; _ }] ->
+      | Errortrace.Escape { kind = Equation e; _ } ->
           both_side [hty e.Errortrace.expanded]
-      | [Errortrace.Rec_occur (l,_)] ->
+      | Errortrace.Rec_occur (l,_) ->
           both_side [hty l]
-      | [Errortrace.Parameter_mismatch (Not_a_variable_param (got,expected))] ->
+      | Errortrace.Parameter_mismatch (Not_a_variable_param (got,expected)) ->
           {
             Errortrace.got = [hty got, Independent];
             expected = [hty expected, Independent]
           }
-      | [Errortrace.Parameter_mismatch (Bound_multiple_times (a,b,x))] ->
+      | Errortrace.Parameter_mismatch (Bound_multiple_times (a,b,x)) ->
           { Errortrace.got = [ hty a, Independent; hty b, Independent ];
             expected = [ hty x, Independent ]
           }
-      | [Errortrace.Univar_quantification_mismatch l] ->
+      | Errortrace.Univar_quantification_mismatch l ->
          both_side (List.map (fun (_,ty) -> hty ty) l)
       | _ -> no_explanation
 
-let rec split_last =
-  let open Errortrace in
-  function
-  | [] -> [], [], None
-  | [a] | [a; { explanation = Escape { kind=Constraint; _ }; _ }] ->
-      let sub, last = partition_subtrace [] None a.subtrace in
-      [sub], [a.explanation], last
-  | [a;b] when wip b.explanation || transparent b.explanation ->
-      let sub, last = partition_subtrace [] None a.subtrace in
-      [sub], [a.explanation], last
-  | [{explanation=Incompatible_fields _ as f; subtrace=ftr};
-     {explanation= (Escape {kind=Univ _; _} | Univar_mismatch _) as e;
-      subtrace = etr}
-    ] ->
-      let sub, last = partition_subtrace [] None etr in
-      [ftr; sub], [f;e], last
-  | a :: q ->
-      let l, last, last_trace = split_last q in
-      a.Errortrace.subtrace :: l, last, last_trace
-
 let simplify_trace f t =
   let open Errortrace in
-  let intermediary, last_explanation, last_trace = split_last t.explanations in
-  let diff = List.concat (t.context :: intermediary) in
-  let keep_last =
-    List.for_all (fun x -> wip x || transparent x) last_explanation
-  in
-  clean_trace f diff keep_last, last_explanation,
-  highlight last_trace last_explanation
+  let main_trace, shadow = partition_subtrace [] None t.context in
+  let keep_last = transparent t.explanation in
+  clean_trace f main_trace keep_last, t.explanation,
+  highlight shadow t.explanation
 
 let may_prepare_expansion compact (Errortrace.{ty; expanded} as ty_exp) =
   match Types.get_desc expanded with
@@ -258,22 +237,20 @@ let unifiable env ty1 ty2 =
 
 let explainf fmt = kdoc_printf (fun x -> Some x) fmt
 
-let explainl fmt = kdoc_printf (fun x -> [x]) fmt
-
 let explanation_diff env t3 t4 =
   match Types.get_desc t3, Types.get_desc t4 with
   | Tarrow (_, ty1, ty2, _), _
     when is_unit env ty1 && unifiable env ty2 t4 ->
-      explainl
+      explainf
         "@,@[@{<hint>Hint@}: Did you forget to provide %a as argument?@]"
         Style.inline_code "()"
   | _, Tarrow (_, ty1, ty2, _)
     when is_unit env ty1 && unifiable env t3 ty2 ->
-      explainl
+      explainf
         "@,@[@{<hint>Hint@}: Did you forget to wrap the expression using \
          %a?@]"
         Style.inline_code "fun () ->"
-  | _ -> []
+  | _ -> None
 
 let explain_fixed_row_case = function
   | Errortrace.Cannot_be_closed -> doc_printf "it cannot be closed"
@@ -303,10 +280,6 @@ let explain_fixed_row pos expl = match expl with
   | Types.Rigid -> Format_doc.Doc.empty
 
 let explain_variant (type variety) : variety Errortrace.variant -> _ = function
-  (* Common *)
-  | Errortrace.Incompatible_types_for s ->
-      explainf "@,Types for tag %a are incompatible"
-        print_tag s
   (* Unification *)
   | Errortrace.No_intersection ->
       explainf "@,These two variant types have no intersection"
@@ -377,7 +350,7 @@ let explain_object (type variety) : variety Errortrace.obj -> _ = function
   | Errortrace.Self_cannot_be_closed ->
       explainf "@,Self type cannot be unified with a closed object type"
 
-let explain_incompatible_fields name (diff: Types.type_expr Errortrace.diff) =
+let _explain_incompatible_fields name (diff: Types.type_expr Errortrace.diff) =
   Variable_names.reserve diff.got;
   Variable_names.reserve diff.expected;
   doc_printf "@,@[The method %a has type@ %a,@ \
@@ -486,8 +459,6 @@ let explanation (type variety) intro
           | _ -> Format_doc.Doc.empty
         in
         explain_escape pre kind
-    | Errortrace.Incompatible_fields { name; diff} ->
-        Some(explain_incompatible_fields name diff)
     | Errortrace.Function_label_mismatch diff ->
         let missing_label_msg =
           format_of_string
@@ -623,16 +594,16 @@ let explanation (type variety) intro
     | Errortrace.Kind_mismatch -> None
     | Errortrace.Var_mismatch _ -> None
 
-let explanations intro env last_diff l =
-  match List.filter_map (explanation intro) l with
-  | [] ->
+let explanation intro env last_diff l =
+  match explanation intro l with
+  | None ->
     begin match last_diff with
-    | None -> []
+    | None -> None
     | Some d ->
         let open Errortrace in
         explanation_diff env (d.got.expanded) (d.expected.expanded)
     end
-  | l -> l
+  | Some _ as e -> e
 
 let warn_on_missing_def env ppf t =
   match Types.get_desc t with
@@ -683,15 +654,15 @@ let error trace_format mode subst env tr txt1 ppf txt2 ty_expect_explanation =
       in
       let ahead_tr = look_ahead tr tr_explanation in
       let tr = trees_of_trace mode ahead_tr tr in
-      let mis = explanations txt1 env last_diff root_explanation in
-      let space _ppf () = () in
+      let mis = explanation txt1 env last_diff root_explanation in
+      let pp_mis ppf = function None -> () | Some doc -> pp_doc ppf doc in
        fprintf ppf
         "@[<v>%a%a@]"
         (trace
            ~intro:txt1 ~but:txt2 ~more:ty_expect_explanation
            ~but':(incompatibility_phrase trace_format)
         ) tr
-        (pp_print_list pp_doc ~pp_sep:space) mis;
+        pp_mis mis;
       if env <> Env.empty
       then Option.iter (warn_on_missing_defs env ppf) last_diff;
        Internal_names.print_explanations env ppf;
@@ -766,21 +737,21 @@ module Subtype = struct
       let tr_sub, _, _ = simplify_subtype_trace prepare_expansion tr_sub in
       let tr_unif, e_unif, last =
         simplify_unification_trace prepare_expansion tr_unif in
-      let space _ppf () = () in
       let mis =
-        explanations (doc_printf "Within this type") env
+        explanation (doc_printf "Within this type") env
           (last_opt tr_unif) e_unif
       in
+      let pp_mis ppf = function None -> () | Some m -> pp_doc ppf m in
       match tr_unif with
       | [] ->
           fprintf ppf "@[<v>%t%a@]"
             (trace true txt1 tr_sub last)
-            (pp_print_list pp_doc ~pp_sep:space) mis
+            pp_mis mis
       | _ ->
           fprintf ppf "@[<v>%t%t%a%t@]"
             (trace true txt1 tr_sub no_explanation)
             (trace  false "is not compatible with type" tr_unif last)
-            (pp_print_list pp_doc ~pp_sep:space) mis
+            pp_mis mis
             Ident_conflicts.err_print
       )
 end
