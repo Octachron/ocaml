@@ -6226,7 +6226,7 @@ and type_argument ?explanation ?recarg env sarg ty_expected' ty_expected =
     let work () =
       let te = expand_head env ty_expected' in
       match get_desc te with
-        Tarrow(Nolabel,_,ty_res0,_) ->
+        Tarrow(Nolabel,_,ty_res0,_) | Tfunctor(Nolabel,_,_,ty_res0) ->
           Some (no_labels ty_res0, get_level te)
       | _ -> None
     in
@@ -6251,7 +6251,7 @@ and type_argument ?explanation ?recarg env sarg ty_expected' ty_expected =
               option_none env (instance (tpoly_get_mono ty_arg)) sarg.pexp_loc
             in
             make_args ((l, Arg ty) :: args) ty_fun
-        | Tarrow (l,_,ty_res',_) when l = Nolabel || !Clflags.classic ->
+        | Tarrow (l,_,ty_res',_) | Tfunctor (l,_,_,ty_res') when l = Nolabel || !Clflags.classic ->
             List.rev args, ty_fun, no_labels ty_res'
         | Tvar _ ->  List.rev args, ty_fun, false
         |  _ -> [], texp.exp_type, false
@@ -6268,6 +6268,7 @@ and type_argument ?explanation ?recarg env sarg ty_expected' ty_expected =
       let ty_arg, ty_res =
         match get_desc (expand_head env ty_expected) with
           Tarrow(Nolabel,ty_arg,ty_res,_) -> ty_arg, ty_res
+        | Tfunctor (Nolabel,_,ty_arg,ty_res) -> newmono_package ~level:lv ty_arg, ty_res
         | _ -> assert false
       in
       unify_exp ~sexp:sarg env {texp with exp_type = ty_fun} ty_expected;
