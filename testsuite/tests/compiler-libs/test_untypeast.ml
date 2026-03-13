@@ -113,4 +113,102 @@ type t =
   | (::)
 let f (x : t) = match x with | (::) -> 4
 - : unit = ()
+|}];;
+
+run {|
+let f g = g ()
+let g ?x ~y () = ()
+let () = f (g ~y:())
+|}
+[%%expect {|
+let f g = g ()
+let g ?x ~y () = ()
+let () = f (let arg = g ~y:() in fun eta -> arg ?x:None eta)
+- : unit = ()
+|}];;
+
+
+run {|
+module type T = sig type t val x: t end
+let f = function (module M:T) -> M.x
+module I = struct type t = int let x = 0 end
+let i = f (module I)
+|}
+[%%expect {|
+Exception:
+Typecore.Error
+ ({Location.loc_start =
+    {Lexing.pos_fname = ""; pos_lnum = 3; pos_bol = 41; pos_cnum = 74};
+   loc_end =
+    {Lexing.pos_fname = ""; pos_lnum = 3; pos_bol = 41; pos_cnum = 77};
+   loc_ghost = false},
+ <abstr>,
+ Typecore.Expr_type_clash
+  ({Errortrace.trace =
+     [Errortrace.Diff
+       {Errortrace.got = {Errortrace.ty = <abstr>; expanded = <abstr>};
+        expected = {Errortrace.ty = <abstr>; expanded = <abstr>}};
+      Errortrace.Escape
+       {Errortrace.kind =
+         Errortrace.Constructor (Path.Pdot (Path.Pident <abstr>, "t"));
+        context = None}]},
+  None,
+  Some
+   {Parsetree.pexp_desc =
+     Parsetree.Pexp_ident
+      {Asttypes.txt =
+        Longident.Ldot
+         ({Location.txt = Longident.Lident "M";
+           loc =
+            {Location.loc_start =
+              {Lexing.pos_fname = ""; pos_lnum = 3; pos_bol = 41;
+               pos_cnum = 74};
+             loc_end =
+              {Lexing.pos_fname = ""; pos_lnum = 3; pos_bol = 41;
+               pos_cnum = 75};
+             loc_ghost = false}},
+         {Location.txt = "x";
+          loc =
+           {Location.loc_start =
+             {Lexing.pos_fname = ""; pos_lnum = 3; pos_bol = 41;
+              pos_cnum = 76};
+            loc_end =
+             {Lexing.pos_fname = ""; pos_lnum = 3; pos_bol = 41;
+              pos_cnum = 77};
+            loc_ghost = false}});
+       loc =
+        {Location.loc_start =
+          {Lexing.pos_fname = ""; pos_lnum = 3; pos_bol = 41; pos_cnum = 74};
+         loc_end =
+          {Lexing.pos_fname = ""; pos_lnum = 3; pos_bol = 41; pos_cnum = 77};
+         loc_ghost = false}};
+    pexp_loc =
+     {Location.loc_start =
+       {Lexing.pos_fname = ""; pos_lnum = 3; pos_bol = 41; pos_cnum = 74};
+      loc_end =
+       {Lexing.pos_fname = ""; pos_lnum = 3; pos_bol = 41; pos_cnum = 77};
+      loc_ghost = false};
+    pexp_loc_stack = []; pexp_attributes = []})).
+|}];;
+
+run {|
+module type T = sig type t val x: t end
+let f (g: (module M:T) -> M.t) (module M:T) = g (module M)
+let g ?x ~y (module M:T) = M.x
+let u = f (g ~y:())
+|}
+[%%expect{|
+Line 4, characters 7-8:
+1 | .
+2 | ..
+3 |
+4 | .e.........
+Warning 16 [unerasable-optional-argument]: this optional argument cannot be erased.
+module type T  = sig type t val x : t end
+let f (g : (module M : T) -> M.t) (module M : T) = g (module M)
+let g ?x ~y (module M : T) = M.x
+let u =
+  f (let arg = g ~y:() in fun (module Eta : T) -> arg ?x:None (module Eta))
+
+- : unit = ()
 |}]

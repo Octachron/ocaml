@@ -6265,10 +6265,14 @@ and type_argument ?explanation ?recarg env sarg ty_expected' ty_expected =
       let warn = !Clflags.principal &&
         (lv <> generic_level || get_level ty_fun' <> generic_level)
       and ty_fun = instance ty_fun' in
-      let ty_arg, ty_res =
+      let ty_arg, ty_res  =
         match get_desc (expand_head env ty_expected) with
-          Tarrow(Nolabel,ty_arg,ty_res,_) -> ty_arg, ty_res
-        | Tfunctor (Nolabel,_,ty_arg,ty_res) -> newmono_package ~level:lv ty_arg, ty_res
+          Tarrow(Nolabel,ty_arg,ty_res,_) -> `Arrow ty_arg, ty_res
+        | Tfunctor (Nolabel,u,ty_arg,ty_res) ->
+            let id_in = Ident.of_unscoped u in
+            let eta = Ident.create_scoped ~scope:(Ctype.get_current_level()) "Eta" in
+            let ty_res = instance_funct ~id_in ~p_out:(Pident eta) ~fixed:false ty_res in
+            `Functor (eta, ty_arg), ty_res
         | _ -> assert false
       in
       unify_exp ~sexp:sarg env {texp with exp_type = ty_fun} ty_expected;
@@ -6284,7 +6288,7 @@ and type_argument ?explanation ?recarg env sarg ty_expected' ty_expected =
           }
         in
         let exp_env = Env.add_value id desc env in
-        {pat_desc =
+        id, {pat_desc =
           Tpat_var (id, mknoloc name, desc.val_uid);
          pat_type = ty;
          pat_extra=[];
@@ -6295,23 +6299,84 @@ and type_argument ?explanation ?recarg env sarg ty_expected' ty_expected =
          exp_desc =
          Texp_ident(Path.Pident id, mknoloc (Longident.Lident name), desc)}
       in
-      let eta_pat, eta_var = var_pair "eta" ty_arg in
+      let eta, eta_pat, eta_var = match ty_arg with
+         | `Arrow ty -> var_pair "eta" ty
+         | `Functor (eta, pack) ->
+             let loc = Location.none in
+             let p_eta = Path.Pident eta in
+             let uid =  Uid.mk ~current_unit:(Env.get_current_unit ()) in
+             let mty = Ctype.modtype_of_package env loc pack in
+             let arg_md = {
+               md_type = mty;
+               md_attributes = [];
+               md_loc = loc;
+               md_uid = uid;
+             }
+             in
+             let leta = mknoloc (Longident.Lident "Eta") in
+             let exp_env = Env.add_module_declaration ~check:true eta Mp_present arg_md env in
+             let modl = {
+               mod_desc = Tmod_ident (p_eta, leta);
+               mod_loc = loc;
+               mod_type = mty;
+               mod_env = exp_env;
+               mod_attributes = []
+             }
+             in
+             let rec lpath = function
+               | Path.Pident id -> Longident.Lident (Ident.name id)
+               | Path.Pdot (x,y) -> Longident.Ldot (mknoloc (lpath x), mknoloc y)
+               | Path.Papply(x,y) -> Longident.Lapply (mknoloc (lpath x), mknoloc (lpath y))
+               | Path.Pextra_ty _ -> assert false
+             in
+             let pat_desc = Tpat_var (eta, mknoloc (Ident.name eta), uid) in
+             let ty = newty (Tpackage pack) in
+             let lift_constraint (s,t) =
+               Location.mknoloc (Option.get @@ Longident.unflatten s),
+               { ctyp_desc = Ttyp_any; ctyp_type = t; ctyp_loc = loc; ctyp_attributes = []; ctyp_env = env }
+             in
+             let constraints = List.map lift_constraint pack.pack_constraints in
+             let tty = {
+                 tpt_path= pack.pack_path;
+                 tpt_type = pack;
+                 tpt_txt = mknoloc (lpath pack.pack_path);
+                 tpt_constraints = constraints;
+               } in
+             eta,
+             {
+               Typedtree.pat_desc;
+               pat_loc = loc;
+               pat_extra = [Tpat_unpack (Some tty), loc, []];
+               pat_type = ty;
+               pat_env = env;
+               pat_attributes = []
+             },
+             {
+              exp_desc = Texp_pack modl;
+              exp_loc = loc; exp_extra = [];
+              exp_type =ty;
+              exp_attributes = [];
+              exp_env
+            }
+      in
       let func texp =
         let e =
           {texp with exp_type = ty_res; exp_desc =
            Texp_apply
              (texp,
-              args @ [Nolabel, Arg eta_var])}
+              args @ [Nolabel, Arg eta_var]);
+          }
         in
-        let cases = [ case eta_pat e ] in
-        let cases_loc = { texp.exp_loc with loc_ghost = true } in
-        let param = name_cases "param" cases in
-        { texp with exp_type = ty_fun; exp_desc =
-          Texp_function ([],
-            Tfunction_cases
-              { cases; partial = Total; param; loc = cases_loc;
-                exp_extra = None; attributes = [];
-              })
+        let param = {
+          fp_param = eta;
+          fp_partial=Total;
+          fp_kind = Tparam_pat eta_pat;
+          fp_newtypes = [];
+          fp_loc = Location.none;
+          fp_arg_label = Nolabel;
+        } in
+        { texp with exp_type = ty_fun;
+          exp_desc = Texp_function ([param], Tfunction_body e)
         }
       in
       Location.prerr_warning texp.exp_loc
@@ -6320,7 +6385,7 @@ and type_argument ?explanation ?recarg env sarg ty_expected' ty_expected =
       if warn then Location.prerr_warning texp.exp_loc
           (Warnings.Non_principal_labels "eliminated optional argument");
       (* let-expand to have side effects *)
-      let let_pat, let_var = var_pair "arg" texp.exp_type in
+      let _, let_pat, let_var = var_pair "arg" texp.exp_type in
       re { texp with exp_type = ty_fun; exp_desc =
            Texp_let (Nonrecursive,
                      [{vb_pat=let_pat; vb_expr=texp; vb_attributes=[];
