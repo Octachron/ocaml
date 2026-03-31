@@ -43,10 +43,11 @@ type string_constant =
 module String_map = Misc.Stdlib.String.Map
 
 type expectation =
-  { extid_loc   : Location.t (* Location of "expect" in "[%%expect ...]" *)
+  { extid_loc   : Location.t [@warning "-69"]
+  (* Location of "expect" in "[%%expect ...]" *)
   ; payload_loc : Location.t (* Location of the whole payload *)
-  ; normal : string_constant (* expectation without -principal *)
-  ; principal   : string_constant (* expectation with -principal *)
+  ; main: string_constant
+  ; variants : string_constant String_map.t
   }
 
 (* A list of phrases with the expected toplevel output *)
@@ -60,45 +61,48 @@ type correction =
   ; trailing_output        : string
   }
 
+
+let invalid_payload loc =
+  Location.raise_errorf ~loc "invalid [%%%%expect payload]"
+
+let string_constant ~loc (e : Parsetree.expression) =
+  match e.pexp_desc with
+  | Pexp_constant {pconst_desc = Pconst_string (str, _, Some tag); _} ->
+      { str; tag }
+  | _ -> invalid_payload loc
+
+let match_qualified_string ~loc (_,x) = match x.Parsetree.pexp_desc with
+  |  Pexp_construct ({ txt = Lident name; _ }, Some b) ->
+      name, string_constant ~loc b
+  | _ -> invalid_payload loc
+
 let match_expect_extension (ext : Parsetree.extension) =
   match ext with
-  | ({Asttypes.txt="expect"|"ocaml.expect"; loc = extid_loc}, payload) ->
-    let invalid_payload () =
-      Location.raise_errorf ~loc:extid_loc "invalid [%%%%expect payload]"
-    in
-    let string_constant (e : Parsetree.expression) =
-      match e.pexp_desc with
-      | Pexp_constant {pconst_desc = Pconst_string (str, _, Some tag); _} ->
-        { str; tag }
-      | _ -> invalid_payload ()
-    in
+  | ({Asttypes.txt="expect"|"ocaml.expect"; loc }, payload) ->
     let expectation =
       match payload with
       | PStr [{ pstr_desc = Pstr_eval (e, []) }] ->
-        let normal, principal =
+        let main, variants =
           match e.pexp_desc with
-          | Pexp_tuple
-              [ None, a
-              ; None,
-                { pexp_desc = Pexp_construct
-                                ({ txt = Lident "Principal"; _ }, Some b) }
-              ] ->
-            (string_constant a, string_constant b)
-          | _ -> let s = string_constant e in (s, s)
+          | Pexp_tuple ((None, a) :: l) ->
+              let bindings = List.map ~f:(match_qualified_string ~loc) l in
+              string_constant ~loc a,
+              String_map.of_list bindings
+          | _ -> string_constant ~loc e, String_map.empty
         in
-        { extid_loc
+        { extid_loc = loc
         ; payload_loc = e.pexp_loc
-        ; normal
-        ; principal
+        ; main
+        ; variants
         }
       | PStr [] ->
         let s = { tag = ""; str = "" } in
-        { extid_loc
-        ; payload_loc  = { extid_loc with loc_start = extid_loc.loc_end }
-        ; normal    = s
-        ; principal = s
+        { extid_loc = loc
+        ; payload_loc  = { loc with loc_start = loc.loc_end }
+        ; main      = s
+        ; variants = String_map.empty
         }
-      | _ -> invalid_payload ()
+      | _ -> invalid_payload loc
     in
     Some expectation
   | _ ->
@@ -165,13 +169,15 @@ let capture_everything buf ppf ~f =
   collect_formatters buf [Format.std_formatter; Format.err_formatter]
                      ~f:(fun () -> Compiler_messages.capture ppf ~f)
 
+type mode = Main | Variant of string
+
 module Exec = struct
 
   type ref_env = R: 'a ref * 'a -> ref_env
   let apply_flags (R (r,x)) = r:= x
 
   type state = {
-    name: string;
+    name: mode;
     flags: ref_env list;
     ppf: Format.formatter;
     env: Env.t;
@@ -325,23 +331,26 @@ let parse_contents ~fname contents =
   Location.input_lexbuf := Some lexbuf;
   Parse.use_file lexbuf
 
-let eval_expectation expectation ~output =
-  let s =
-    if !Clflags.principal then
-      expectation.principal
-    else
-      expectation.normal
-  in
+let get_mode mode e = match mode with
+  | Main -> e.main
+  | Variant v ->
+      match String_map.find_opt v e.variants with
+      | None -> e.main
+      | Some x -> x
+
+let update_mode mode e x = match mode with
+  | Main -> { e with main = x }
+  | Variant v ->
+      let variants = String_map.add v x e.variants in
+      { e with variants }
+
+let eval_expectation mode expectation ~output =
+  let s = get_mode mode expectation in
   if s.str = output then
     None
   else
     let s = { s with str = output } in
-    Some (
-      if !Clflags.principal then
-        { expectation with principal = s }
-      else
-        { expectation with normal = s }
-    )
+    Some (update_mode mode expectation s)
 
 let shift_lines delta phrases =
   let position (pos : Lexing.position) =
@@ -385,7 +394,7 @@ let eval_expect_file _fname ~file_contents =
     visible_inline_code ();
     Misc.Style.set_tag_handling ppf in
   let state = {
-    Exec.name = "test";
+    Exec.name = if !Clflags.principal then Variant "Principal" else Main;
     env = !Toploop.toplevel_env;
     flags = [R (Clflags.principal, !Clflags.principal)];
     ppf
@@ -426,7 +435,9 @@ let eval_expect_file _fname ~file_contents =
           List.fold_left chunks ~init ~f:(fun (state, corrections) chunk ->
               let state, output = exec_phrases state chunk.phrases in
               state,
-              match eval_expectation chunk.expectation ~output with
+              match eval_expectation state.Exec.name chunk.expectation
+                      ~output
+              with
               | None -> corrections
               | Some correction -> correction :: corrections)
         in
@@ -453,11 +464,13 @@ let output_corrected oc ~file_contents correction =
     List.fold_left correction.corrected_expectations ~init:0
       ~f:(fun ofs c ->
         output_slice oc file_contents ofs c.payload_loc.loc_start.pos_cnum;
-        output_body oc c.normal;
-        if c.normal.str <> c.principal.str then begin
-          output_string oc ", Principal";
-          output_body oc c.principal
-        end;
+        output_body oc c.main;
+        String_map.iter  (fun name v ->
+        if c.main.str <> v.str then begin
+          output_string oc ", ";
+          output_string oc name;
+          output_body oc v
+        end) c.variants;
         c.payload_loc.loc_end.pos_cnum)
   in
   output_slice oc file_contents ofs (String.length file_contents);
