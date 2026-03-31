@@ -183,10 +183,12 @@ module Exec = struct
       None state.env ();
     Format.eprintf "@]@."
 
+  let check_warnings x = Warnings.check_fatal (); x
+
   let typecheck ppf state sstr =
     List.iter ~f:apply_flags state.flags;
     let snap = Btype.snapshot () in
-    match Topcommon.typecheck_phrase ppf state.env sstr with
+    match check_warnings (Topcommon.typecheck_phrase ppf state.env sstr) with
     | str, sg, env ->
         Ok (str, sg), { state with env }
     | exception exn ->
