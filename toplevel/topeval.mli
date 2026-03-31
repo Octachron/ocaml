@@ -47,6 +47,13 @@ module EvalBase: Topcommon.EVAL_BASE
 
 include module type of Topcommon.MakeEvalPrinter(EvalBase)
 
+(** Factorize printing code *)
+val exn_outcome: Env.t -> exn -> Outcometree.out_phrase
+val res_outcome:
+  rewritten:bool -> oldenv:Env.t -> newenv:Env.t -> Typedtree.structure ->
+  Types.signature_item list -> Printer.t -> Outcometree.out_phrase
+
+
 (* For topmain.ml. Maybe shouldn't be there *)
 val load_file : bool -> formatter -> string -> bool
 

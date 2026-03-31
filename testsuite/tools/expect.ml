@@ -40,10 +40,12 @@ type string_constant =
   ; tag : string
   }
 
+module String_map = Misc.Stdlib.String.Map
+
 type expectation =
   { extid_loc   : Location.t (* Location of "expect" in "[%%expect ...]" *)
   ; payload_loc : Location.t (* Location of the whole payload *)
-  ; normal      : string_constant (* expectation without -principal *)
+  ; normal : string_constant (* expectation without -principal *)
   ; principal   : string_constant (* expectation with -principal *)
   }
 
@@ -163,11 +165,156 @@ let capture_everything buf ppf ~f =
   collect_formatters buf [Format.std_formatter; Format.err_formatter]
                      ~f:(fun () -> Compiler_messages.capture ppf ~f)
 
+module Exec = struct
+
+  type ref_env = R: 'a ref * 'a -> ref_env
+  let apply_flags (R (r,x)) = r:= x
+
+  type state = {
+    name: string;
+    flags: ref_env list;
+    ppf: Format.formatter;
+    env: Env.t;
+  }[@@warning "-69"]
+
+  let _debug_env state =
+    Format.eprintf "@[env {@,";
+    Env.fold_values (fun s _p _vd () -> Format.eprintf "%s,@ " s)
+      None state.env ();
+    Format.eprintf "@]@."
+
+  let typecheck ppf state sstr =
+    List.iter ~f:apply_flags state.flags;
+    let snap = Btype.snapshot () in
+    match Topcommon.typecheck_phrase ppf state.env sstr with
+    | str, sg, env ->
+        Ok (str, sg), { state with env }
+    | exception exn ->
+        let bt = Printexc.get_raw_backtrace () in
+        begin try Location.report_exception ppf exn with
+        |  _ ->
+            Format.fprintf ppf "Uncaught exception: %s\n%s\n"
+              (Printexc.to_string exn)
+              (Printexc.raw_backtrace_to_string bt)
+        end;
+        Btype.backtrack snap;
+        Error (), state
+
+  let _select arr =
+    Iarray.find_map (function (Ok x, _) -> Some x | _ -> None) arr,
+    Iarray.map snd arr
+
+
+  let value_bindings : Obj.t String_map.t ref = ref String_map.empty
+
+  let dump_if ppf r printer x = if !r then Format.fprintf ppf "%a@." printer x
+
+  (** Imported from Byte.Topeval *)
+  let load_lambda ppf lam =
+    dump_if ppf Clflags.dump_rawlambda Printlambda.lambda lam;
+    let slam = Simplif.simplify_lambda lam in
+    dump_if ppf Clflags.dump_lambda Printlambda.lambda slam;
+    let instrs, can_free = Bytegen.compile_phrase slam in
+    dump_if ppf Clflags.dump_instr Printinstr.instrlist instrs;
+    let (code, reloc, events) = Emitcode.to_memory instrs in
+    let initial_symtable = Symtable.current_state() in
+    Symtable.patch_object code reloc;
+    Symtable.check_global_initialized reloc;
+    Symtable.update_global_table();
+    let initial_bindings = !value_bindings in
+    let bytecode, closure = Meta.reify_bytecode code [| events |] None in
+    match closure () with
+    | retval ->
+        if can_free then Meta.release_bytecode bytecode;
+        Ok retval
+    | exception x ->
+        Topcommon.record_backtrace ();
+        if can_free then Meta.release_bytecode bytecode;
+        value_bindings := initial_bindings; (* PR#6211 *)
+        Symtable.restore_state initial_symtable;
+        Error x
+
+
+  let exec_typed ppf str =
+    let lam = Translmod.transl_toplevel_definition str in
+    load_lambda ppf lam
+
+  let next_state ~oldenv state = function
+    | Ok _ -> Ok state
+    | Error _ -> Error { state with env = oldenv }
+
+  let print_outcome ppf ~oldenv ~newenv str sg r =
+    let out_phr = match r with
+      | Ok v -> Topeval.res_outcome ~rewritten:false ~oldenv ~newenv str sg v
+      | Error exn -> Topeval.exn_outcome oldenv exn
+    in
+    begin match out_phr with
+    | Ophr_signature [] -> ()
+    | _ ->
+        Location.separate_new_message ppf;
+        !Oprint.out_phrase ppf out_phr;
+    end;
+    if Printexc.backtrace_status ()
+    then begin
+      match !Topcommon.backtrace with
+      | None -> ()
+      | Some b ->
+          Location.separate_new_message ppf;
+          Format.pp_print_string ppf b;
+          Format.pp_print_flush ppf ();
+          Topcommon.backtrace := None;
+    end
+
+let execute_phrase ppf phr state =
+  match phr with
+  | Parsetree.Ptop_dir {pdir_name = {Location.txt = dir_name}; pdir_arg } ->
+      Toploop.toplevel_env := state.env;
+      let ok = Topcommon.try_run_directive ppf dir_name pdir_arg in
+      let state = { state with env = !Toploop.toplevel_env } in
+      if ok then Ok state else Error state
+  | Parsetree.Ptop_def sstr ->
+      let oldenv = state.env in
+      let ty, state = typecheck ppf state sstr in
+      match ty with
+      | Result.Error () -> Error state
+      | Result.Ok (str, sg) ->
+          let r = exec_typed ppf str in
+          print_outcome ppf ~oldenv ~newenv:state.env str sg r;
+          next_state ~oldenv state r
+
+let execute_phrase ppf phr state =
+  try execute_phrase ppf phr state
+  with exn ->
+    Warnings.reset_fatal ();
+    raise exn
+
+end
+
+
 let exec_phrase ppf phrase =
   Location.reset ();
   if !Clflags.dump_parsetree then Printast. top_phrase ppf phrase;
   if !Clflags.dump_source    then Pprintast.top_phrase ppf phrase;
-  Toploop.execute_phrase true ppf phrase
+  Exec.execute_phrase ppf phrase
+
+let exec_or_skip_phrase ppf state phrase =
+  match phrase, state with
+  | Parsetree.Ptop_def [], _ -> state
+  | _, Error (state,i) -> Error (state,i+1)
+  | _, Ok state ->
+      match exec_phrase ppf phrase state with
+      | Ok _ as x -> x
+      | Error _  -> Error (state,0)
+      | exception exn ->
+          let bt = Printexc.get_raw_backtrace () in
+          begin try Location.report_exception ppf exn
+          with _ ->
+            Format.fprintf ppf "Uncaught exception: %s\n%s\n"
+              (Printexc.to_string exn)
+              (Printexc.raw_backtrace_to_string bt)
+          end;
+          Error (state,0)
+
 
 let parse_contents ~fname contents =
   let lexbuf = Lexing.from_string contents in
@@ -217,6 +364,8 @@ function
   | Ptop_def (st :: _) :: _ -> Some st.pstr_loc.loc_start.pos_lnum
 
 
+
+
 let visible_inline_code () =
   let open Misc.Style in
   let default = get_styles () in
@@ -233,7 +382,14 @@ let eval_expect_file _fname ~file_contents =
   let () =
     visible_inline_code ();
     Misc.Style.set_tag_handling ppf in
-  let exec_phrases phrases =
+  let state = {
+    Exec.name = "test";
+    env = !Toploop.toplevel_env;
+    flags = [R (Clflags.principal, !Clflags.principal)];
+    ppf
+  }
+  in
+  let exec_phrases state phrases =
     let phrases =
       match min_line_number phrases with
       | None -> phrases
@@ -242,60 +398,45 @@ let eval_expect_file _fname ~file_contents =
     (* For formatting purposes *)
     Buffer.add_char buf '\n';
     let skipped_phrases =
-      List.fold_left phrases ~init:None ~f:(fun acc phrase ->
-          match (phrase : Parsetree.toplevel_phrase) with
-          | Ptop_def [] -> acc
-          | _ ->
-          match acc with
-          | Some i -> Some (i + 1)
-          | None ->
-              let snap = Btype.snapshot () in
-              try
-                if exec_phrase ppf phrase
-                then acc
-                else Some 0
-              with exn ->
-                let bt = Printexc.get_raw_backtrace () in
-                begin try Location.report_exception ppf exn
-                with _ ->
-                  Format.fprintf ppf "Uncaught exception: %s\n%s\n"
-                    (Printexc.to_string exn)
-                    (Printexc.raw_backtrace_to_string bt)
-                end;
-                Btype.backtrack snap;
-                Some 0
-      )
+      List.fold_left phrases ~init:(Ok state) ~f:(exec_or_skip_phrase ppf)
     in
     Format.pp_print_flush ppf ();
     let len = Buffer.length buf in
     if len > 0 && Buffer.nth buf (len - 1) <> '\n' then
       (* For formatting purposes *)
       Buffer.add_char buf '\n';
-    begin match skipped_phrases with
-    | None | Some 0 -> ()
-    | Some i ->
+    let state = match skipped_phrases with
+    | Ok state | Error (state,0) -> state
+    | Error (state,i) ->
         Format.fprintf ppf
-          "Unexecuted phrases: %i phrases did not execute due to an error\n" i
-    end;
+          "Unexecuted phrases: %i phrases did not execute due to an error\n" i;
+        state
+    in
     Format.pp_print_flush ppf ();
     let s = Buffer.contents buf in
     Buffer.clear buf;
-    Misc.delete_eol_spaces s
+    state, Misc.delete_eol_spaces s
   in
-  let corrected_expectations =
+  let state, corrected_expectations =
     capture_everything buf ppf ~f:(fun () ->
-      List.fold_left chunks ~init:[] ~f:(fun acc chunk ->
-        let output = exec_phrases chunk.phrases in
-        match eval_expectation chunk.expectation ~output with
-        | None -> acc
-        | Some correction -> correction :: acc)
-      |> List.rev)
+        let state, corrections =
+          let init = state, [] in
+          List.fold_left chunks ~init ~f:(fun (state, corrections) chunk ->
+              let state, output = exec_phrases state chunk.phrases in
+              state,
+              match eval_expectation chunk.expectation ~output with
+              | None -> corrections
+              | Some correction -> correction :: corrections)
+        in
+        state, List.rev corrections
+      )
   in
   let trailing_output =
     match trailing_code with
     | None -> ""
     | Some phrases ->
-      capture_everything buf ppf ~f:(fun () -> exec_phrases phrases)
+        snd @@ capture_everything buf ppf
+          ~f:(fun () -> exec_phrases state phrases)
   in
   { corrected_expectations; trailing_output }
 

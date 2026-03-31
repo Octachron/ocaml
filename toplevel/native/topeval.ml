@@ -156,6 +156,33 @@ let name_expression ~loc ~attrs exp =
    in
    str, sg
 
+let exn_outcome env exn =
+  if exn = Out_of_memory then Gc.full_major();
+  let outv = outval_of_value env (Obj.repr exn) Predef.type_exn in
+  Ophr_exception (exn, outv)
+
+
+let res_outcome ~rewritten ~oldenv ~newenv str sg _ =
+  Printtyp.wrap_printing_env ~error:false oldenv (fun () ->
+      match str.str_items with
+      | [] -> Ophr_signature []
+      | _ ->
+          if rewritten then
+            match sg with
+            | [ Sig_value (id, vd, _) ] ->
+                let outv =
+                  outval_of_value newenv (toplevel_value id)
+                    vd.val_type
+                in
+                let ty =
+                  Out_type.prepare_for_printing [vd.val_type];
+                  Out_type.tree_of_typexp Type_scheme vd.val_type
+                in
+                Ophr_eval (outv, ty)
+            | _ -> assert false
+          else
+            Ophr_signature (pr_item oldenv sg))
+
 let execute_phrase print_outcome ppf phr =
   match phr with
   | Ptop_def sstr ->
@@ -212,33 +239,11 @@ let execute_phrase print_outcome ppf phr =
               else
                 Compilenv.record_global_approx_toplevel ();
               if print_outcome then
-                Printtyp.wrap_printing_env ~error:false oldenv (fun () ->
-                match str.str_items with
-                | [] -> Ophr_signature []
-                | _ ->
-                    if rewritten then
-                      match sg' with
-                      | [ Sig_value (id, vd, _) ] ->
-                          let outv =
-                            outval_of_value newenv (toplevel_value id)
-                              vd.val_type
-                          in
-                          let ty =
-                            Out_type.prepare_for_printing [vd.val_type];
-                            Out_type.tree_of_typexp Type_scheme vd.val_type
-                          in
-                          Ophr_eval (outv, ty)
-                      | _ -> assert false
-                    else
-                      Ophr_signature (pr_item oldenv sg'))
+                res_outcome ~rewritten ~oldenv ~newenv str sg' ()
               else Ophr_signature []
           | Exception exn ->
               toplevel_env := oldenv;
-              if exn = Out_of_memory then Gc.full_major();
-              let outv =
-                outval_of_value !toplevel_env (Obj.repr exn) Predef.type_exn
-              in
-              Ophr_exception (exn, outv)
+              exn_outcome oldenv exn
         in
         begin match out_phr with
         | Ophr_signature [] -> ()
