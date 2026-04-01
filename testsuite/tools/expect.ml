@@ -50,6 +50,13 @@ type expectation =
   ; variants : string_constant String_map.t
   }
 
+let empty_expectation = {
+  extid_loc = Location.none;
+  payload_loc = Location.none;
+  main = { str = ""; tag = "" };
+  variants = String_map.empty
+}
+
 (* A list of phrases with the expected toplevel output *)
 type chunk =
   { phrases     : Parsetree.toplevel_phrase list
@@ -58,7 +65,7 @@ type chunk =
 
 type correction =
   { corrected_expectations : expectation list
-  ; trailing_output        : string
+  ; trailing_output        : expectation option
   }
 
 
@@ -180,6 +187,7 @@ module Exec = struct
     name: mode;
     flags: ref_env list;
     ppf: Format.formatter;
+    buf: Buffer.t;
     env: Env.t;
   }[@@warning "-69"]
 
@@ -344,13 +352,22 @@ let update_mode mode e x = match mode with
       let variants = String_map.add v x e.variants in
       { e with variants }
 
-let eval_expectation mode expectation ~output =
-  let s = get_mode mode expectation in
+
+type expectation_ref = {
+  expect: expectation;
+  altered: bool;
+}
+
+let eval_expectation mode reference ~output =
+  let s = get_mode mode reference.expect in
   if s.str = output then
-    None
+    reference
   else
     let s = { s with str = output } in
-    Some (update_mode mode expectation s)
+    {
+      expect = update_mode mode reference.expect s;
+      altered = true
+    }
 
 let shift_lines delta phrases =
   let position (pos : Lexing.position) =
@@ -383,100 +400,126 @@ let visible_inline_code () =
   let inline_code = { ansi = []; text_open = {|"|}; text_close={|"|} } in
   set_styles { default with inline_code }
 
-let eval_expect_file _fname ~file_contents =
-  Warnings.reset_fatal ();
-  let chunks, trailing_code =
-    parse_contents ~fname:"" file_contents |> split_chunks
+let exec_phrases phrases ({ Exec.buf; ppf; _ } as state) =
+  let phrases =
+    match min_line_number phrases with
+    | None -> phrases
+    | Some lnum -> shift_lines (1 - lnum) phrases
   in
-  let buf = Buffer.create 1024 in
-  let ppf = Format.formatter_of_buffer buf in
-  let () =
-    visible_inline_code ();
-    Misc.Style.set_tag_handling ppf in
-  let state = {
-    Exec.name = if !Clflags.principal then Variant "Principal" else Main;
-    env = !Toploop.toplevel_env;
-    flags = [R (Clflags.principal, !Clflags.principal)];
-    ppf
-  }
+  (* For formatting purposes *)
+  Buffer.add_char buf '\n';
+  let skipped_phrases =
+    List.fold_left phrases ~init:(Ok state) ~f:(exec_or_skip_phrase ppf)
   in
-  let exec_phrases state phrases =
-    let phrases =
-      match min_line_number phrases with
-      | None -> phrases
-      | Some lnum -> shift_lines (1 - lnum) phrases
-    in
+  Format.pp_print_flush ppf ();
+  let len = Buffer.length buf in
+  if len > 0 && Buffer.nth buf (len - 1) <> '\n' then
     (* For formatting purposes *)
     Buffer.add_char buf '\n';
-    let skipped_phrases =
-      List.fold_left phrases ~init:(Ok state) ~f:(exec_or_skip_phrase ppf)
-    in
-    Format.pp_print_flush ppf ();
-    let len = Buffer.length buf in
-    if len > 0 && Buffer.nth buf (len - 1) <> '\n' then
-      (* For formatting purposes *)
-      Buffer.add_char buf '\n';
-    let state = match skipped_phrases with
+  let state = match skipped_phrases with
     | Ok state | Error (state,0) -> state
     | Error (state,i) ->
         Format.fprintf ppf
           "Unexecuted phrases: %i phrases did not execute due to an error\n" i;
         state
-    in
-    Format.pp_print_flush ppf ();
-    let s = Buffer.contents buf in
-    Buffer.clear buf;
-    state, Misc.delete_eol_spaces s
   in
-  let state, corrected_expectations =
-    capture_everything buf ppf ~f:(fun () ->
-        let state, corrections =
-          let init = state, [] in
-          List.fold_left chunks ~init ~f:(fun (state, corrections) chunk ->
-              let state, output = exec_phrases state chunk.phrases in
-              state,
-              match eval_expectation state.Exec.name chunk.expectation
-                      ~output
-              with
-              | None -> corrections
-              | Some correction -> correction :: corrections)
-        in
-        state, List.rev corrections
-      )
+  Format.pp_print_flush ppf ();
+  let s = Buffer.contents buf in
+  Buffer.clear buf;
+  state, Misc.delete_eol_spaces s
+
+let update_correction phrases (states, correction) (state:Exec.state) =
+  let state, output =
+    capture_everything ~f:(fun () -> exec_phrases phrases state)
+      state.buf state.ppf
   in
-  let trailing_output =
-    match trailing_code with
-    | None -> ""
+  state :: states , eval_expectation state.name correction ~output
+
+let eval_correction chunk states corrections =
+  let r = { expect = chunk.expectation; altered = false } in
+  let states, correction =
+    List.fold_left ~f:(update_correction chunk.phrases) ~init:([],r) states
+  in
+  List.rev states,
+  if correction.altered then corrections else correction.expect :: corrections
+
+let main_mode =
+  Main,
+  Exec.[ R (Clflags.principal, false); R (Clflags.recursive_types, false) ]
+let principal_mode =
+  Variant "Principal",
+  Exec.[ R (Clflags.principal, true); R (Clflags.recursive_types, false) ]
+let rectype_modes =
+  Variant "Rectypes",
+  Exec.[ R(Clflags.principal, false); R (Clflags.recursive_types, true) ]
+let all_modes = [main_mode; principal_mode]
+
+
+let init_state (mode, flags) =
+  let buf = Buffer.create 1024 in
+  let ppf = Format.formatter_of_buffer buf in
+  visible_inline_code ();
+  Misc.Style.set_tag_handling ppf;
+  {
+    Exec.name = mode;
+    env = !Toploop.toplevel_env;
+    flags;
+    buf;
+    ppf
+  }
+
+
+let eval_expect_file modes _fname ~file_contents =
+  Warnings.reset_fatal ();
+  let chunks, trailing_code =
+    parse_contents ~fname:"" file_contents |> split_chunks
+  in
+  let init = List.map ~f:init_state modes, [] in
+  let states, corrected_expectations =
+    List.fold_left
+      ~f:(fun (s,c) chunk -> eval_correction chunk s c)
+      ~init
+      chunks
+  in
+  let corrected_expectations = List.rev corrected_expectations in
+  let trailing_output = match trailing_code with
+    | None -> None
     | Some phrases ->
-        snd @@ capture_everything buf ppf
-          ~f:(fun () -> exec_phrases state phrases)
+        let chunk = { phrases; expectation = empty_expectation } in
+        match eval_correction chunk states [] with
+        | _, a :: _ -> Some a
+        | _, [] -> None
   in
   { corrected_expectations; trailing_output }
 
 let output_slice oc s a b =
   output_string oc (String.sub s ~pos:a ~len:(b - a))
 
-let output_corrected oc ~file_contents correction =
+let output_correction oc c =
   let output_body oc { str; tag } =
     Printf.fprintf oc "{%s|%s|%s}" tag str tag
   in
+  output_body oc c.main;
+  String_map.iter (fun name v ->
+      if c.main.str <> v.str then begin
+        output_string oc ", ";
+        output_string oc name;
+        output_body oc v
+      end
+    ) c.variants
+
+let output_corrected oc ~file_contents correction =
   let ofs =
     List.fold_left correction.corrected_expectations ~init:0
       ~f:(fun ofs c ->
         output_slice oc file_contents ofs c.payload_loc.loc_start.pos_cnum;
-        output_body oc c.main;
-        String_map.iter  (fun name v ->
-        if c.main.str <> v.str then begin
-          output_string oc ", ";
-          output_string oc name;
-          output_body oc v
-        end) c.variants;
+        output_correction oc c;
         c.payload_loc.loc_end.pos_cnum)
   in
   output_slice oc file_contents ofs (String.length file_contents);
   match correction.trailing_output with
-  | "" -> ()
-  | s  -> Printf.fprintf oc "\n[%%%%expect{|%s|}]\n" s
+  | None -> ()
+  | Some c  -> Printf.fprintf oc "\n[%%%%expect{|%a|}]\n" output_correction c
 
 let write_corrected ~file ~file_contents correction =
   let oc = open_out file in
@@ -491,7 +534,7 @@ let process_expect_file fname =
     | s           -> close_in ic; Misc.normalise_eol s
     | exception e -> close_in ic; raise e
   in
-  let correction = eval_expect_file fname ~file_contents in
+  let correction = eval_expect_file all_modes fname ~file_contents in
   write_corrected ~file:corrected_fname ~file_contents correction
 
 let repo_root = ref None

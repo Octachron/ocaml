@@ -808,17 +808,15 @@ let cc =
   Actions.make ~name:"cc" ~description:"Run C compiler to build the program"
     run_cc
 
-let run_expect_once input_file ~principal log env =
+let run_expect_once input_file log env =
   let expect_flags = Sys.safe_getenv "EXPECT_FLAGS" in
   let repo_root = "-repo-root " ^ Ocaml_directories.srcdir in
-  let principal_flag = if principal then "-principal" else "" in
   let commandline =
   [
     Ocaml_commands.ocamlrun_expect;
     expect_flags;
     flags env;
     repo_root;
-    principal_flag;
     input_file
   ] in
   let exit_status =
@@ -831,27 +829,9 @@ let run_expect_once input_file ~principal log env =
     (Test_result.fail_with_reason reason, env)
   end
 
-let run_expect_twice input_file log env =
-  let corrected filename = Filename.make_filename filename "corrected" in
-  let (result1, env1) = run_expect_once input_file ~principal:false log env in
-  if Test_result.is_pass result1 then begin
-    let intermediate_file = corrected input_file in
-    let (result2, env2) =
-      run_expect_once intermediate_file ~principal:true log env1 in
-    if Test_result.is_pass result2 then begin
-      let output_file = corrected intermediate_file in
-      let output_env = Environments.add_bindings
-      [
-        Builtin_variables.reference, input_file;
-        Builtin_variables.output, output_file
-      ] env2 in
-      (Test_result.pass, output_env)
-    end else (result2, env2)
-  end else (result1, env1)
-
 let run_expect log env =
   let input_file = Actions_helpers.testfile env in
-  run_expect_twice input_file log env
+  run_expect_once input_file log env
 
 let run_expect =
   Actions.make ~name:"run-expect" ~description:"Run expect test" run_expect
