@@ -234,6 +234,40 @@ Error: Signature mismatch:
        The type "'_weak1 list ref" is not compatible with the type "T.t list ref"
        This instance of "T.t" is ambiguous:
        it would escape the scope of its equation
+|}, Principal{|
+module M : sig val r : '_weak2 list ref end
+Line 13, characters 29-30:
+13 |         let module O : N.S = M in
+                                  ^
+Error: Signature mismatch:
+       Modules do not match:
+         sig val r : '_weak2 list ref end
+       is not included in
+         N.S
+       Values do not match:
+         val r : '_weak2 list ref
+       is not included in
+         val r : T.t list ref
+       The type "'_weak2 list ref" is not compatible with the type "T.t list ref"
+       This instance of "T.t" is ambiguous:
+       it would escape the scope of its equation
+|}, Rectypes{|
+module M : sig val r : '_weak3 list ref end
+Line 13, characters 29-30:
+13 |         let module O : N.S = M in
+                                  ^
+Error: Signature mismatch:
+       Modules do not match:
+         sig val r : '_weak3 list ref end
+       is not included in
+         N.S
+       Values do not match:
+         val r : '_weak3 list ref
+       is not included in
+         val r : T.t list ref
+       The type "'_weak3 list ref" is not compatible with the type "T.t list ref"
+       This instance of "T.t" is ambiguous:
+       it would escape the scope of its equation
 |}]
 
 module M = struct
@@ -254,21 +288,57 @@ module S = struct
   module type S = module type of M
 end;;
 [%%expect{|
-module M : sig val r : '_weak2 list ref end
+module M : sig val r : '_weak4 list ref end
 Line 13, characters 29-30:
 13 |         let module O : N.S = M in
                                   ^
 Error: Signature mismatch:
        Modules do not match:
-         sig val r : '_weak2 list ref end
+         sig val r : '_weak4 list ref end
        is not included in
          N.S
        Values do not match:
-         val r : '_weak2 list ref
+         val r : '_weak4 list ref
        is not included in
          val r : T.t list ref
-       The type "'_weak2 list ref" is not compatible with the type "T.t list ref"
-       Type "'_weak2" is not compatible with type "T.t" = "T.u"
+       The type "'_weak4 list ref" is not compatible with the type "T.t list ref"
+       Type "'_weak4" is not compatible with type "T.t" = "T.u"
+       This instance of "T.u" is ambiguous:
+       it would escape the scope of its equation
+|}, Principal{|
+module M : sig val r : '_weak5 list ref end
+Line 13, characters 29-30:
+13 |         let module O : N.S = M in
+                                  ^
+Error: Signature mismatch:
+       Modules do not match:
+         sig val r : '_weak5 list ref end
+       is not included in
+         N.S
+       Values do not match:
+         val r : '_weak5 list ref
+       is not included in
+         val r : T.t list ref
+       The type "'_weak5 list ref" is not compatible with the type "T.t list ref"
+       Type "'_weak5" is not compatible with type "T.t" = "T.u"
+       This instance of "T.u" is ambiguous:
+       it would escape the scope of its equation
+|}, Rectypes{|
+module M : sig val r : '_weak6 list ref end
+Line 13, characters 29-30:
+13 |         let module O : N.S = M in
+                                  ^
+Error: Signature mismatch:
+       Modules do not match:
+         sig val r : '_weak6 list ref end
+       is not included in
+         N.S
+       Values do not match:
+         val r : '_weak6 list ref
+       is not included in
+         val r : T.t list ref
+       The type "'_weak6 list ref" is not compatible with the type "T.t list ref"
+       Type "'_weak6" is not compatible with type "T.t" = "T.u"
        This instance of "T.u" is ambiguous:
        it would escape the scope of its equation
 |}]

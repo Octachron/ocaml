@@ -673,6 +673,8 @@ type foo += Foo of string
 let y = x (* Prints Bar but not Foo (which has been shadowed) *)
 ;;
 [%%expect {|
+val y : foo * foo = (<extension>, <extension>)
+|}, Rectypes{|
 val y : foo * foo = (<extension>, Bar (Some 5))
 |}]
 
@@ -703,6 +705,8 @@ type foo += Foo of string
 let y = x (* Prints Bar and part of Foo (which has been shadowed) *)
 ;;
 [%%expect {|
+val y : exn * exn = (Foo (3, _), Bar _)
+|}, Rectypes{|
 val y : exn * exn = (Foo (3, _), Bar (Some 5))
 |}]
 

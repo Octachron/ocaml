@@ -180,8 +180,7 @@ type mode = Main | Variant of string
 
 module Exec = struct
 
-  type ref_env = R: 'a ref * 'a -> ref_env
-  let apply_flags (R (r,x)) = r:= x
+  type ref_env = Misc.ref_and_value = R: 'a ref * 'a -> ref_env
 
   type state = {
     name: mode;
@@ -200,7 +199,7 @@ module Exec = struct
   let check_warnings x = Warnings.check_fatal (); x
 
   let typecheck ppf state sstr =
-    List.iter ~f:apply_flags state.flags;
+    Misc.protect_refs state.flags @@ fun () ->
     let snap = Btype.snapshot () in
     match check_warnings (Topcommon.typecheck_phrase ppf state.env sstr) with
     | str, sg, env ->
@@ -441,18 +440,18 @@ let eval_correction chunk states corrections =
     List.fold_left ~f:(update_correction chunk.phrases) ~init:([],r) states
   in
   List.rev states,
-  if correction.altered then corrections else correction.expect :: corrections
+  if correction.altered then correction.expect :: corrections else corrections
 
 let main_mode =
   Main,
-  Exec.[ R (Clflags.principal, false); R (Clflags.recursive_types, false) ]
+  Exec.[ R (Clflags.principal, false) (*; R (Clflags.recursive_types, false)*) ]
 let principal_mode =
   Variant "Principal",
-  Exec.[ R (Clflags.principal, true); R (Clflags.recursive_types, false) ]
+  Exec.[ R (Clflags.principal, true) (*; R (Clflags.recursive_types, false)*) ]
 let rectype_modes =
   Variant "Rectypes",
-  Exec.[ R(Clflags.principal, false); R (Clflags.recursive_types, true) ]
-let all_modes = [main_mode; principal_mode]
+  Exec.[ R (Clflags.recursive_types, true) ]
+let all_modes = [main_mode; principal_mode; rectype_modes]
 
 
 let init_state (mode, flags) =

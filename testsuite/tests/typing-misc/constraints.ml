@@ -208,6 +208,16 @@ Line 1, characters 0-40:
 Error: The type abbreviation "t" is cyclic:
          "'a t t" = "'a t * 'a",
          "'a t * 'a" contains "'a t"
+|}, Rectypes{|
+Line 1, characters 0-40:
+1 | type 'a t = 'a * 'b constraint 'a = 'b t;;
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Error: This recursive type is not regular.
+       The type constructor "t" is defined as
+         type "'b t t"
+       but it is used as
+         "'b t".
+       All uses need to match the definition for the recursive type to be regular.
 |}]
 
 type 'a t = <a : 'a; b : 'b> constraint 'a = 'b t;;

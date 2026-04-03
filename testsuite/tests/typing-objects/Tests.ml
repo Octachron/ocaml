@@ -173,6 +173,10 @@ class ['a, 'b] d :
 let x = ref [];;
 [%%expect{|
 val x : '_weak1 list ref = {contents = []}
+|}, Principal{|
+val x : '_weak2 list ref = {contents = []}
+|}, Rectypes{|
+val x : '_weak3 list ref = {contents = []}
 |}];;
 class ['a] c () = object
   method f = (x : 'a)
@@ -186,6 +190,26 @@ Error: The type of this class,
        "class ['a] c :
          unit -> object constraint 'a = '_weak1 list ref method f : 'a end",
        contains the non-generalizable type variable(s): "'_weak1".
+       (see manual section 6.1.2)
+|}, Principal{|
+Lines 1-3, characters 0-3:
+1 | class ['a] c () = object
+2 |   method f = (x : 'a)
+3 | end..
+Error: The type of this class,
+       "class ['a] c :
+         unit -> object constraint 'a = '_weak2 list ref method f : 'a end",
+       contains the non-generalizable type variable(s): "'_weak2".
+       (see manual section 6.1.2)
+|}, Rectypes{|
+Lines 1-3, characters 0-3:
+1 | class ['a] c () = object
+2 |   method f = (x : 'a)
+3 | end..
+Error: The type of this class,
+       "class ['a] c :
+         unit -> object constraint 'a = '_weak3 list ref method f : 'a end",
+       contains the non-generalizable type variable(s): "'_weak3".
        (see manual section 6.1.2)
 |}];;
 
@@ -253,6 +277,8 @@ Error: The type abbreviation "t" is cyclic:
          "t" = "t u * t u",
          "t u * t u" contains "t u",
          "t u" = "t"
+|}, Rectypes{|
+type t = t u * t u
 |}];;
 
 type t = <x : 'a> as 'a;;
@@ -763,7 +789,11 @@ fun x -> (x : < .. > :> < >);;
 
 let x = ref [];;
 [%%expect{|
-val x : '_weak2 list ref = {contents = []}
+val x : '_weak4 list ref = {contents = []}
+|}, Principal{|
+val x : '_weak5 list ref = {contents = []}
+|}, Rectypes{|
+val x : '_weak6 list ref = {contents = []}
 |}];;
 module F(X : sig end) =
   struct type t = int let _ = (x : < m : t> list ref) end;;
@@ -978,7 +1008,21 @@ end;;
 Line 2, characters 13-58:
 2 |   method o = object(_ : 'self) method o = assert false end
                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Error: Cannot close type of object literal: "< o : '_weak4; .. > as '_weak3"
+Error: Cannot close type of object literal: "< o : '_weak8; .. > as '_weak7"
+       it has been unified with the self type of a class that is not yet
+       completely defined.
+|}, Principal{|
+Line 2, characters 13-58:
+2 |   method o = object(_ : 'self) method o = assert false end
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Error: Cannot close type of object literal: "< o : '_weak10; .. > as '_weak9"
+       it has been unified with the self type of a class that is not yet
+       completely defined.
+|}, Rectypes{|
+Line 2, characters 13-58:
+2 |   method o = object(_ : 'self) method o = assert false end
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Error: Cannot close type of object literal: "< o : '_weak12; .. > as '_weak11"
        it has been unified with the self type of a class that is not yet
        completely defined.
 |}];;

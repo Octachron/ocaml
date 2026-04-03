@@ -13,6 +13,16 @@ end
  "Make"[module type] -> <.1>;
  }
 module type Make = (I : sig end) -> sig end
+|}, Principal{|
+{
+ "Make"[module type] -> <.3>;
+ }
+module type Make = (I : sig end) -> sig end
+|}, Rectypes{|
+{
+ "Make"[module type] -> <.5>;
+ }
+module type Make = (I : sig end) -> sig end
 |}]
 
 module Make (I : sig end) : sig
@@ -22,7 +32,17 @@ end = struct end
 
 [%%expect{|
 {
- "Make"[module] -> Abs<.3>(I, {});
+ "Make"[module] -> Abs<.7>(I, {});
+ }
+module Make : (I : sig end) -> sig end
+|}, Principal{|
+{
+ "Make"[module] -> Abs<.9>(I, {});
+ }
+module Make : (I : sig end) -> sig end
+|}, Rectypes{|
+{
+ "Make"[module] -> Abs<.11>(I, {});
  }
 module Make : (I : sig end) -> sig end
 |}]
@@ -34,7 +54,17 @@ end
 
 [%%expect{|
 {
- "Make"[module type] -> <.5>;
+ "Make"[module type] -> <.13>;
+ }
+module type Make = (I : sig end) -> sig end
+|}, Principal{|
+{
+ "Make"[module type] -> <.15>;
+ }
+module type Make = (I : sig end) -> sig end
+|}, Rectypes{|
+{
+ "Make"[module type] -> <.17>;
  }
 module type Make = (I : sig end) -> sig end
 |}]

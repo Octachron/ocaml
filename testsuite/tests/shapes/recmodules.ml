@@ -28,6 +28,32 @@ module rec A : sig
  }
 module rec A : sig type t = Leaf of B.t end
 and B : sig type t = int end
+|}, Principal{|
+{
+ "A"[module] -> {
+                 "t"[type] -> {<.19>
+                               "Leaf"[constructor] -> {<.20>};
+                               };
+                 };
+ "B"[module] -> {
+                 "t"[type] -> <.21>;
+                 };
+ }
+module rec A : sig type t = Leaf of B.t end
+and B : sig type t = int end
+|}, Rectypes{|
+{
+ "A"[module] -> {
+                 "t"[type] -> {<.30>
+                               "Leaf"[constructor] -> {<.31>};
+                               };
+                 };
+ "B"[module] -> {
+                 "t"[type] -> <.32>;
+                 };
+ }
+module rec A : sig type t = Leaf of B.t end
+and B : sig type t = int end
 |}]
 
 (*****************)
@@ -45,8 +71,22 @@ and B : sig
 end = B
 [%%expect{|
 {
- "A"[module] -> A<.11>;
- "B"[module] -> B<.12>;
+ "A"[module] -> A<.33>;
+ "B"[module] -> B<.34>;
+ }
+module rec A : sig type t = Leaf of B.t end
+and B : sig type t = int end
+|}, Principal{|
+{
+ "A"[module] -> A<.41>;
+ "B"[module] -> B<.42>;
+ }
+module rec A : sig type t = Leaf of B.t end
+and B : sig type t = int end
+|}, Rectypes{|
+{
+ "A"[module] -> A<.49>;
+ "B"[module] -> B<.50>;
  }
 module rec A : sig type t = Leaf of B.t end
 and B : sig type t = int end
@@ -79,21 +119,75 @@ end = Set.Make(A)
 {
  "A"[module] ->
    {
-    "compare"[value] -> <.38>;
+    "compare"[value] -> <.76>;
     "t"[type] ->
-      {<.35>
-       "Leaf"[constructor] -> {<.36>};
-       "Node"[constructor] -> {<.37>};
+      {<.73>
+       "Leaf"[constructor] -> {<.74>};
+       "Node"[constructor] -> {<.75>};
        };
     };
  "ASet"[module] ->
    {
     "compare"[value] ->
-      CU Stdlib . "Set"[module] . "Make"[module](A<.19>) . "compare"[value];
+      CU Stdlib . "Set"[module] . "Make"[module](A<.57>) . "compare"[value];
     "elt"[type] ->
-      CU Stdlib . "Set"[module] . "Make"[module](A<.19>) . "elt"[type];
+      CU Stdlib . "Set"[module] . "Make"[module](A<.57>) . "elt"[type];
     "t"[type] ->
-      CU Stdlib . "Set"[module] . "Make"[module](A<.19>) . "t"[type];
+      CU Stdlib . "Set"[module] . "Make"[module](A<.57>) . "t"[type];
+    };
+ }
+module rec A :
+  sig
+    type t = Leaf of string | Node of ASet.t
+    val compare : t -> t -> int
+  end
+and ASet : sig type t type elt = A.t val compare : t -> t -> int end
+|}, Principal{|
+{
+ "A"[module] ->
+   {
+    "compare"[value] -> <.102>;
+    "t"[type] ->
+      {<.99>
+       "Leaf"[constructor] -> {<.100>};
+       "Node"[constructor] -> {<.101>};
+       };
+    };
+ "ASet"[module] ->
+   {
+    "compare"[value] ->
+      CU Stdlib . "Set"[module] . "Make"[module](A<.83>) . "compare"[value];
+    "elt"[type] ->
+      CU Stdlib . "Set"[module] . "Make"[module](A<.83>) . "elt"[type];
+    "t"[type] ->
+      CU Stdlib . "Set"[module] . "Make"[module](A<.83>) . "t"[type];
+    };
+ }
+module rec A :
+  sig
+    type t = Leaf of string | Node of ASet.t
+    val compare : t -> t -> int
+  end
+and ASet : sig type t type elt = A.t val compare : t -> t -> int end
+|}, Rectypes{|
+{
+ "A"[module] ->
+   {
+    "compare"[value] -> <.128>;
+    "t"[type] ->
+      {<.125>
+       "Leaf"[constructor] -> {<.126>};
+       "Node"[constructor] -> {<.127>};
+       };
+    };
+ "ASet"[module] ->
+   {
+    "compare"[value] ->
+      CU Stdlib . "Set"[module] . "Make"[module](A<.109>) . "compare"[value];
+    "elt"[type] ->
+      CU Stdlib . "Set"[module] . "Make"[module](A<.109>) . "elt"[type];
+    "t"[type] ->
+      CU Stdlib . "Set"[module] . "Make"[module](A<.109>) . "t"[type];
     };
  }
 module rec A :

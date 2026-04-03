@@ -675,6 +675,58 @@ Error: Signature mismatch:
        The type "(module Typ) -> '_weak1 -> '_weak1"
        is not compatible with the type "(module M : Typ) -> M.t -> M.t"
        The module "M" would escape its scope
+|}, Principal{|
+Lines 4-9, characters 6-3:
+4 | ......struct
+5 |   let f1 () (module M : Typ) : 'a -> 'a = assert false
+6 |   (* unit -> (module M : T) -> 'a -> 'a *)
+7 |   let f = f1 ()
+8 |   (* (module M : T) -> '_weak -> '_weak *)
+9 | end
+Error: Signature mismatch:
+       Modules do not match:
+         sig
+           val f1 : unit -> (module Typ) -> 'a -> 'a
+           val f : (module Typ) -> '_weak2 -> '_weak2
+         end
+       is not included in
+         sig
+           val f1 : unit -> (module M : Typ) -> 'a -> 'a
+           val f : (module M : Typ) -> M.t -> M.t
+         end
+       Values do not match:
+         val f : (module Typ) -> '_weak2 -> '_weak2
+       is not included in
+         val f : (module M : Typ) -> M.t -> M.t
+       The type "(module Typ) -> '_weak2 -> '_weak2"
+       is not compatible with the type "(module M : Typ) -> M.t -> M.t"
+       The module "M" would escape its scope
+|}, Rectypes{|
+Lines 4-9, characters 6-3:
+4 | ......struct
+5 |   let f1 () (module M : Typ) : 'a -> 'a = assert false
+6 |   (* unit -> (module M : T) -> 'a -> 'a *)
+7 |   let f = f1 ()
+8 |   (* (module M : T) -> '_weak -> '_weak *)
+9 | end
+Error: Signature mismatch:
+       Modules do not match:
+         sig
+           val f1 : unit -> (module Typ) -> 'a -> 'a
+           val f : (module Typ) -> '_weak3 -> '_weak3
+         end
+       is not included in
+         sig
+           val f1 : unit -> (module M : Typ) -> 'a -> 'a
+           val f : (module M : Typ) -> M.t -> M.t
+         end
+       Values do not match:
+         val f : (module Typ) -> '_weak3 -> '_weak3
+       is not included in
+         val f : (module M : Typ) -> M.t -> M.t
+       The type "(module Typ) -> '_weak3 -> '_weak3"
+       is not compatible with the type "(module M : Typ) -> M.t -> M.t"
+       The module "M" would escape its scope
 |}]
 
 (* Test if type subtyping and unification also works with types being
@@ -835,11 +887,25 @@ let set (module T : Typ) (x : T.t) =
   r := Some x
 
 [%%expect{|
-val r : '_weak2 option ref = {contents = None}
+val r : '_weak4 option ref = {contents = None}
 Line 6, characters 12-13:
 6 |   r := Some x
                 ^
-Error: The value "x" has type "T.t" but an expression was expected of type "'weak2"
+Error: The value "x" has type "T.t" but an expression was expected of type "'weak4"
+       The type constructor "T.t" would escape its scope
+|}, Principal{|
+val r : '_weak5 option ref = {contents = None}
+Line 6, characters 12-13:
+6 |   r := Some x
+                ^
+Error: The value "x" has type "T.t" but an expression was expected of type "'weak5"
+       The type constructor "T.t" would escape its scope
+|}, Rectypes{|
+val r : '_weak6 option ref = {contents = None}
+Line 6, characters 12-13:
+6 |   r := Some x
+                ^
+Error: The value "x" has type "T.t" but an expression was expected of type "'weak6"
        The type constructor "T.t" would escape its scope
 |}]
 
@@ -1207,7 +1273,13 @@ let f_contra_applied = f_contra ()
 
 [%%expect{|
 val f_covar_applied : (module M : Covariant) -> 'a M.t = <fun>
-val f_contra_applied : (module M : Contravariant) -> '_weak3 M.t = <fun>
+val f_contra_applied : (module M : Contravariant) -> '_weak7 M.t = <fun>
+|}, Principal{|
+val f_covar_applied : (module M : Covariant) -> 'a M.t = <fun>
+val f_contra_applied : (module M : Contravariant) -> '_weak8 M.t = <fun>
+|}, Rectypes{|
+val f_covar_applied : (module M : Covariant) -> 'a M.t = <fun>
+val f_contra_applied : (module M : Contravariant) -> '_weak9 M.t = <fun>
 |}]
 
 module type M_arrow1 = sig
@@ -1235,7 +1307,15 @@ let fa2_applied = fa2 ()
 [%%expect{|
 module type M_arrow2 = sig type 'a t = 'a -> int end
 val fa2 : unit -> (module M : M_arrow2) -> 'a M.t = <fun>
-val fa2_applied : (module M : M_arrow2) -> '_weak4 M.t = <fun>
+val fa2_applied : (module M : M_arrow2) -> '_weak10 M.t = <fun>
+|}, Principal{|
+module type M_arrow2 = sig type 'a t = 'a -> int end
+val fa2 : unit -> (module M : M_arrow2) -> 'a M.t = <fun>
+val fa2_applied : (module M : M_arrow2) -> '_weak11 M.t = <fun>
+|}, Rectypes{|
+module type M_arrow2 = sig type 'a t = 'a -> int end
+val fa2 : unit -> (module M : M_arrow2) -> 'a M.t = <fun>
+val fa2_applied : (module M : M_arrow2) -> '_weak12 M.t = <fun>
 |}]
 
 module type Typ2 = sig
@@ -1278,11 +1358,55 @@ val ftmb : unit -> (module M : Typ2) -> 'a M.tmb = <fun>
 val ftb : unit -> (module M : Typ2) -> 'a M.tb = <fun>
 val ft : unit -> (module M : Typ2) -> 'a M.t = <fun>
 val ftp_applied : (module M : Typ2) -> 'a M.tp = <fun>
-val ftm_applied : (module M : Typ2) -> '_weak5 M.tm = <fun>
+val ftm_applied : (module M : Typ2) -> '_weak13 M.tm = <fun>
 val ftpb_applied : (module M : Typ2) -> 'a M.tpb = <fun>
-val ftmb_applied : (module M : Typ2) -> '_weak6 M.tmb = <fun>
-val ftb_applied : (module M : Typ2) -> '_weak7 M.tb = <fun>
-val ft_applied : (module M : Typ2) -> '_weak8 M.t = <fun>
+val ftmb_applied : (module M : Typ2) -> '_weak14 M.tmb = <fun>
+val ftb_applied : (module M : Typ2) -> '_weak15 M.tb = <fun>
+val ft_applied : (module M : Typ2) -> '_weak16 M.t = <fun>
+|}, Principal{|
+module type Typ2 =
+  sig
+    type +'a tp
+    type -'a tm
+    type +!'a tpb
+    type -!'a tmb
+    type !'a tb
+    type 'a t
+  end
+val ftp : unit -> (module M : Typ2) -> 'a M.tp = <fun>
+val ftm : unit -> (module M : Typ2) -> 'a M.tm = <fun>
+val ftpb : unit -> (module M : Typ2) -> 'a M.tpb = <fun>
+val ftmb : unit -> (module M : Typ2) -> 'a M.tmb = <fun>
+val ftb : unit -> (module M : Typ2) -> 'a M.tb = <fun>
+val ft : unit -> (module M : Typ2) -> 'a M.t = <fun>
+val ftp_applied : (module M : Typ2) -> 'a M.tp = <fun>
+val ftm_applied : (module M : Typ2) -> '_weak17 M.tm = <fun>
+val ftpb_applied : (module M : Typ2) -> 'a M.tpb = <fun>
+val ftmb_applied : (module M : Typ2) -> '_weak18 M.tmb = <fun>
+val ftb_applied : (module M : Typ2) -> '_weak19 M.tb = <fun>
+val ft_applied : (module M : Typ2) -> '_weak20 M.t = <fun>
+|}, Rectypes{|
+module type Typ2 =
+  sig
+    type +'a tp
+    type -'a tm
+    type +!'a tpb
+    type -!'a tmb
+    type !'a tb
+    type 'a t
+  end
+val ftp : unit -> (module M : Typ2) -> 'a M.tp = <fun>
+val ftm : unit -> (module M : Typ2) -> 'a M.tm = <fun>
+val ftpb : unit -> (module M : Typ2) -> 'a M.tpb = <fun>
+val ftmb : unit -> (module M : Typ2) -> 'a M.tmb = <fun>
+val ftb : unit -> (module M : Typ2) -> 'a M.tb = <fun>
+val ft : unit -> (module M : Typ2) -> 'a M.t = <fun>
+val ftp_applied : (module M : Typ2) -> 'a M.tp = <fun>
+val ftm_applied : (module M : Typ2) -> '_weak21 M.tm = <fun>
+val ftpb_applied : (module M : Typ2) -> 'a M.tpb = <fun>
+val ftmb_applied : (module M : Typ2) -> '_weak22 M.tmb = <fun>
+val ftb_applied : (module M : Typ2) -> '_weak23 M.tb = <fun>
+val ft_applied : (module M : Typ2) -> '_weak24 M.t = <fun>
 |}]
 
 
@@ -1293,7 +1417,13 @@ let f3_applied = f3 ()
 
 [%%expect{|
 val f3 : unit -> (module Typ with type t = 'a) -> unit = <fun>
-val f3_applied : (module Typ with type t = '_weak9) -> unit = <fun>
+val f3_applied : (module Typ with type t = '_weak25) -> unit = <fun>
+|}, Principal{|
+val f3 : unit -> (module Typ with type t = 'a) -> unit = <fun>
+val f3_applied : (module Typ with type t = '_weak26) -> unit = <fun>
+|}, Rectypes{|
+val f3 : unit -> (module Typ with type t = 'a) -> unit = <fun>
+val f3_applied : (module Typ with type t = '_weak27) -> unit = <fun>
 |}]
 
 (* Ensure that subst handles module dependent functions *)

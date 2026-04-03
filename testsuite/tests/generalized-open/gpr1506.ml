@@ -95,6 +95,10 @@ let () =
   inc(); inc(); dec ();
   assert (current () = 1)
 [%%expect{|
+|}, Principal{|
+Exception: Assert_failure ("", 3, 2).
+|}, Rectypes{|
+Exception: Assert_failure ("", 3, 2).
 |}];;
 
 include struct open struct type t = T end let x = T end

@@ -23,16 +23,52 @@ include M
                };
  }
 type t = M.t = A
+|}, Principal{|
+{
+ "t"[type] -> {<.3>
+               "A"[constructor] -> {<.4>};
+               };
+ }
+type t = M.t = A
+|}, Rectypes{|
+{
+ "t"[type] -> {<.6>
+               "A"[constructor] -> {<.7>};
+               };
+ }
+type t = M.t = A
 |}]
 
 module N = M
 [%%expect{|
 {
  "N"[module] ->
-   Alias(<.3>
+   Alias(<.9>
          {<.2>
           "t"[type] -> {<.0>
                         "A"[constructor] -> {<.1>};
+                        };
+          });
+ }
+module N = M
+|}, Principal{|
+{
+ "N"[module] ->
+   Alias(<.10>
+         {<.5>
+          "t"[type] -> {<.3>
+                        "A"[constructor] -> {<.4>};
+                        };
+          });
+ }
+module N = M
+|}, Rectypes{|
+{
+ "N"[module] ->
+   Alias(<.11>
+         {<.8>
+          "t"[type] -> {<.6>
+                        "A"[constructor] -> {<.7>};
                         };
           });
  }
@@ -50,9 +86,27 @@ include struct
 end
 [%%expect{|
 {
- "M'"[module] -> {<.6>
-                  "t"[type] -> {<.4>
-                                "A"[constructor] -> {<.5>};
+ "M'"[module] -> {<.14>
+                  "t"[type] -> {<.12>
+                                "A"[constructor] -> {<.13>};
+                                };
+                  };
+ }
+module M' : sig type t = A end
+|}, Principal{|
+{
+ "M'"[module] -> {<.17>
+                  "t"[type] -> {<.15>
+                                "A"[constructor] -> {<.16>};
+                                };
+                  };
+ }
+module M' : sig type t = A end
+|}, Rectypes{|
+{
+ "M'"[module] -> {<.20>
+                  "t"[type] -> {<.18>
+                                "A"[constructor] -> {<.19>};
                                 };
                   };
  }
@@ -63,10 +117,32 @@ module N' = M'
 [%%expect{|
 {
  "N'"[module] ->
-   Alias(<.7>
-         {<.6>
-          "t"[type] -> {<.4>
-                        "A"[constructor] -> {<.5>};
+   Alias(<.21>
+         {<.14>
+          "t"[type] -> {<.12>
+                        "A"[constructor] -> {<.13>};
+                        };
+          });
+ }
+module N' = M'
+|}, Principal{|
+{
+ "N'"[module] ->
+   Alias(<.22>
+         {<.17>
+          "t"[type] -> {<.15>
+                        "A"[constructor] -> {<.16>};
+                        };
+          });
+ }
+module N' = M'
+|}, Rectypes{|
+{
+ "N'"[module] ->
+   Alias(<.23>
+         {<.20>
+          "t"[type] -> {<.18>
+                        "A"[constructor] -> {<.19>};
                         };
           });
  }
@@ -81,10 +157,34 @@ end
 [%%expect{|
 {
  "Test"[module] ->
-   {<.11>
-    "M"[module] -> {<.10>
-                    "t"[type] -> {<.8>
-                                  "A"[constructor] -> {<.9>};
+   {<.27>
+    "M"[module] -> {<.26>
+                    "t"[type] -> {<.24>
+                                  "A"[constructor] -> {<.25>};
+                                  };
+                    };
+    };
+ }
+module Test : sig module M : sig type t = A end end
+|}, Principal{|
+{
+ "Test"[module] ->
+   {<.31>
+    "M"[module] -> {<.30>
+                    "t"[type] -> {<.28>
+                                  "A"[constructor] -> {<.29>};
+                                  };
+                    };
+    };
+ }
+module Test : sig module M : sig type t = A end end
+|}, Rectypes{|
+{
+ "Test"[module] ->
+   {<.35>
+    "M"[module] -> {<.34>
+                    "t"[type] -> {<.32>
+                                  "A"[constructor] -> {<.33>};
                                   };
                     };
     };
@@ -95,9 +195,27 @@ module Test : sig module M : sig type t = A end end
 include Test
 [%%expect{|
 {
- "M"[module] -> {<.10>
-                 "t"[type] -> {<.8>
-                               "A"[constructor] -> {<.9>};
+ "M"[module] -> {<.26>
+                 "t"[type] -> {<.24>
+                               "A"[constructor] -> {<.25>};
+                               };
+                 };
+ }
+module M = Test.M
+|}, Principal{|
+{
+ "M"[module] -> {<.30>
+                 "t"[type] -> {<.28>
+                               "A"[constructor] -> {<.29>};
+                               };
+                 };
+ }
+module M = Test.M
+|}, Rectypes{|
+{
+ "M"[module] -> {<.34>
+                 "t"[type] -> {<.32>
+                               "A"[constructor] -> {<.33>};
                                };
                  };
  }
@@ -108,10 +226,32 @@ module N = M
 [%%expect{|
 {
  "N"[module] ->
-   Alias(<.12>
-         {<.10>
-          "t"[type] -> {<.8>
-                        "A"[constructor] -> {<.9>};
+   Alias(<.36>
+         {<.26>
+          "t"[type] -> {<.24>
+                        "A"[constructor] -> {<.25>};
+                        };
+          });
+ }
+module N = M
+|}, Principal{|
+{
+ "N"[module] ->
+   Alias(<.37>
+         {<.30>
+          "t"[type] -> {<.28>
+                        "A"[constructor] -> {<.29>};
+                        };
+          });
+ }
+module N = M
+|}, Rectypes{|
+{
+ "N"[module] ->
+   Alias(<.38>
+         {<.34>
+          "t"[type] -> {<.32>
+                        "A"[constructor] -> {<.33>};
                         };
           });
  }

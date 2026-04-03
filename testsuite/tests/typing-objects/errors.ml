@@ -12,6 +12,24 @@ Error: The type of this class,
          object constraint '_a = [< `A of int & float ] as '_weak1 end",
        contains non-collapsible conjunctive types in constraints.
        Type "int" is not compatible with type "float"
+|}, Principal{|
+Line 1, characters 0-75:
+1 | class type virtual ['a] c = object constraint 'a = [<`A of int & float] end
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Error: The type of this class,
+       "class virtual ['_a] c :
+         object constraint '_a = [< `A of int & float ] as '_weak2 end",
+       contains non-collapsible conjunctive types in constraints.
+       Type "int" is not compatible with type "float"
+|}, Rectypes{|
+Line 1, characters 0-75:
+1 | class type virtual ['a] c = object constraint 'a = [<`A of int & float] end
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Error: The type of this class,
+       "class virtual ['_a] c :
+         object constraint '_a = [< `A of int & float ] as '_weak3 end",
+       contains non-collapsible conjunctive types in constraints.
+       Type "int" is not compatible with type "float"
 |}]
 
 class type ct = object

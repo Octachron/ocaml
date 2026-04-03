@@ -16,4 +16,14 @@ end
  "S"[module type] -> <.2>;
  }
 module type S = sig module M : sig end module type T = sig end end
+|}, Principal{|
+{
+ "S"[module type] -> <.5>;
+ }
+module type S = sig module M : sig end module type T = sig end end
+|}, Rectypes{|
+{
+ "S"[module type] -> <.8>;
+ }
+module type S = sig module M : sig end module type T = sig end end
 |}]

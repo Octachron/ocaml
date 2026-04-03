@@ -58,6 +58,12 @@ let jM =
 [%%expect{|
 val j : '_weak1 -> '_weak1 = <fun>
 val jM : '_weak2 -> '_weak2 = <fun>
+|}, Principal{|
+val j : '_weak3 -> '_weak3 = <fun>
+val jM : '_weak4 -> '_weak4 = <fun>
+|}, Rectypes{|
+val j : '_weak5 -> '_weak5 = <fun>
+val jM : '_weak6 -> '_weak6 = <fun>
 |}]
 
 module Square(X : sig val x : int end) = struct
@@ -77,8 +83,14 @@ let kM =
   fun x -> x
 ;;
 [%%expect{|
-val k : '_weak3 -> '_weak3 = <fun>
-val kM : '_weak4 -> '_weak4 = <fun>
+val k : '_weak7 -> '_weak7 = <fun>
+val kM : '_weak8 -> '_weak8 = <fun>
+|}, Principal{|
+val k : '_weak9 -> '_weak9 = <fun>
+val kM : '_weak10 -> '_weak10 = <fun>
+|}, Rectypes{|
+val k : '_weak11 -> '_weak11 = <fun>
+val kM : '_weak12 -> '_weak12 = <fun>
 |}]
 
 let op =
@@ -89,5 +101,9 @@ let op =
   M.s
 ;;
 [%%expect{|
-val op : '_weak5 list ref = {contents = []}
+val op : '_weak13 list ref = {contents = []}
+|}, Principal{|
+val op : '_weak14 list ref = {contents = []}
+|}, Rectypes{|
+val op : '_weak15 list ref = {contents = []}
 |}]

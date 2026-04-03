@@ -228,11 +228,21 @@ val inspect : [< `A of a & int ] -> unit = <fun>
 let x = Fun.id (function `X -> () | _ -> ())
 [%%expect {|
 val x : ([> `X ] as '_weak1) -> unit = <fun>
+|}, Principal{|
+val x : ([> `X ] as '_weak2) -> unit = <fun>
+|}, Rectypes{|
+val x : ([> `X ] as '_weak3) -> unit = <fun>
 |}]
 
 let x = let rec x = `X (`Y (fun y -> x = y)) in Fun.id x
 [%%expect {|
-val x : [> `X of [> `Y of '_weak2 -> bool ] as '_weak3 ] as '_weak2 =
+val x : [> `X of [> `Y of '_weak4 -> bool ] as '_weak5 ] as '_weak4 =
+  `X (`Y <fun>)
+|}, Principal{|
+val x : [> `X of [> `Y of '_weak6 -> bool ] as '_weak7 ] as '_weak6 =
+  `X (`Y <fun>)
+|}, Rectypes{|
+val x : [> `X of [> `Y of '_weak8 -> bool ] as '_weak9 ] as '_weak8 =
   `X (`Y <fun>)
 |}]
 

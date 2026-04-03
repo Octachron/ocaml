@@ -62,7 +62,7 @@ let ( .%() ) x y = x.(y)
 let x = [| 0 |]
 let _ = 1 #? x.(0)
 let _ = 1 #? x.%(0);;
-[%%expect {|
+[%%expect {|1
 
 let (#?) x y = (x, y);;
 val ( #? ) : 'a -> 'b -> 'a * 'b = <fun>

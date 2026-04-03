@@ -12,4 +12,20 @@ Line 2, characters 34-35:
 Error: The value "x" has type "'weak1 list ref"
        but an expression was expected of type "t list ref"
        The type constructor "t" would escape its scope
+|}, Principal{|
+val x : '_weak2 list ref = {contents = []}
+Line 2, characters 34-35:
+2 | module M = struct type t let _ = (x : t list ref) end;;
+                                      ^
+Error: The value "x" has type "'weak2 list ref"
+       but an expression was expected of type "t list ref"
+       The type constructor "t" would escape its scope
+|}, Rectypes{|
+val x : '_weak3 list ref = {contents = []}
+Line 2, characters 34-35:
+2 | module M = struct type t let _ = (x : t list ref) end;;
+                                      ^
+Error: The value "x" has type "'weak3 list ref"
+       but an expression was expected of type "t list ref"
+       The type constructor "t" would escape its scope
 |}]

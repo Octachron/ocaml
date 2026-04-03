@@ -11,6 +11,18 @@ val a : '_weak1 option array =
 - : unit = ()
 - : int option array =
 [|None; None; Some 42; Some 42; Some 42; None; None; None|]
+|}, Principal{|
+val a : '_weak2 option array =
+  [|None; None; None; None; None; None; None; None|]
+- : unit = ()
+- : int option array =
+[|None; None; Some 42; Some 42; Some 42; None; None; None|]
+|}, Rectypes{|
+val a : '_weak3 option array =
+  [|None; None; None; None; None; None; None; None|]
+- : unit = ()
+- : int option array =
+[|None; None; Some 42; Some 42; Some 42; None; None; None|]
 |}]
 let _ = Array.fill a 3 1 (Some 0);;
 a;;

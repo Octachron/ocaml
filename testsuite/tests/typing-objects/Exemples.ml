@@ -28,7 +28,7 @@ p#move 3;;
 |}];;
 p#get_x;;
 [%%expect{|
-- : int = 10
+- : int = 16
 |}];;
 
 let q = Oo.copy p;;
@@ -40,7 +40,11 @@ val q : < get_x : int; move : int -> unit > = <obj>
 
 q#move 7; p#get_x, q#get_x;;
 [%%expect{|
-- : int * int = (10, 17)
+- : int * int = (16, 23)
+|}, Principal{|
+- : int * int = (16, 30)
+|}, Rectypes{|
+- : int * int = (16, 37)
 |}];;
 
 class color_point x (c : string) = object
@@ -86,7 +90,7 @@ val set_x : < set_x : 'a; .. > -> 'a = <fun>
 |}];;
 List.map get_x l;;
 [%%expect{|
-- : int list = [10; 5]
+- : int list = [16; 5]
 |}];;
 
 class ref x_init = object
@@ -523,6 +527,10 @@ class ['a] sorted_list :
 let l = new sorted_list ();;
 [%%expect{|
 val l : (#comparable as '_weak1) sorted_list = <obj>
+|}, Principal{|
+val l : (#comparable as '_weak2) sorted_list = <obj>
+|}, Rectypes{|
+val l : (#comparable as '_weak3) sorted_list = <obj>
 |}];;
 let c = new int_comparable 10;;
 [%%expect{|

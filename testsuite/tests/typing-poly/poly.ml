@@ -651,6 +651,10 @@ Line 9, characters 0-25:
 Error: The type abbreviation "foo" is cyclic:
          "'a foo" = "'a foo list",
          "'a foo list" contains "'a foo"
+|}, Rectypes{|
+class id2 : object method id : 'a -> 'a method mono : int -> int end
+val app : int * bool = (1, true)
+type 'a foo = 'a foo list
 |}];;
 
 class ['a] bar (x : 'a) = object end
@@ -1179,6 +1183,20 @@ Line 4, characters 4-62:
 4 |     object (self: 's) method x = 3 method private m = self end
         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: Cannot close type of object literal: "< x : int; .. > as '_weak1"
+       it has been unified with the self type of a class that is not yet
+       completely defined.
+|}, Principal{|
+Line 4, characters 4-62:
+4 |     object (self: 's) method x = 3 method private m = self end
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Error: Cannot close type of object literal: "< x : int; .. > as '_weak2"
+       it has been unified with the self type of a class that is not yet
+       completely defined.
+|}, Rectypes{|
+Line 4, characters 4-62:
+4 |     object (self: 's) method x = 3 method private m = self end
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Error: Cannot close type of object literal: "< x : int; .. > as '_weak3"
        it has been unified with the self type of a class that is not yet
        completely defined.
 |}];;
@@ -1921,7 +1939,15 @@ let x = f 3;;
 [%%expect{|
 type (+'a, -'b) foo = private int
 val f : int -> ('a, 'a) foo = <fun>
-val x : ('_weak2, '_weak2) foo = 3
+val x : ('_weak4, '_weak4) foo = 3
+|}, Principal{|
+type (+'a, -'b) foo = private int
+val f : int -> ('a, 'a) foo = <fun>
+val x : ('_weak5, '_weak5) foo = 3
+|}, Rectypes{|
+type (+'a, -'b) foo = private int
+val f : int -> ('a, 'a) foo = <fun>
+val x : ('_weak6, '_weak6) foo = 3
 |}]
 
 
@@ -2098,8 +2124,26 @@ Line 1, characters 0-63:
     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Error: The type of this class,
        "class ['a] r :
-         object constraint 'a = '_weak3 list ref method get : 'a end",
-       contains the non-generalizable type variable(s): "'_weak3".
+         object constraint 'a = '_weak7 list ref method get : 'a end",
+       contains the non-generalizable type variable(s): "'_weak7".
+       (see manual section 6.1.2)
+|}, Principal{|
+Line 1, characters 0-63:
+1 | class ['a] r = let r : 'a = ref [] in object method get = r end;;
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Error: The type of this class,
+       "class ['a] r :
+         object constraint 'a = '_weak8 list ref method get : 'a end",
+       contains the non-generalizable type variable(s): "'_weak8".
+       (see manual section 6.1.2)
+|}, Rectypes{|
+Line 1, characters 0-63:
+1 | class ['a] r = let r : 'a = ref [] in object method get = r end;;
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Error: The type of this class,
+       "class ['a] r :
+         object constraint 'a = '_weak9 list ref method get : 'a end",
+       contains the non-generalizable type variable(s): "'_weak9".
        (see manual section 6.1.2)
 |}]
 

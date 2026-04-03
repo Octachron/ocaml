@@ -14,6 +14,9 @@ Line 2, characters 42-43:
 Error: The value "s" has type "'a list" but an expression was expected of type
          "'a t" = "'a"
        The type variable "'a" occurs inside "'a list"
+|}, Rectypes{|
+type 'a t = 'a
+val f : (('a list as 'a) list -> 'a t -> 'a) -> 'a -> 'a = <fun>
 |}];;
 
 let f (g : 'a * 'b -> 'a t -> 'a) s = g s s;;
@@ -24,6 +27,8 @@ Line 1, characters 42-43:
 Error: The value "s" has type "'a * 'b" but an expression was expected of type
          "'a t" = "'a"
        The type variable "'a" occurs inside "'a * 'b"
+|}, Rectypes{|
+val f : (('a * 'b as 'a) * 'b -> 'a t -> 'a) -> 'a -> 'a = <fun>
 |}];;
 
 (* #12971 *)
@@ -73,4 +78,6 @@ Line 1, characters 12-48:
 Error: This expression has type "('a Seq.t as 'a) Seq.t -> 'a Seq.t Seq.t list"
        but an expression was expected of type
          "('a Seq.t as 'a) Seq.t -> 'a Seq.t Seq.t list"
+|}, Rectypes{|
+val strange : ('a Seq.t as 'a) Seq.t -> 'a Seq.t Seq.t list = <fun>
 |}];;

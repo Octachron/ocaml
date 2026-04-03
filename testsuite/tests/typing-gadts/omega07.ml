@@ -929,6 +929,80 @@ val ex3 :
      App (App (Shift (Shift (Shift (Var Add))), Var <poly>), Var <poly>)),
    App (Shift (Var Suc),
     App (Shift (Var Suc), App (Shift (Var Suc), Var Zero))))
+|}, Principal{|
+type add = Add
+type suc = Suc
+val env0 :
+  (zero, int, (suc, int -> int, (add, int -> int -> int, rnil) rcons) rcons)
+  rcons env = Econs (Zero, 0, Econs (Suc, <fun>, Econs (Add, <fun>, Enil)))
+val _0 : ((zero, int, 'a) rcons, int) lam = Var Zero
+val suc :
+  (('a, 'b, (suc, int -> int, 'c) rcons) rcons, int) lam ->
+  (('a, 'b, (suc, int -> int, 'c) rcons) rcons, int) lam = <fun>
+val _1 : ((zero, int, (suc, int -> int, '_weak3) rcons) rcons, int) lam =
+  App (Shift (Var Suc), Var Zero)
+val _2 : ((zero, int, (suc, int -> int, '_weak3) rcons) rcons, int) lam =
+  App (Shift (Var Suc), App (Shift (Var Suc), Var Zero))
+val _3 : ((zero, int, (suc, int -> int, '_weak3) rcons) rcons, int) lam =
+  App (Shift (Var Suc),
+   App (Shift (Var Suc), App (Shift (Var Suc), Var Zero)))
+val add :
+  (('a, 'b, ('c, 'd, (add, int -> int -> int, 'e) rcons) rcons) rcons,
+   int -> int -> int)
+  lam = Shift (Shift (Var Add))
+val double :
+  (('a, 'b, ('c, 'd, (add, int -> int -> int, 'e) rcons) rcons) rcons,
+   int -> int)
+  lam =
+  Abs (<poly>,
+   App (App (Shift (Shift (Shift (Var Add))), Var <poly>), Var <poly>))
+val ex3 :
+  ((zero, int,
+    (suc, int -> int, (add, int -> int -> int, '_weak4) rcons) rcons)
+   rcons, int)
+  lam =
+  App
+   (Abs (<poly>,
+     App (App (Shift (Shift (Shift (Var Add))), Var <poly>), Var <poly>)),
+   App (Shift (Var Suc),
+    App (Shift (Var Suc), App (Shift (Var Suc), Var Zero))))
+|}, Rectypes{|
+type add = Add
+type suc = Suc
+val env0 :
+  (zero, int, (suc, int -> int, (add, int -> int -> int, rnil) rcons) rcons)
+  rcons env = Econs (Zero, 0, Econs (Suc, <fun>, Econs (Add, <fun>, Enil)))
+val _0 : ((zero, int, 'a) rcons, int) lam = Var Zero
+val suc :
+  (('a, 'b, (suc, int -> int, 'c) rcons) rcons, int) lam ->
+  (('a, 'b, (suc, int -> int, 'c) rcons) rcons, int) lam = <fun>
+val _1 : ((zero, int, (suc, int -> int, '_weak5) rcons) rcons, int) lam =
+  App (Shift (Var Suc), Var Zero)
+val _2 : ((zero, int, (suc, int -> int, '_weak5) rcons) rcons, int) lam =
+  App (Shift (Var Suc), App (Shift (Var Suc), Var Zero))
+val _3 : ((zero, int, (suc, int -> int, '_weak5) rcons) rcons, int) lam =
+  App (Shift (Var Suc),
+   App (Shift (Var Suc), App (Shift (Var Suc), Var Zero)))
+val add :
+  (('a, 'b, ('c, 'd, (add, int -> int -> int, 'e) rcons) rcons) rcons,
+   int -> int -> int)
+  lam = Shift (Shift (Var Add))
+val double :
+  (('a, 'b, ('c, 'd, (add, int -> int -> int, 'e) rcons) rcons) rcons,
+   int -> int)
+  lam =
+  Abs (<poly>,
+   App (App (Shift (Shift (Shift (Var Add))), Var <poly>), Var <poly>))
+val ex3 :
+  ((zero, int,
+    (suc, int -> int, (add, int -> int -> int, '_weak6) rcons) rcons)
+   rcons, int)
+  lam =
+  App
+   (Abs (<poly>,
+     App (App (Shift (Shift (Shift (Var Add))), Var <poly>), Var <poly>)),
+   App (Shift (Var Suc),
+    App (Shift (Var Suc), App (Shift (Var Suc), Var Zero))))
 |}];;
 
 let v3 = eval_lam env0 ex3
