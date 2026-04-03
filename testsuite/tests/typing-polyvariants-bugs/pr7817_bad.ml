@@ -57,7 +57,7 @@ Error: Signature mismatch:
        Type "[< `A of '_weak7 | `B of '_weak8 ] as '_weak6"
        is not compatible with type "[< `A of string | `B of int ]"
 |}, Rectypes{|
-val r : '_weak9 option ref = {contents = None}
+val r : '_weak1 option ref = {contents = None}
 Lines 5-8, characters 6-3:
 5 | ......struct
 6 |   let write x =
@@ -67,17 +67,17 @@ Error: Signature mismatch:
        Modules do not match:
          sig
            val write :
-             ([< `A of '_weak11 | `B of '_weak12 ] as '_weak10) -> unit
+             ([< `A of '_weak10 | `B of '_weak11 ] as '_weak9) -> unit
          end
        is not included in
          sig val write : [< `A of string | `B of int ] -> unit end
        Values do not match:
          val write :
-           ([< `A of '_weak11 | `B of '_weak12 ] as '_weak10) -> unit
+           ([< `A of '_weak10 | `B of '_weak11 ] as '_weak9) -> unit
        is not included in
          val write : [< `A of string | `B of int ] -> unit
-       The type "([< `A of '_weak11 | `B of '_weak12 ] as '_weak10) -> unit"
+       The type "([< `A of '_weak10 | `B of '_weak11 ] as '_weak9) -> unit"
        is not compatible with the type "[< `A of string | `B of int ] -> unit"
-       Type "[< `A of '_weak11 | `B of '_weak12 ] as '_weak10"
+       Type "[< `A of '_weak10 | `B of '_weak11 ] as '_weak9"
        is not compatible with type "[< `A of string | `B of int ]"
 |}]

@@ -251,13 +251,4 @@ val s' : '_weak2 succ succ succ term =
   Fork (Fork (Var FZ, Leaf), Fork (Var FZ, Leaf))
 val t' : '_weak2 succ succ succ term =
   Fork (Fork (Var FZ, Leaf), Fork (Var FZ, Leaf))
-|}, Rectypes{|
-val s : 'a succ succ succ term = Fork (Var FZ, Fork (Var (FS (FS FZ)), Leaf))
-val t : 'a succ succ term = Fork (Var (FS FZ), Var (FS FZ))
-val d : '_weak3 succ succ succ ealist =
-  EAlist (Asnoc (Asnoc (Anil, Fork (Var FZ, Leaf), FZ), Var FZ, FZ))
-val s' : '_weak3 succ succ succ term =
-  Fork (Fork (Var FZ, Leaf), Fork (Var FZ, Leaf))
-val t' : '_weak3 succ succ succ term =
-  Fork (Fork (Var FZ, Leaf), Fork (Var FZ, Leaf))
 |}];;

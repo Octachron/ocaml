@@ -552,29 +552,6 @@ Error: Modules do not match:
      The type "'_weak2 list ref ref" is not compatible with the type
        "Choice.t list ref ref"
      The type constructor "Choice.t" would escape its scope
-|}, Rectypes{|
-module type T = sig type t end
-module Int : sig type t = int end
-module type S = sig module Choice : T val r : Choice.t list ref ref end
-module Force : (X : () -> S) -> sig end
-module Choose : () -> sig module Choice : T val r : '_weak3 list ref ref end
-Line 17, characters 16-29:
-17 | module Ignore = Force(Choose)
-                     ^^^^^^^^^^^^^
-Error: Modules do not match:
-       () -> sig module Choice : T val r : '_weak3 list ref ref end
-     is not included in () -> S
-     Modules do not match:
-       sig module Choice : T val r : '_weak3 list ref ref end
-     is not included in
-       S
-     Values do not match:
-       val r : '_weak3 list ref ref
-     is not included in
-       val r : Choice.t list ref ref
-     The type "'_weak3 list ref ref" is not compatible with the type
-       "Choice.t list ref ref"
-     The type constructor "Choice.t" would escape its scope
 |}];;
 
 module O = struct
@@ -700,6 +677,22 @@ Lines 3-5, characters 6-3:
 5 | end..
 Error: Signature mismatch:
        Modules do not match:
+         sig val x : '_weak3 list ref end
+       is not included in
+         sig val x : 'a list ref end
+       Values do not match:
+         val x : '_weak3 list ref
+       is not included in
+         val x : 'a list ref
+       The type "'_weak3 list ref" is not compatible with the type "'a list ref"
+       Type "'_weak3" is not compatible with type "'a"
+|}, Principal{|
+Lines 3-5, characters 6-3:
+3 | ......struct
+4 |   let x = ref []
+5 | end..
+Error: Signature mismatch:
+       Modules do not match:
          sig val x : '_weak4 list ref end
        is not included in
          sig val x : 'a list ref end
@@ -709,93 +702,44 @@ Error: Signature mismatch:
          val x : 'a list ref
        The type "'_weak4 list ref" is not compatible with the type "'a list ref"
        Type "'_weak4" is not compatible with type "'a"
-|}, Principal{|
-Lines 3-5, characters 6-3:
-3 | ......struct
-4 |   let x = ref []
-5 | end..
-Error: Signature mismatch:
-       Modules do not match:
-         sig val x : '_weak5 list ref end
-       is not included in
-         sig val x : 'a list ref end
-       Values do not match:
-         val x : '_weak5 list ref
-       is not included in
-         val x : 'a list ref
-       The type "'_weak5 list ref" is not compatible with the type "'a list ref"
-       Type "'_weak5" is not compatible with type "'a"
-|}, Rectypes{|
-Lines 3-5, characters 6-3:
-3 | ......struct
-4 |   let x = ref []
-5 | end..
-Error: Signature mismatch:
-       Modules do not match:
-         sig val x : '_weak6 list ref end
-       is not included in
-         sig val x : 'a list ref end
-       Values do not match:
-         val x : '_weak6 list ref
-       is not included in
-         val x : 'a list ref
-       The type "'_weak6 list ref" is not compatible with the type "'a list ref"
-       Type "'_weak6" is not compatible with type "'a"
 |}];;
 
 module M = struct let r = ref [] end;;
 type t;;
 module N : sig val r : t list ref end = M;;
 [%%expect{|
-module M : sig val r : '_weak7 list ref end
+module M : sig val r : '_weak5 list ref end
 type t
 Line 3, characters 40-41:
 3 | module N : sig val r : t list ref end = M;;
                                             ^
 Error: Signature mismatch:
        Modules do not match:
-         sig val r : '_weak7 list ref end
+         sig val r : '_weak5 list ref end
        is not included in
          sig val r : t list ref end
        Values do not match:
-         val r : '_weak7 list ref
+         val r : '_weak5 list ref
        is not included in
          val r : t list ref
-       The type "'_weak7 list ref" is not compatible with the type "t list ref"
+       The type "'_weak5 list ref" is not compatible with the type "t list ref"
        The type constructor "t" would escape its scope
 |}, Principal{|
-module M : sig val r : '_weak8 list ref end
+module M : sig val r : '_weak6 list ref end
 type t
 Line 3, characters 40-41:
 3 | module N : sig val r : t list ref end = M;;
                                             ^
 Error: Signature mismatch:
        Modules do not match:
-         sig val r : '_weak8 list ref end
+         sig val r : '_weak6 list ref end
        is not included in
          sig val r : t list ref end
        Values do not match:
-         val r : '_weak8 list ref
+         val r : '_weak6 list ref
        is not included in
          val r : t list ref
-       The type "'_weak8 list ref" is not compatible with the type "t list ref"
-       The type constructor "t" would escape its scope
-|}, Rectypes{|
-module M : sig val r : '_weak9 list ref end
-type t
-Line 3, characters 40-41:
-3 | module N : sig val r : t list ref end = M;;
-                                            ^
-Error: Signature mismatch:
-       Modules do not match:
-         sig val r : '_weak9 list ref end
-       is not included in
-         sig val r : t list ref end
-       Values do not match:
-         val r : '_weak9 list ref
-       is not included in
-         val r : t list ref
-       The type "'_weak9 list ref" is not compatible with the type "t list ref"
+       The type "'_weak6 list ref" is not compatible with the type "t list ref"
        The type constructor "t" would escape its scope
 |}];;
 
@@ -825,61 +769,39 @@ let foo p (e : (T.t, T.s) eq) (x : T.t) (y : T.s) =
 [%%expect{|
 type (_, _) eq = Refl : ('a, 'a) eq
 module T : sig type t type s val eq : (t, s) eq end
-module M : sig val r : '_weak10 list ref end
+module M : sig val r : '_weak7 list ref end
 Line 22, characters 25-26:
 22 |     let module O : N.S = M in
                               ^
 Error: Signature mismatch:
        Modules do not match:
-         sig val r : '_weak10 list ref end
+         sig val r : '_weak7 list ref end
        is not included in
          N.S
        Values do not match:
-         val r : '_weak10 list ref
+         val r : '_weak7 list ref
        is not included in
          val r : T.t list ref
-       The type "'_weak10 list ref" is not compatible with the type
-         "T.t list ref"
+       The type "'_weak7 list ref" is not compatible with the type "T.t list ref"
        This instance of "T.t" is ambiguous:
        it would escape the scope of its equation
 |}, Principal{|
 type (_, _) eq = Refl : ('a, 'a) eq
 module T : sig type t type s val eq : (t, s) eq end
-module M : sig val r : '_weak11 list ref end
+module M : sig val r : '_weak8 list ref end
 Line 22, characters 25-26:
 22 |     let module O : N.S = M in
                               ^
 Error: Signature mismatch:
        Modules do not match:
-         sig val r : '_weak11 list ref end
+         sig val r : '_weak8 list ref end
        is not included in
          N.S
        Values do not match:
-         val r : '_weak11 list ref
+         val r : '_weak8 list ref
        is not included in
          val r : T.t list ref
-       The type "'_weak11 list ref" is not compatible with the type
-         "T.t list ref"
-       This instance of "T.t" is ambiguous:
-       it would escape the scope of its equation
-|}, Rectypes{|
-type (_, _) eq = Refl : ('a, 'a) eq
-module T : sig type t type s val eq : (t, s) eq end
-module M : sig val r : '_weak12 list ref end
-Line 22, characters 25-26:
-22 |     let module O : N.S = M in
-                              ^
-Error: Signature mismatch:
-       Modules do not match:
-         sig val r : '_weak12 list ref end
-       is not included in
-         N.S
-       Values do not match:
-         val r : '_weak12 list ref
-       is not included in
-         val r : T.t list ref
-       The type "'_weak12 list ref" is not compatible with the type
-         "T.t list ref"
+       The type "'_weak8 list ref" is not compatible with the type "T.t list ref"
        This instance of "T.t" is ambiguous:
        it would escape the scope of its equation
 |}];;

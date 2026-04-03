@@ -230,6 +230,20 @@ Error: This recursive type is not regular.
          "'a d" = "< f : int c >",
          "< f : int c >" contains "int c"
        All uses need to match the definition for the recursive type to be regular.
+|}, Rectypes{|
+Line 1, characters 0-32:
+1 | type 'a c = <f : 'a c; g : 'a d>
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Error: This recursive type is not regular.
+       The type constructor "c" is defined as
+         type "'weak2 c"
+       but it is used as
+         "int c"
+       after the following expansion(s):
+         "< f : 'weak2 c; g : 'weak2 d >" contains "'weak2 d",
+         "'weak2 d" = "< f : int c >",
+         "< f : int c >" contains "int c"
+       All uses need to match the definition for the recursive type to be regular.
 |}];;
 type 'a c = <f : 'a c; g : 'a d>
 and 'a d = <f : 'a c>;;

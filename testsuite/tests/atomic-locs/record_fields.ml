@@ -22,51 +22,7 @@ module Basic = struct
     Atomic.Loc.compare_and_set (get_loc r) oldv newv
 end
 [%%expect{|
-(apply (field_mut 1 (global Toploop!)) "Basic/341"
-  (let
-    (get = (function r (atomic_load r 1))
-     set = (function r v : int (ignore (caml_atomic_exchange_field r 1 v)))
-     cas = (function r oldv newv : int (caml_atomic_cas_field r 1 oldv newv))
-     get_loc = (function r never_inline (makeblock 0 (*,int) r 1))
-     slow_cas =
-       (function r oldv newv : int
-         (let (atomic_arg = (apply get_loc r))
-           (caml_atomic_cas_field (field_imm 0 atomic_arg)
-             (field_int 1 atomic_arg) oldv newv))))
-    (makeblock 0 get set cas get_loc slow_cas)))
-module Basic :
-  sig
-    type 'a atomic = { mutable filler : unit; mutable x : 'a [@atomic]; }
-    val get : 'a atomic -> 'a
-    val set : 'a atomic -> 'a -> unit
-    val cas : 'a atomic -> 'a -> 'a -> bool
-    val get_loc : 'a atomic -> 'a Atomic.Loc.t
-    val slow_cas : 'a atomic -> 'a -> 'a -> bool
-  end
-|}, Principal{|
-(apply (field_mut 1 (global Toploop!)) "Basic/371"
-  (let
-    (get = (function r (atomic_load r 1))
-     set = (function r v : int (ignore (caml_atomic_exchange_field r 1 v)))
-     cas = (function r oldv newv : int (caml_atomic_cas_field r 1 oldv newv))
-     get_loc = (function r never_inline (makeblock 0 (*,int) r 1))
-     slow_cas =
-       (function r oldv newv : int
-         (let (atomic_arg = (apply get_loc r))
-           (caml_atomic_cas_field (field_imm 0 atomic_arg)
-             (field_int 1 atomic_arg) oldv newv))))
-    (makeblock 0 get set cas get_loc slow_cas)))
-module Basic :
-  sig
-    type 'a atomic = { mutable filler : unit; mutable x : 'a [@atomic]; }
-    val get : 'a atomic -> 'a
-    val set : 'a atomic -> 'a -> unit
-    val cas : 'a atomic -> 'a -> 'a -> bool
-    val get_loc : 'a atomic -> 'a Atomic.Loc.t
-    val slow_cas : 'a atomic -> 'a -> 'a -> bool
-  end
-|}, Rectypes{|
-(apply (field_mut 1 (global Toploop!)) "Basic/401"
+(apply (field_mut 1 (global Toploop!)) "Basic/611"
   (let
     (get = (function r (atomic_load r 1))
      set = (function r v : int (ignore (caml_atomic_exchange_field r 1 v)))
@@ -191,13 +147,7 @@ end : sig
   type t = { mutable x : int [@atomic] }
 end)
 [%%expect{|
-(apply (field_mut 1 (global Toploop!)) "Ok/470" (makeblock 0))
-module Ok : sig type t = { mutable x : int [@atomic]; } end
-|}, Principal{|
-(apply (field_mut 1 (global Toploop!)) "Ok/475" (makeblock 0))
-module Ok : sig type t = { mutable x : int [@atomic]; } end
-|}, Rectypes{|
-(apply (field_mut 1 (global Toploop!)) "Ok/480" (makeblock 0))
+(apply (field_mut 1 (global Toploop!)) "Ok/638" (makeblock 0))
 module Ok : sig type t = { mutable x : int [@atomic]; } end
 |}];;
 
@@ -211,19 +161,7 @@ module Inline_record = struct
   let test : t -> int = fun (A r) -> r.x
 end
 [%%expect{|
-(apply (field_mut 1 (global Toploop!)) "Inline_record/488"
-  (let (test = (function param : int (atomic_load param 0)))
-    (makeblock 0 test)))
-module Inline_record :
-  sig type t = A of { mutable x : int [@atomic]; } val test : t -> int end
-|}, Principal{|
-(apply (field_mut 1 (global Toploop!)) "Inline_record/496"
-  (let (test = (function param : int (atomic_load param 0)))
-    (makeblock 0 test)))
-module Inline_record :
-  sig type t = A of { mutable x : int [@atomic]; } val test : t -> int end
-|}, Rectypes{|
-(apply (field_mut 1 (global Toploop!)) "Inline_record/504"
+(apply (field_mut 1 (global Toploop!)) "Inline_record/646"
   (let (test = (function param : int (atomic_load param 0)))
     (makeblock 0 test)))
 module Inline_record :
@@ -243,43 +181,7 @@ module Extension_with_inline_record = struct
   let () = assert (test (A { x = 42 }) = 42)
 end
 [%%expect{|
-(apply (field_mut 1 (global Toploop!)) "Extension_with_inline_record/512"
-  (let
-    (A =
-       (makeblock 248 "Extension_with_inline_record.A" (caml_fresh_oo_id 0))
-     test =
-       (function param : int
-         (if (== (field_imm 0 param) A) (atomic_load param 1) 0))
-     *match* =
-       (if (== (apply test (makemutable 0 (*,int) A 42)) 42) 0
-         (raise (makeblock 0 (global Assert_failure!) [0: "" 11 11]))))
-    (makeblock 0 A test)))
-module Extension_with_inline_record :
-  sig
-    type t = ..
-    type t += A of { mutable x : int [@atomic]; }
-    val test : t -> int
-  end
-|}, Principal{|
-(apply (field_mut 1 (global Toploop!)) "Extension_with_inline_record/524"
-  (let
-    (A =
-       (makeblock 248 "Extension_with_inline_record.A" (caml_fresh_oo_id 0))
-     test =
-       (function param : int
-         (if (== (field_imm 0 param) A) (atomic_load param 1) 0))
-     *match* =
-       (if (== (apply test (makemutable 0 (*,int) A 42)) 42) 0
-         (raise (makeblock 0 (global Assert_failure!) [0: "" 11 11]))))
-    (makeblock 0 A test)))
-module Extension_with_inline_record :
-  sig
-    type t = ..
-    type t += A of { mutable x : int [@atomic]; }
-    val test : t -> int
-  end
-|}, Rectypes{|
-(apply (field_mut 1 (global Toploop!)) "Extension_with_inline_record/536"
+(apply (field_mut 1 (global Toploop!)) "Extension_with_inline_record/654"
   (let
     (A =
        (makeblock 248 "Extension_with_inline_record.A" (caml_fresh_oo_id 0))
@@ -308,31 +210,7 @@ module Float_records = struct
   let get v = v.y
 end
 [%%expect{|
-(apply (field_mut 1 (global Toploop!)) "Float_records/551"
-  (let
-    (mk_t = (function x[float] y[float] (makemutable 0 (float,float) x y))
-     get = (function v : float (atomic_load v 1)))
-    (makeblock 0 mk_t get)))
-module Float_records :
-  sig
-    type t = { x : float; mutable y : float [@atomic]; }
-    val mk_t : float -> float -> t
-    val get : t -> float
-  end
-|}, Principal{|
-(apply (field_mut 1 (global Toploop!)) "Float_records/563"
-  (let
-    (mk_t = (function x[float] y[float] (makemutable 0 (float,float) x y))
-     get = (function v : float (atomic_load v 1)))
-    (makeblock 0 mk_t get)))
-module Float_records :
-  sig
-    type t = { x : float; mutable y : float [@atomic]; }
-    val mk_t : float -> float -> t
-    val get : t -> float
-  end
-|}, Rectypes{|
-(apply (field_mut 1 (global Toploop!)) "Float_records/575"
+(apply (field_mut 1 (global Toploop!)) "Float_records/669"
   (let
     (mk_t = (function x[float] y[float] (makemutable 0 (float,float) x y))
      get = (function v : float (atomic_load v 1)))
@@ -378,45 +256,7 @@ Line 5, characters 14-19:
 Warning 9 [missing-record-field-pattern]: the following labels are not bound
   in this record pattern: "y".
   Either bind these labels explicitly or add "; _" to the pattern.
-(apply (field_mut 1 (global Toploop!)) "Pattern_matching_wildcard/609"
-  (let
-    (warning = (function param : int (field_int 0 param))
-     allowed = (function param : int (field_int 0 param)))
-    (makeblock 0 warning allowed)))
-
-module Pattern_matching_wildcard :
-  sig
-    type t = { x : int; mutable y : int [@atomic]; }
-    val warning : t -> int
-    val allowed : t -> int
-  end
-|}, Principal{|
-Line 5, characters 14-19:
-5 |   let warning { x } = x
-                  ^^^^^
-Warning 9 [missing-record-field-pattern]: the following labels are not bound
-  in this record pattern: "y".
-  Either bind these labels explicitly or add "; _" to the pattern.
-(apply (field_mut 1 (global Toploop!)) "Pattern_matching_wildcard/623"
-  (let
-    (warning = (function param : int (field_int 0 param))
-     allowed = (function param : int (field_int 0 param)))
-    (makeblock 0 warning allowed)))
-
-module Pattern_matching_wildcard :
-  sig
-    type t = { x : int; mutable y : int [@atomic]; }
-    val warning : t -> int
-    val allowed : t -> int
-  end
-|}, Rectypes{|
-Line 5, characters 14-19:
-5 |   let warning { x } = x
-                  ^^^^^
-Warning 9 [missing-record-field-pattern]: the following labels are not bound
-  in this record pattern: "y".
-  Either bind these labels explicitly or add "; _" to the pattern.
-(apply (field_mut 1 (global Toploop!)) "Pattern_matching_wildcard/637"
+(apply (field_mut 1 (global Toploop!)) "Pattern_matching_wildcard/689"
   (let
     (warning = (function param : int (field_int 0 param))
      allowed = (function param : int (field_int 0 param)))

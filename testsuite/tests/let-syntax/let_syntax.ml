@@ -647,7 +647,7 @@ module Side_effects_ordering = struct
   let r = ref []
   let msg s =
     r := !r @ [s]
-  let output () = !r
+  let output () = let f = !r in r:= []; f
   let ( let+ ) x f = msg "Let operator"; f x
   let ( and+ ) a b = msg "First and operator"; a, b
   let ( and++ ) a b = msg "Second and operator"; a, b

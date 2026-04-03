@@ -59,13 +59,6 @@ val x :
           ([< `A of '_weak2 ] as 'b) ->
           (< m : 'a. < n : 'd. ([< `A of 'a ] as 'd) -> 'c > > as 'c) > =
   <obj>
-|}, Rectypes{|
-val o : < m : 'a. < n : 'c. ([< `A of 'a ] as 'c) -> 'b > > as 'b = <obj>
-val x :
-  < n : 'b.
-          ([< `A of '_weak3 ] as 'b) ->
-          (< m : 'a. < n : 'd. ([< `A of 'a ] as 'd) -> 'c > > as 'c) > =
-  <obj>
 |}]
 
 let g1 (x : < m : 'a. <n : 'r. ([< `A of 'a * 'c] as 'r) -> unit > as 'c >) =
@@ -124,19 +117,13 @@ let y = g o;;
 [%%expect{|
 val o : < m : 'a 'c. < n : ([< `A of 'a ] as 'c) -> 'b > > as 'b = <obj>
 val y :
-  < n : ([< `A of '_weak5 ] as '_weak4) ->
+  < n : ([< `A of '_weak4 ] as '_weak3) ->
         (< m : 'a 'c. < n : ([< `A of 'a ] as 'c) -> 'b > > as 'b) > =
   <obj>
 |}, Principal{|
 val o : < m : 'a 'c. < n : ([< `A of 'a ] as 'c) -> 'b > > as 'b = <obj>
 val y :
-  < n : ([< `A of '_weak7 ] as '_weak6) ->
-        (< m : 'a 'c. < n : ([< `A of 'a ] as 'c) -> 'b > > as 'b) > =
-  <obj>
-|}, Rectypes{|
-val o : < m : 'a 'c. < n : ([< `A of 'a ] as 'c) -> 'b > > as 'b = <obj>
-val y :
-  < n : ([< `A of '_weak9 ] as '_weak8) ->
+  < n : ([< `A of '_weak6 ] as '_weak5) ->
         (< m : 'a 'c. < n : ([< `A of 'a ] as 'c) -> 'b > > as 'b) > =
   <obj>
 |}]

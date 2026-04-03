@@ -185,19 +185,6 @@ Error: Cannot close type of object literal:
        "< child : '_weak4; previous : '_weak3 option; .. > as '_weak3"
        it has been unified with the self type of a class that is not yet
        completely defined.
-|}, Rectypes{|
-Lines 4-10, characters 4-7:
- 4 | ....object
- 5 |       inherit child1 self
- 6 |       inherit child2
- 7 |
- 8 |       method previous = None
- 9 |       method child = assert false
-10 |     end
-Error: Cannot close type of object literal:
-       "< child : '_weak6; previous : '_weak5 option; .. > as '_weak5"
-       it has been unified with the self type of a class that is not yet
-       completely defined.
 |}]
 
 (* MPR#7894 and variations *)

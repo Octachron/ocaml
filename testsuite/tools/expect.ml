@@ -187,6 +187,7 @@ module Exec = struct
     flags: ref_env list;
     ppf: Format.formatter;
     buf: Buffer.t;
+    store: Local_store.store;
     env: Env.t;
   }[@@warning "-69"]
 
@@ -198,8 +199,12 @@ module Exec = struct
 
   let check_warnings x = Warnings.check_fatal (); x
 
+  let with_state state f =
+    Misc.protect_refs state.flags (fun () ->
+        Local_store.with_store state.store f
+      )
+
   let typecheck ppf state sstr =
-    Misc.protect_refs state.flags @@ fun () ->
     let snap = Btype.snapshot () in
     match check_warnings (Topcommon.typecheck_phrase ppf state.env sstr) with
     | str, sg, env ->
@@ -298,10 +303,12 @@ let execute_phrase ppf phr state =
           next_state ~oldenv state r
 
 let execute_phrase ppf phr state =
+  with_state state (fun () ->
   try execute_phrase ppf phr state
   with exn ->
     Warnings.reset_fatal ();
     raise exn
+    )
 
 end
 
@@ -462,9 +469,10 @@ let init_state (mode, flags) =
   {
     Exec.name = mode;
     env = !Toploop.toplevel_env;
+    store = Local_store.fresh ();
     flags;
     buf;
-    ppf
+    ppf;
   }
 
 
@@ -540,6 +548,8 @@ let repo_root = ref None
 let keep_original_error_size = ref false
 
 let main fname =
+  (* Use canonical stamps by default *)
+  Clflags.canonical_ids := true;
   if not !keep_original_error_size then
     Clflags.error_size := 0;
   Toploop.override_sys_argv
@@ -559,6 +569,7 @@ let main fname =
         Compenv.last_include_dirs := [Filename.concat dir "stdlib"]
   end;
   Compmisc.init_path ~auto_include:Load_path.no_auto_include ();
+
   Toploop.initialize_toplevel_env ();
   (* We are in interactive mode and should record directive error on stdout *)
   Sys.interactive := true;
