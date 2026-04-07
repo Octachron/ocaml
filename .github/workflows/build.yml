@@ -7,6 +7,8 @@ on:
       - '5.**'
       - 'trunk'
   pull_request:
+  schedule:
+    - cron: '35 16 * * *'
 
 # Restrict the GITHUB_TOKEN
 permissions: {}
@@ -16,6 +18,7 @@ env:
   # directories are selected because of their tendencies to reach corner cases
   # in the runtime system.
   PARALLEL_TESTS: parallel callback gc-roots weak-ephe-final
+  OCAML_COLD_TESTS: 0
   # Fully print commands executed by Make
   # MAKEFLAGS: V=1
 
@@ -110,6 +113,9 @@ jobs:
         run: |
           sudo apt-get update -y
           sudo apt-get install -y ${{ matrix.dependencies }}
+      - name: Set cold tests
+        if: github.event_name=='schedule'
+        run: echo "OCAMLTEST_COLD_TESTS=1" >> "$GITHUB_ENV"
       - name: Run the testsuite
         if: ${{ matrix.id == 'normal' && needs.config.outputs.skip-testsuite != 'true' }}
         run: |
