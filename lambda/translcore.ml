@@ -190,27 +190,80 @@ module Arg_fusion = struct
       applications. This can avoid creating intermediary closures for
       omitted argument that are syntactically available. *)
 
-  let rec search_for_first_arg lbl apps = function
-    | [] -> (lbl, Omitted ()), List.rev apps
-    | [] :: app_args -> search_for_first_arg lbl apps app_args
-    | ((_, Omitted ()) :: app_args) :: other_app_args ->
-        search_for_first_arg lbl (app_args :: apps) other_app_args
-    | ((_, Arg _) as a :: app_args) :: other_app_args ->
-        a, List.rev_append (app_args :: apps) other_app_args
+  type 'a arg_list = {
+    elided: (Asttypes.arg_label * ('a,unit) arg_or_omitted) list;
+    protected: bool
+  }
 
-  let rec coalesce sargs = match sargs with
-    | [] -> []
-    | [] :: sargs -> coalesce sargs
-    | ((_, Arg _) as a :: inner) :: sargs -> a :: coalesce (inner :: sargs)
-    | ((lbl, Omitted ()) :: inner) :: sargs ->
-        let arg, sargs = search_for_first_arg lbl [] sargs in
-        arg :: coalesce (inner::sargs)
+  let is_pure = function
+    | Lvar _ | Lconst _ -> true
+    | _ -> false
+
+  let effectful_arg = function
+    | Arg x -> if is_pure x then None else Some x
+    | Omitted () -> None
+
+  let alias () =
+    let id = Ident.create_local "arg" in
+    id, Lvar id
+
+  let rec protect_arg defs args = function
+    | [] -> defs, List.rev args
+    | (lbl,a) :: q ->
+        match effectful_arg a with
+        | None -> protect_arg defs ((lbl,a)::args) q
+        | Some a ->
+          let id, alias = alias () in
+          protect_arg ((id,a)::defs) ((lbl, Arg alias)::args) q
+
+  let rec protect_order defs apps = function
+    | [] -> defs, List.rev apps
+    | a :: q ->
+        if a.protected then
+          defs, List.rev_append apps (a::q)
+        else
+          let defs, elided = protect_arg defs [] a.elided in
+          protect_order defs ({elided; protected=true}::apps) q
+
+  let rec search_for_first_arg defs lbl apps_before = function
+    | [] -> (lbl, Omitted ()), defs, List.rev apps_before
+    | app :: next_apps ->
+        match app.elided with
+        | [] ->
+            (* an application cannot contain only ommitted argument *)
+            assert false
+        | (_, Omitted ()) :: other_args ->
+            let arg_list = { app with elided=other_args } in
+            search_for_first_arg defs lbl (arg_list :: apps_before) next_apps
+        | (lbl, Arg a) as arg :: other_args ->
+            if is_pure a then
+              let arg_list = { app with elided = other_args } in
+              arg, defs, List.rev_append (arg_list :: apps_before) next_apps
+            else
+              let defs, apps = protect_order defs [] ({ app with elided = other_args } :: next_apps) in
+              let id, alias = alias () in
+              (lbl,Arg alias), (id,a) :: defs, List.rev_append apps_before apps
+
+  let rec coalesce defs unified_args sargs = match sargs with
+    | [] -> defs, List.rev unified_args
+    | a :: sargs ->
+        match a.elided with
+        | [] -> coalesce defs unified_args sargs
+        | (_, Arg _) as arg :: inner ->
+            coalesce defs (arg :: unified_args)  ( { a with elided = inner} :: sargs)
+        | (lbl, Omitted ()) :: inner ->
+            let arg, defs, sargs = search_for_first_arg defs lbl [] sargs in
+            coalesce defs (arg :: unified_args) ({ a with elided = inner }::sargs)
 
   let rec unnest sargs e = match e.exp_desc with
-    | Texp_apply (f,args) -> unnest(args::sargs) f
-    | _ -> e, coalesce sargs
+    | Texp_apply (f,args) -> unnest (args::sargs) f
+    | _ -> e, sargs
 
-  let in_nested_apply e = unnest [] e
+  let map_args f l = List.map (fun (lbl,x) -> lbl, Typedtree.map_apply_arg f x) l
+
+  let map f sargs =
+    List.map (fun x -> { protected = false; elided = map_args f x}) sargs
+  let in_nested_apply args = coalesce [] [] args
 
 end
 
@@ -272,18 +325,30 @@ and transl_exp0 ~in_new_scope ~scopes e =
         let specialised = Translattribute.get_specialised_attribute funct in
         let e = { e with exp_desc = Texp_apply(funct, oargs) } in
         event_after ~scopes e
-          (transl_apply ~scopes ~tailcall ~inlined ~specialised
-             lam extra_args (of_location ~scopes e.exp_loc))
+          (
+            let extra_args = Arg_fusion.map_args (transl_exp ~scopes) extra_args in
+            transl_apply ~scopes ~tailcall ~inlined ~specialised
+              lam extra_args (of_location ~scopes e.exp_loc)
+          )
       end
-  | Texp_apply(funct, _oargs) ->
+  | Texp_apply(funct, oargs) ->
       let tailcall = Translattribute.get_tailcall_attribute funct in
       let inlined = Translattribute.get_inlined_attribute funct in
       let specialised = Translattribute.get_specialised_attribute funct in
-      let funct, oargs = Arg_fusion.in_nested_apply e in
       let e = { e with exp_desc = Texp_apply(funct, oargs) } in
       event_after ~scopes e
-        (transl_apply ~scopes ~tailcall ~inlined ~specialised
-           (transl_exp ~scopes funct) oargs (of_location ~scopes e.exp_loc))
+        (
+          let funct, sargs = Arg_fusion.unnest [] e in
+          let sargs = Arg_fusion.map (transl_exp ~scopes) sargs in
+          let defs, oargs = Arg_fusion.in_nested_apply sargs in
+          let apply =
+            transl_apply ~scopes ~tailcall ~inlined ~specialised
+              (transl_exp ~scopes funct) oargs (of_location ~scopes e.exp_loc)
+          in
+          List.fold_right
+            (fun (id, lam) body -> Llet(Strict, Pgenval, id, lam, body))
+            defs apply
+        )
   | Texp_match(arg, pat_expr_list, [], partial) ->
       transl_match ~scopes e arg pat_expr_list partial
   | Texp_match(arg, pat_expr_list, eff_pat_expr_list, partial) ->
@@ -656,7 +721,7 @@ and transl_tupled_cases ~scopes patl_expr_list =
   List.map (fun (patl, guard, expr) -> (patl, transl_guard ~scopes guard expr))
     patl_expr_list
 
-and transl_apply ~scopes
+and transl_apply ~scopes:_
       ?(tailcall=Default_tailcall)
       ?(inlined = Default_inline)
       ?(specialised = Default_specialise)
@@ -750,11 +815,7 @@ and transl_apply ~scopes
     | [] ->
         lapply lam (List.rev_map fst args)
   in
-  let transl_arg arg = Typedtree.map_apply_arg (transl_exp ~scopes) arg in
-  (build_apply lam [] (List.map (fun (l, arg) ->
-                                   transl_arg arg,
-                                   Btype.is_optional l)
-                                sargs)
+  (build_apply lam [] (List.map (fun (l, arg) -> arg, Btype.is_optional l) sargs)
      : Lambda.lambda)
 
 (* There are two cases in function translation:
@@ -1327,6 +1388,8 @@ and transl_letop ~scopes loc env let_ ands param case partial =
   }
 
 (* Wrapper for class compilation *)
+
+let transl_args ~scopes l = Arg_fusion.map_args (transl_exp ~scopes) l
 
 (*
 let transl_exp = transl_exp_wrap
