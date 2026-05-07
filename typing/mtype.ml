@@ -275,7 +275,7 @@ let enrich_typedecl env p id decl =
             Ctype.reify_univars env
               (Btype.newgenty(Tconstr(Pident id, decl.type_params, ref Mnil)))
           in
-          let env = Env.add_type ~check:false id decl env in
+          let env = Env.add_type ~check:None id decl env in
           match Ctype.mcomp env orig_ty new_ty with
           | exception Ctype.Incompatible -> decl
               (* The current declaration is not compatible with the one we got
@@ -323,7 +323,7 @@ and type_paths_sig env p sg =
       Pdot(p, Ident.name id) :: type_paths_sig env p rem
   | Sig_module(id, pres, md, _, _) :: rem ->
       type_paths env (Pdot(p, Ident.name id)) md.md_type @
-      type_paths_sig (Env.add_module_declaration ~check:false id pres md env)
+      type_paths_sig (Env.add_module_declaration ~check:None id pres md env)
         p rem
   | Sig_modtype(id, decl, _) :: rem ->
       type_paths_sig (Env.add_modtype id decl env) p rem
@@ -353,7 +353,7 @@ and no_code_needed_sig env sg =
   | Sig_module(id, pres, md, _, _) :: rem ->
       no_code_needed_mod env pres md.md_type &&
       no_code_needed_sig
-        (Env.add_module_declaration ~check:false id pres md env) rem
+        (Env.add_module_declaration ~check:None id pres md env) rem
   | (Sig_type _ | Sig_modtype _ | Sig_class_type _) :: rem ->
       no_code_needed_sig env rem
   | (Sig_typext _ | Sig_class _) :: _ ->

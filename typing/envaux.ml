@@ -40,15 +40,15 @@ let rec env_from_summary sum subst =
           Env.add_value id (Subst.value_description subst desc)
                         (env_from_summary s subst)
       | Env_type(s, id, desc) ->
-          Env.add_type ~check:false id
+          Env.add_type ~check:None id
             (Subst.type_declaration subst desc)
             (env_from_summary s subst)
       | Env_extension(s, id, desc) ->
-          Env.add_extension ~check:false ~rebind:false id
+          Env.add_extension ~check:None ~rebind:false id
             (Subst.extension_constructor subst desc)
             (env_from_summary s subst)
       | Env_module(s, id, pres, desc) ->
-          Env.add_module_declaration ~check:false id pres
+          Env.add_module_declaration ~check:None id pres
             (Subst.module_declaration Keep subst desc)
             (env_from_summary s subst)
       | Env_modtype(s, id, desc) ->
@@ -70,7 +70,7 @@ let rec env_from_summary sum subst =
           end
       | Env_not_aliasable(Env_module(s, id, pres, desc), id')
             when Ident.same id id' ->
-          Env.add_module_declaration ~check:false
+          Env.add_module_declaration ~check:None
             id pres (Subst.module_declaration Keep subst desc)
             ~noalias:true (env_from_summary s subst)
       | Env_not_aliasable _ -> assert false

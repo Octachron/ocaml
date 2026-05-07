@@ -33,8 +33,9 @@ let add_type ~check id decl env =
     (fun () -> Env.add_type ~check id decl env)
 
 let add_types_to_env decls env =
+  let check = Some Env.unused_type_decl in
   List.fold_right
-    (fun (id, decl) env -> add_type ~check:true id decl env)
+    (fun (id, decl) env -> add_type ~check id decl env)
     decls env
 
 let compute_property

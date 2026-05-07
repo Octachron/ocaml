@@ -317,18 +317,29 @@ val make_copy_of_types: t -> (t -> t)
 
 (* Insertion by identifier *)
 
-val add_value:
-    ?check:(string -> Warnings.t) -> Ident.t -> value_description -> t -> t
+type on_access = On_access: {
+  init: unit -> 'data;
+  enabled: unit -> bool;
+  on_access: 'data -> unit;
+  final_check: Location.t -> 'data -> string -> unit;
+} -> on_access
+val warn_if_unused: (string -> Warnings.t) -> on_access
+val unused_type_decl: on_access
+val unused_extension: rebind:bool -> extension_constructor -> t -> on_access
+val unused_module: ?noalias:bool -> t -> on_access option
+
+
+val add_value: ?check:on_access -> Ident.t -> value_description -> t -> t
 val add_type:
-  check:bool -> ?shape:Shape.t -> Ident.t -> type_declaration -> t -> t
+  check:(on_access option) -> ?shape:Shape.t -> Ident.t -> type_declaration -> t -> t
 val add_extension:
-  check:bool -> ?shape:Shape.t -> rebind:bool -> Ident.t ->
+  check:(on_access option) -> ?shape:Shape.t -> rebind:bool -> Ident.t ->
   extension_constructor -> t -> t
 val add_module: ?noalias:bool -> ?shape:Shape.t ->
   Ident.t -> module_presence -> module_type -> t -> t
 val add_module_lazy: update_summary:bool ->
   Ident.t -> module_presence -> Subst.Lazy.modtype -> t -> t
-val add_module_declaration: ?noalias:bool -> ?shape:Shape.t -> check:bool ->
+val add_module_declaration: ?noalias:bool -> ?shape:Shape.t -> check:(on_access option) ->
   Ident.t -> module_presence -> module_declaration -> t -> t
 val add_module_declaration_lazy: update_summary:bool ->
   Ident.t -> module_presence -> Subst.Lazy.module_decl -> t -> t
@@ -360,7 +371,7 @@ val filter_non_loaded_persistent : (Ident.t -> bool) -> t -> t
 
 (* Insertion of all fields of a signature. *)
 
-val add_signature: signature -> t -> t
+val add_signature: ?check:bool -> signature -> t -> t
 
 (* Insertion of all fields of a signature, relative to the given path.
    Used to implement open. Returns None if the path refers to a functor,

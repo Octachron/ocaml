@@ -1901,7 +1901,7 @@ let hide ids env =
   let hide_id id env =
     (* Global idents cannot be renamed *)
     if id.hide && not (Ident.global id.ident) then
-      Env.add_type ~check:false (Ident.rename id.ident) dummy env
+      Env.add_type ~check:None (Ident.rename id.ident) dummy env
     else env
   in
   List.fold_right hide_id ids env

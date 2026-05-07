@@ -269,7 +269,7 @@ let init_shape id modl =
     | Sig_value _ :: _rem ->
         assert false
     | Sig_type(id, tdecl, _, _) :: rem ->
-        init_shape_struct path (Env.add_type ~check:false id tdecl env) rem
+        init_shape_struct path (Env.add_type ~check:None id tdecl env) rem
     | Sig_typext (subid, {ext_loc=loc},_,_) :: _ ->
         let new_path = Pdot(path, Ident.name subid) in
         let info = Unsafe {reason=Unsafe_typext; loc; path=new_path} in
@@ -277,11 +277,11 @@ let init_shape id modl =
     | Sig_module(id, Mp_present, md, _, _) :: rem ->
         init_shape_mod (
           Pdot(path, Ident.name id)) md.md_loc env md.md_type ::
-        init_shape_struct path (Env.add_module_declaration ~check:false
+        init_shape_struct path (Env.add_module_declaration ~check:None
                              id Mp_present md env) rem
     | Sig_module(id, Mp_absent, md, _, _) :: rem ->
         init_shape_struct
-          path (Env.add_module_declaration ~check:false
+          path (Env.add_module_declaration ~check:None
                              id Mp_absent md env) rem
     | Sig_modtype(id, minfo, _) :: rem ->
         init_shape_struct path (Env.add_modtype id minfo env) rem

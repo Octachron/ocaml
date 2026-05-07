@@ -264,11 +264,11 @@ let check_type_decl env sg loc id row_id newdecl decl =
   let newdecl = Subst.type_declaration sub newdecl in
   let decl = Subst.type_declaration sub decl in
   let sg = List.map (Subst.signature_item Keep sub) sg in
-  let env = Env.add_type ~check:false fresh_id newdecl env in
+  let env = Env.add_type ~check:None fresh_id newdecl env in
   let env =
     match fresh_row_id with
     | None -> env
-    | Some fresh_row_id -> Env.add_type ~check:false fresh_row_id newdecl env
+    | Some fresh_row_id -> Env.add_type ~check:None fresh_row_id newdecl env
   in
   let env = Env.add_signature sg env in
   Includemod.type_declarations ~mark:true ~loc env fresh_id newdecl decl;
@@ -722,7 +722,7 @@ module Merge = struct
             }
           and id_row = Ident.create_local (s^"#row") in
           let initial_env =
-            Env.add_type ~check:false id_row decl_row env
+            Env.add_type ~check:None id_row decl_row env
           in
           let sig_env = Env.add_signature sg_for_env sig_env in
           let tdecl =
@@ -1135,7 +1135,7 @@ and approx_sig env ssg =
           in
           let newenv =
             List.fold_left
-              (fun env (id, md) -> Env.add_module_declaration ~check:false
+              (fun env (id, md) -> Env.add_module_declaration ~check:None
                   id Mp_present md env)
               env decls
           in
@@ -1989,7 +1989,7 @@ and transl_recmodule_modtypes env sdecls =
   let make_env curr =
     List.fold_left (fun env (id_shape, _, md, _) ->
       Option.fold ~none:env ~some:(fun (id, shape) ->
-        Env.add_module_declaration ~check:true ~shape ~noalias:true
+        Env.add_module_declaration ~check:(Env.unused_module ~noalias:true env) ~shape ~noalias:true
           id Mp_present md env
       ) id_shape
     ) env curr
@@ -2149,7 +2149,7 @@ let enrich_type_decls anchor decls oldenv newenv =
             Mtype.enrich_typedecl oldenv (Pdot(p, Ident.name id))
               id info.typ_type
           in
-            Env.add_type ~check:true id info' e)
+            Env.add_type ~check:(Some Env.unused_type_decl) id info' e)
         oldenv decls
 
 let enrich_module_type anchor name mty env =
@@ -2487,8 +2487,9 @@ and type_module_aux ~alias ~strengthen ~funct_body anchor env smod =
               in
               let id = Ident.create_scoped ~scope name in
               let shape = Shape.var md_uid id in
+              let check = Env.unused_module ~noalias:true env in
               let newenv = Env.add_module_declaration
-                ~shape ~noalias:true ~check:true id Mp_present arg_md env
+                ~shape ~noalias:true ~check id Mp_present arg_md env
               in
               Some id, newenv, id
           in
@@ -3004,8 +3005,9 @@ and type_str_item ~names ~toplevel ~funct_body anchor env shape_map
                        md_uid = uid;
                      }
                    in
-                   Env.add_module_declaration ~check:true ~shape
-                     id Mp_present mdecl env
+                   let check = Env.unused_module env in
+                   Env.add_module_declaration ~check ~shape id Mp_present mdecl
+                     env
             )
             env bindings1
         in

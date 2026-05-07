@@ -1788,20 +1788,33 @@ let module_declaration_address env id presence md =
 
 (* Insertion of bindings by identifier + path *)
 
-let check_usage loc id uid warn tbl =
+type ('v,'k) on_access = On_access: {
+  init: 'v -> 'data;
+  enabled: unit -> bool;
+  on_access: 'data -> 'k -> unit;
+  final_check: Location.t -> 'data -> string -> unit;
+} -> 'k on_access
+
+let check_usage loc id uid tbl (On_access r) =
   if not loc.Location.loc_ghost &&
-     Uid.for_actual_declaration uid &&
-     Warnings.is_active (warn "")
+     Uid.for_actual_declaration uid && r.enabled ()
   then begin
     let name = Ident.name id in
     if Types.Uid.Tbl.mem tbl uid then ()
-    else let used = ref false in
-    Types.Uid.Tbl.add tbl uid (fun () -> used := true);
+    else
+    let data = r.init name in
+    Types.Uid.Tbl.add tbl uid (r.on_access data);
     if not (name = "" || name.[0] = '_' || name.[0] = '#')
     then
-      !add_delayed_check_forward
-        (fun () -> if not !used then Location.prerr_warning loc (warn name))
+      !add_delayed_check_forward (fun () -> r.final_check loc data name)
   end
+
+let warn_if_unused warn =
+  let enabled () = Warnings.is_active (warn "") in
+  let init name = name, ref false in
+  let on_access (_,used) () = used := true in
+  let final_check loc (name,used) = if not !used then Location.prerr_warning loc (warn name) in
+  On_access { enabled; init; on_access; final_check }
 
 let check_value_name name loc =
   (* Note: we could also check here general validity of the
@@ -1818,7 +1831,7 @@ let store_value ?check id addr decl shape env =
   check_value_name (Ident.name id) decl.val_loc;
   Builtin_attributes.mark_alerts_used decl.val_attributes;
   Option.iter
-    (fun f -> check_usage decl.val_loc id decl.val_uid f !value_declarations)
+    (check_usage decl.val_loc id decl.val_uid !value_declarations)
     check;
   let vda =
     { vda_description = decl;
@@ -1829,32 +1842,43 @@ let store_value ?check id addr decl shape env =
     values = IdTbl.add id (Val_bound vda) env.values;
     summary = Env_value(env.summary, id, decl) }
 
+let unused_type env =
+  let check_type = warn_if_unused (fun s -> Warnings.(Unused_type_declaration (s, Declaration))) in
+  let check_constructor =
+    let init () = constructor_usages () in
+    let enabled = Warnings.is_active (Warnings.Unused_constructor ("", Unused)) in
+    let on_access = add_constructor_usage in
+    let final_check loc used name =
+      Option.iter
+        (fun complaint ->
+           if not (is_in_signature env) then
+             Location.prerr_warning loc
+               (Warnings.Unused_constructor(name, complaint)))
+        (constructor_usage_complaint ~rebind:false priv used)
+    in
+    {init;enabled;on_access;final_check}
+  in
+  let check_label = assert false in
+  { check_type; check_label; check_constructor }
+
 let store_constructor ~check type_decl type_id cstr_id cstr env =
   Builtin_attributes.warning_scope cstr.cstr_attributes (fun () ->
-  if check && not type_decl.type_loc.Location.loc_ghost
-     && Warnings.is_active (Warnings.Unused_constructor ("", Unused))
-  then begin
-    let ty_name = Ident.name type_id in
-    let name = cstr.cstr_name in
-    let loc = cstr.cstr_loc in
-    let k = cstr.cstr_uid in
-    let priv = type_decl.type_private in
-    if not (Types.Uid.Tbl.mem !used_constructors k) then begin
-      let used = constructor_usages () in
-      Types.Uid.Tbl.add !used_constructors k
-        (add_constructor_usage used);
+  match check with
+    | Some (On_access r)
+      when not type_decl.type_loc.Location.loc_ghost && r.enabled () ->
+        let ty_name = Ident.name type_id in
+        let name = cstr.cstr_name in
+        let loc = cstr.cstr_loc in
+        let k = cstr.cstr_uid in
+        let priv = type_decl.type_private in
+        if not (Types.Uid.Tbl.mem !used_constructors k) then begin
+          let data = r.init () in
+          Types.Uid.Tbl.add !used_constructors k (r.on_access data);
       if not (ty_name = "" || ty_name.[0] = '_')
       then
-        !add_delayed_check_forward
-          (fun () ->
-            Option.iter
-              (fun complaint ->
-                 if not (is_in_signature env) then
-                   Location.prerr_warning loc
-                     (Warnings.Unused_constructor(name, complaint)))
-              (constructor_usage_complaint ~rebind:false priv used));
-    end;
-  end);
+        !add_delayed_check_forward (fun () -> r.final_check loc data name)
+    end
+    | _ -> None);
   Builtin_attributes.mark_alerts_used cstr.cstr_attributes;
   Builtin_attributes.mark_warn_on_literal_pattern_used cstr.cstr_attributes;
   let cda_shape = Shape.leaf cstr.cstr_uid in
@@ -1896,12 +1920,19 @@ let store_label ~check type_decl type_id lbl_id lbl env =
     labels = TycompTbl.add lbl_id lbl env.labels;
   }
 
+
+type check_type_usage = {
+  check_type: on_access;
+  check_label: on_access;
+  check_constructor: on_access
+}
+
+
 let store_type ~check id info shape env =
   let loc = info.type_loc in
-  if check then
-    check_usage loc id info.type_uid
-      (fun s -> Warnings.Unused_type_declaration (s, Warnings.Declaration))
-      !type_declarations;
+  Option.iter
+    (fun c -> check_usage loc id info.type_uid !type_declarations c.check_type)
+    check;
   let descrs, env =
     let path = Pident id in
     match info.type_kind with
@@ -1909,6 +1940,7 @@ let store_type ~check id info shape env =
         let constructors = Datarepr.constructors_of_type path info
                             ~current_unit:(get_current_unit ())
         in
+        let check = Option.map (fun c -> c.check_constructor) check in
         Type_variant (List.map snd constructors, repr),
         List.fold_left
           (fun env (cstr_id, cstr) ->
@@ -1916,6 +1948,7 @@ let store_type ~check id info shape env =
           env constructors
     | Type_record (_, repr) ->
         let labels = Datarepr.labels_of_type path info in
+        let check = Option.map (fun c -> c.check_label) check in
         Type_record (List.map snd labels, repr),
         List.fold_left
           (fun env (lbl_id, lbl) ->
@@ -1952,6 +1985,21 @@ let store_type_infos ~tda_shape id info env =
     types = IdTbl.add id tda env.types;
     summary = Env_type(env.summary, id, info) }
 
+let unused_extension ~rebind ext env =
+  let enabled () =  Warnings.is_active (Warnings.Unused_extension ("", false, Unused)) in
+  let init () = constructor_usages () in
+  let on_access = add_constructor_usage in
+  let final_check loc used name =
+    match constructor_usage_complaint ~rebind ext.ext_private used with
+    | None -> ()
+    | Some complaint ->
+        if not (is_in_signature env) then
+          let is_exception = Path.same ext.ext_type_path Predef.path_exn in
+          let w = Warnings.Unused_extension (name, is_exception, complaint) in
+          Location.prerr_warning loc w
+  in
+  Some (On_access {enabled; init; on_access; final_check })
+
 let store_extension ~check ~rebind id addr ext shape env =
   let loc = ext.ext_loc in
   let cstr =
@@ -1966,28 +2014,20 @@ let store_extension ~check ~rebind id addr ext shape env =
   Builtin_attributes.mark_alerts_used ext.ext_attributes;
   Builtin_attributes.mark_warn_on_literal_pattern_used ext.ext_attributes;
   Builtin_attributes.warning_scope ext.ext_attributes (fun () ->
-  if check && not loc.Location.loc_ghost &&
-    Warnings.is_active (Warnings.Unused_extension ("", false, Unused))
-  then begin
-    let priv = ext.ext_private in
-    let is_exception = Path.same ext.ext_type_path Predef.path_exn in
-    let name = cstr.cstr_name in
-    let k = cstr.cstr_uid in
-    if not (Types.Uid.Tbl.mem !used_constructors k) then begin
-      let used = constructor_usages () in
-      Types.Uid.Tbl.add !used_constructors k
-        (add_constructor_usage used);
-      !add_delayed_check_forward
-         (fun () ->
-           Option.iter
-             (fun complaint ->
-                if not (is_in_signature env) then
-                  Location.prerr_warning loc
-                    (Warnings.Unused_extension
-                       (name, is_exception, complaint)))
-             (constructor_usage_complaint ~rebind priv used))
-    end;
-  end);
+    match check with
+      | Some (On_access r)
+        when not loc.Location.loc_ghost && r.enabled ()  ->
+          let priv = ext.ext_private in
+          let is_exception = Path.same ext.ext_type_path Predef.path_exn in
+          let name = cstr.cstr_name in
+          let k = cstr.cstr_uid in
+          if not (Types.Uid.Tbl.mem !used_constructors k) then begin
+            let data = r.init () in
+            Types.Uid.Tbl.add !used_constructors k (r.on_access data);
+            !add_delayed_check_forward
+              (fun () -> r.final_check loc data name)
+          end
+      | _ -> ());
   { env with
     constrs = TycompTbl.add id cda env.constrs;
     summary = Env_extension(env.summary, id, ext) }
@@ -1996,8 +2036,7 @@ let store_module ?(update_summary=true) ~check
                  id addr presence md shape env =
   let open Subst.Lazy in
   let loc = md.mdl_loc in
-  Option.iter
-    (fun f -> check_usage loc id md.mdl_uid f !module_declarations) check;
+  Option.iter (check_usage loc id md.mdl_uid !module_declarations) check;
   Builtin_attributes.mark_alerts_used md.mdl_attributes;
   let alerts = Builtin_attributes.alerts_of_attrs md.mdl_attributes in
   let comps =
@@ -2283,6 +2322,17 @@ let add_value ?check ?shape id desc env =
   let shape = shape_or_leaf desc.val_uid shape in
   store_value ?check id addr desc shape env
 
+let unused_module ?(noalias=false) env =
+  if noalias && is_in_signature env then
+      (* While recursive modules are also added with the noalias flag when
+         typing the recursive definitions, they are then added back without the
+         flag (to be aliased from the outside), and therefore could not throw
+         the warning, leaving only functor parameters *)
+      let unused_parameter s = Warnings.Unused_functor_parameter s in
+      Some (warn_if_unused unused_parameter)
+    else
+      Some (warn_if_unused (fun s -> Warnings.Unused_module s))
+
 let add_type ~check ?shape id info env =
   let shape = shape_or_leaf info.type_uid shape in
   store_type ~check id info shape env
@@ -2293,18 +2343,6 @@ and add_extension ~check ?shape ~rebind id ext env =
   store_extension ~check ~rebind id addr ext shape env
 
 and add_module_declaration ?(noalias=false) ?shape ~check id presence md env =
-  let check =
-    if not check then
-      None
-    else if noalias && is_in_signature env then
-      (* While recursive modules are also added with the noalias flag when
-         typing the recursive definitions, they are then added back without the
-         flag (to be aliased from the outside), and therefore could not throw
-         the warning, leaving only functor parameters *)
-      Some (fun s -> Warnings.Unused_functor_parameter s)
-    else
-      Some (fun s -> Warnings.Unused_module s)
-  in
   let md = Subst.Lazy.of_module_decl md in
   let addr = module_declaration_address env id presence md in
   let shape = shape_or_leaf md.mdl_uid shape in
@@ -2337,7 +2375,7 @@ and add_cltype ?shape id ty env =
   store_cltype id ty shape env
 
 let add_module ?noalias ?shape id presence mty env =
-  add_module_declaration ~check:false ?noalias ?shape id presence (md mty) env
+  add_module_declaration ~check:None ?noalias ?shape id presence (md mty) env
 
 let add_module_lazy ~update_summary id presence mty env =
   let md = Subst.Lazy.{mdl_type = mty;
@@ -2365,23 +2403,25 @@ let enter_value ?check name desc env =
 
 let enter_type ~scope name info env =
   let id = Ident.create_scoped ~scope name in
-  let env = store_type ~check:true id info (Shape.leaf info.type_uid) env in
+  let env = store_type ~check:(Some unused_type_decl) id info (Shape.leaf info.type_uid) env in
   (id, env)
 
 let reenter_type id info env =
-  let env = store_type ~check:true id info (Shape.leaf info.type_uid) env in
+  let env = store_type ~check:(Some unused_type_decl) id info (Shape.leaf info.type_uid) env in
   env
 
 let enter_extension ~scope ~rebind name ext env =
   let id = Ident.create_scoped ~scope name in
   let addr = extension_declaration_address env id ext in
   let shape = Shape.leaf ext.ext_uid in
-  let env = store_extension ~check:true ~rebind id addr ext shape env in
+  let check = unused_extension ~rebind ext env in
+  let env = store_extension ~check ~rebind id addr ext shape env in
   (id, env)
 
 let enter_module_declaration ~scope ?noalias ?shape s presence md env =
   let id = Ident.create_scoped ~scope s in
-  (id, add_module_declaration ?noalias ?shape ~check:true id presence md env)
+  let check = unused_module ?noalias env in
+  (id, add_module_declaration ?noalias ?shape ~check id presence md env)
 
 let enter_modtype ~scope name mtd env =
   let id = Ident.create_scoped ~scope name in
@@ -2405,7 +2445,8 @@ let enter_module ~scope ?noalias s presence mty env =
 
 (* Insertion of all components of a signature *)
 
-let add_item (map, mod_shape) comp env =
+
+let add_item ?check (map, mod_shape) comp env =
   let proj_shape item =
     match mod_shape with
     | None -> map, None
@@ -2416,16 +2457,16 @@ let add_item (map, mod_shape) comp env =
   match comp with
   | Sig_value(id, decl, _) ->
       let map, shape = proj_shape (Shape.Item.value id) in
-      map, add_value ?shape id decl env
+      map, add_value ?check ?shape id decl env
   | Sig_type(id, decl, _, _) ->
       let map, shape = proj_shape (Shape.Item.type_ id) in
-      map, add_type ~check:false ?shape id decl env
+      map, add_type ~check ?shape id decl env
   | Sig_typext(id, ext, _, _) ->
       let map, shape = proj_shape (Shape.Item.extension_constructor id) in
-      map, add_extension ~check:false ?shape ~rebind:false id ext env
+      map, add_extension ~check ?shape ~rebind:false id ext env
   | Sig_module(id, presence, md, _, _) ->
       let map, shape = proj_shape (Shape.Item.module_ id) in
-      map, add_module_declaration ~check:false ?shape id presence md env
+      map, add_module_declaration ~check ?shape id presence md env
   | Sig_modtype(id, decl, _)  ->
       let map, shape = proj_shape (Shape.Item.module_type id) in
       map, add_modtype ?shape id decl env
@@ -2436,19 +2477,31 @@ let add_item (map, mod_shape) comp env =
       let map, shape = proj_shape (Shape.Item.class_type id) in
       map, add_cltype ?shape id decl env
 
-let rec add_signature (map, mod_shape) sg env =
+let rec add_signature ?check (map, mod_shape) sg env =
   match sg with
       [] -> map, env
   | comp :: rem ->
-      let map, env = add_item (map, mod_shape) comp env in
-      add_signature (map, mod_shape) rem env
+      let map, env = add_item ?check (map, mod_shape) comp env in
+      add_signature ?check (map, mod_shape) rem env
 
-let enter_signature_and_shape ~scope ~parent_shape mod_shape sg env =
+
+let enter_signature_and_shape ?check ~scope ~parent_shape mod_shape sg env =
   let sg = Subst.signature (Rescope scope) Subst.identity sg in
-  let shape, env = add_signature (parent_shape, mod_shape) sg env in
+  let shape, env = add_signature ?check (parent_shape, mod_shape) sg env in
   sg, shape, env
 
-let enter_signature ?mod_shape ~scope sg env =
+let enter_signature ?(check=false) ?mod_shape ~scope sg env =
+  let check = if check then
+      let used = ref false in
+      let enabled () = Warnings.(is_active (Unused_open "")) in
+      let init () = () in
+      let on_access used = used := false in
+      let final_check loc used _name = if not !used then
+          if not !used then Location.prerr_warning loc (Warnings.(Unused_open "<*local*>"))
+      in
+      Some (On_access {enabled; init; on_access; final_check })
+    else None
+  in
   let sg, _, env =
     enter_signature_and_shape ~scope ~parent_shape:Shape.Map.empty
       mod_shape sg env

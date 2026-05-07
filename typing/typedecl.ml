@@ -150,7 +150,7 @@ let enter_type ?abstract_abbrevs rec_flag env sdecl (id, uid) =
       type_uid = uid;
     }
   in
-  add_type ~check:true id decl env
+  add_type ~check:(Some Env.unused_type_decl) id decl env
 
 (* Determine if a type's values are represented by floats at run-time. *)
 let is_float env ty =
@@ -1229,7 +1229,7 @@ let update_type temp_env env id loc =
 let add_types_to_env decls shapes env =
   List.fold_right2
     (fun (id, decl) shape env ->
-      add_type ~check:true ~shape id decl env)
+      add_type ~check:(Some Env.unused_type_decl) ~shape id decl env)
     decls shapes env
 
 (* Translate a set of type declarations, mutually recursive or not *)
@@ -1610,7 +1610,8 @@ let transl_type_extension extend env loc styext =
     List.fold_left
       (fun env (ext, shape) ->
          let rebind = is_rebind ext in
-         Env.add_extension ~check:true ~shape ~rebind
+         let check = Some (Env.unused_extension ~rebind ext.ext_type env) in
+         Env.add_extension ~check ~shape ~rebind
            ext.ext_id ext.ext_type env)
       env constructors
   in
@@ -1641,7 +1642,8 @@ let transl_exception env sext =
   in
   let rebind = is_rebind ext in
   let newenv =
-    Env.add_extension ~check:true ~shape ~rebind ext.ext_id ext.ext_type env
+    let check = Some (Env.unused_extension ~rebind ext.ext_type env) in
+    Env.add_extension ~check ~shape ~rebind ext.ext_id ext.ext_type env
   in
   ext, newenv, shape
 

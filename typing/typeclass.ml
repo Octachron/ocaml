@@ -479,8 +479,8 @@ let enter_ancestor_met ~loc name ~sign ~meths ~cl_num ~ty ~attrs met_env =
 let add_self_met loc id sign self_var_kind vars cl_num
       as_var ty attrs met_env =
   let check =
-    if as_var then (fun s -> Warnings.Unused_var s)
-    else (fun s -> Warnings.Unused_var_strict s)
+    if as_var then Env.warn_if_unused (fun s -> Warnings.Unused_var s)
+    else Env.warn_if_unused (fun s -> Warnings.Unused_var_strict s)
   in
   let kind = Val_self (sign, self_var_kind, vars, cl_num) in
   let desc =
@@ -1501,7 +1501,7 @@ let initial_env define_class approx
   (* Temporary abbreviations *)
   let arity = List.length cl.pci_params in
   let (obj_params, obj_ty, obj_td) = temp_abbrev cl.pci_loc arity uid in
-  let env = Env.add_type ~check:true obj_id obj_td env in
+  let env = Env.add_type ~check:(Some Env.unused_type_decl) obj_id obj_td env in
   let (cl_params, cl_ty, cl_td) = temp_abbrev cl.pci_loc arity uid in
 
   (* Temporary type for the class constructor *)
@@ -1820,7 +1820,7 @@ let merge_type_decls decl (obj_abbr, clty, cltydef) =
 
 let final_env define_class env { id; clty; ty_id; cltydef; obj_id; obj_abbr; } =
   (* Add definitions after cleaning them *)
-  Env.add_type ~check:true obj_id
+  Env.add_type ~check:(Some Env.unused_type_decl) obj_id
     (Subst.type_declaration Subst.identity obj_abbr) (
   Env.add_cltype ty_id (Subst.cltype_declaration Subst.identity cltydef) (
   if define_class then

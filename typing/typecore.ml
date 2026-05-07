@@ -1047,7 +1047,7 @@ let solve_constructor_annotation
             Tconstr(Path.Pident id, [], _) as desc when List.mem_assoc id rem ->
               let decl, tv' = List.assoc id ids_decls in
               let env =
-                Env.add_type ~check:false id
+                Env.add_type ~check:None id
                   {decl with type_manifest = None} !!penv
               in
               Pattern_env.set_env penv env;
@@ -1083,7 +1083,7 @@ let solve_constructor_annotation
                             (Bind_non_locally_abstract, id, tv')));
         end;
         let env =
-          Env.add_type ~check:false id
+          Env.add_type ~check:None id
             {decl with type_manifest = Some (duplicate_type tv')} !!penv
         in
         Pattern_env.set_env penv env)
@@ -2337,7 +2337,8 @@ let add_module_variables env module_variables =
           md_loc = mv_name.loc;
           md_uid = mv_uid; }
       in
-      Env.add_module_declaration ~shape:md_shape ~check:true mv_id pres md env
+      let check = Env.unused_module env in
+      Env.add_module_declaration ~shape:md_shape ~check mv_id pres md env
     end
   ) env module_variables_as_list
 
@@ -2414,7 +2415,7 @@ let type_class_arg_pattern cl_num val_env met_env l spat =
             val_env
          in
          let met_env =
-          Env.add_value id' ~check
+          Env.add_value id' ~check:(Env.warn_if_unused check)
             { val_type = pv_type
             ; val_kind = Val_ivar (Immutable, cl_num)
             ; val_attributes = pv_attributes
@@ -5900,8 +5901,9 @@ and type_moddep_fun ~env ~name ~pack_param ~rest ~arg_label ~first
       let s_ident =
         Ident.create_scoped ~scope:(Ctype.get_current_level()) name.txt
       in
-      let new_env = Env.add_module_declaration ~check:true s_ident
-                          Mp_present arg_md env in
+      let check = Env.unused_module env in
+      let new_env = Env.add_module_declaration ~check s_ident Mp_present arg_md
+          env in
       let expected_res = match id_expected_typ_opt with
         | Some (id, ety) ->
           with_local_level_generalize_structure_if_principal
@@ -6832,8 +6834,8 @@ and map_half_typed_cases
         let cont_vars, pvs =
           List.partition (fun pv -> pv.pv_kind = Continuation_var) pvs in
         let add_pattern_vars = add_pattern_variables
-            ~check:(fun s -> Warnings.Unused_var_strict s)
-            ~check_as:(fun s -> Warnings.Unused_var s)
+            ~check:(Env.warn_if_unused (fun s -> Warnings.Unused_var_strict s))
+            ~check_as:(Env.warn_if_unused(fun s -> Warnings.Unused_var s))
         in
         let when_env = add_pattern_vars ext_env pvs in
         let when_env = add_module_variables when_env mvs in
@@ -7007,7 +7009,7 @@ and type_effect_cases
           let scope = create_scope () in
           let name = Ctype.get_new_abstract_name env "%eff" in
           let id = Ident.create_scoped ~scope name in
-          let new_env = Env.add_type ~check:false id decl env in
+          let new_env = Env.add_type ~check:None id decl env in
           let ty_eff = newgenty (Tconstr (Path.Pident id,[],ref Mnil)) in
           new_env,
           Predef.type_eff ty_eff,
