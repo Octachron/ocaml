@@ -33,6 +33,18 @@ let pretty_const c = match c with
 | Const_int64 i -> Printf.sprintf "%LdL" i
 | Const_nativeint i -> Printf.sprintf "%ndn" i
 
+let pretty_interval (type s)
+    (ty:s Interval_pattern.ty) (x:s Interval_pattern.t) ppf =
+  match ty with
+  | Interval_pattern.Int -> fprintf ppf "%d..%d" x.lower x.upper
+  | Interval_pattern.Char -> fprintf ppf "%c..%c" x.lower x.upper
+  | Interval_pattern.String -> fprintf ppf "%S..%S" x.lower x.upper
+  | Interval_pattern.Float -> fprintf ppf "%g..%g" x.lower x.upper
+  | Interval_pattern.Int32 -> fprintf ppf "%ld..%ld" x.lower x.upper
+  | Interval_pattern.Int64 -> fprintf ppf "%Ld..%Ld" x.lower x.upper
+  | Interval_pattern.Nativeint -> fprintf ppf "%nd..%nd" x.lower x.upper
+
+
 let pretty_extra ppf (cstr, _loc, _attrs) pretty_rest rest =
   match cstr with
   | Tpat_unpack None ->
@@ -56,6 +68,7 @@ let rec pretty_val : type k . _ -> k general_pattern -> _ = fun ppf v ->
   | Tpat_any -> fprintf ppf "_"
   | Tpat_var (x,_,_) -> fprintf ppf "%s" (Ident.name x)
   | Tpat_constant c -> fprintf ppf "%s" (pretty_const c)
+  | Tpat_interval (ty,i) -> pretty_interval ty i ppf
   | Tpat_tuple vs ->
       fprintf ppf "@[(%a)@]" (pretty_list pretty_labeled_val ",") vs
   | Tpat_construct (_, cstr, [], _) ->

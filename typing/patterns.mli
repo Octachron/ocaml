@@ -41,6 +41,8 @@ module Simple : sig
   type view = [
     | `Any
     | `Constant of constant
+    | `Interval of Interval_pattern.p
+    | `Interval of Interval_pattern.p
     | `Tuple of (string option * pattern) list
     | `Construct of
         Longident.t loc * constructor_description * pattern list
@@ -82,6 +84,7 @@ module Head : sig
     | Any
     | Construct of constructor_description
     | Constant of constant
+    | Interval of Interval_pattern.p
     | Tuple of string option list
     | Record of label_description list
     | Variant of

@@ -28,6 +28,36 @@ type partial = Partial | Total
 type attribute = Parsetree.attribute
 type attributes = attribute list
 
+module Interval_pattern = struct
+  type 'a t = { lower:'a; upper:'a }
+  type 'a ty =
+    | Int: int ty
+    | Char: char ty
+    | String: string ty
+    | Float: float ty
+    | Int32: int32 ty
+    | Int64: int64 ty
+    | Nativeint: nativeint ty
+  type p = Pack: 'a ty * 'a t -> p
+  let eq: type a b. a ty -> b ty -> (a,b) Type.eq option =
+    fun a b -> match a, b with
+    | Int, Int -> Some Type.Equal
+    | Int32, Int32 -> Some Type.Equal
+    | Int64, Int64 -> Some Type.Equal
+    | Nativeint, Nativeint -> Some Type.Equal
+    | Char, Char -> Some Type.Equal
+    | String, String -> Some Type.Equal
+    | _, _ -> None
+  let eq_const (type a) (ty:a ty) c : a option = match ty, c with
+    | Int, Const_int x -> Some x
+    | Int32, Const_int32 x -> Some x
+    | Int64, Const_int64 x -> Some x
+    | Nativeint, Const_nativeint x -> Some x
+    | Char, Const_char x -> Some x
+    | Float, Const_float f -> Some (float_of_string f)
+    | _ -> None
+end
+
 type value = Value_pattern
 type computation = Computation_pattern
 
@@ -77,6 +107,9 @@ and 'k pattern_desc =
   | Tpat_array :
       mutable_flag * value general_pattern list -> value pattern_desc
   | Tpat_lazy : value general_pattern -> value pattern_desc
+  | Tpat_interval:
+      'a Interval_pattern.ty * 'a Interval_pattern.t -> value pattern_desc
+    (** 0 .. 10 *)
   (* computation patterns *)
   | Tpat_value : tpat_value_argument -> computation pattern_desc
   | Tpat_exception : value general_pattern -> computation pattern_desc
@@ -724,6 +757,7 @@ let rec classify_pattern_desc : type k . k pattern_desc -> k pattern_category =
   | Tpat_any -> Value
   | Tpat_var _ -> Value
   | Tpat_constant _ -> Value
+  | Tpat_interval _ -> Value
 
   | Tpat_value _ -> Computation
   | Tpat_exception _ -> Computation
@@ -752,6 +786,7 @@ let shallow_iter_pattern_desc
       List.iter (fun (_, _, pat) -> f.f pat) lbl_pat_list
   | Tpat_array (_, patl) -> List.iter f.f patl
   | Tpat_lazy p -> f.f p
+  | Tpat_interval _ -> ()
   | Tpat_any
   | Tpat_var _
   | Tpat_constant _ -> ()
@@ -779,6 +814,7 @@ let shallow_map_pattern_desc
       Tpat_variant (x1, Some (f.f p1), x2)
   | Tpat_var _
   | Tpat_constant _
+  | Tpat_interval _
   | Tpat_any
   | Tpat_variant (_,None,_) -> d
   | Tpat_value p -> Tpat_value (f.f p)

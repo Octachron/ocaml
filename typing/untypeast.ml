@@ -131,6 +131,17 @@ let constant = function
   | Const_nativeint i -> Const.integer ~suffix:'n' (Nativeint.to_string i)
   | Const_float f -> Const.float f
 
+let interval_constant (type a) (ty:a Interval_pattern.ty) (x:a) =
+  match ty with
+  | Char -> Const.char x
+  | String -> Const.string x
+  | Int -> Const.integer (Int.to_string x)
+  | Int32 -> Const.integer ~suffix:'l' (Int32.to_string x)
+  | Int64 -> Const.integer ~suffix:'L' (Int64.to_string x)
+  | Nativeint -> Const.integer ~suffix:'n' (Nativeint.to_string x)
+  | Float -> Const.float (string_of_float x)
+
+
 let attribute sub a = {
     attr_name = map_loc sub a.attr_name;
     attr_payload = a.attr_payload;
@@ -326,6 +337,8 @@ let pattern : type k . _ -> k T.general_pattern -> _ = fun sub pat ->
     | Tpat_alias (pat, _id, name, _, _ty) ->
         Ppat_alias (sub.pat sub pat, name)
     | Tpat_constant cst -> Ppat_constant (constant cst)
+    | Tpat_interval (t,x) ->
+        Ppat_interval (interval_constant t x.lower, interval_constant t x.upper)
     | Tpat_tuple list ->
         Ppat_tuple
           (List.map (fun (label, p) -> label, sub.pat sub p) list, Closed)

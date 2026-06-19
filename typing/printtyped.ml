@@ -71,6 +71,17 @@ let fmt_constant f x =
   | Const_int64 (i) -> fprintf f "Const_int64 %Ld" i
   | Const_nativeint (i) -> fprintf f "Const_nativeint %nd" i
 
+let fmt_interval (type a)
+    (ty:a Interval_pattern.ty) (i:a Interval_pattern.t) ppf =
+  match ty with
+  | Int -> fprintf ppf "%d...%d" i.lower i.upper
+  | Char -> fprintf ppf "%c...%c" i.lower i.upper
+  | String -> fprintf ppf "%s...%s" i.lower i.upper
+  | Float -> fprintf ppf "%g...%g" i.lower i.upper
+  | Int32 -> fprintf ppf "%ld...%ld" i.lower i.upper
+  | Int64 -> fprintf ppf "%Ld...%Ld" i.lower i.upper
+  | Nativeint -> fprintf ppf "%nd...%nd" i.lower i.upper
+
 let fmt_mutable_flag f x =
   match x with
   | Immutable -> fprintf f "Immutable"
@@ -263,6 +274,7 @@ and pattern : type k . _ -> _ -> k general_pattern -> unit = fun i ppf x ->
       line i ppf "Tpat_alias \"%a\"\n" fmt_ident s;
       pattern i ppf p;
   | Tpat_constant (c) -> line i ppf "Tpat_constant %a\n" fmt_constant c;
+  | Tpat_interval (t,ci) -> line i ppf "Tpat_interval %t\n" (fmt_interval t ci)
   | Tpat_tuple (l) ->
       line i ppf "Tpat_tuple\n";
       list i labeled_pattern ppf l;

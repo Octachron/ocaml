@@ -254,7 +254,7 @@ end = struct
           | other_view -> continue orpat other_view
         )
       | ( `Constant _ | `Tuple _ | `Construct _ | `Variant _ | `Array _
-        | `Lazy _ ) as view ->
+        | `Lazy _ | `Interval _ ) as view ->
           stop p view
     in
     aux cl
@@ -288,6 +288,7 @@ end = struct
       match p.pat_desc with
       | `Any -> `Any
       | `Constant cst -> `Constant cst
+      | `Interval i -> `Interval i
       | `Tuple ps ->
           `Tuple (List.map (fun (label, p) -> label, alpha_pat env p) ps)
       | `Construct (cstr, cst_descr, args) ->
@@ -412,6 +413,21 @@ let rec rev_split_at n ps =
 
 exception NoMatch
 
+let imem (type a) (x:a) (i:a Interval_pattern.t) =
+  i.lower <= x && x <= i.upper
+
+let imemc cst (Interval_pattern.Pack(ty,i)) =
+  match Interval_pattern.eq_const ty cst with
+  | Some x -> imem x i
+  | None -> false
+
+let inter (Interval_pattern.Pack(ty,i1)) (Interval_pattern.Pack(ty2,i2)) =
+  match Interval_pattern.eq ty ty2 with
+  | None -> false
+  | Some Type.Equal ->
+      imem i1.lower i2 || imem i1.upper i2
+      || imem i2.lower i1 || imem i2.upper i1
+
 let matcher discr (p : Simple.pattern) rem =
   let discr = expand_record_head discr in
   let p = expand_record_simple p in
@@ -428,43 +444,55 @@ let matcher discr (p : Simple.pattern) rem =
   let open Patterns.Head in
   match (discr.pat_desc, ph.pat_desc) with
   | Any, _ -> rem
-  | ( ( Constant _ | Construct _ | Variant _ | Lazy | Array _ | Record _
-      | Tuple _ ),
+  | ( ( Constant _ | Interval _ | Construct _ | Variant _ | Lazy | Array _
+      | Record _ | Tuple _ ),
       Any ) ->
       omegas @ rem
   | Constant cst, Constant cst' -> yesif (const_compare cst cst' = 0)
-  | Constant _, (Construct _ | Variant _ | Lazy | Array _ | Record _ | Tuple _)
+  | Constant _, (Construct _ | Variant _ | Lazy | Array _ | Record _ | Tuple _ )
     ->
+      no ()
+  | Constant cst, Interval pi -> yesif (imemc cst pi)
+  | Interval pi, Constant cst  -> yesif (imemc cst pi)
+  | Interval pi1, Interval pi2 -> yesif (inter pi1 pi2)
+  | Interval _,
+    (Construct _ | Variant _ | Lazy | Array _ | Record _ | Tuple _) ->
       no ()
   | Construct cstr, Construct cstr' ->
       (* NB: may_equal_constr considers (potential) constructor rebinding;
           Types.may_equal_constr does check that the arities are the same,
           preserving row-size coherence. *)
       yesif (Data_types.may_equal_constr cstr cstr')
-  | Construct _, (Constant _ | Variant _ | Lazy | Array _ | Record _ | Tuple _)
+  | Construct _, (Constant _ | Interval _ | Variant _ | Lazy | Array _
+                 | Record _ | Tuple _)
     ->
       no ()
   | Variant { tag; has_arg }, Variant { tag = tag'; has_arg = has_arg' } ->
       yesif (tag = tag' && has_arg = has_arg')
-  | Variant _, (Constant _ | Construct _ | Lazy | Array _ | Record _ | Tuple _)
+  | Variant _, (Constant _ | Interval _ | Construct _ | Lazy | Array _
+               | Record _ | Tuple _)
     ->
       no ()
   | Array (am1, n1), Array (am2, n2) -> yesif (am1 = am2 && n1 = n2)
-  | Array _, (Constant _ | Construct _ | Variant _ | Lazy | Record _ | Tuple _)
+  | Array _, (Constant _ | Interval _ | Construct _ | Variant _ | Lazy
+             | Record _ | Tuple _)
     ->
       no ()
   | Tuple n1, Tuple n2 -> yesif (n1 = n2)
-  | Tuple _, (Constant _ | Construct _ | Variant _ | Lazy | Array _ | Record _)
+  | Tuple _, (Constant _ | Interval _ | Construct _ | Variant _ | Lazy
+             | Array _ | Record _)
     ->
       no ()
   | Record l, Record l' ->
       (* we already expanded the record fully *)
       yesif (List.length l = List.length l')
-  | Record _, (Constant _ | Construct _ | Variant _ | Lazy | Array _ | Tuple _)
+  | Record _, (Constant _ | Interval _ | Construct _ | Variant _ | Lazy
+              | Array _ | Tuple _)
     ->
       no ()
   | Lazy, Lazy -> yes ()
-  | Lazy, (Constant _ | Construct _ | Variant _ | Array _ | Record _ | Tuple _)
+  | Lazy, (Constant _ | Interval _ | Construct _ | Variant _ | Array _
+          | Record _ | Tuple _)
     ->
       no ()
 
@@ -1400,6 +1428,11 @@ let can_group discr pat =
   | Constant (Const_int64 _), Constant (Const_int64 _)
   | Constant (Const_nativeint _), Constant (Const_nativeint _) ->
       true
+  | Constant c, Interval i | Interval i, Constant c ->
+      let Pack(ty,_) = i in
+      Interval_pattern.eq_const ty c <> None
+  | Interval (Pack(ty1,_)), Interval (Pack(ty2,_)) ->
+      Interval_pattern.eq ty1 ty2 <> None
   | Construct { cstr_tag = Cstr_extension (p1, _) },
     Construct { cstr_tag = Cstr_extension (p2, _) }
     ->
@@ -1421,6 +1454,7 @@ let can_group discr pat =
       | Constant
           ( Const_int _ | Const_char _ | Const_string _ | Const_float _
           | Const_int32 _ | Const_int64 _ | Const_nativeint _ )
+      | Interval _
       | Construct _ | Tuple _ | Record _ | Array _ | Variant _ | Lazy ) ) ->
       false
 
@@ -3946,6 +3980,7 @@ and do_compile_matching ~scopes repr partial ctx pmh =
           compile_test
             divide_constant
             (combine_constant ploc arg cst arg_partial)
+      | Interval _i -> Fun.todo ()
       | Construct cstr ->
           compile_test
             (divide_constructor ~scopes)
@@ -4289,7 +4324,8 @@ let flatten_simple_pattern size (p : Simple.pattern) =
   | `Record _
   | `Lazy _
   | `Construct _
-  | `Constant _ ->
+  | `Constant _
+  | `Interval _ ->
       (* All calls to this function originate from [do_for_multiple_match],
          where we know that the scrutinee is a tuple literal.
 

@@ -525,6 +525,16 @@ let type_constant = function
   | Const_int64 _ -> instance Predef.type_int64
   | Const_nativeint _ -> instance Predef.type_nativeint
 
+let type_interval (type a) (x:a Interval_pattern.ty)= match x with
+  | Int -> instance Predef.type_int
+  | Char -> instance Predef.type_char
+  | String -> instance Predef.type_string
+  | Float -> instance Predef.type_float
+  | Int32 -> instance Predef.type_int32
+  | Int64 -> instance Predef.type_int64
+  | Nativeint -> instance Predef.type_nativeint
+
+
 let constant_desc
   : Parsetree.constant_desc -> (Asttypes.constant, error) result =
   function
@@ -1123,7 +1133,7 @@ and build_as_type_aux (env : Env.t) p =
           newty (Tvariant (create_row ~fields ~fixed ~name
                              ~closed:false ~more:(newvar())))
       end
-  | Tpat_any | Tpat_var _ | Tpat_constant _
+  | Tpat_any | Tpat_var _ | Tpat_constant _ | Tpat_interval _
   | Tpat_array _ | Tpat_lazy _ -> p.pat_type
 
 (* Constraint solving during typing of patterns *)
@@ -2876,6 +2886,9 @@ let rec check_counter_example_pat
   | Tpat_constant cst ->
       let cst = constant_or_raise !!penv loc (Untypeast.constant cst) in
       k @@ solve_expected (mp (Tpat_constant cst) ~pat_type:(type_constant cst))
+  | Tpat_interval (t,r) ->
+      k @@ solve_expected @@ mp ~pat_type:(type_interval t)
+        (Tpat_interval (t,r))
   | Tpat_tuple tpl ->
       assert (List.length tpl >= 2);
       let expected_tys = solve_Ppat_tuple loc penv tpl expected_ty in

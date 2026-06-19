@@ -53,6 +53,7 @@ module Simple = struct
   type view = [
     | `Any
     | `Constant of constant
+    | `Interval of Interval_pattern.p
     | `Tuple of (string option * pattern) list
     | `Construct of
         Longident.t loc * constructor_description * pattern list
@@ -94,6 +95,8 @@ module General = struct
        `Alias (p, id, str, uid, ty)
     | Tpat_constant cst ->
        `Constant cst
+    | Tpat_interval (ty,i) ->
+       `Interval (Interval_pattern.Pack(ty,i))
     | Tpat_tuple ps ->
        `Tuple ps
     | Tpat_construct (cstr, cstr_descr, args, _) ->
@@ -114,6 +117,7 @@ module General = struct
     | `Var (id, str, uid) -> Tpat_var (id, str, uid)
     | `Alias (p, id, str, uid, ty) -> Tpat_alias (p, id, str, uid, ty)
     | `Constant cst -> Tpat_constant cst
+    | `Interval (Interval_pattern.Pack(ty, i)) -> Tpat_interval (ty,i)
     | `Tuple ps -> Tpat_tuple ps
     | `Construct (cstr, cst_descr, args) ->
        Tpat_construct (cstr, cst_descr, args, None)
@@ -142,6 +146,7 @@ module Head : sig
     | Any
     | Construct of constructor_description
     | Constant of constant
+    | Interval of Interval_pattern.p
     | Tuple of string option list
     | Record of label_description list
     | Variant of
@@ -167,6 +172,7 @@ end = struct
     | Any
     | Construct of constructor_description
     | Constant of constant
+    | Interval of Interval_pattern.p
     | Tuple of string option list
     | Record of label_description list
     | Variant of
@@ -184,6 +190,7 @@ end = struct
     let deconstruct_desc = function
       | `Any -> Any, []
       | `Constant c -> Constant c, []
+      | `Interval p -> Interval p, []
       | `Tuple args ->
           Tuple (List.map fst args), (List.map snd args)
       | `Construct (_, c, args) ->
@@ -216,6 +223,7 @@ end = struct
     match t.pat_desc with
       | Any -> 0
       | Constant _ -> 0
+      | Interval _ -> 0
       | Construct c -> c.cstr_arity
       | Tuple l -> List.length l
       | Array (_, n) -> n
@@ -230,6 +238,7 @@ end = struct
       | Any -> Tpat_any
       | Lazy -> Tpat_lazy omega
       | Constant c -> Tpat_constant c
+      | Interval (Interval_pattern.Pack(ty,i)) -> Tpat_interval (ty,i)
       | Tuple lbls ->
           Tpat_tuple (List.map (fun lbl -> lbl, omega) lbls)
       | Array (am, n) -> Tpat_array (am, omegas n)

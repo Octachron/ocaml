@@ -159,6 +159,12 @@ let all_coherent column =
           | Const_float _
           | Const_string _), _ -> false
       end
+    | Interval (Pack(t1,_)), Constant c1 ->
+        Interval_pattern.eq_const t1 c1 <> None
+    | Constant c1, Interval (Pack(t1,_)) ->
+        Interval_pattern.eq_const t1 c1 <> None
+    | Interval (Pack(t1,_)), Interval (Pack(t2,_)) ->
+        Interval_pattern.eq t1 t2 <> None
     | Tuple l1, Tuple l2 -> l1 = l2
     | Record (lbl1 :: _), Record (lbl2 :: _) ->
       Array.length lbl1.lbl_all = Array.length lbl2.lbl_all
@@ -272,6 +278,12 @@ let const_compare x y =
     |Const_nativeint _
     ), _ -> Stdlib.compare x y
 
+let imem x (i:_ Interval_pattern.t) = i.lower <= x && x <= i.upper
+let const_mem (type a) x (ty:a Interval_pattern.ty) (i:a Interval_pattern.t) =
+  match Interval_pattern.eq_const ty x with
+  | Some x -> imem x i
+  | None -> false
+
 let records_args l1 l2 =
   (* Invariant: fields are already sorted by Typecore.type_label_a_list *)
   let rec combine r1 r2 l1 l2 = match l1,l2 with
@@ -316,6 +328,17 @@ module Compat
       l1=l2 && ocompat op1 op2
   | Tpat_constant c1, Tpat_constant c2 ->
       const_compare c1 c2 = 0
+  | Tpat_constant c, Tpat_interval (ty,i) ->
+      const_mem c ty i
+  | Tpat_interval (ty,i), Tpat_constant c ->
+      const_mem c ty i
+  | Tpat_interval (ty1,i1), Tpat_interval (ty2, i2) -> begin
+      match Interval_pattern.eq ty1 ty2 with
+      | None -> false
+      | Some Type.Equal ->
+          imem i1.lower i2 || imem i1.upper i2
+          || imem i2.lower i1 || imem i2.upper i1
+     end
   | Tpat_tuple labeled_ps, Tpat_tuple labeled_qs ->
       tuple_compat labeled_ps labeled_qs
   | Tpat_lazy p, Tpat_lazy q -> compat p q
@@ -419,7 +442,7 @@ let extract_fields lbls arg =
 let simple_match_args discr head args =
   let open Patterns.Head in
   match head.pat_desc with
-  | Constant _ -> []
+  | Constant _ | Interval _ -> []
   | Construct _
   | Variant _
   | Tuple _
@@ -436,7 +459,7 @@ let simple_match_args discr head args =
       | Tuple lbls -> omega_list lbls
       | Variant { has_arg = false }
       | Any
-      | Constant _ -> []
+      | Constant _ | Interval _ -> []
       end
 
 (* Consider a pattern matrix whose first column has been simplified to contain
@@ -551,7 +574,7 @@ let set_args q r = match q with
     make_pat
       (Tpat_array (am, args)) q.pat_type q.pat_env::
     rest
-| {pat_desc=Tpat_constant _|Tpat_any} ->
+| {pat_desc=Tpat_constant _ | Tpat_interval _ | Tpat_any} ->
     q::r (* case any is used in matching.ml *)
 | {pat_desc = (Tpat_var _ | Tpat_alias _ | Tpat_or _); _} ->
     fatal_error "Parmatch.set_args"
@@ -796,6 +819,16 @@ let full_match closing env =  match env with
           (row_fields row)
   | Constant Const_char _ ->
       List.length env = 256
+  | Interval (Pack(t,i)) -> begin
+      match t with
+      | Int -> i.lower = Int.min_int && i.upper = Int.max_int
+      | Char -> i.lower = '\000' && i.upper = '\255'
+      | Float -> false
+      | Int32 -> i.lower = Int32.min_int && i.upper = Int32.max_int
+      | Int64 -> i.lower = Int64.min_int && i.upper = Int64.max_int
+      | Nativeint -> i.lower = Nativeint.min_int && i.upper = Nativeint.max_int
+      | String -> false
+    end
   | Constant _
   | Array _ -> false
   | Tuple _
@@ -815,7 +848,8 @@ let should_extend ext env = match ext with
           let path = get_constructor_type_path p.pat_type p.pat_env in
           Path.same path ext
       | Construct {cstr_tag=(Cstr_extension _)} -> false
-      | Constant _ | Tuple _ | Variant _ | Record _ | Array _ | Lazy -> false
+      | Constant _ | Interval _ | Tuple _ | Variant _ | Record _ | Array _
+      | Lazy -> false
       | Any -> assert false
       end
 end
@@ -1066,7 +1100,8 @@ let build_other ext env =
 
 let rec has_instance p = match p.pat_desc with
   | Tpat_variant (l,_,r) when is_absent l r -> false
-  | Tpat_any | Tpat_var _ | Tpat_constant _ | Tpat_variant (_,None,_) -> true
+  | Tpat_any | Tpat_var _ | Tpat_constant _ | Tpat_interval _
+  | Tpat_variant (_,None,_) -> true
   | Tpat_alias (p,_,_,_,_) | Tpat_variant (_,Some p,_) -> has_instance p
   | Tpat_or (p1,p2,_) -> has_instance p1 || has_instance p2
   | Tpat_construct (_,_,ps,_) | Tpat_array (_, ps) ->
@@ -1962,7 +1997,8 @@ let rec collect_paths_from_pat r p = match p.pat_desc with
       collect_paths_from_pat
       (if extendable_path path then add_path path r else r)
       ps
-| Tpat_any|Tpat_var _|Tpat_constant _| Tpat_variant (_,None,_) -> r
+| Tpat_any|Tpat_var _|Tpat_constant _| Tpat_interval _
+| Tpat_variant (_,None,_) -> r
 | Tpat_tuple ps ->
     List.fold_left (fun r (_, p) -> collect_paths_from_pat r p) r ps
 | Tpat_array (_, ps) | Tpat_construct (_, {cstr_tag=Cstr_extension _}, ps, _)->
@@ -2102,6 +2138,7 @@ let inactive ~partial pat =
             | Const_int _ | Const_char _ | Const_float _
             | Const_int32 _ | Const_int64 _ | Const_nativeint _ -> true
           end
+        | Tpat_interval _ -> true
         | Tpat_tuple ps ->
             List.for_all (fun (_,p) -> loop p) ps
         | Tpat_construct (_, _, ps, _) | Tpat_array (Immutable, ps) ->

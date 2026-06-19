@@ -35,6 +35,21 @@ type attributes = attribute list
 
 (** {1 Core language} *)
 
+module Interval_pattern: sig
+  type 'a t = { lower:'a; upper:'a }
+  type 'a ty =
+    | Int: int ty
+    | Char: char ty
+    | String: string ty
+    | Float: float ty
+    | Int32: int32 ty
+    | Int64: int64 ty
+    | Nativeint: nativeint ty
+  type p = Pack: 'a ty * 'a t -> p
+  val eq: 'a ty -> 'b ty -> ('a,'b) Type.eq option
+  val eq_const: 'a ty -> constant -> 'a option
+end
+
 type value = Value_pattern
 type computation = Computation_pattern
 
@@ -129,7 +144,10 @@ and 'k pattern_desc =
   | Tpat_array : mutable_flag * value general_pattern list -> value pattern_desc
         (** [| P1; ...; Pn |] *)
   | Tpat_lazy : value general_pattern -> value pattern_desc
-        (** lazy P *)
+  (** lazy P *)
+  | Tpat_interval:
+      'a Interval_pattern.ty * 'a Interval_pattern.t -> value pattern_desc
+    (** 0 .. 10 *)
   (* computation patterns *)
   | Tpat_value : tpat_value_argument -> computation pattern_desc
         (** P
@@ -146,7 +164,8 @@ and 'k pattern_desc =
             below instead of using the [Tpat_value] constructor directly.
          *)
   | Tpat_exception : value general_pattern -> computation pattern_desc
-        (** exception P *)
+  (** exception P *)
+
   (* generic constructions *)
   | Tpat_or :
       'k general_pattern * 'k general_pattern * Types.row_desc option ->

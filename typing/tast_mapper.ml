@@ -309,7 +309,8 @@ let pat
   let pat_desc : k pattern_desc =
     match x.pat_desc with
     | Tpat_any
-    | Tpat_constant _ -> x.pat_desc
+    | Tpat_constant _
+    | Tpat_interval _ -> x.pat_desc
     | Tpat_var (id, s, uid) -> Tpat_var (id, map_loc sub s, uid)
     | Tpat_tuple l ->
         Tpat_tuple (List.map (fun (label, p) -> label, sub.pat sub p) l)

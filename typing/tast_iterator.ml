@@ -273,6 +273,7 @@ let pat
   | Tpat_any  -> ()
   | Tpat_var (_, s, _) -> iter_loc sub s
   | Tpat_constant _ -> ()
+  | Tpat_interval _ -> ()
   | Tpat_tuple l -> List.iter (fun (_, p) -> sub.pat sub p) l
   | Tpat_construct (lid, _, l, vto) ->
       iter_loc_lid sub lid;
