@@ -132,6 +132,12 @@ module type S =
   All these arguments specify a switch construct and zyva
   returns an action that performs the switch.
 *)
+
+module Interval: sig
+  type t = { low: int; high:int; act:int }
+  val point: ?act:int -> int -> t
+end
+
 module Make :
   functor (Arg : S) ->
     sig
@@ -140,14 +146,14 @@ module Make :
           Arg.loc ->
           (int * int) ->
            Arg.arg ->
-           (int * int * int) array ->
+           Interval.t array ->
            (Arg.act, _) t_store ->
            Arg.act
 
 (* Output test sequence, sharing tracked *)
      val test_sequence :
            Arg.arg ->
-           (int * int * int) array ->
+           Interval.t array ->
            (Arg.act, _) t_store ->
            Arg.act
     end

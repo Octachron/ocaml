@@ -1676,43 +1676,50 @@ module SwitcherBlocks = Switch.Make(SArgBlocks)
 (* Int switcher, arg in [low..high],
    cases is list of individual cases, and is sorted by first component *)
 
-let transl_int_switch dbg arg low high cases default = match cases with
-| [] -> assert false
-| _::_ ->
+type interval = Switch.interval = { low: int; high: int; act: int }
+let point = Switch.point
+
+let transl_int_switch dbg arg low high cases default =
+  let open Switch_interval in
+  match cases with
+  | [] -> assert false
+  | _::_ ->
     let store = StoreExp.mk_store () in
     assert (store.Switch.act_store () default = 0) ;
     let cases =
       List.map
         (fun (i,act) -> i,store.Switch.act_store () act)
         cases in
-    let rec inters plow phigh pact = function
+    let rec inters p = function
       | [] ->
-          if phigh = high then [plow,phigh,pact]
-          else [(plow,phigh,pact); (phigh+1,high,0) ]
+          if p.high = high then [p]
+          else [p; { low=p.high+1; high; act=0} ]
       | (i,act)::rem ->
-          if i = phigh+1 then
-            if pact = act then
-              inters plow i pact rem
+          if i = p.high+1 then
+            if p.act = act then
+              inters { p with high = i } rem
             else
-              (plow,phigh,pact)::inters i i act rem
+              p::inters (point i ~act) rem
           else (* insert default *)
-            if pact = 0 then
+            if p.act = 0 then
               if act = 0 then
-                inters plow i 0 rem
+                inters { p with high = i } rem
               else
-                (plow,i-1,pact)::
-                inters i i act rem
+                { p with high = i-1 }::
+                inters (point i ~act) rem
             else (* pact <> 0 *)
-              (plow,phigh,pact)::
+              p::
               begin
-                if act = 0 then inters (phigh+1) i 0 rem
-                else (phigh+1,i-1,0)::inters i i act rem
+                if act = 0 then inters { low=p.high+1; high=i; act=0} rem
+                else
+                  { low = p.high+1; high = i-1; act=0} ::
+                  inters (point i ~act) rem
               end in
     let inters = match cases with
     | [] -> assert false
     | (k0,act0)::rem ->
-        if k0 = low then inters k0 k0 act0 rem
-        else inters low (k0-1) 0 cases in
+        if k0 = low then inters (point k0 ~act:act0) rem
+        else inters { low; high=k0-1; act=0} cases in
     bind "switcher" arg
       (fun a ->
         SwitcherBlocks.zyva
@@ -1729,22 +1736,19 @@ let transl_switch_clambda loc arg index cases =
       (fun j -> store.Switch.act_store j cases.(j))
       index in
   let n_index = Array.length index in
+  let open Switch_interval in
   let inters = ref []
-  and this_high = ref (n_index-1)
-  and this_low = ref (n_index-1)
-  and this_act = ref index.(n_index-1) in
+  and this = ref (point (n_index -1) ~act:index.(n_index - 1) ) in
   for i = n_index-2 downto 0 do
     let act = index.(i) in
-    if act = !this_act then
-      decr this_low
+    if act = !this.act then
+      this := { !this with low = !this.low - 1 }
     else begin
-      inters := (!this_low, !this_high, !this_act) :: !inters ;
-      this_high := i ;
-      this_low := i ;
-      this_act := act
+      inters := !this :: !inters ;
+      this := point i ~act
     end
   done ;
-  inters := (0, !this_high, !this_act) :: !inters ;
+  inters := { !this with low = 0 } :: !inters ;
   match !inters with
   | [_] -> cases.(0)
   | inters ->

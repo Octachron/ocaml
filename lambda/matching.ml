@@ -2795,6 +2795,8 @@ let get_edges ~low ~high l =
   | [] -> (low, high)
   | (x, _) :: _ -> (x, last high l)
 
+open Switch.Interval
+
 let as_interval_canfail fail ~low ~high l =
   let store = StoreExp.mk_store () in
   let do_store _tag act =
@@ -2804,47 +2806,48 @@ let as_interval_canfail fail ~low ~high l =
     *)
     i
   in
-  let rec nofail_rec cur_low cur_high cur_act = function
+  let rec nofail_rec cur = function
     | [] ->
-        if cur_high = high then
-          [ (cur_low, cur_high, cur_act) ]
+        if cur.high = high then
+          [ cur ]
         else
-          [ (cur_low, cur_high, cur_act); (cur_high + 1, high, 0) ]
+          [ cur; { low = cur.high + 1; high; act= 0 } ]
     | (i, act_i) :: rem as all ->
         let act_index = do_store "NO" act_i in
-        if cur_high + 1 = i then
-          if act_index = cur_act then
-            nofail_rec cur_low i cur_act rem
+        if cur.high + 1 = i then
+          if act_index = cur.act then
+            nofail_rec { cur with high = i } rem
           else if act_index = 0 then
-            (cur_low, i - 1, cur_act) :: fail_rec i i rem
+            { cur with high = i - 1 } :: fail_rec i i rem
           else
-            (cur_low, i - 1, cur_act) :: nofail_rec i i act_index rem
+            { cur with high = i - 1 }
+            :: nofail_rec (point i ~act:act_index) rem
         else if act_index = 0 then
-          (cur_low, cur_high, cur_act)
-          :: fail_rec (cur_high + 1) (cur_high + 1) all
+          cur
+          :: fail_rec (cur.high + 1) (cur.high + 1) all
         else
-          (cur_low, cur_high, cur_act)
-          :: (cur_high + 1, i - 1, 0)
-          :: nofail_rec i i act_index rem
-  and fail_rec cur_low cur_high = function
-    | [] -> [ (cur_low, cur_high, 0) ]
+          cur
+          :: { low = cur.high + 1; high = i - 1; act=0}
+          :: nofail_rec (point ~act:act_index i) rem
+  and fail_rec low high = function
+    | [] -> [ {low; high; act =0 } ]
     | (i, act_i) :: rem ->
         let index = do_store "YES" act_i in
         if index = 0 then
-          fail_rec cur_low i rem
+          fail_rec low i rem
         else
-          (cur_low, i - 1, 0) :: nofail_rec i i index rem
+          { low; high=i - 1; act=0 } :: nofail_rec (point i ~act:index) rem
   in
   let init_rec = function
-    | [] -> [ (low, high, 0) ]
+    | [] -> [ {low; high; act=0} ]
     | (i, act_i) :: rem ->
         let index = do_store "INIT" act_i in
         if index = 0 then
           fail_rec low i rem
         else if low < i then
-          (low, i - 1, 0) :: nofail_rec i i index rem
+          {low; high=i - 1; act=0 } :: nofail_rec (point i ~act:index) rem
         else
-          nofail_rec i i index rem
+          nofail_rec (point i ~act:index) rem
   in
   assert (do_store "FAIL" fail = 0);
 
@@ -2860,14 +2863,14 @@ let as_interval_nofail l =
         false
     | (i, _) :: ((j, _) :: _ as rem) -> j > i + 1 || some_hole rem
   in
-  let rec i_rec cur_low cur_high cur_act = function
-    | [] -> [ (cur_low, cur_high, cur_act) ]
+  let rec i_rec cur = function
+    | [] -> [ cur ]
     | (i, act) :: rem ->
         let act_index = store.act_store () act in
-        if act_index = cur_act then
-          i_rec cur_low i cur_act rem
+        if act_index = cur.act then
+          i_rec { cur with high = i } rem
         else
-          (cur_low, cur_high, cur_act) :: i_rec i i act_index rem
+          cur :: i_rec (point i ~act:act_index) rem
   in
   let inters =
     match l with
@@ -2883,7 +2886,7 @@ let as_interval_nofail l =
             store.act_store () act
         in
         assert (act_index = 0);
-        i_rec i i act_index rem
+        i_rec (point i ~act:act_index) rem
     | _ -> assert false
   in
   (Array.of_list inters, store)

@@ -136,6 +136,18 @@ sig
   val make_exit : int -> act
 end
 
+(** Interval type *)
+
+(** A representation of switches over intervals rather than discrete
+    values:
+    - [low] is the lowest input value of the interval
+    - [high] is the highest input value
+    - [act] is an index into an [action] store.*)
+module Interval = struct
+  type t = { low: int; high:int; act:int }
+  let point ?(act=0) i = { low = i; high=i; act }
+end
+
 (* The module will ``produce good code for the case statement''
 
   Adaptation of
@@ -212,16 +224,14 @@ module Make (Arg : S) =
 struct
 
   (* A representation of switches over intervals rather than discrete
-     values the [cases] array stores triples [(low, high, act)], where
-     [low] is the lowest input value of the interval, [high] is the
-     highest input value, and [act] is an index into the [actions]
-     array.
+     values the [cases] array stores {!interval} with action index
+     mapping over the [actions] array
 
      (There can be substantially less actions than intervals if many
      actions are shared.)
   *)
   type 'a inter = {
-    cases : (int * int * int) array ;
+    cases : Interval.t array ;
     actions : 'a array
   }
 
@@ -247,16 +257,10 @@ let pcases chan cases =
 let prerr_inter i = Printf.fprintf stderr
         "cases=%a" pcases i.cases
 *)
-
-  let get_act cases i =
-    let _,_,r = cases.(i) in
-    r
-  and get_low cases i =
-    let r,_,_ = cases.(i) in
-    r
-  and get_high cases i =
-    let _,r,_ = cases.(i) in
-    r
+  open Interval
+  let get_act cases i = cases.(i).act
+  and get_low cases i = cases.(i).low
+  and get_high cases i = cases.(i).high
 
   (* a "cost" as a number of tests in the worst case;
      [n] is the total number of tests
@@ -319,7 +323,7 @@ let pret chan = function
 *)
 
   let coupe cases i =
-    let l,_,_ = cases.(i) in
+    let l = cases.(i).low in
     l,
     Array.sub cases 0 i,
     Array.sub cases i (Array.length cases-i)
@@ -332,47 +336,47 @@ let pret chan = function
     | 0,_ -> c2
     | _,0 -> c1
     | _,_ ->
-        let l1,h1,act1 = c1.(Array.length c1-1)
-        and l2,h2,act2 = c2.(0) in
-        if act1 = act2 then
+        let i1 = c1.(Array.length c1-1)
+        and i2 = c2.(0) in
+        if i1.act = i2.act then
           let r = Array.make (len1+len2-1) c1.(0) in
           for i = 0 to len1-2 do
             r.(i) <- c1.(i)
           done ;
           let l =
-            if len1 < 2 then l1
+            if len1 < 2 then i1.low
             else begin (* 0 <= len1 - 2 < len1 *)
-              let _,h,_ = r.(len1-2) in
-              min (h + 1) l1
+              let h = r.(len1-2).high in
+              min (h + 1) i1.low
             end
           and h =
-            if len2 < 2 then h2
+            if len2 < 2 then i2.high
             else begin (* 0 <= 1 < len2 *)
-              let l,_,_ = c2.(1) in
-              max h2 (l - 1)
+              let l = c2.(1).low in
+              max i2.high (l - 1)
             end
           in
-          r.(len1-1) <- (l,h,act1) ;
+          r.(len1-1) <- { low = l; high=h; act = i1.act } ;
           for i=1 to len2-1  do
             r.(len1-1+i) <- c2.(i)
           done ;
           r
-        else if h1 > l1 then
+        else if i1.high > i1.low then
           let r = Array.make (len1+len2) c1.(0) in
           for i = 0 to len1-2 do
             r.(i) <- c1.(i)
           done ;
-          r.(len1-1) <- (l1,l2-1,act1) ;
+          r.(len1-1) <- { i1 with high = i2.low - 1 } ;
           for i=0 to len2-1  do
             r.(len1+i) <- c2.(i)
           done ;
           r
-        else if h2 > l2 then
+        else if i2.high > i2.low then
           let r = Array.make (len1+len2) c1.(0) in
           for i = 0 to len1-1 do
             r.(i) <- c1.(i)
           done ;
-          r.(len1) <- (h1+1,h2,act2) ;
+          r.(len1) <- { i2 with low = i1.high+1 } ;
           for i=1 to len2-1  do
             r.(len1+i) <- c2.(i)
           done ;
@@ -383,8 +387,8 @@ let pret chan = function
 
   let coupe_inter i j cases =
     let lcases = Array.length cases in
-    let low,_,_ = cases.(i)
-    and _,high,_ = cases.(j) in
+    let low = cases.(i).low
+    and high = cases.(j).high in
     low,high,
     Array.sub cases i (j-i+1),
     case_append (Array.sub cases 0 i) (Array.sub cases (j+1) (lcases-(j+1)))
@@ -421,24 +425,24 @@ let rec pkey chan  = function
           else
             got_it act rem in
 
-    let make_one l h act =
-      if l=h then
-        Kvalue (got_it act !seen)
+    let make_one i =
+      if i.low=i.high then
+        Kvalue (got_it i.act !seen)
       else
-        Kinter (got_it act !seen) in
+        Kinter (got_it i.act !seen) in
 
     let rec make_rec i pl =
       if i < 0 then
         []
       else
-        let l,h,act = cases.(i) in
-        if pl = h+1 then
-          make_one l h act::make_rec (i-1) l
+        let ci = cases.(i) in
+        if pl = ci.high+1 then
+          make_one ci::make_rec (i-1) ci.low
         else
-          Kempty::make_one l h act::make_rec (i-1) l in
+          Kempty::make_one ci::make_rec (i-1) ci.low in
 
-    let l,h,act = cases.(Array.length cases-1) in
-    make_one l h act::make_rec (Array.length cases-2) l
+    let last = cases.(Array.length cases-1) in
+    make_one last::make_rec (Array.length cases-2) last.low
 
 
   let same_act t =
@@ -519,8 +523,8 @@ let rec pkey chan  = function
 
     and inter,cinter =
       if !ok_inter then begin
-        let _,_,act0 = cases.(0)
-        and _,_,act1 = cases.(lcases-1) in
+        let act0 = cases.(0).act
+        and act1 = cases.(lcases-1).act in
         if act0 = act1 then begin
           let low, high, inside, outside = coupe_inter 1 (lcases-2) cases in
           let _,(cmi,cinside) = opt_count inside
@@ -817,9 +821,9 @@ let rec pkey chan  = function
   (* Particular case 0, 1, 2. *)
   let particular_case cases i j =
     j-i = 2 &&
-    (let l1,_h1,act1 = cases.(i)
-     and  l2,_h2,_act2 = cases.(i+1)
-     and  l3,h3,act3 = cases.(i+2) in
+    (let {low=l1; act=act1; _ } = cases.(i)
+     and {low=l2; _ } = cases.(i+1)
+     and {low=l3; high=h3; act = act3} = cases.(i+2) in
      l1+1=l2 && l2+1=l3 && l3=h3 &&
      act1 <> act3)
 
@@ -840,8 +844,8 @@ let rec pkey chan  = function
   let dense {cases} i j =
     if i=j then true
     else
-      let l,_,_ = cases.(i)
-      and _,h,_ = cases.(j) in
+      let l = cases.(i).low
+      and h = cases.(j).high in
       let ntests = approx_count cases i j in
 (*
   (ntests+1) >= theta * (h-l+1)
@@ -878,8 +882,8 @@ let rec pkey chan  = function
      (which will typically use a jump table) *)
   let make_switch loc {cases=cases ; actions=actions} i j =
     (* Assume j > i *)
-    let ll,_,_ = cases.(i)
-    and _,hh,_ = cases.(j) in
+    let ll = cases.(i).low
+    and hh = cases.(j).high in
     let tbl = Array.make (hh-ll+1) 0
     and t = Hashtbl.create 17
     and index = ref 0 in
@@ -894,9 +898,9 @@ let rec pkey chan  = function
           i in
 
     for k=i to j do
-      let l,h,act = cases.(k) in
+      let {low;high;act} = cases.(k) in
       let index = get_index act in
-      for kk=l-ll to h-ll do
+      for kk=low-ll to high-ll do
         tbl.(kk) <- index
       done
     done ;
@@ -915,7 +919,7 @@ let rec pkey chan  = function
   (* Generate code from a clustering choice. *)
   let make_clusters loc ({cases=cases ; actions=actions} as s) n_clusters k =
     let len = Array.length cases in
-    let r = Array.make n_clusters (0,0,0)
+    let r = Array.make n_clusters (point 0)
     and t = Hashtbl.create 17
     and index = ref 0
     and bidon = ref (Array.length actions) in
@@ -941,12 +945,12 @@ let rec pkey chan  = function
     let rec zyva j ir =
       let i = k.(j) in
       begin if i=j then
-          let l,h,act = cases.(i) in
-          r.(ir) <- (l,h,get_index act)
+          let ci = cases.(i) in
+          r.(ir) <- { ci with act = get_index ci.act }
         else (* assert i < j *)
-          let l,_,_ = cases.(i)
-          and _,h,_ = cases.(j) in
-          r.(ir) <- (l,h,add_index (make_switch loc s i j))
+          let low = cases.(i).low
+          and high = cases.(j).high in
+          r.(ir) <- { low; high; act=add_index (make_switch loc s i j) }
       end ;
       if i > 0 then zyva (i-1) (ir-1) in
 
