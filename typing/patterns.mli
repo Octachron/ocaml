@@ -41,8 +41,6 @@ module Simple : sig
   type view = [
     | `Any
     | `Constant of constant
-    | `Interval of Interval_pattern.p
-    | `Interval of Interval_pattern.p
     | `Tuple of (string option * pattern) list
     | `Construct of
         Longident.t loc * constructor_description * pattern list
@@ -52,14 +50,15 @@ module Simple : sig
     | `Array of mutable_flag * pattern list
     | `Lazy of pattern
   ]
-  type pattern = view pattern_data
+  type complete_view = [ view | `Interval of Interval_pattern.p ]
+  type pattern = complete_view pattern_data
 
-  val omega : [> view ] pattern_data
+  val omega : [> complete_view ] pattern_data
 end
 
 module Half_simple : sig
   type view = [
-    | Simple.view
+    | Simple.complete_view
     | `Or of pattern * pattern * row_desc option
   ]
   type pattern = view pattern_data

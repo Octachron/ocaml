@@ -56,6 +56,10 @@ module Interval_pattern = struct
     | Char, Const_char x -> Some x
     | Float, Const_float f -> Some (float_of_string f)
     | _ -> None
+  let equal (Pack(ty1,i1)) (Pack(ty2,i2)) =
+    match eq ty1 ty2 with
+    | Some Type.Equal -> i1 = i2
+    | None -> false
 end
 
 type value = Value_pattern

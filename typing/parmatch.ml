@@ -412,6 +412,11 @@ let simple_match d h =
   | Variant { tag = t1; _ }, Variant { tag = t2 } ->
       t1 = t2
   | Constant c1, Constant c2 -> const_compare c1 c2 = 0
+  | Interval (Pack(ty1,i1)), Interval (Pack(ty2,i2)) ->
+      begin match Interval_pattern.eq ty1 ty2 with
+      | Some Type.Equal -> i1 = i2
+      | None -> false
+      end
   | Lazy, Lazy -> true
   | Record _, Record _ -> true
   | Tuple lbls1, Tuple lbls2 -> lbls1 = lbls2
@@ -604,7 +609,7 @@ let simplify_head_pat ~add_column p ps k =
   let rec simplify_head_pat p ps k =
     match Patterns.General.(view p |> strip_vars).pat_desc with
     | `Or (p1,p2,_) -> simplify_head_pat p1 ps (simplify_head_pat p2 ps k)
-    | #Patterns.Simple.view as view ->
+    | #Patterns.Simple.complete_view as view ->
        add_column (Patterns.Head.deconstruct { p with pat_desc = view }) ps k
   in simplify_head_pat p ps k
 
@@ -1166,7 +1171,7 @@ let rec satisfiable pss qs = match pss with
                 constrs
           end
        | `Variant (l,_,r) when is_absent l r -> false
-       | #Patterns.Simple.view as view ->
+       | #Patterns.Simple.complete_view as view ->
           let q = { q with pat_desc = view } in
           let pss = simplify_first_col pss in
           let hq, qargs = Patterns.Head.deconstruct q in
@@ -1241,7 +1246,7 @@ let rec list_satisfying_vectors pss qs =
                   end
           end
       | `Variant (l, _, r) when is_absent l r -> []
-      | #Patterns.Simple.view as view ->
+      | #Patterns.Simple.complete_view as view ->
           let q = { q with pat_desc = view } in
           let hq, qargs = Patterns.Head.deconstruct q in
           let pss = simplify_first_col pss in
@@ -1280,7 +1285,7 @@ let rec do_match pss qs = match qs with
         | _ -> []
       in
       do_match (remove_first_column pss) qs
-  | #Patterns.Simple.view as view ->
+  | #Patterns.Simple.complete_view as view ->
       let q = { q with pat_desc = view } in
       let q0, qargs = Patterns.Head.deconstruct q in
       let pss = simplify_first_col pss in
@@ -1681,7 +1686,7 @@ let rec every_satisfiables pss qs = match qs.active with
           every_satisfiables (push_or_column pss) (push_or qs)
     | `Variant (l,_,r) when is_absent l r -> (* Ah Jacques... *)
         Unused
-    | #Patterns.Simple.view as view ->
+    | #Patterns.Simple.complete_view as view ->
         let q = { q with pat_desc = view } in
         (* standard case, filter matrix *)
         let pss = simplify_first_usefulness_col pss in
@@ -1742,6 +1747,13 @@ let rec le_pat p q =
   | Tpat_alias(p,_,_,_,_), _ -> le_pat p q
   | _, Tpat_alias(q,_,_,_,_) -> le_pat p q
   | Tpat_constant(c1), Tpat_constant(c2) -> const_compare c1 c2 = 0
+  | Tpat_interval (ty,i), Tpat_constant c1 ->
+      const_mem c1 ty i
+  | Tpat_interval (ty1, i1), Tpat_interval (ty2, i2) ->
+      begin match Interval_pattern.eq ty1 ty2 with
+      | Some Type.Equal -> imem i2.lower i1 && i2.upper <= i1.upper
+      | _ -> false
+      end
   | Tpat_construct(_,c1,ps,_), Tpat_construct(_,c2,qs,_) ->
       Data_types.equal_constr c1 c2 && le_pats ps qs
   | Tpat_variant(l1,Some p1,_), Tpat_variant(l2,Some p2,_) ->
@@ -2269,7 +2281,7 @@ let simplify_head_amb_pat head_bound_variables varsets ~add_column p ps k =
     | `Or (p1,p2,_) ->
       simpl head_bound_variables varsets p1 ps
         (simpl head_bound_variables varsets p2 ps k)
-    | #Patterns.Simple.view as view ->
+    | #Patterns.Simple.complete_view as view ->
       add_column (Patterns.Head.deconstruct { p with pat_desc = view })
         { row = ps; varsets = head_bound_variables :: varsets; } k
   in simpl head_bound_variables varsets p ps k

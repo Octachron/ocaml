@@ -46,6 +46,7 @@ module Interval_pattern: sig
     | Int64: int64 ty
     | Nativeint: nativeint ty
   type p = Pack: 'a ty * 'a t -> p
+  val equal: p -> p -> bool
   val eq: 'a ty -> 'b ty -> ('a,'b) Type.eq option
   val eq_const: 'a ty -> constant -> 'a option
 end

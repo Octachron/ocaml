@@ -53,7 +53,6 @@ module Simple = struct
   type view = [
     | `Any
     | `Constant of constant
-    | `Interval of Interval_pattern.p
     | `Tuple of (string option * pattern) list
     | `Construct of
         Longident.t loc * constructor_description * pattern list
@@ -64,14 +63,15 @@ module Simple = struct
     | `Lazy of pattern
   ]
 
-  type pattern = view pattern_data
+  type complete_view = [ view | `Interval of Interval_pattern.p ]
+  type pattern = complete_view pattern_data
 
   let omega = { omega with pat_desc = `Any }
 end
 
 module Half_simple = struct
   type view = [
-    | Simple.view
+    | Simple.complete_view
     | `Or of pattern * pattern * row_desc option
   ]
 

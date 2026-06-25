@@ -262,6 +262,121 @@ end
 
 exception Cannot_flatten
 
+module Interval_map: sig
+  type m
+  val empty: m
+  val add: Interval_pattern.p -> m -> m
+  val add_constant:  Asttypes.constant -> m -> m
+  val split: m -> Interval_pattern.p -> Patterns.Simple.complete_view list
+end = struct
+  open Interval_pattern
+  type m =
+    | M: 'a ty * 'a t list -> m
+    | Empty: m
+  let empty = Empty
+
+  let intersection i n =
+    if i.lower = n.lower then
+      if i.upper = n.upper then
+        [ i ]
+      else if i.upper < n.upper then
+        [ i; { n with lower = i.upper } ]
+      else
+        [ n; { i with lower = n.upper } ]
+    else if i.lower < n.lower then
+      if i.upper = n.upper then
+        [ { i with upper = n.lower }; n ]
+      else if i.upper < n.upper then
+        [ { i with upper = n.lower };
+          { n with upper = i.upper };
+          { n with lower = i.upper }
+        ]
+      else [
+        { i with upper = n.lower };
+        n;
+        { i with lower = n.upper }
+      ]
+    else if i.upper = n.upper then [
+      { n with upper = i.lower };
+      i
+    ]
+    else if i.upper < n.upper then [
+      { n with upper = i.lower };
+      { i with upper = n.upper };
+      { n with lower = i.upper }
+    ]
+    else [
+      { n with upper = i.lower };
+      { n with lower = i.lower };
+      { i with lower = n.upper }
+    ]
+
+  type cmp =
+    | Earlier
+    | Sim
+    | Later
+
+  let compare i n =
+    if i.lower >= n.upper then
+      Later
+    else if i.upper <= n.lower then
+      Earlier
+    else Sim
+
+  let rec insert i = function
+    | [] -> [i]
+    | n :: rest -> match compare i n with
+      | Later -> n :: insert i rest
+      | Earlier -> i :: n :: rest
+      | Sim -> intersection i n @ rest
+
+  let add (Pack(ty,x)) pm = match pm with
+    | Empty -> M(ty,[x])
+    | M(tym,m) as pm ->
+        match eq ty tym with
+        | Some Type.Equal ->
+            M (tym, insert x m)
+        | None -> pm
+
+  let rec disjoint l i = match l with
+    | [] -> [i]
+    | n :: rest ->
+        if n.lower = i.lower then
+          n :: collect i rest
+        else disjoint rest i
+  and collect i = function
+    | [] -> []
+    | n :: rest ->
+        if n.upper <= i.upper then
+          n :: collect i rest
+        else []
+
+  let split m i = match m with
+    | Empty -> [`Interval i]
+    | M(ty,l) ->
+        let Pack(typ,x) = i in
+        match eq ty typ with
+        | None -> [`Interval i]
+        | Some Type.Equal ->
+            let pat i = `Interval (Pack(typ,i)) in
+            List.map pat (disjoint l x)
+
+
+  let constant_to_interval: Asttypes.constant -> _ = function
+    | Const_int lower -> Pack(Int, { lower; upper = Int.succ lower})
+    | Const_int32 lower -> Pack(Int32, { lower; upper = Int32.succ lower})
+    | Const_int64 lower -> Pack(Int64, { lower; upper = Int64.succ lower})
+    | Const_float lower ->
+        let lower = float_of_string lower in
+        Pack(Float, { lower; upper = lower})
+    | Const_nativeint lower -> Pack(Nativeint, { lower; upper = Nativeint.succ lower})
+    | Const_char lower ->  Pack(Char, { lower; upper = lower})
+    | Const_string (lower,_,_) -> Pack(String, { lower; upper= lower })
+
+  let add_constant c m = add (constant_to_interval c) m
+
+end
+
 module Simple : sig
   include module type of Patterns.Simple
 
@@ -269,18 +384,39 @@ module Simple : sig
 
   val head : pattern -> Patterns.Head.t
 
+  val disjoint_map: Interval_map.m -> Typedtree.pattern -> Interval_map.m
+
   val explode_or_pat :
+    interval_map:Interval_map.m ->
     arg:lambda ->
     Half_simple.pattern ->
     mk_action:(vars:Ident.t list -> lambda) ->
     patbound_action_vars:Ident.t list ->
     (pattern * lambda) list
+
+
 end = struct
   include Patterns.Simple
 
   type nonrec clause = pattern Non_empty_row.t clause
 
   let head p = fst (Patterns.Head.deconstruct p)
+
+  let rec disjoint_map map p =
+    let p = General.view p in
+    match p.pat_desc with
+    | `Any | `Var _ | `Variant (_,None,_) -> map
+    | `Constant c -> Interval_map.add_constant c map
+    | `Interval i -> Interval_map.add i map
+    | `Tuple ps ->
+        List.fold_left (fun map (_,p) -> disjoint_map map p) map ps
+    | `Array (_,ps) | `Construct (_,_,ps) ->
+        List.fold_left disjoint_map map ps
+    | `Record (fields, _ ) ->
+        List.fold_left (fun map (_,_,p) -> disjoint_map map p) map fields
+    | `Variant (_,Some p,_) | `Lazy p | `Alias (p,_,_,_,_) -> disjoint_map map p
+    | `Or (p1,p2,_) ->
+        disjoint_map (disjoint_map map p1) p2
 
   let alpha env (p : pattern) : pattern =
     let alpha_pat env p = Typedtree.alpha_pat env p in
@@ -327,7 +463,53 @@ end = struct
      compiling in [do_for_multiple_match] where it is a tuple of
      variables.
   *)
-  let explode_or_pat ~arg (p : Half_simple.pattern)
+
+  (* We are doing two things here:
+     - we freshen the variables of the pattern, to
+       avoid reusing the same identifier in distinct exploded
+       branches
+     - we bind the variables in [aliases] to the argument [arg]
+       (the other variables are bound by [view]); to avoid
+       code duplication if [arg] is itself not a variable, we
+       generate a binding for it, but only if the binding is
+       needed.
+
+     We are careful to avoid binding [arg] if not needed due
+     to the {!do_for_multiple_match} usage, which tries to
+     compile a tuple pattern [match e1, .. en with ...]
+     without allocating the tuple [(e1, .., en)].
+  *)
+  let fresh_clause ~mk_action ~aliases ~arg patbound_action_vars p view =
+    let rec fresh_clause arg_id action_vars renaming_env = function
+      | [] ->
+          let fresh_pat = alpha renaming_env { p with pat_desc = view } in
+          let fresh_action = mk_action ~vars:(List.rev action_vars) in
+          (fresh_pat, fresh_action)
+      | pat_id :: rem_vars ->
+          if not (List.mem pat_id aliases) then begin
+            let fresh_id = Ident.rename pat_id in
+            let action_vars = fresh_id :: action_vars in
+            let renaming_env = ((pat_id, fresh_id) :: renaming_env) in
+            fresh_clause arg_id action_vars renaming_env rem_vars
+          end else begin match arg_id, arg with
+            | Some id, _
+            | None, Lvar id ->
+                let action_vars = id :: action_vars in
+                fresh_clause arg_id action_vars renaming_env rem_vars
+            | None, _ ->
+                (* [pat_id] is a name used locally to refer to the argument,
+                   so it makes sense to reuse it (refreshed) *)
+                let id = Ident.rename pat_id in
+                let action_vars = (id :: action_vars) in
+                let pat, action =
+                  fresh_clause (Some id) action_vars renaming_env rem_vars
+                in
+                pat, bind_alias pat id ~arg ~action
+          end
+    in
+    fresh_clause None [] [] patbound_action_vars
+
+  let explode_or_pat ~interval_map ~arg (p : Half_simple.pattern)
         ~mk_action ~patbound_action_vars
     : (pattern * lambda) list =
     let rec explode p aliases rem =
@@ -341,52 +523,15 @@ end = struct
             { p with pat_desc =
                        `Alias (Patterns.omega, id, str, uid, p.pat_type) }
             aliases rem
+      | `Interval i ->
+          let views = Interval_map.split interval_map i in
+          List.map (fresh_clause ~mk_action ~aliases ~arg patbound_action_vars p) views
+          @ rem
       | #view as view ->
-          (* We are doing two things here:
-             - we freshen the variables of the pattern, to
-               avoid reusing the same identifier in distinct exploded
-               branches
-             - we bind the variables in [aliases] to the argument [arg]
-               (the other variables are bound by [view]); to avoid
-               code duplication if [arg] is itself not a variable, we
-               generate a binding for it, but only if the binding is
-               needed.
-
-             We are careful to avoid binding [arg] if not needed due
-             to the {!do_for_multiple_match} usage, which tries to
-             compile a tuple pattern [match e1, .. en with ...]
-             without allocating the tuple [(e1, .., en)].
-          *)
-          let rec fresh_clause arg_id action_vars renaming_env = function
-            | [] ->
-                let fresh_pat = alpha renaming_env { p with pat_desc = view } in
-                let fresh_action = mk_action ~vars:(List.rev action_vars) in
-                (fresh_pat, fresh_action)
-            | pat_id :: rem_vars ->
-              if not (List.mem pat_id aliases) then begin
-                let fresh_id = Ident.rename pat_id in
-                let action_vars = fresh_id :: action_vars in
-                let renaming_env = ((pat_id, fresh_id) :: renaming_env) in
-                fresh_clause arg_id action_vars renaming_env rem_vars
-              end else begin match arg_id, arg with
-                | Some id, _
-                | None, Lvar id ->
-                  let action_vars = id :: action_vars in
-                  fresh_clause arg_id action_vars renaming_env rem_vars
-                | None, _ ->
-                  (* [pat_id] is a name used locally to refer to the argument,
-                     so it makes sense to reuse it (refreshed) *)
-                  let id = Ident.rename pat_id in
-                  let action_vars = (id :: action_vars) in
-                  let pat, action =
-                    fresh_clause (Some id) action_vars renaming_env rem_vars
-                  in
-                  pat, bind_alias pat id ~arg ~action
-              end
-          in
-          fresh_clause None [] [] patbound_action_vars :: rem
+          fresh_clause ~mk_action ~aliases ~arg patbound_action_vars p view :: rem
     in
     explode (p : Half_simple.pattern :> General.pattern) [] []
+
 end
 
 let expand_record_simple : Simple.pattern -> Simple.pattern =
@@ -627,7 +772,7 @@ end = struct
               filter_rec ((left, p1, right) :: (left, p2, right) :: rem)
           | `Alias (p, _, _, _, _) -> filter_rec ((left, p, right) :: rem)
           | `Var _ -> filter_rec ((left, Patterns.omega, right) :: rem)
-          | #Simple.view as view -> (
+          | #Simple.complete_view as view -> (
               let p = { p with pat_desc = view } in
               match matcher head p right with
               | exception NoMatch -> filter_rec rem
@@ -770,7 +915,7 @@ end = struct
           | `Alias (p, _, _, _, _) -> filter_rec ((p, ps) :: rem)
           | `Var _ -> filter_rec ((Patterns.omega, ps) :: rem)
           | `Or (p1, p2, _) -> filter_rec_or p1 p2 ps rem
-          | #Simple.view as view -> (
+          | #Simple.complete_view as view -> (
               let p = { p with pat_desc = view } in
               match matcher p ps with
               | exception NoMatch -> filter_rec rem
@@ -1832,6 +1977,10 @@ and precompile_or (cls : Simple.clause list) ors args def k =
      the or-patterns is done in [Simple.explode_or_pat] -- it turns
      half-simple clauses into simple clauses.
   *)
+  let interval_map =
+    List.fold_left (fun m ((p,_),_) -> Simple.disjoint_map m (General.erase p))
+      Interval_map.empty cls
+  in
   let rec do_cases = function
     | [] -> ([], [])
     | ((p, patl), action) :: rem -> (
@@ -1840,7 +1989,7 @@ and precompile_or (cls : Simple.clause list) ors args def k =
             let new_ord, new_to_catch = do_cases rem in
             ( (({ p with pat_desc = view }, patl), action) :: new_ord,
               new_to_catch )
-        | `Or _ ->
+        | `Or _ | `Interval _->
             let orp = General.erase p in
             let others, rem = extract_equiv_head orp rem in
             let orpm =
@@ -1853,8 +2002,8 @@ and precompile_or (cls : Simple.clause list) ors args def k =
             in
             let pm_fv = pm_free_variables orpm in
             let patbound_action_vars =
-              (* variables bound in the or-pattern
-                 that are used in the orpm actions *)
+              (* variables bound in the composite pattern
+                 that are used in the pm actions *)
               Typedtree.pat_bound_idents_full orp
               |> List.filter (fun (id, _, _, _) -> Ident.Set.mem id pm_fv)
               |> List.map (fun (id, _, ty, _) ->
@@ -1867,10 +2016,14 @@ and precompile_or (cls : Simple.clause list) ors args def k =
             in
             let new_cases =
               let arg = arg_of_pure args.first.arg in
-              Simple.explode_or_pat ~arg p
-                ~mk_action:mk_new_action
-                ~patbound_action_vars:(List.map fst patbound_action_vars)
-              |> List.map (fun (p, act) -> ((p, new_patl), act)) in
+              let cases =
+                Simple.explode_or_pat ~arg p
+                  ~interval_map
+                  ~mk_action:mk_new_action
+                  ~patbound_action_vars:(List.map fst patbound_action_vars)
+              in
+              List.map (fun (p, act) -> ((p, new_patl), act)) cases
+            in
             let handler =
               { provenance = [ [ orp ] ];
                 exit = or_num;
@@ -2051,6 +2204,20 @@ let divide_constant ctx m =
     get_expr_args_constant
     (fun c d -> const_compare c d = 0)
     (get_key_constant "divide")
+    get_pat_args_constant ctx m
+
+let get_key_interval caller = function
+  | { pat_desc = Tpat_interval (ty,i) } -> Interval_pattern.Pack (ty,i)
+  | p ->
+      fatal_errorf "BAD(%s): %a"
+        caller
+        pretty_pat p
+
+let divide_interval ctx m =
+  divide
+    get_expr_args_constant
+    (fun i i2 -> Interval_pattern.equal i i2)
+    (get_key_interval "divide")
     get_pat_args_constant ctx m
 
 (* Matching against a constructor *)
@@ -3195,6 +3362,66 @@ let combine_constant loc arg cst partial ctx def
   in
   (lambda1, Jumps.union local_jumps total)
 
+let combine_interval(type a)  loc arg (ty: a Interval_pattern.ty) partial ctx def
+    (interval_lambda_list, total, _pats) =
+  let fail, local_jumps = mk_failaction_neg partial ctx def in
+  let lambda1 =
+    match ty with
+    | Int ->
+        let int_lambda_list =
+          List.map
+            (function
+              | Asttypes.Const_int n, l -> (n, l)
+              | _ -> assert false)
+            const_lambda_list
+        in
+        call_switcher loc fail arg int_lambda_list
+    | Const_char _ ->
+        let int_lambda_list =
+          List.map
+            (function
+              | Asttypes.Const_char c, l -> (Char.code c, l)
+              | _ -> assert false)
+            const_lambda_list
+        in
+        call_switcher loc fail arg ~low:0 ~high:255 int_lambda_list
+    | Const_string _ ->
+        (* Note as the bytecode compiler may resort to dichotomic search,
+   the clauses of stringswitch  are sorted with duplicates removed.
+   This partly applies to the native code compiler, which requires
+   no duplicates *)
+        let const_lambda_list = sort_lambda_list const_lambda_list in
+        let sw =
+          List.map
+            (fun (c, act) ->
+              match c with
+              | Const_string (s, _, _) -> (s, act)
+              | _ -> assert false)
+            const_lambda_list
+        in
+        let hs, sw, fail = share_actions_tree sw fail in
+        hs (Lstringswitch (arg, sw, fail, loc))
+    | Const_float _ ->
+        make_test_sequence loc fail (Pfloatcomp CFneq) (Pfloatcomp CFlt) arg
+          const_lambda_list
+    | Const_int32 _ ->
+        make_test_sequence loc fail
+          (Pbintcomp (Pint32, Cne))
+          (Pbintcomp (Pint32, Clt))
+          arg const_lambda_list
+    | Const_int64 _ ->
+        make_test_sequence loc fail
+          (Pbintcomp (Pint64, Cne))
+          (Pbintcomp (Pint64, Clt))
+          arg const_lambda_list
+    | Const_nativeint _ ->
+        make_test_sequence loc fail
+          (Pbintcomp (Pnativeint, Cne))
+          (Pbintcomp (Pnativeint, Clt))
+          arg const_lambda_list
+  in
+  (lambda1, Jumps.union local_jumps total)
+
 let split_cases tag_lambda_list =
   let rec split_rec = function
     | [] -> ([], [])
@@ -3980,7 +4207,10 @@ and do_compile_matching ~scopes repr partial ctx pmh =
           compile_test
             divide_constant
             (combine_constant ploc arg cst arg_partial)
-      | Interval _i -> Fun.todo ()
+      | Interval _i ->
+          compile_test
+            divide_interval
+            (fun _ -> Fun.todo ())
       | Construct cstr ->
           compile_test
             (divide_constructor ~scopes)
