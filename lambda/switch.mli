@@ -63,6 +63,7 @@ module Store(A:Stored) :
 (* Arguments to the Make functor *)
 module type S =
   sig
+    type elt
     (* type of basic tests *)
     type primitive
     (* basic tests themselves *)
@@ -90,10 +91,10 @@ module type S =
        the binding and the result of the call. *)
     val bind : arg -> (arg -> act) -> act
     (* [make_const n] generates a term for the integer constant [n] *)
-    val make_const : int -> arg
-    (* [make_offset arg n] generates a term for adding the constant
+    val make_const : elt -> arg
+    (* [make_offset arg n] generates a term for substracting the constant
        integer [n] to the term [arg] *)
-    val make_offset : arg -> int -> arg
+    val make_negative_offset : arg -> elt -> arg
     (* [make_prim p args] generates a test using the primitive operation [p]
        applied to arguments [args] *)
     val make_prim : primitive -> arg list -> test
@@ -134,26 +135,45 @@ module type S =
 *)
 
 module Interval: sig
-  type t = { low: int; high:int; act:int }
-  val point: ?act:int -> int -> t
+  type 'a t = { low: 'a; high:'a; act:int }
+  val point: ?act:int -> 'a -> 'a t
+
+  module type Edge =  sig
+    type t
+    val zero: t
+    val is_zero: t -> bool
+    val diff: t -> t -> int
+    val compare: t -> t -> int
+    val succ: t -> t
+    val pred: t -> t
+    val add: t -> t -> t
+    val sub: t -> t -> t
+    val min: t -> t -> t
+    val max: t -> t -> t
+    val min_int: t
+    val max_int: t
+    val half_max:t -> bool
+    val float: t -> float
+  end
+
 end
 
 module Make :
-  functor (Arg : S) ->
+  functor (E:Interval.Edge)(Arg : S with type elt := E.t) ->
     sig
 (* Standard entry point, sharing is tracked *)
       val zyva :
-          Arg.loc ->
-          (int * int) ->
-           Arg.arg ->
-           Interval.t array ->
-           (Arg.act, _) t_store ->
-           Arg.act
+        Arg.loc ->
+        (E.t*E.t) ->
+        Arg.arg ->
+        E.t Interval.t array ->
+        (Arg.act, _) t_store ->
+        Arg.act
 
 (* Output test sequence, sharing tracked *)
      val test_sequence :
            Arg.arg ->
-           Interval.t array ->
+           E.t Interval.t array ->
            (Arg.act, _) t_store ->
            Arg.act
     end

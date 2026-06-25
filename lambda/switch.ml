@@ -107,6 +107,7 @@ end
 
 module type S =
 sig
+  type elt
   type primitive
   val eqint : primitive
   val neint : primitive
@@ -121,8 +122,8 @@ sig
   type act
 
   val bind : arg -> (arg -> act) -> act
-  val make_const : int -> arg
-  val make_offset : arg -> int -> arg
+  val make_const : elt -> arg
+  val make_negative_offset : arg -> elt -> arg
   val make_prim : primitive -> arg list -> test
   val make_isout : arg -> arg -> test
   val make_isin : arg -> arg -> test
@@ -144,8 +145,26 @@ end
     - [high] is the highest input value
     - [act] is an index into an [action] store.*)
 module Interval = struct
-  type t = { low: int; high:int; act:int }
+  type 'a t = { low: 'a; high:'a; act:int }
   let point ?(act=0) i = { low = i; high=i; act }
+
+  module type Edge =  sig
+    type t
+    val zero: t
+    val is_zero: t -> bool
+    val diff: t -> t -> int
+    val compare: t -> t -> int
+    val succ: t -> t
+    val pred: t -> t
+    val add: t -> t -> t
+    val sub: t -> t -> t
+    val min: t -> t -> t
+    val max: t -> t -> t
+    val min_int: t
+    val max_int: t
+    val half_max: t -> bool
+    val float: t -> float
+  end
 end
 
 (* The module will ``produce good code for the case statement''
@@ -220,7 +239,7 @@ end
     into the toplevel test sequence instead of generating a less
     compact jump table.
 *)
-module Make (Arg : S) =
+module Make (E:Interval.Edge) (Arg : S with type elt := E.t) =
 struct
 
   (* A representation of switches over intervals rather than discrete
@@ -231,7 +250,7 @@ struct
      actions are shared.)
   *)
   type 'a inter = {
-    cases : Interval.t array ;
+    cases : E.t Interval.t array ;
     actions : 'a array
   }
 
@@ -258,6 +277,14 @@ let prerr_inter i = Printf.fprintf stderr
         "cases=%a" pcases i.cases
 *)
   open Interval
+  module Eo = struct
+    let (=) x y = E.compare x y = 0
+    (*   let (<) x y = E.compare x y < 0 *)
+    let (+) = E.add
+    let (-) = E.sub
+  end
+  let first = E.succ E.zero
+
   let get_act cases i = cases.(i).act
   and get_low cases i = cases.(i).low
   and get_high cases i = cases.(i).high
@@ -313,7 +340,7 @@ let pta chan t =
      [Inter (low, high)] is an interval test
      [Sep bound] is [fun x -> x < bound]
      [No] is when no tests are necessary. *)
-  type t_ret = Inter of int * int  | Sep of int | No
+  type t_ret = Inter of int * int | Sep of int | No
 
 (*
 let pret chan = function
@@ -347,13 +374,13 @@ let pret chan = function
             if len1 < 2 then i1.low
             else begin (* 0 <= len1 - 2 < len1 *)
               let h = r.(len1-2).high in
-              min (h + 1) i1.low
+              E.min (E.succ h) i1.low
             end
           and h =
             if len2 < 2 then i2.high
             else begin (* 0 <= 1 < len2 *)
               let l = c2.(1).low in
-              max i2.high (l - 1)
+              E.max i2.high (E.pred l)
             end
           in
           r.(len1-1) <- { low = l; high=h; act = i1.act } ;
@@ -366,7 +393,7 @@ let pret chan = function
           for i = 0 to len1-2 do
             r.(i) <- c1.(i)
           done ;
-          r.(len1-1) <- { i1 with high = i2.low - 1 } ;
+          r.(len1-1) <- { i1 with high = E.pred i2.low } ;
           for i=0 to len2-1  do
             r.(len1+i) <- c2.(i)
           done ;
@@ -376,7 +403,7 @@ let pret chan = function
           for i = 0 to len1-1 do
             r.(i) <- c1.(i)
           done ;
-          r.(len1) <- { i2 with low = i1.high+1 } ;
+          r.(len1) <- { i2 with low = E.succ i1.high } ;
           for i=1 to len2-1  do
             r.(len1+i) <- c2.(i)
           done ;
@@ -426,7 +453,7 @@ let rec pkey chan  = function
             got_it act rem in
 
     let make_one i =
-      if i.low=i.high then
+      if Eo.(i.low = i.high) then
         Kvalue (got_it i.act !seen)
       else
         Kinter (got_it i.act !seen) in
@@ -436,7 +463,7 @@ let rec pkey chan  = function
         []
       else
         let ci = cases.(i) in
-        if pl = ci.high+1 then
+        if Eo. (pl = E.succ ci.high) then
           make_one ci::make_rec (i-1) ci.low
         else
           Kempty::make_one ci::make_rec (i-1) ci.low in
@@ -470,12 +497,8 @@ let rec pkey chan  = function
    This condition is checked by zyva
 *)
 
-  let inter_limit = 1 lsl 16
-
-  let ok_inter = ref false
-
   (* Compute a good test sequence. *)
-  let rec opt_count cases =
+  let rec opt_count huge_interval (cases: E.t Interval.t array) =
     let key = make_key cases in
     try
       Hashtbl.find t key
@@ -488,23 +511,23 @@ let rec pkey chan  = function
           | _ when same_act cases -> No, ({n=0; ni=0},{n=0; ni=0})
           | _ ->
               if lcases < small_size_limit then
-                enum cases
+                enum huge_interval cases
               else if lcases < medium_size_limit then
-                heuristic cases
+                heuristic huge_interval cases
               else
-                divide cases in
+                divide huge_interval cases in
         Hashtbl.add t key r ;
         r
 
   (* Large inputs: dichotomic sequence. *)
-  and divide cases =
+  and divide huge_interval (cases: E.t Interval.t array) =
     let lcases = Array.length cases in
     let m = lcases/2 in
     let _,left,right = coupe cases m in
     let ci = {n=1 ; ni=0}
     and cm = {n=1 ; ni=0}
-    and _,(cml,cleft) = opt_count left
-    and _,(cmr,cright) = opt_count right in
+    and _,(cml,cleft) = opt_count huge_interval left
+    and _,(cmr,cright) = opt_count huge_interval right in
     add_test ci cleft ;
     add_test ci cright ;
     (* To compute a worst-case cost, we add the more costly of the
@@ -516,19 +539,19 @@ let rec pkey chan  = function
     Sep m,(cm, ci)
 
   (* Medium-size inputs: dichotomy or interval tests. *)
-  and heuristic cases =
+  and heuristic huge_interval cases =
     let lcases = Array.length cases in
 
-    let sep,csep = divide cases
+    let sep,csep = divide huge_interval cases
 
     and inter,cinter =
-      if !ok_inter then begin
+      if not huge_interval then begin
         let act0 = cases.(0).act
         and act1 = cases.(lcases-1).act in
         if act0 = act1 then begin
           let low, high, inside, outside = coupe_inter 1 (lcases-2) cases in
-          let _,(cmi,cinside) = opt_count inside
-          and _,(cmo,coutside) = opt_count outside
+          let _,(cmi,cinside) = opt_count huge_interval inside
+          and _,(cmo,coutside) = opt_count huge_interval outside
           and cmij = {n=1 ; ni=(if low=high then 0 else 1)}
           and cij = {n=1 ; ni=(if low=high then 0 else 1)} in
           add_test cij cinside ;
@@ -548,7 +571,7 @@ let rec pkey chan  = function
       inter,cinter
 
   (* Small inputs: exhaustive search for optimal sequence. *)
-  and enum cases =
+  and enum huge_interval cases =
     let lcases = Array.length cases in
     let lim, with_sep =
       let best = ref (-1) and best_cost = ref (too_much,too_much) in
@@ -557,8 +580,8 @@ let rec pkey chan  = function
         let _,left,right = coupe cases i in
         let ci = {n=1 ; ni=0}
         and cm = {n=1 ; ni=0}
-        and _,(cml,cleft) = opt_count left
-        and _,(cmr,cright) = opt_count right in
+        and _,(cml,cleft) = opt_count huge_interval left
+        and _,(cmr,cright) = opt_count huge_interval right in
         add_test ci cleft ;
         add_test ci cright ;
         if less_tests cml cmr then
@@ -576,14 +599,14 @@ let rec pkey chan  = function
       !best, !best_cost in
 
     let ilow, ihigh, with_inter =
-      if not !ok_inter then
+      if huge_interval then
         let rlow = ref (-1) and rhigh = ref (-1)
         and best_cost= ref (too_much,too_much) in
         for i=1 to lcases-2 do
           let low, high, inside, outside = coupe_inter i i cases in
           if low=high then begin
-            let _,(cmi,cinside) = opt_count inside
-            and _,(cmo,coutside) = opt_count outside
+            let _,(cmi,cinside) = opt_count huge_interval inside
+            and _,(cmo,coutside) = opt_count huge_interval outside
             and cmij = {n=1 ; ni=0}
             and cij = {n=1 ; ni=0} in
             add_test cij cinside ;
@@ -606,8 +629,8 @@ let rec pkey chan  = function
         for i=1 to lcases-2 do
           for j=i to lcases-2 do
             let low, high, inside, outside = coupe_inter i j cases in
-            let _,(cmi,cinside) = opt_count inside
-            and _,(cmo,coutside) = opt_count outside
+            let _,(cmi,cinside) = opt_count huge_interval inside
+            and _,(cmo,coutside) = opt_count huge_interval outside
             and cmij = {n=1 ; ni=(if low=high then 0 else 1)}
             and cij = {n=1 ; ni=(if low=high then 0 else 1)} in
             add_test cij cinside ;
@@ -671,23 +694,23 @@ let rec pkey chan  = function
 
      In the example above, [a5] would be represented with [off = -5].
   *)
-  type 'a t_ctx =  {off : int ; arg : 'a}
+  type 'a t_ctx =  {off : E.t ; arg : 'a}
 
   let make_if_test test arg i ifso ifnot =
     Arg.make_if
       (Arg.make_prim test [arg ; Arg.make_const i])
       ifso ifnot
 
-  let make_if_lt arg i  ifso ifnot = match i with
-    | 1 ->
-        make_if_test Arg.leint arg 0 ifso ifnot
-    | _ ->
+  let make_if_lt arg i  ifso ifnot =
+    if Eo.(i = first) then
+      make_if_test Arg.leint arg E.zero ifso ifnot
+    else
         make_if_test Arg.ltint arg i ifso ifnot
 
-  and make_if_ge arg i  ifso ifnot = match i with
-    | 1 ->
-        make_if_test Arg.gtint arg 0 ifso ifnot
-    | _ ->
+  and make_if_ge arg i  ifso ifnot =
+    if (i = first) then
+      make_if_test Arg.gtint arg E.zero ifso ifnot
+    else
         make_if_test Arg.geint arg i ifso ifnot
 
   and make_if_eq  arg i ifso ifnot =
@@ -705,35 +728,35 @@ let rec pkey chan  = function
   let do_make_if_out h arg ifso ifno =
     Arg.make_if (Arg.make_isout h arg) ifso ifno
 
-  let make_if_out ctx l d mk_ifso mk_ifno = match l with
-    | 0 ->
+  let make_if_out ctx l d mk_ifso mk_ifno =
+    if E.is_zero l then
         do_make_if_out
           (Arg.make_const d) ctx.arg (mk_ifso ctx) (mk_ifno ctx)
-    | _ ->
-        Arg.bind
-          (Arg.make_offset ctx.arg (-l))
-          (fun arg ->
-             let ctx = {off= (-l+ctx.off) ; arg=arg} in
-             do_make_if_out
-               (Arg.make_const d) arg (mk_ifso ctx) (mk_ifno ctx))
+    else
+      Arg.bind
+        (Arg.make_negative_offset ctx.arg l)
+        (fun arg ->
+           let ctx = {off= Eo.(ctx.off-l) ; arg=arg} in
+           do_make_if_out
+             (Arg.make_const d) arg (mk_ifso ctx) (mk_ifno ctx))
 
   let do_make_if_in h arg ifso ifno =
     Arg.make_if (Arg.make_isin h arg) ifso ifno
 
-  let make_if_in ctx l d mk_ifso mk_ifno = match l with
-    | 0 ->
+  let make_if_in ctx l d mk_ifso mk_ifno =
+    if E.is_zero l then
         do_make_if_in
           (Arg.make_const d) ctx.arg (mk_ifso ctx) (mk_ifno ctx)
-    | _ ->
+    else
         Arg.bind
-          (Arg.make_offset ctx.arg (-l))
+          (Arg.make_negative_offset ctx.arg l)
           (fun arg ->
-             let ctx = {off= (-l+ctx.off) ; arg=arg} in
+             let ctx = {off= Eo.(ctx.off-l) ; arg=arg} in
              do_make_if_in
                (Arg.make_const d) arg (mk_ifso ctx) (mk_ifno ctx))
 
   (* Generate the code for a good test sequence. *)
-  let rec c_test ctx ({cases=cases ; actions=actions} as s) =
+  let rec c_test huge_interval ctx ({cases=cases ; actions=actions} as s) =
     let lcases = Array.length cases in
     assert(lcases > 0) ;
     if lcases = 1 then
@@ -741,7 +764,7 @@ let rec pkey chan  = function
 
     else begin
 
-      let w,_c = opt_count cases in
+      let w,_c = opt_count huge_interval cases in
 (*
   Printf.fprintf stderr
   "off=%d tactic=%a for %a\n"
@@ -751,63 +774,67 @@ let rec pkey chan  = function
       | No -> actions.(get_act cases 0) ctx
       | Inter (i,j) ->
           let low,high,inside, outside = coupe_inter i j cases in
-          let _,(cinside,_) = opt_count inside
-          and _,(coutside,_) = opt_count outside in
+          let _,(cinside,_) = opt_count huge_interval inside
+          and _,(coutside,_) = opt_count huge_interval outside in
           (* Costs are retrieved to put the code with more remaining tests
              in the privileged (positive) branch of ``if'' *)
           if low=high then begin
             if less_tests coutside cinside then
               make_if_eq
                 ctx.arg
-                (low+ctx.off)
-                (c_test ctx {s with cases=inside})
-                (c_test ctx {s with cases=outside})
+                Eo.(low+ctx.off)
+                (c_test huge_interval ctx {s with cases=inside})
+                (c_test huge_interval ctx {s with cases=outside})
             else
               make_if_ne
                 ctx.arg
-                (low+ctx.off)
-                (c_test ctx {s with cases=outside})
-                (c_test ctx {s with cases=inside})
+                Eo.(low+ctx.off)
+                (c_test huge_interval ctx {s with cases=outside})
+                (c_test huge_interval ctx {s with cases=inside})
           end else begin
             if less_tests coutside cinside then
               make_if_in
                 ctx
-                (low+ctx.off)
-                (high-low)
-                (fun ctx -> c_test ctx {s with cases=inside})
-                (fun ctx -> c_test ctx {s with cases=outside})
+                Eo.(low+ctx.off)
+                Eo.(high-low)
+                (fun ctx -> c_test huge_interval ctx {s with cases=inside})
+                (fun ctx -> c_test huge_interval ctx {s with cases=outside})
             else
               make_if_out
                 ctx
-                (low+ctx.off)
-                (high-low)
-                (fun ctx -> c_test ctx {s with cases=outside})
-                (fun ctx -> c_test ctx {s with cases=inside})
+                Eo.(low+ctx.off)
+                Eo.(high-low)
+                (fun ctx -> c_test huge_interval ctx {s with cases=outside})
+                (fun ctx -> c_test huge_interval ctx {s with cases=inside})
           end
       | Sep i ->
           let lim,left,right = coupe cases i in
-          let _,(cleft,_) = opt_count left
-          and _,(cright,_) = opt_count right in
+          let _,(cleft,_) = opt_count huge_interval left
+          and _,(cright,_) = opt_count huge_interval right in
           let left = {s with cases=left}
           and right = {s with cases=right} in
 
-          if i=1 && (lim+ctx.off)=1 && get_low cases 0+ctx.off=0 then
-            if lcases = 2 && get_high cases 1+ctx.off = 1 then
+          if i=1
+          && Eo.(lim+ctx.off)= first
+          && E.is_zero (Eo.(get_low cases 0+ctx.off))
+          then
+            if lcases = 2 && Eo.(get_high cases 1+ctx.off = first) then
               make_if_bool
                 ctx.arg
-                (c_test ctx right) (c_test ctx left)
+                (c_test huge_interval ctx right)
+                (c_test huge_interval ctx left)
             else
               make_if_nonzero
                 ctx.arg
-                (c_test ctx right) (c_test ctx left)
+                (c_test huge_interval ctx right) (c_test huge_interval ctx left)
           else if less_tests cright cleft then
             make_if_lt
-              ctx.arg (lim+ctx.off)
-              (c_test ctx left) (c_test ctx right)
+              ctx.arg Eo.(lim+ctx.off)
+              (c_test huge_interval ctx left) (c_test huge_interval ctx right)
           else
             make_if_ge
-              ctx.arg (lim+ctx.off)
-              (c_test ctx right) (c_test ctx left)
+              ctx.arg Eo.(lim+ctx.off)
+              (c_test huge_interval ctx right) (c_test huge_interval ctx left)
 
     end
 
@@ -824,16 +851,16 @@ let rec pkey chan  = function
     (let {low=l1; act=act1; _ } = cases.(i)
      and {low=l2; _ } = cases.(i+1)
      and {low=l3; high=h3; act = act3} = cases.(i+2) in
-     l1+1=l2 && l2+1=l3 && l3=h3 &&
+     Eo.(E.succ l1=l2 && E.succ l2=l3 && l3=h3) &&
      act1 <> act3)
 
   (* Approximation of the test sequence height,
      used to determine cluster density. *)
-  let approx_count cases i j =
+  let approx_count huge_interval cases i j =
     let l = j-i+1 in
     if l < small_size_limit then
       (* on small input intervals, use test sequence height *)
-      let _,(_,{n=ntests}) = opt_count (Array.sub cases i l) in
+      let _,(_,{n=ntests}) = opt_count huge_interval (Array.sub cases i l) in
       ntests
     else
       (* otherwise use the standard notion of density
@@ -841,12 +868,12 @@ let rec pkey chan  = function
       l-1
 
   (* Sends back a boolean that says whether it is worth making a jump table. *)
-  let dense {cases} i j =
+  let dense huge_interval {cases} i j =
     if i=j then true
     else
       let l = cases.(i).low
       and h = cases.(j).high in
-      let ntests = approx_count cases i j in
+      let ntests = approx_count huge_interval cases i j in
 (*
   (ntests+1) >= theta * (h-l+1)
 *)
@@ -855,10 +882,10 @@ let rec pkey chan  = function
           for very small switches. *)
        ntests >= switch_min &&
        float_of_int ntests +. 1.0 >=
-       theta *. (float_of_int h -. float_of_int l +. 1.0))
+       theta *. (E.float h -. E.float l +. 1.0))
 
   (* Compute an optimal clustering by dynamic programming. *)
-  let comp_clusters s =
+  let comp_clusters huge_interval s =
     let len = Array.length s.cases in
     let min_clusters = Array.make len max_int
     and k = Array.make len 0 in
@@ -867,7 +894,7 @@ let rec pkey chan  = function
     for i = 0 to len-1 do
       for j = 0 to i do
         if
-          dense s j i &&
+          dense huge_interval s j i &&
           get_min (j-1) + 1 < min_clusters.(i)
         then begin
           k.(i) <- j ;
@@ -884,7 +911,7 @@ let rec pkey chan  = function
     (* Assume j > i *)
     let ll = cases.(i).low
     and hh = cases.(j).high in
-    let tbl = Array.make (hh-ll+1) 0
+    let tbl = Array.make (E.diff hh ll+1) 0
     and t = Hashtbl.create 17
     and index = ref 0 in
     let get_index act =
@@ -900,7 +927,7 @@ let rec pkey chan  = function
     for k=i to j do
       let {low;high;act} = cases.(k) in
       let index = get_index act in
-      for kk=low-ll to high-ll do
+      for kk=E.diff low ll to E.diff high ll do
         tbl.(kk) <- index
       done
     done ;
@@ -909,17 +936,17 @@ let rec pkey chan  = function
       (fun act i -> acts.(i) <- actions.(act))
       t ;
     (fun ctx ->
-       match -ll-ctx.off with
-       | 0 -> Arg.make_switch loc ctx.arg tbl acts
-       | _ ->
+       if E.is_zero Eo.(ll+ctx.off) then
+         Arg.make_switch loc ctx.arg tbl acts
+       else
            Arg.bind
-             (Arg.make_offset ctx.arg (-ll-ctx.off))
+             (Arg.make_negative_offset ctx.arg Eo.(ll+ctx.off))
              (fun arg -> Arg.make_switch loc arg tbl acts))
 
   (* Generate code from a clustering choice. *)
   let make_clusters loc ({cases=cases ; actions=actions} as s) n_clusters k =
     let len = Array.length cases in
-    let r = Array.make n_clusters (point 0)
+    let r = Array.make n_clusters (point E.zero)
     and t = Hashtbl.create 17
     and index = ref 0
     and bidon = ref (Array.length actions) in
@@ -961,10 +988,7 @@ let rec pkey chan  = function
 
 
   let do_zyva loc (low,high) arg cases actions =
-    let old_ok = !ok_inter in
-    ok_inter := (abs low <= inter_limit && abs high <= inter_limit) ;
-    if !ok_inter <> old_ok then Hashtbl.clear t ;
-
+    let huge_interval = not (E.half_max low && E.half_max high) in
     let s = {cases=cases ; actions=actions} in
 
 (*
@@ -972,9 +996,9 @@ let rec pkey chan  = function
   pcases stderr cases ;
   prerr_endline "" ;
 *)
-    let n_clusters,k = comp_clusters s in
+    let n_clusters,k = comp_clusters huge_interval s in
     let clusters = make_clusters loc s n_clusters k in
-    c_test {arg=arg ; off=0} clusters
+    c_test huge_interval {arg=arg ; off=E.zero} clusters
 
   let abstract_shared actions =
     let handlers = ref (fun x -> x) in
@@ -1002,9 +1026,6 @@ let rec pkey chan  = function
     assert (Array.length cases > 0) ;
     let actions = actions.act_get_shared () in
     let hs,actions = abstract_shared actions in
-    let old_ok = !ok_inter in
-    ok_inter := false ;
-    if !ok_inter <> old_ok then Hashtbl.clear t ;
     let s =
       {cases=cases ;
        actions=Array.map (fun act -> (fun _ -> act)) actions} in
@@ -1013,6 +1034,6 @@ let rec pkey chan  = function
   pcases stderr cases ;
   prerr_endline "" ;
 *)
-    hs (c_test {arg=arg ; off=0} s)
+    hs (c_test false {arg=arg ; off=E.zero} s)
 
 end

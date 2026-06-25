@@ -2611,6 +2611,132 @@ let make_test_sequence loc fail tst lt_tst arg const_lambda_list =
   in
   hs (make_test_sequence const_lambda_list)
 
+
+let rec last def = function
+  | [] -> def
+  | [ (x, _) ] -> x
+  | _ :: rem -> last def rem
+
+let get_edges ~low ~high l =
+  match l with
+  | [] -> (low, high)
+  | (x, _) :: _ -> (x, last high l)
+
+module Interval(E:Switch.Interval.Edge) = struct
+
+  module Eo = struct
+    let (=) x y = E.compare x y = 0
+    let (<) x y = E.compare x y < 0
+    let (>) x y = E.compare x y > 0
+  end
+  open Switch.Interval
+  let as_interval_canfail fail ~low ~high l =
+    let store = StoreExp.mk_store () in
+    let do_store _tag act =
+      let i = store.act_store () act in
+    (*
+    debugf "@,STORE [%s] %i %a" tag i Printlambda.lambda act;
+    *)
+      i
+    in
+    let rec nofail_rec cur = function
+      | [] ->
+          if Eo.(cur.high = high) then
+            [ cur ]
+          else
+            [ cur; { low =E.succ cur.high; high; act= 0 } ]
+      | (i, act_i) :: rem as all ->
+          let act_index = do_store "NO" act_i in
+          if Eo.(E.succ cur.high = i) then
+            if act_index = cur.act then
+              nofail_rec { cur with high = i } rem
+            else if act_index = 0 then
+              { cur with high = E.pred i } :: fail_rec i i rem
+            else
+              { cur with high = E.pred i }
+              :: nofail_rec (point i ~act:act_index) rem
+          else if act_index = 0 then
+            cur
+            :: fail_rec (E.succ cur.high) (E.succ cur.high) all
+          else
+            cur
+            :: { low = E.succ cur.high; high = E.pred i; act=0}
+            :: nofail_rec (point ~act:act_index i) rem
+    and fail_rec low high = function
+      | [] -> [ {low; high; act =0 } ]
+      | (i, act_i) :: rem ->
+          let index = do_store "YES" act_i in
+          if index = 0 then
+            fail_rec low i rem
+          else
+            { low; high=E.pred i; act=0 } :: nofail_rec (point i ~act:index) rem
+    in
+    let init_rec = function
+      | [] -> [ {low; high; act=0} ]
+      | (i, act_i) :: rem ->
+          let index = do_store "INIT" act_i in
+          if index = 0 then
+            fail_rec low i rem
+          else if Eo.(low < i) then
+            {low; high=E.pred i; act=0 } :: nofail_rec (point i ~act:index) rem
+          else
+            nofail_rec (point i ~act:index) rem
+    in
+    assert (do_store "FAIL" fail = 0);
+
+    (* fail has action index 0 *)
+    let r = init_rec l in
+    (Array.of_list r, store)
+
+  let as_interval_nofail l =
+    let store = StoreExp.mk_store () in
+    let rec some_hole = function
+      | []
+      | [ _ ] ->
+          false
+      | (i, _) :: ((j, _) :: _ as rem) -> Eo.(j > E.succ i) || some_hole rem
+    in
+    let rec i_rec cur = function
+      | [] -> [ cur ]
+      | (i, act) :: rem ->
+          let act_index = store.act_store () act in
+          if act_index = cur.act then
+            i_rec { cur with high = i } rem
+          else
+            cur :: i_rec (point i ~act:act_index) rem
+    in
+    let inters =
+      match l with
+      | (i, act) :: rem ->
+          let act_index =
+            (* In case there is some hole and that a switch is emitted,
+               action 0 will be used as the action of unreachable
+               cases (cf. switch.ml, make_switch).
+               Hence, this action will be shared *)
+            if some_hole rem then
+              store.act_store_shared () act
+            else
+              store.act_store () act
+          in
+          assert (act_index = 0);
+          i_rec (point i ~act:act_index) rem
+      | _ -> assert false
+    in
+    (Array.of_list inters, store)
+
+  let sort_lambda_list l =
+    List.sort (fun (i1,_) (i2,_) -> E.compare i1 i2) l
+
+  let build fail ?(low=E.min_int) ?(high=E.max_int) l =
+    let l = sort_lambda_list l in
+    ( get_edges ~low ~high l,
+      match fail with
+      | None -> as_interval_nofail l
+      | Some act -> as_interval_canfail act ~low ~high l )
+
+
+  end
+
 module SArg = struct
   type primitive = Lambda.primitive
 
@@ -2633,10 +2759,10 @@ module SArg = struct
 
   let make_prim p args = Lprim (p, args, Loc_unknown)
 
-  let make_offset arg n =
+  let make_negative_offset arg n =
     match n with
     | 0 -> arg
-    | _ -> Lprim (Poffsetint n, [ arg ], Loc_unknown)
+    | _ -> Lprim (Poffsetint (-n), [ arg ], Loc_unknown)
 
   let bind arg body =
     let newvar, newarg =
@@ -2703,6 +2829,99 @@ module SArg = struct
 
   let make_exit = make_exit
 end
+
+
+module SArg64 = struct
+  type primitive = Lambda.primitive
+
+  let eqint = Pbintcomp (Pint64,Ceq)
+  let neint = Pbintcomp (Pint64,Cne)
+  let leint = Pbintcomp (Pint64,Cle)
+  let ltint = Pbintcomp (Pint64,Clt)
+  let geint = Pbintcomp (Pint64,Cge)
+  let gtint = Pbintcomp (Pint64,Cgt)
+
+  type loc = Lambda.scoped_location
+  type arg = Lambda.lambda
+  type test = Lambda.lambda
+  type act = Lambda.lambda
+
+  let make_prim p args = Lprim (p, args, Loc_unknown)
+
+  let make_const i = Lconst (Const_int64 i)
+  let make_negative_offset arg n =
+    match n with
+    | 0L -> arg
+    | _ -> Lprim (Psubbint Pint64, [ arg; make_const n ], Loc_unknown)
+
+  let bind arg body =
+    let newvar, newarg =
+      match arg with
+      | Lvar v -> (v, arg)
+      | _ ->
+          let newvar = Ident.create_local "switcher" in
+          (newvar, Lvar newvar)
+    in
+    bind Alias newvar arg (body newarg)
+
+
+  let make_isout h arg =
+    let upper = Lprim (gtint, [ arg; h ], Loc_unknown) in
+    let lower = Lprim (ltint, [arg; make_const 0L], Loc_unknown ) in
+    Lprim(Psequor, [lower;upper], Loc_unknown)
+
+  let make_isin h arg = Lprim (Pnot, [ make_isout h arg ], Loc_unknown)
+
+  let make_is_nonzero arg =
+    if !Clflags.native_code then
+      Lprim (Pbintcomp (Pint64, Cne),
+             [arg; Lconst (Const_int64 0L)],
+             Loc_unknown)
+    else
+      arg
+
+  let arg_as_test arg = arg
+
+  let make_if cond ifso ifnot = Lifthenelse (cond, ifso, ifnot)
+
+  let make_switch loc arg cases acts =
+    (* The [acts] array can contain arbitrary terms.
+       If several entries in the [cases] array point to the same action,
+       we must share it to avoid duplicating terms.
+       See PR#11893 on Github for an example where the other de-duplication
+       mechanisms do not apply. *)
+    let act_uses = Array.make (Array.length acts) 0 in
+    for i = 0 to Array.length cases - 1 do
+      act_uses.(cases.(i)) <- act_uses.(cases.(i)) + 1
+    done;
+    let wrapper = ref (fun lam -> lam) in
+    for j = 0 to Array.length acts - 1 do
+      if act_uses.(j) > 1 then begin
+        let nfail, wrap = make_catch_delayed acts.(j) in
+        acts.(j) <- make_exit nfail;
+        let prev_wrapper = !wrapper in
+        wrapper := (fun lam -> wrap (prev_wrapper lam))
+      end;
+    done;
+    let l = ref [] in
+    for i = Array.length cases - 1 downto 0 do
+      l := (i, acts.(cases.(i))) :: !l
+    done;
+    !wrapper (Lswitch
+      ( arg,
+        { sw_numconsts = Array.length cases;
+          sw_consts = !l;
+          sw_numblocks = 0;
+          sw_blocks = [];
+          sw_failaction = None
+        },
+        loc ))
+
+  let make_catch = make_catch_delayed
+
+  let make_exit = make_exit
+end
+
 
 (* Action sharing for Lswitch argument *)
 let share_actions_sw sw =
@@ -2782,136 +3001,43 @@ let reintroduce_fail sw =
         sw
   | Some _ -> sw
 
-module Switcher = Switch.Make (SArg)
-open Switch
+module Int_edge = struct
+  include Int
+  let is_zero x = x = 0
+  let diff x y = x - y
+  let float x = float_of_int x
+  let half_max x = abs x < Int.max_int lsr 1
+end
 
-let rec last def = function
-  | [] -> def
-  | [ (x, _) ] -> x
-  | _ :: rem -> last def rem
+module Switcher = Switch.Make(Int_edge)(SArg)
+module Int_interval= Interval(Int_edge)
 
-let get_edges ~low ~high l =
-  match l with
-  | [] -> (low, high)
-  | (x, _) :: _ -> (x, last high l)
+module Int64_edge = struct
+  include Int64
+  let is_zero x = x = 0L
+  let diff x y = Int64.to_int (Int64.sub x y)
+  let half_max x =
+    let lim = Int64.(shift_right max_int 1) in
+    x >= (Int64.neg lim)  && x <= lim
+  let float x = Int64.to_float x
+end
 
-open Switch.Interval
+module Switcher64 = Switch.Make(Int64_edge)(SArg64)
+module Int64_interval= Interval(Int64_edge)
 
-let as_interval_canfail fail ~low ~high l =
-  let store = StoreExp.mk_store () in
-  let do_store _tag act =
-    let i = store.act_store () act in
-    (*
-    debugf "@,STORE [%s] %i %a" tag i Printlambda.lambda act;
-    *)
-    i
-  in
-  let rec nofail_rec cur = function
-    | [] ->
-        if cur.high = high then
-          [ cur ]
-        else
-          [ cur; { low = cur.high + 1; high; act= 0 } ]
-    | (i, act_i) :: rem as all ->
-        let act_index = do_store "NO" act_i in
-        if cur.high + 1 = i then
-          if act_index = cur.act then
-            nofail_rec { cur with high = i } rem
-          else if act_index = 0 then
-            { cur with high = i - 1 } :: fail_rec i i rem
-          else
-            { cur with high = i - 1 }
-            :: nofail_rec (point i ~act:act_index) rem
-        else if act_index = 0 then
-          cur
-          :: fail_rec (cur.high + 1) (cur.high + 1) all
-        else
-          cur
-          :: { low = cur.high + 1; high = i - 1; act=0}
-          :: nofail_rec (point ~act:act_index i) rem
-  and fail_rec low high = function
-    | [] -> [ {low; high; act =0 } ]
-    | (i, act_i) :: rem ->
-        let index = do_store "YES" act_i in
-        if index = 0 then
-          fail_rec low i rem
-        else
-          { low; high=i - 1; act=0 } :: nofail_rec (point i ~act:index) rem
-  in
-  let init_rec = function
-    | [] -> [ {low; high; act=0} ]
-    | (i, act_i) :: rem ->
-        let index = do_store "INIT" act_i in
-        if index = 0 then
-          fail_rec low i rem
-        else if low < i then
-          {low; high=i - 1; act=0 } :: nofail_rec (point i ~act:index) rem
-        else
-          nofail_rec (point i ~act:index) rem
-  in
-  assert (do_store "FAIL" fail = 0);
 
-  (* fail has action index 0 *)
-  let r = init_rec l in
-  (Array.of_list r, store)
-
-let as_interval_nofail l =
-  let store = StoreExp.mk_store () in
-  let rec some_hole = function
-    | []
-    | [ _ ] ->
-        false
-    | (i, _) :: ((j, _) :: _ as rem) -> j > i + 1 || some_hole rem
-  in
-  let rec i_rec cur = function
-    | [] -> [ cur ]
-    | (i, act) :: rem ->
-        let act_index = store.act_store () act in
-        if act_index = cur.act then
-          i_rec { cur with high = i } rem
-        else
-          cur :: i_rec (point i ~act:act_index) rem
-  in
-  let inters =
-    match l with
-    | (i, act) :: rem ->
-        let act_index =
-          (* In case there is some hole and that a switch is emitted,
-             action 0 will be used as the action of unreachable
-             cases (cf. switch.ml, make_switch).
-             Hence, this action will be shared *)
-          if some_hole rem then
-            store.act_store_shared () act
-          else
-            store.act_store () act
-        in
-        assert (act_index = 0);
-        i_rec (point i ~act:act_index) rem
-    | _ -> assert false
-  in
-  (Array.of_list inters, store)
-
-let sort_int_lambda_list l =
-  List.sort
-    (fun (i1, _) (i2, _) ->
-      if i1 < i2 then
-        -1
-      else if i2 < i1 then
-        1
-      else
-        0)
-    l
-
-let as_interval fail ?(low = min_int) ?(high = max_int) l =
-  let l = sort_int_lambda_list l in
-  ( get_edges ~low ~high l,
-    match fail with
-    | None -> as_interval_nofail l
-    | Some act -> as_interval_canfail act ~low ~high l )
 
 let call_switcher loc fail arg ?low ?high int_lambda_list =
-  let edges, (cases, actions) = as_interval fail ?low ?high int_lambda_list in
+  let edges, (cases, actions) =
+    Int_interval.build fail ?low ?high int_lambda_list
+  in
   Switcher.zyva loc edges arg cases actions
+
+let call_switcher64 loc fail arg ?low ?high int_lambda_list =
+  let edges, (cases, actions) =
+    Int64_interval.build fail ?low ?high int_lambda_list
+  in
+  Switcher64.zyva loc edges arg cases actions
 
 let rec list_as_pat = function
   | [] -> fatal_error "Matching.list_as_pat"
@@ -3118,6 +3244,13 @@ let combine_constant loc arg cst partial ctx def
             const_lambda_list
         in
         call_switcher loc fail arg int_lambda_list
+    | Const_int64 _ ->
+        let conv = function
+          | Asttypes.Const_int64 n, l  -> n, l
+          | _ -> assert false
+        in
+        let lambda_list = List.map conv const_lambda_list in
+        call_switcher64 loc fail arg lambda_list
     | Const_char _ ->
         let int_lambda_list =
           List.map
@@ -3151,11 +3284,6 @@ let combine_constant loc arg cst partial ctx def
           (Pbintcomp (Pint32, Cne))
           (Pbintcomp (Pint32, Clt))
           arg const_lambda_list
-    | Const_int64 _ ->
-        make_test_sequence loc fail
-          (Pbintcomp (Pint64, Cne))
-          (Pbintcomp (Pint64, Clt))
-          arg const_lambda_list
     | Const_nativeint _ ->
         make_test_sequence loc fail
           (Pbintcomp (Pnativeint, Cne))
@@ -3177,7 +3305,7 @@ let split_cases tag_lambda_list =
       )
   in
   let const, nonconst = split_rec tag_lambda_list in
-  (sort_int_lambda_list const, sort_int_lambda_list nonconst)
+  (Int_interval.sort_lambda_list const, Int_interval.sort_lambda_list nonconst)
 
 let split_extension_cases tag_lambda_list =
   let rec split_rec = function
@@ -3361,7 +3489,7 @@ let combine_constructor loc arg pat_env cstr partial ctx def actions =
     combine_regular_constructor loc arg cstr partial ctx def actions
 
 let make_test_sequence_variant_constant fail arg int_lambda_list =
-  let _, (cases, actions) = as_interval fail int_lambda_list in
+  let _, (cases, actions) = Int_interval.build fail int_lambda_list in
   Switcher.test_sequence arg cases actions
 
 let call_switcher_variant_constant loc fail arg int_lambda_list =

@@ -1600,7 +1600,7 @@ struct
 
   let make_const i =  Cconst_int (i, Debuginfo.none)
   let make_prim p args = Cop (p,args, Debuginfo.none)
-  let make_offset arg n = add_const arg n Debuginfo.none
+  let make_negative_offset arg n = add_const arg (-n) Debuginfo.none
   let make_isout h arg = Cop (Ccmpa Clt, [h ; arg], Debuginfo.none)
   let make_isin h arg = Cop (Ccmpa Cge, [h ; arg], Debuginfo.none)
   let make_is_nonzero arg = arg
@@ -1671,16 +1671,24 @@ module StoreExp =
       let compare_key = Stdlib.compare
     end)
 
-module SwitcherBlocks = Switch.Make(SArgBlocks)
+module SwitcherBlocks =
+  Switch.Make
+    (struct
+      include Int
+      let is_zero x = x = 0
+      let diff x y = x - y
+      let float x = float_of_int x
+      let half_max x =
+        let lim = Int.max_int lsr 1 in
+        x <= lim && x >= -lim
+    end)
+    (SArgBlocks)
 
 (* Int switcher, arg in [low..high],
    cases is list of individual cases, and is sorted by first component *)
 
-type interval = Switch.interval = { low: int; high: int; act: int }
-let point = Switch.point
-
 let transl_int_switch dbg arg low high cases default =
-  let open Switch_interval in
+  let open Switch.Interval in
   match cases with
   | [] -> assert false
   | _::_ ->
@@ -1736,7 +1744,7 @@ let transl_switch_clambda loc arg index cases =
       (fun j -> store.Switch.act_store j cases.(j))
       index in
   let n_index = Array.length index in
-  let open Switch_interval in
+  let open Switch.Interval in
   let inters = ref []
   and this = ref (point (n_index -1) ~act:index.(n_index - 1) ) in
   for i = n_index-2 downto 0 do
