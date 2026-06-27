@@ -693,7 +693,7 @@ exception Non_closed of type_expr * variable_kind
    [add_one] information about whether the variable is a normal type variable
    or a row variable.
  *)
-let free_vars ~init ~add_one ?env mark ty =
+let free_vars ~init ~add_one ?env mark initial_ty =
   let rec fv ~kind acc ty =
     if not (try_mark_node mark ty) then acc
     else match get_desc ty, env with
@@ -721,7 +721,7 @@ let free_vars ~init ~add_one ?env mark ty =
           else fv ~kind:Row_variable acc (row_more row)
       | _    ->
           fold_type_expr (fv ~kind) acc ty
-  in fv ~kind:Type_variable init ty
+  in fv ~kind:Type_variable init initial_ty
 
 let free_variables ?env ty =
   let add_one ty _kind acc = ty :: acc in
@@ -1152,7 +1152,7 @@ let rec generalize_class_type gen =
       generalize_class_type gen cty
 
 (* Only generalize the type ty0 in ty *)
-let limited_generalize ty0 ~inside:ty =
+let limited_generalize ty0 ~inside =
   let graph = TypeHash.create 17 in
   let roots = ref [] in
 
@@ -1185,7 +1185,7 @@ let limited_generalize ty0 ~inside:ty =
     end
   in
 
-  inverse [] ty;
+  inverse [] inside;
   List.iter (generalize_parents ~is_root:true) !roots;
   TypeHash.iter
     (fun ty _ ->
@@ -1244,9 +1244,9 @@ let compute_univars ty =
        ` unit -> (module M:T) -> M.t -> 'a as 'a`,
     subexpressions that rebind all the  identifiers are not included in the set.
 *)
-let type_subexpressions_with_free_occurrences ids ty =
+let type_subexpressions_with_free_occurrences ids initial_ty =
   let inverted = TypeHash.create 17 in
-  inv_type inverted [] ty;
+  inv_type inverted [] initial_ty;
   let nodes = ref TypeSet.empty in
   let rec add_all_parents ids inv =
     if TypeSet.mem inv.inv_type !nodes
@@ -2372,7 +2372,7 @@ let unify_univar_for (type a) (tr_exn : a trace_exn) t1 t2 univar_pairs =
 (* That's way too expensive. Must do some kind of caching *)
 (* If [inj_only=true], only check injective positions *)
 
-let occur_univar_or_unscoped ?(inj_only=false) env ty =
+let occur_univar_or_unscoped ?(inj_only=false) env initial_ty =
   let visited = ref TypeMap.empty in
   with_type_mark begin fun mark ->
   let rec occur_rec env bound_uv bound_id ty =
@@ -2483,7 +2483,7 @@ let occur_univar_or_unscoped ?(inj_only=false) env ty =
         set_type_desc ty (f p');
         occur_desc env bound_uv bound_id ty
   in
-  occur_rec env TypeSet.empty Ident.Unscoped.Set.empty ty
+  occur_rec env TypeSet.empty Ident.Unscoped.Set.empty initial_ty
   end
 
 let has_free_univars env ty =
@@ -4584,7 +4584,7 @@ let subject_level = generic_level - 1
    Update the level of [ty]. First check that the levels of generic
    variables from the subject are not lowered.
 *)
-let moregen_occur env level ty =
+let moregen_occur env level initial_ty =
   with_type_mark begin fun mark ->
     let rec occur ty =
       let lv = get_level ty in
@@ -4593,13 +4593,13 @@ let moregen_occur env level ty =
       if try_mark_node mark ty then iter_type_expr occur ty
     in
     try
-      occur ty
+      occur initial_ty
     with Occur ->
       raise_unexplained_for Moregen
   end;
   (* also check for free univars *)
-  occur_univar_or_unscoped_for Moregen env ty;
-  update_level_for Moregen env level ty
+  occur_univar_or_unscoped_for Moregen env initial_ty;
+  update_level_for Moregen env level initial_ty
 
 let may_instantiate t1 = get_level t1 <> subject_level
 
