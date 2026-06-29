@@ -142,7 +142,6 @@ module Interval: sig
     type t
     val zero: t
     val is_zero: t -> bool
-    val diff: t -> t -> int
     val compare: t -> t -> int
     val succ: t -> t
     val pred: t -> t
@@ -153,7 +152,8 @@ module Interval: sig
     val min_int: t
     val max_int: t
     val half_max:t -> bool
-    val float: t -> float
+    val to_int: t -> int
+    val to_float: t -> float
   end
 
 end

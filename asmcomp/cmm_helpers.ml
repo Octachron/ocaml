@@ -1676,8 +1676,8 @@ module SwitcherBlocks =
     (struct
       include Int
       let is_zero x = x = 0
-      let diff x y = x - y
-      let float x = float_of_int x
+      let to_float x = float_of_int x
+      let to_int x = x
       let half_max x =
         let lim = Int.max_int lsr 1 in
         x <= lim && x >= -lim

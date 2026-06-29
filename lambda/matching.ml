@@ -2837,6 +2837,7 @@ module type Boxed_int = sig
   val kind: boxed_integer
   val zero: t
   val const: t -> structured_constant
+  val unconst: Asttypes.constant -> t
 end
 module SArg_boxed(I:Boxed_int) = struct
   include Core_arg
@@ -2950,93 +2951,76 @@ let reintroduce_fail sw =
 module Int_edge = struct
   include Int
   let is_zero x = x = 0
-  let diff x y = x - y
-  let float x = float_of_int x
+  let to_int x = x
+  let to_float x = float_of_int x
   let half_max x = abs x < Int.max_int lsr 1
 end
 
 module Switcher = Switch.Make(Int_edge)(SArg)
 module Int_interval= Interval(Int_edge)
 
+module Make_switcher(I: sig
+    include Switch.Interval.Edge
+    include Boxed_int with type t := t
+  end) = struct
+  module S_arg = SArg_boxed(I)
+  module Switcher = Switch.Make(I)(S_arg)
+  module Interval = Interval(I)
+  let call loc fail arg ?low ?high lambda_list =
+    let lambda_list = List.map (fun (i,l) -> I.unconst i, l) lambda_list in
+    let edges, (cases, actions) =
+      Interval.build fail ?low ?high lambda_list
+    in
+    Switcher.zyva loc edges arg cases actions
+end
+
 module Int64_edge = struct
   include Int64
   let is_zero x = x = 0L
-  let diff x y = Int64.to_int (Int64.sub x y)
   let half_max x =
     let lim = Int64.(shift_right max_int 1) in
     x >= (Int64.neg lim)  && x <= lim
-  let float x = Int64.to_float x
+  let const i = Const_int64 i
+  let unconst = function
+    | Asttypes.Const_int64 n -> n
+    | _ -> assert false
+  let kind = Pint64
 end
-
-module SArg64= SArg_boxed(struct
-    type t = Int64.t
-    let const i = Const_int64 i
-    let kind = Pint64
-    let zero = 0L
-  end)
-module Switcher64 = Switch.Make(Int64_edge)(SArg64)
-module Int64_interval= Interval(Int64_edge)
+module Switcher64 = Make_switcher(Int64_edge)
 
 module Int32_edge = struct
   include Int32
   let is_zero x = x = 0l
-  let diff x y = to_int (sub x y)
   let half_max x =
     let lim = (shift_right max_int 1) in
     x >= (neg lim)  && x <= lim
-  let float x = to_float x
+  let const i = Const_int32 i
+  let unconst = function
+    | Asttypes.Const_int32 n -> n
+    | _ -> assert false
+  let kind = Pint32
 end
-module SArg32 = SArg_boxed(struct
-    type t = Int32.t
-    let const i = Const_int32 i
-    let kind = Pint32
-    let zero = 0l
-  end)
-module Switcher32 = Switch.Make(Int32_edge)(SArg32)
-module Int32_interval= Interval(Int32_edge)
-
+module Switcher32 = Make_switcher(Int32_edge)
 
 module Nativeint_edge = struct
   include Nativeint
   let is_zero x = x = 0n
-  let diff x y = to_int (sub x y)
   let half_max x =
     let lim = (shift_right max_int 1) in
     x >= (neg lim)  && x <= lim
-  let float x = to_float x
+  let const i = Const_nativeint i
+  let unconst = function
+    | Asttypes.Const_nativeint n -> n
+    | _ -> assert false
+  let kind = Pnativeint
 end
-module SArgNativeint = SArg_boxed(struct
-    type t = Nativeint.t
-    let const i = Const_nativeint i
-    let kind = Pnativeint
-    let zero = 0n
-  end)
-module SwitcherNativeint = Switch.Make(Nativeint_edge)(SArgNativeint)
-module Nativeint_interval= Interval(Nativeint_edge)
+module SwitcherNativeint = Make_switcher(Nativeint_edge)
 
 let call_switcher loc fail arg ?low ?high int_lambda_list =
   let edges, (cases, actions) =
     Int_interval.build fail ?low ?high int_lambda_list
   in
   Switcher.zyva loc edges arg cases actions
-
-let call_switcher64 loc fail arg ?low ?high int_lambda_list =
-  let edges, (cases, actions) =
-    Int64_interval.build fail ?low ?high int_lambda_list
-  in
-  Switcher64.zyva loc edges arg cases actions
-
-let call_switcher32 loc fail arg ?low ?high int_lambda_list =
-  let edges, (cases, actions) =
-    Int32_interval.build fail ?low ?high int_lambda_list
-  in
-  Switcher32.zyva loc edges arg cases actions
-
-let call_switcher_nativeint loc fail arg ?low ?high int_lambda_list =
-  let edges, (cases, actions) =
-    Nativeint_interval.build fail ?low ?high int_lambda_list
-  in
-  SwitcherNativeint.zyva loc edges arg cases actions
 
 let rec list_as_pat = function
   | [] -> fatal_error "Matching.list_as_pat"
@@ -3243,27 +3227,9 @@ let combine_constant loc arg cst partial ctx def
             const_lambda_list
         in
         call_switcher loc fail arg int_lambda_list
-    | Const_int64 _ ->
-        let conv = function
-          | Asttypes.Const_int64 n, l  -> n, l
-          | _ -> assert false
-        in
-        let lambda_list = List.map conv const_lambda_list in
-        call_switcher64 loc fail arg lambda_list
-    | Const_int32 _ ->
-        let conv = function
-          | Asttypes.Const_int32 n, l  -> n, l
-          | _ -> assert false
-        in
-        let lambda_list = List.map conv const_lambda_list in
-        call_switcher32 loc fail arg lambda_list
-    | Const_nativeint _ ->
-        let conv = function
-          | Asttypes.Const_nativeint n, l  -> n, l
-          | _ -> assert false
-        in
-        let lambda_list = List.map conv const_lambda_list in
-        call_switcher_nativeint loc fail arg lambda_list
+    | Const_int64 _ -> Switcher64.call loc fail arg const_lambda_list
+    | Const_int32 _ -> Switcher32.call loc fail arg const_lambda_list
+    | Const_nativeint _ -> SwitcherNativeint.call loc fail arg const_lambda_list
     | Const_char _ ->
         let int_lambda_list =
           List.map

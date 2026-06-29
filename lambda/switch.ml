@@ -152,7 +152,6 @@ module Interval = struct
     type t
     val zero: t
     val is_zero: t -> bool
-    val diff: t -> t -> int
     val compare: t -> t -> int
     val succ: t -> t
     val pred: t -> t
@@ -163,7 +162,8 @@ module Interval = struct
     val min_int: t
     val max_int: t
     val half_max: t -> bool
-    val float: t -> float
+    val to_int: t -> int
+    val to_float: t -> float
   end
 end
 
@@ -882,7 +882,7 @@ let rec pkey chan  = function
           for very small switches. *)
        ntests >= switch_min &&
        float_of_int ntests +. 1.0 >=
-       theta *. (E.float h -. E.float l +. 1.0))
+       theta *. (E.to_float h -. E.to_float l +. 1.0))
 
   (* Compute an optimal clustering by dynamic programming. *)
   let comp_clusters huge_interval s =
@@ -911,7 +911,8 @@ let rec pkey chan  = function
     (* Assume j > i *)
     let ll = cases.(i).low
     and hh = cases.(j).high in
-    let tbl = Array.make (E.diff hh ll+1) 0
+    let diff x y = E.to_int (E.sub x y) in
+    let tbl = Array.make (diff hh ll+1) 0
     and t = Hashtbl.create 17
     and index = ref 0 in
     let get_index act =
@@ -927,7 +928,7 @@ let rec pkey chan  = function
     for k=i to j do
       let {low;high;act} = cases.(k) in
       let index = get_index act in
-      for kk=E.diff low ll to E.diff high ll do
+      for kk=diff low ll to diff high ll do
         tbl.(kk) <- index
       done
     done ;
