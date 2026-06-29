@@ -2737,33 +2737,14 @@ module Interval(E:Switch.Interval.Edge) = struct
 
   end
 
-module SArg = struct
+module Core_arg = struct
   type primitive = Lambda.primitive
-
-  let eqint = Pintcomp Ceq
-
-  let neint = Pintcomp Cne
-
-  let leint = Pintcomp Cle
-
-  let ltint = Pintcomp Clt
-
-  let geint = Pintcomp Cge
-
-  let gtint = Pintcomp Cgt
-
   type loc = Lambda.scoped_location
   type arg = Lambda.lambda
   type test = Lambda.lambda
   type act = Lambda.lambda
 
   let make_prim p args = Lprim (p, args, Loc_unknown)
-
-  let make_negative_offset arg n =
-    match n with
-    | 0 -> arg
-    | _ -> Lprim (Poffsetint (-n), [ arg ], Loc_unknown)
-
   let bind arg body =
     let newvar, newarg =
       match arg with
@@ -2773,24 +2754,8 @@ module SArg = struct
           (newvar, Lvar newvar)
     in
     bind Alias newvar arg (body newarg)
-
-  let make_const i = Lconst (Const_int i)
-
-  let make_isout h arg = Lprim (Pisout, [ h; arg ], Loc_unknown)
-
-  let make_isin h arg = Lprim (Pnot, [ make_isout h arg ], Loc_unknown)
-
-  let make_is_nonzero arg =
-    if !Clflags.native_code then
-      Lprim (Pintcomp Cne,
-             [arg; Lconst (Const_int 0)],
-             Loc_unknown)
-    else
-      arg
-
-  let arg_as_test arg = arg
-
   let make_if cond ifso ifnot = Lifthenelse (cond, ifso, ifnot)
+ let arg_as_test arg = arg
 
   let make_switch loc arg cases acts =
     (* The [acts] array can contain arbitrary terms.
@@ -2828,11 +2793,48 @@ module SArg = struct
   let make_catch = make_catch_delayed
 
   let make_exit = make_exit
+
+end
+
+module SArg = struct
+  include Core_arg
+
+  let eqint = Pintcomp Ceq
+
+  let neint = Pintcomp Cne
+
+  let leint = Pintcomp Cle
+
+  let ltint = Pintcomp Clt
+
+  let geint = Pintcomp Cge
+
+  let gtint = Pintcomp Cgt
+
+  let make_negative_offset arg n =
+    match n with
+    | 0 -> arg
+    | _ -> Lprim (Poffsetint (-n), [ arg ], Loc_unknown)
+
+  let make_const i = Lconst (Const_int i)
+
+  let make_isout h arg = Lprim (Pisout, [ h; arg ], Loc_unknown)
+
+  let make_isin h arg = Lprim (Pnot, [ make_isout h arg ], Loc_unknown)
+
+  let make_is_nonzero arg =
+    if !Clflags.native_code then
+      Lprim (Pintcomp Cne,
+             [arg; Lconst (Const_int 0)],
+             Loc_unknown)
+    else
+      arg
+
 end
 
 
 module SArg64 = struct
-  type primitive = Lambda.primitive
+  include Core_arg
 
   let eqint = Pbintcomp (Pint64,Ceq)
   let neint = Pbintcomp (Pint64,Cne)
@@ -2841,29 +2843,12 @@ module SArg64 = struct
   let geint = Pbintcomp (Pint64,Cge)
   let gtint = Pbintcomp (Pint64,Cgt)
 
-  type loc = Lambda.scoped_location
-  type arg = Lambda.lambda
-  type test = Lambda.lambda
-  type act = Lambda.lambda
-
-  let make_prim p args = Lprim (p, args, Loc_unknown)
-
   let make_const i = Lconst (Const_int64 i)
+
   let make_negative_offset arg n =
     match n with
     | 0L -> arg
     | _ -> Lprim (Psubbint Pint64, [ arg; make_const n ], Loc_unknown)
-
-  let bind arg body =
-    let newvar, newarg =
-      match arg with
-      | Lvar v -> (v, arg)
-      | _ ->
-          let newvar = Ident.create_local "switcher" in
-          (newvar, Lvar newvar)
-    in
-    bind Alias newvar arg (body newarg)
-
 
   let make_isout h arg =
     let upper = Lprim (gtint, [ arg; h ], Loc_unknown) in
@@ -2880,46 +2865,6 @@ module SArg64 = struct
     else
       arg
 
-  let arg_as_test arg = arg
-
-  let make_if cond ifso ifnot = Lifthenelse (cond, ifso, ifnot)
-
-  let make_switch loc arg cases acts =
-    (* The [acts] array can contain arbitrary terms.
-       If several entries in the [cases] array point to the same action,
-       we must share it to avoid duplicating terms.
-       See PR#11893 on Github for an example where the other de-duplication
-       mechanisms do not apply. *)
-    let act_uses = Array.make (Array.length acts) 0 in
-    for i = 0 to Array.length cases - 1 do
-      act_uses.(cases.(i)) <- act_uses.(cases.(i)) + 1
-    done;
-    let wrapper = ref (fun lam -> lam) in
-    for j = 0 to Array.length acts - 1 do
-      if act_uses.(j) > 1 then begin
-        let nfail, wrap = make_catch_delayed acts.(j) in
-        acts.(j) <- make_exit nfail;
-        let prev_wrapper = !wrapper in
-        wrapper := (fun lam -> wrap (prev_wrapper lam))
-      end;
-    done;
-    let l = ref [] in
-    for i = Array.length cases - 1 downto 0 do
-      l := (i, acts.(cases.(i))) :: !l
-    done;
-    !wrapper (Lswitch
-      ( arg,
-        { sw_numconsts = Array.length cases;
-          sw_consts = !l;
-          sw_numblocks = 0;
-          sw_blocks = [];
-          sw_failaction = None
-        },
-        loc ))
-
-  let make_catch = make_catch_delayed
-
-  let make_exit = make_exit
 end
 
 
