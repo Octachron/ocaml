@@ -122,10 +122,12 @@ sig
 
   val bind : arg -> (arg -> act) -> act
   val make_const : int -> arg
-  val make_offset : arg -> int -> arg
+  val make_negative_offset : arg -> int -> arg
   val make_prim : primitive -> arg list -> test
   val make_isout : arg -> arg -> test
+  val make_large_isout : low:arg -> high:arg -> arg -> test
   val make_isin : arg -> arg -> test
+  val make_large_isin : low:arg -> high:arg -> arg -> test
   val make_is_nonzero : arg -> test
   val arg_as_test : arg -> test
 
@@ -466,8 +468,6 @@ let rec pkey chan  = function
    This condition is checked by zyva
 *)
 
-  let inter_limit = 1 lsl 16
-
   let ok_inter = ref false
 
   (* Compute a good test sequence. *)
@@ -662,35 +662,70 @@ let rec pkey chan  = function
            else act810
        else act_default
 
-     The type [t_ctx] represents an input argument "shifted" by a certain
-     (negative) offset by repeated substractions.
+     The type [t_ctx] represents an input argument "shifted" by a
+     certain (negative) offset by repeated substractions.
+     In the example above, [a5] would be represented with [off = 5].
 
-     In the example above, [a5] would be represented with [off = -5].
+     The {!original} field records the original input argument, which
+     is used when testing [original in [low; high]] for intervals
+     whose length [high-low] is greater than [max_int].
+
   *)
-  type 'a t_ctx =  {off : int ; arg : 'a}
+  type 'a t_ctx =  {off : int ; original:'a; arg : 'a}
+  let make_ctx x = { original=x; arg=x; off=0 }
 
   let make_if_test test arg i ifso ifnot =
     Arg.make_if
       (Arg.make_prim test [arg ; Arg.make_const i])
       ifso ifnot
 
-  let make_if_lt arg i  ifso ifnot = match i with
-    | 1 ->
-        make_if_test Arg.leint arg 0 ifso ifnot
-    | _ ->
-        make_if_test Arg.ltint arg i ifso ifnot
+  let no_overflow_sub x y =
+    if y < 0 && x > Int.max_int + y then
+      None
+    else
+      Some (x - y)
 
-  and make_if_ge arg i  ifso ifnot = match i with
-    | 1 ->
-        make_if_test Arg.gtint arg 0 ifso ifnot
-    | _ ->
-        make_if_test Arg.geint arg i ifso ifnot
+  let make_if_lt ctx i ifso ifnot =
+    match no_overflow_sub i ctx.off with
+    | None ->
+        make_if_test Arg.leint ctx.original i ifso ifnot
+    | Some 1 ->
+        make_if_test Arg.leint ctx.arg 0 ifso ifnot
+    | Some i ->
+        make_if_test Arg.ltint ctx.arg i ifso ifnot
 
-  and make_if_eq  arg i ifso ifnot =
-    make_if_test Arg.eqint arg i ifso ifnot
+  let make_if_ge ctx i ifso ifnot =
+    match no_overflow_sub i ctx.off with
+    | None ->
+        make_if_test Arg.geint ctx.original i ifso ifnot
+    | Some 1 ->
+        make_if_test Arg.gtint ctx.arg 0 ifso ifnot
+    | Some i ->
+        make_if_test Arg.geint ctx.arg i ifso ifnot
 
-  and make_if_ne  arg i ifso ifnot =
-    make_if_test Arg.neint arg i ifso ifnot
+  (** [valid_array_index_sub x y] is [Some (x-y)] if the value is a valid
+      array index even on a 32 bits system and [None] otherwise *)
+  let valid_array_index_sub x y =
+    if (y < 0 && x > Int.max_int + y)
+     || x-y >= 0x3FFFFF
+    then
+      None
+    else
+      Some (x - y)
+
+  let make_if_eq ctx i ifso ifnot =
+    match no_overflow_sub i ctx.off with
+    | Some i' ->
+      make_if_test Arg.eqint ctx.arg i' ifso ifnot
+    | None ->
+        make_if_test Arg.eqint ctx.original i ifso ifnot
+
+  let make_if_ne ctx i ifso ifnot =
+    match no_overflow_sub i ctx.off with
+    | Some i' ->
+        make_if_test Arg.neint ctx.arg i' ifso ifnot
+    | None ->
+        make_if_test Arg.neint ctx.original i ifso ifnot
 
   let make_if_nonzero arg ifso ifnot =
     Arg.make_if (Arg.make_is_nonzero arg) ifso ifnot
@@ -701,32 +736,57 @@ let rec pkey chan  = function
   let do_make_if_out h arg ifso ifno =
     Arg.make_if (Arg.make_isout h arg) ifso ifno
 
-  let make_if_out ctx l d mk_ifso mk_ifno = match l with
-    | 0 ->
-        do_make_if_out
-          (Arg.make_const d) ctx.arg (mk_ifso ctx) (mk_ifno ctx)
-    | _ ->
-        Arg.bind
-          (Arg.make_offset ctx.arg (-l))
-          (fun arg ->
-             let ctx = {off= (-l+ctx.off) ; arg=arg} in
-             do_make_if_out
-               (Arg.make_const d) arg (mk_ifso ctx) (mk_ifno ctx))
+  let do_make_if_large_out ~low ~high arg ifso ifno =
+    let low = Arg.make_const low in
+    let high = Arg.make_const high in
+    Arg.make_if (Arg.make_large_isout ~low ~high arg) ifso ifno
+
+  let make_if_out ctx ~low ~high mk_ifso mk_ifno =
+    match no_overflow_sub high low with
+    | None ->
+        (* if [high - low] overflows, we go back to interval testing
+           without shifting *)
+        do_make_if_large_out ~low ~high ctx.original (mk_ifso ctx) (mk_ifno ctx)
+    | Some d ->
+        if low = ctx.off then
+          do_make_if_out
+            (Arg.make_const d) ctx.arg (mk_ifso ctx) (mk_ifno ctx)
+        else
+          Arg.bind
+            (* OCaml integer arithmetic is still associative in
+               presence of overflows *)
+            (Arg.make_negative_offset ctx.arg (low-ctx.off))
+            (fun arg ->
+               let ctx = {ctx with off=low; arg} in
+               do_make_if_out
+                 (Arg.make_const d) arg (mk_ifso ctx) (mk_ifno ctx)
+            )
 
   let do_make_if_in h arg ifso ifno =
     Arg.make_if (Arg.make_isin h arg) ifso ifno
 
-  let make_if_in ctx l d mk_ifso mk_ifno = match l with
-    | 0 ->
-        do_make_if_in
-          (Arg.make_const d) ctx.arg (mk_ifso ctx) (mk_ifno ctx)
-    | _ ->
+  let do_make_if_large_in l h arg ifso ifno =
+    Arg.make_if
+      (Arg.make_large_isin ~low:(Arg.make_const l) ~high:(Arg.make_const h) arg)
+      ifso
+      ifno
+
+  let make_if_in ctx ~low ~high mk_ifso mk_ifno =
+    match no_overflow_sub high low with
+    | None ->
+        do_make_if_large_in low high ctx.original (mk_ifso ctx) (mk_ifno ctx)
+    | Some d ->
+        if low = ctx.off then
+          do_make_if_in
+            (Arg.make_const d) ctx.arg (mk_ifso ctx) (mk_ifno ctx)
+        else
         Arg.bind
-          (Arg.make_offset ctx.arg (-l))
+          (Arg.make_negative_offset ctx.arg (low-ctx.off))
           (fun arg ->
-             let ctx = {off= (-l+ctx.off) ; arg=arg} in
+             let ctx = {ctx with off=low; arg=arg} in
              do_make_if_in
-               (Arg.make_const d) arg (mk_ifso ctx) (mk_ifno ctx))
+               (Arg.make_const d) arg (mk_ifso ctx) (mk_ifno ctx)
+          )
 
   (* Generate the code for a good test sequence. *)
   let rec c_test ctx ({cases=cases ; actions=actions} as s) =
@@ -754,29 +814,23 @@ let rec pkey chan  = function
           if low=high then begin
             if less_tests coutside cinside then
               make_if_eq
-                ctx.arg
-                (low+ctx.off)
+                ctx
+                low
                 (c_test ctx {s with cases=inside})
                 (c_test ctx {s with cases=outside})
             else
               make_if_ne
-                ctx.arg
-                (low+ctx.off)
+                ctx
+                low
                 (c_test ctx {s with cases=outside})
                 (c_test ctx {s with cases=inside})
           end else begin
             if less_tests coutside cinside then
-              make_if_in
-                ctx
-                (low+ctx.off)
-                (high-low)
+              make_if_in ctx ~low ~high
                 (fun ctx -> c_test ctx {s with cases=inside})
                 (fun ctx -> c_test ctx {s with cases=outside})
             else
-              make_if_out
-                ctx
-                (low+ctx.off)
-                (high-low)
+              make_if_out ctx ~low ~high
                 (fun ctx -> c_test ctx {s with cases=outside})
                 (fun ctx -> c_test ctx {s with cases=inside})
           end
@@ -787,8 +841,8 @@ let rec pkey chan  = function
           let left = {s with cases=left}
           and right = {s with cases=right} in
 
-          if i=1 && (lim+ctx.off)=1 && get_low cases 0+ctx.off=0 then
-            if lcases = 2 && get_high cases 1+ctx.off = 1 then
+          if i=1 && lim = 1 + ctx.off && get_low cases 0 = ctx.off then
+            if lcases = 2 && get_high cases 1 = 1 + ctx.off then
               make_if_bool
                 ctx.arg
                 (c_test ctx right) (c_test ctx left)
@@ -797,12 +851,10 @@ let rec pkey chan  = function
                 ctx.arg
                 (c_test ctx right) (c_test ctx left)
           else if less_tests cright cleft then
-            make_if_lt
-              ctx.arg (lim+ctx.off)
+            make_if_lt ctx lim
               (c_test ctx left) (c_test ctx right)
           else
-            make_if_ge
-              ctx.arg (lim+ctx.off)
+            make_if_ge ctx lim
               (c_test ctx right) (c_test ctx left)
 
     end
@@ -842,16 +894,19 @@ let rec pkey chan  = function
     else
       let l,_,_ = cases.(i)
       and _,h,_ = cases.(j) in
-      let ntests = approx_count cases i j in
+      match valid_array_index_sub h l with
+      | None -> false
+      | Some d ->
+          let ntests = approx_count cases i j in
 (*
   (ntests+1) >= theta * (h-l+1)
 *)
-      particular_case cases i j ||
-      ((* The switch_min test guarantees that we don't use jump tables
-          for very small switches. *)
-       ntests >= switch_min &&
-       float_of_int ntests +. 1.0 >=
-       theta *. (float_of_int h -. float_of_int l +. 1.0))
+          particular_case cases i j ||
+          ((* The switch_min test guarantees that we don't use jump tables
+              for very small switches. *)
+            ntests >= switch_min &&
+            float_of_int ntests +. 1.0 >=
+            theta *. (float_of_int d +. 1.0))
 
   (* Compute an optimal clustering by dynamic programming. *)
   let comp_clusters s =
@@ -877,7 +932,7 @@ let rec pkey chan  = function
      by the functor parameter as Arg.make_switch
      (which will typically use a jump table) *)
   let make_switch loc {cases=cases ; actions=actions} i j =
-    (* Assume j > i *)
+    (* Assume j > i and [hh - ll] is a valid array index *)
     let ll,_,_ = cases.(i)
     and _,hh,_ = cases.(j) in
     let tbl = Array.make (hh-ll+1) 0
@@ -905,12 +960,12 @@ let rec pkey chan  = function
       (fun act i -> acts.(i) <- actions.(act))
       t ;
     (fun ctx ->
-       match -ll-ctx.off with
-       | 0 -> Arg.make_switch loc ctx.arg tbl acts
-       | _ ->
-           Arg.bind
-             (Arg.make_offset ctx.arg (-ll-ctx.off))
-             (fun arg -> Arg.make_switch loc arg tbl acts))
+       if ll=ctx.off then
+         Arg.make_switch loc ctx.arg tbl acts
+       else
+         Arg.bind
+           (Arg.make_negative_offset ctx.arg (ll-ctx.off))
+           (fun arg -> Arg.make_switch loc arg tbl acts))
 
   (* Generate code from a clustering choice. *)
   let make_clusters loc ({cases=cases ; actions=actions} as s) n_clusters k =
@@ -956,9 +1011,9 @@ let rec pkey chan  = function
     {cases = r ; actions = acts}
 
 
-  let do_zyva loc (low,high) arg cases actions =
+  let do_zyva loc arg cases actions =
     let old_ok = !ok_inter in
-    ok_inter := (abs low <= inter_limit && abs high <= inter_limit) ;
+    ok_inter := true;
     if !ok_inter <> old_ok then Hashtbl.clear t ;
 
     let s = {cases=cases ; actions=actions} in
@@ -970,7 +1025,7 @@ let rec pkey chan  = function
 *)
     let n_clusters,k = comp_clusters s in
     let clusters = make_clusters loc s n_clusters k in
-    c_test {arg=arg ; off=0} clusters
+    c_test (make_ctx arg) clusters
 
   let abstract_shared actions =
     let handlers = ref (fun x -> x) in
@@ -987,11 +1042,11 @@ let rec pkey chan  = function
     !handlers,actions
 
   (* Standard entry point. *)
-  let zyva loc lh arg cases actions =
+  let zyva loc arg cases actions =
     assert (Array.length cases > 0) ;
     let actions = actions.act_get_shared () in
     let hs,actions = abstract_shared actions in
-    hs (do_zyva loc lh arg cases actions)
+    hs (do_zyva loc arg cases actions)
 
   (* Generate code using test sequences only, not Arg.make_switch *)
   and test_sequence arg cases actions =
@@ -1009,6 +1064,6 @@ let rec pkey chan  = function
   pcases stderr cases ;
   prerr_endline "" ;
 *)
-    hs (c_test {arg=arg ; off=0} s)
+    hs (c_test (make_ctx arg) s)
 
 end

@@ -2633,10 +2633,10 @@ module SArg = struct
 
   let make_prim p args = Lprim (p, args, Loc_unknown)
 
-  let make_offset arg n =
+  let make_negative_offset arg n =
     match n with
     | 0 -> arg
-    | _ -> Lprim (Poffsetint n, [ arg ], Loc_unknown)
+    | _ -> Lprim (Poffsetint (-n), [ arg ], Loc_unknown)
 
   let bind arg body =
     let newvar, newarg =
@@ -2651,8 +2651,19 @@ module SArg = struct
   let make_const i = Lconst (Const_int i)
 
   let make_isout h arg = Lprim (Pisout, [ h; arg ], Loc_unknown)
+  let make_large_isout ~low ~high arg =
+    make_prim Psequor [
+      make_prim (Pintcomp Clt) [arg;low];
+      make_prim (Pintcomp Cgt) [arg;high];
+    ]
 
   let make_isin h arg = Lprim (Pnot, [ make_isout h arg ], Loc_unknown)
+
+  let make_large_isin ~low ~high arg =
+    make_prim Psequand [
+      make_prim (Pintcomp Cle) [arg;high];
+      make_prim (Pintcomp Cge) [arg;low];
+    ]
 
   let make_is_nonzero arg =
     if !Clflags.native_code then
@@ -2785,16 +2796,6 @@ let reintroduce_fail sw =
 module Switcher = Switch.Make (SArg)
 open Switch
 
-let rec last def = function
-  | [] -> def
-  | [ (x, _) ] -> x
-  | _ :: rem -> last def rem
-
-let get_edges ~low ~high l =
-  match l with
-  | [] -> (low, high)
-  | (x, _) :: _ -> (x, last high l)
-
 let as_interval_canfail fail ~low ~high l =
   let store = StoreExp.mk_store () in
   let do_store _tag act =
@@ -2901,14 +2902,13 @@ let sort_int_lambda_list l =
 
 let as_interval fail ?(low = min_int) ?(high = max_int) l =
   let l = sort_int_lambda_list l in
-  ( get_edges ~low ~high l,
-    match fail with
-    | None -> as_interval_nofail l
-    | Some act -> as_interval_canfail act ~low ~high l )
+  match fail with
+  | None -> as_interval_nofail l
+  | Some act -> as_interval_canfail act ~low ~high l
 
 let call_switcher loc fail arg ?low ?high int_lambda_list =
-  let edges, (cases, actions) = as_interval fail ?low ?high int_lambda_list in
-  Switcher.zyva loc edges arg cases actions
+  let cases, actions = as_interval fail ?low ?high int_lambda_list in
+  Switcher.zyva loc arg cases actions
 
 let rec list_as_pat = function
   | [] -> fatal_error "Matching.list_as_pat"
@@ -3358,7 +3358,7 @@ let combine_constructor loc arg pat_env cstr partial ctx def actions =
     combine_regular_constructor loc arg cstr partial ctx def actions
 
 let make_test_sequence_variant_constant fail arg int_lambda_list =
-  let _, (cases, actions) = as_interval fail int_lambda_list in
+  let cases, actions = as_interval fail int_lambda_list in
   Switcher.test_sequence arg cases actions
 
 let call_switcher_variant_constant loc fail arg int_lambda_list =

@@ -91,18 +91,25 @@ module type S =
     val bind : arg -> (arg -> act) -> act
     (* [make_const n] generates a term for the integer constant [n] *)
     val make_const : int -> arg
-    (* [make_offset arg n] generates a term for adding the constant
-       integer [n] to the term [arg] *)
-    val make_offset : arg -> int -> arg
+    (* [make_negative_offset arg n] generates a term for substrating
+       the constant integer [n] to the term [arg] *)
+    val make_negative_offset : arg -> int -> arg
     (* [make_prim p args] generates a test using the primitive operation [p]
        applied to arguments [args] *)
     val make_prim : primitive -> arg list -> test
     (* [make_isout h arg] generates a test that holds when [arg] is out of
        the interval [0, h] *)
     val make_isout : arg -> arg -> test
+    (* [make_large_isout ~low ~high arg] generates a test that holds
+       when [arg] is out of the interval [low, high] *)
+    val make_large_isout : low:arg -> high:arg -> arg -> test
     (* [make_isin h arg] generates a test that holds when [arg] is in
-       the interval [0, h] *)
+       the interval [low, high] when [high-low>max_int] *)
     val make_isin : arg -> arg -> test
+    (* [make_large_isin ~low ~high arg] generates a test that holds
+       when [arg] is in the interval [low, high] when
+       [high-low>max_int] *)
+    val make_large_isin : low:arg -> high:arg -> arg -> test
     (* [make_is_nonzero arg] generates a test that holds when [arg] is any
        value except 0 *)
     val make_is_nonzero : arg -> test
@@ -138,7 +145,6 @@ module Make :
 (* Standard entry point, sharing is tracked *)
       val zyva :
           Arg.loc ->
-          (int * int) ->
            Arg.arg ->
            (int * int * int) array ->
            (Arg.act, _) t_store ->

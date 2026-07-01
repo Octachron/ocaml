@@ -1600,9 +1600,19 @@ struct
 
   let make_const i =  Cconst_int (i, Debuginfo.none)
   let make_prim p args = Cop (p,args, Debuginfo.none)
-  let make_offset arg n = add_const arg n Debuginfo.none
+  let make_negative_offset arg n = add_const arg (-n) Debuginfo.none
   let make_isout h arg = Cop (Ccmpa Clt, [h ; arg], Debuginfo.none)
+  let make_large_isout ~low ~high arg =
+    make_prim Cor [
+      make_prim (Ccmpa Clt) [arg; low];
+      make_prim (Ccmpa Cgt) [arg; high]
+    ]
   let make_isin h arg = Cop (Ccmpa Cge, [h ; arg], Debuginfo.none)
+  let make_large_isin ~low ~high arg =
+    make_prim Cand [
+      make_prim (Ccmpa Cle) [arg; high];
+      make_prim (Ccmpa Cge) [arg; low]
+    ]
   let make_is_nonzero arg = arg
   let arg_as_test arg = arg
   let make_if cond ifso ifnot =
@@ -1717,7 +1727,6 @@ let transl_int_switch dbg arg low high cases default = match cases with
       (fun a ->
         SwitcherBlocks.zyva
           dbg
-          (low,high)
           a
           (Array.of_list inters) store)
 
@@ -1752,7 +1761,6 @@ let transl_switch_clambda loc arg index cases =
         (fun a ->
            SwitcherBlocks.zyva
              loc
-             (0,n_index-1)
              a
              (Array.of_list inters) store)
 
