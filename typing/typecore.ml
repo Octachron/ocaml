@@ -309,8 +309,7 @@ end = struct
         Tfunctor (l, new_id, package, copy_with_map id_map type_expr)
     | Texpand (t, abbr) ->
         Texpand (copy t, {abbr_path = copy_path id_map abbr.abbr_path;
-                          abbr_args = List.map copy abbr.abbr_args;
-                          abbr_level = abbr.abbr_level})
+                          abbr_args = List.map copy abbr.abbr_args })
     | Tlink _ | Tsubst _ -> assert false
 
 

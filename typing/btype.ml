@@ -866,7 +866,7 @@ let deep_occur_rec mark t0 =
       iter_type_desc occur ty'.desc;
       iter_abbrev occur_abbrev ty
     end
-  and occur_abbrev abbr = List.iter occur abbr.abbr_args
+  and occur_abbrev _ ~level:_ abbr = List.iter occur abbr.abbr_args
   in
   occur
 

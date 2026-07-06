@@ -148,8 +148,7 @@ type type_desc =
 (** [abbrev] remembers information about an expanded type abbreviation *)
 and abbrev =
     { abbr_path : Path.t;
-      abbr_args : type_expr list;
-      mutable abbr_level : int }
+      abbr_args : type_expr list }
 
 (** [package] corresponds to the type of a first-class module *)
 and package =
@@ -274,10 +273,13 @@ val try_mark_node: type_mark -> type_expr -> bool
 
 (** Handle kept abbreviations *)
 val get_abbrev: type_expr -> abbrev option
-val iter_abbrev: (abbrev -> unit) -> type_expr -> unit
+val get_abbrev_level: type_expr -> abbrev -> int
+type type_abbrev
+val iter_abbrev:
+  (type_abbrev -> level:int -> abbrev -> unit) -> type_expr -> unit
 val forget_abbrev: type_expr -> unit
 val ignore_abbrev: type_expr -> type_expr
-val set_abbrev_level: abbrev -> int -> unit
+val set_abbrev_level: type_abbrev -> int -> unit
 
 (** Transient [type_expr].
     Should only be used immediately after [Transient_expr.repr] *)

@@ -51,7 +51,7 @@ and type_desc =
 and abbrev =
     { abbr_path : Path.t;
       abbr_args : type_expr list;
-      mutable abbr_level : int }
+    }
 
 and package =
     { pack_path : Path.t;
@@ -496,7 +496,6 @@ type change =
   | Ccommu of [`var] commutable_gen
   | Cuniv of type_expr option ref * type_expr option
   | Cuident of Ident.Unscoped.change
-  | Cabbr_level of abbrev * int
 
 type changes =
     Change of change * changes ref
@@ -551,14 +550,22 @@ let repr_update t_orig d =
   log_change (Ccompress (t_orig, t_orig.desc, d));
   t_orig.desc <- d
 
-let rec repr_expand update t_orig t abbrev =
+type type_abbrev = type_expr
+let set_abbrev_level ty level =
+  log_change (Clevel (ty, ty.level));
+  ty.level <- level
+
+let rec repr_expand update t_orig t ~level abbrev =
   match t.desc with
   | Tlink t' | Texpand (t', _) ->
-      repr_expand true t_orig t' abbrev
+      repr_expand true t_orig t' ~level abbrev
   | Tfield (_, k, _, t') when field_kind_internal_repr k = FKabsent ->
-      repr_expand true t_orig t' abbrev
+      repr_expand true t_orig t' ~level abbrev
   | _ ->
-      if update then repr_update t_orig (Texpand (t, abbrev));
+      if update then begin
+        repr_update t_orig (Texpand (t, abbrev));
+        set_abbrev_level t_orig level
+      end;
       t
 
 let rec repr_link update t_orig t =
@@ -566,7 +573,7 @@ let rec repr_link update t_orig t =
   | Tlink t' ->
       repr_link true t_orig t'
   | Texpand (t', abbrev) ->
-      repr_expand true t_orig t' abbrev
+      repr_expand true t_orig t' ~level:t.level abbrev
   | Tfield (_, k, _, t') when field_kind_internal_repr k = FKabsent ->
       repr_link true t_orig t'
   | _ ->
@@ -597,7 +604,7 @@ let repr_slow_path t =
   | Tlink t' ->
       repr_link false t t'
   | Texpand (t', abbrev) ->
-      repr_expand false t t' abbrev
+      repr_expand false t t' ~level:t.level abbrev
   | Tfield (_, k, _, t') when field_kind_internal_repr k = FKabsent ->
       repr_link true t t'
   | _ -> t
@@ -666,14 +673,11 @@ let not_marked_node mark t =
 let get_abbrev t =
   ignore (repr t);
   match t.desc with Texpand (_, abbrev) -> Some abbrev | _ -> None
+let get_abbrev_level t _ = t.level
 
 let [@inline hint] iter_abbrev f t =
   ignore (repr t);
-  match t.desc with Texpand (_, abbrev) -> f abbrev | _ -> ()
-
-let set_abbrev_level abbrev level =
-  log_change (Cabbr_level (abbrev, abbrev.abbr_level));
-  abbrev.abbr_level <- level
+  match t.desc with Texpand (_, abbrev) -> f t ~level:t.level abbrev | _ -> ()
 
 let ignore_abbrev ty = repr ty
 
@@ -867,7 +871,6 @@ let undo_change = function
   | Ccommu (Cvar r)  -> r.commu <- Cunknown
   | Cuniv  (r, v)    -> r := v
   | Cuident change    -> Ident.Unscoped.undo_change change
-  | Cabbr_level (a, l) -> a.abbr_level <- l
 
 type snapshot = changes ref * int
 let last_snapshot = Local_store.s_ref 0
@@ -882,11 +885,7 @@ let link_expand ty ty' =
   match ty.desc with
     Tconstr (path, args, _memo) ->
       log_type ty;
-      let abbrev =
-        { abbr_path = path;
-          abbr_args = args;
-          abbr_level = ty.level }
-      in
+      let abbrev = { abbr_path = path; abbr_args = args } in
       Transient_expr.set_desc ty (Texpand (ty', abbrev))
   | _ -> Misc.fatal_error "Types.link_expand"
 

@@ -920,7 +920,7 @@ let rec check_level_type_rec visited level ty =
   get_level ty <= level &&
   match get_abbrev ty with
     Some abbr ->
-      abbr.abbr_level <= level ||
+      get_abbrev_level ty abbr <= level ||
       Path.scope abbr.abbr_path <= level &&
       (abbr.abbr_args = [] || List.memq ty visited ||
       let visited = ty :: visited in
@@ -1017,14 +1017,14 @@ let rec update_level env level expand ty =
    containing the Texpand (the level would have to be copied too). *)
 and update_level_abbrev env level expand ty =
   iter_abbrev
-    (function {abbr_path=p; abbr_args=args; abbr_level=l} as abbr ->
+    (fun ty_abbrev ~level:l {abbr_path=p; abbr_args=args} ->
       if level >= l then () else
       if level < Path.scope p then forget_abbrev ty else
       if List.for_all (check_level_type level) args then
-        set_abbrev_level abbr level
+        set_abbrev_level ty_abbrev level
       else if expand || needs_expand env level p args then forget_abbrev ty
       else begin
-        set_abbrev_level abbr level;
+        set_abbrev_level ty_abbrev level;
         List.iter (update_level env level expand) args
       end)
     ty
@@ -1231,7 +1231,7 @@ let rec inv_type hash pty ty =
   with Not_found ->
     let inv = { inv_type = ty; inv_parents = pty } in
     TypeHash.add hash ty inv;
-    iter_abbrev (fun {abbr_args} ->
+    iter_abbrev (fun _ ~level:_ {abbr_args} ->
       List.iter (inv_type hash [inv]) abbr_args
     ) ty;
     iter_type_expr (inv_type hash [inv]) ty
@@ -1302,7 +1302,7 @@ let type_subexpressions_with_free_occurrences ids ty =
   in
   let occurrence_in_abbrev inv =
     iter_abbrev
-      (fun {abbr_path} ->
+      (fun _ ~level:_ {abbr_path} ->
         if Path.exists_free ids abbr_path then add_all_parents ids inv)
       inv.inv_type
   in
@@ -1515,8 +1515,7 @@ let rec copy ?partial ?keep_names ?scope ?(unscoped = empty_unscoped_mapping)
           let path = Path.subst unscoped.map abbr.abbr_path in
           let args = List.map copy abbr.abbr_args in
           let t' = new_scoped_ty ty_scope desc' in
-          Texpand (t', {abbr_path = path; abbr_args = args;
-                        abbr_level = !current_level})
+          Texpand (t', {abbr_path = path; abbr_args = args})
       | None ->
           desc'
     in

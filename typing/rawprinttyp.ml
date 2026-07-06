@@ -114,8 +114,8 @@ and raw_type_desc ppf = function
       fprintf ppf "@[<1>Tsubst@,(%a,@ Some%a)@]" raw_type t raw_type t'
   | Texpand (t, a) ->
       let abbrev ppf abbr =
-        fprintf ppf "@[<1>{abbr_path=%a;@,abbr_args=%a;@,abbr_level=%d}]"
-         path abbr.abbr_path raw_type_list abbr.abbr_args abbr.abbr_level
+        fprintf ppf "@[<1>{abbr_path=%a;@,abbr_args=%a}]"
+         path abbr.abbr_path raw_type_list abbr.abbr_args
       in
       fprintf ppf "@[<1>Texpand(@,%a,@,%a)@]" raw_type t abbrev a
   | Tunivar name -> fprintf ppf "Tunivar %a" print_name name
