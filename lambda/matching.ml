@@ -2951,8 +2951,9 @@ let reintroduce_fail sw =
 module Int_edge = struct
   include Int
   let is_zero x = x = 0
-  let to_int x = x
-  let to_float x = float_of_int x
+  (* max array size on 32 bit systems *)
+  let array_indexable_sub x y = x - y >= 0 && x - y < 4_194_303
+  let sub_to_array_index x y = x - y
   let half_max x = abs x < Int.max_int lsr 1
 end
 
@@ -2985,6 +2986,8 @@ module Int64_edge = struct
     | Asttypes.Const_int64 n -> n
     | _ -> assert false
   let kind = Pint64
+  let sub_to_array_index x y = Int64.(to_int (sub x y))
+  let array_indexable_sub x y = Int64.(sub x y >= 0L && sub x y < 4_194_303L)
 end
 module Switcher64 = Make_switcher(Int64_edge)
 
@@ -2999,6 +3002,8 @@ module Int32_edge = struct
     | Asttypes.Const_int32 n -> n
     | _ -> assert false
   let kind = Pint32
+  let sub_to_array_index x y = Int32.(to_int (sub x y))
+  let array_indexable_sub x y = Int32.(sub x y >= 0l && sub x y < 4_194_303l)
 end
 module Switcher32 = Make_switcher(Int32_edge)
 
@@ -3013,6 +3018,9 @@ module Nativeint_edge = struct
     | Asttypes.Const_nativeint n -> n
     | _ -> assert false
   let kind = Pnativeint
+  let sub_to_array_index x y = Nativeint.(to_int (sub x y))
+  let array_indexable_sub x y =
+    Nativeint.(sub x y >= 0n && sub x y < 4_194_303n)
 end
 module SwitcherNativeint = Make_switcher(Nativeint_edge)
 

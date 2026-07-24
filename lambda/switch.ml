@@ -162,8 +162,8 @@ module Interval = struct
     val min_int: t
     val max_int: t
     val half_max: t -> bool
-    val to_int: t -> int
-    val to_float: t -> float
+    val array_indexable_sub: t -> t -> bool
+    val sub_to_array_index: t -> t -> int
   end
 end
 
@@ -881,8 +881,10 @@ let rec pkey chan  = function
       ((* The switch_min test guarantees that we don't use jump tables
           for very small switches. *)
        ntests >= switch_min &&
-       float_of_int ntests +. 1.0 >=
-       theta *. (E.to_float h -. E.to_float l +. 1.0))
+       E.array_indexable_sub h l &&
+       let d = E.sub_to_array_index h l in
+       float_of_int (ntests + 1) >=
+       theta *. Int.to_float (d + 1))
 
   (* Compute an optimal clustering by dynamic programming. *)
   let comp_clusters huge_interval s =
@@ -908,11 +910,10 @@ let rec pkey chan  = function
      by the functor parameter as Arg.make_switch
      (which will typically use a jump table) *)
   let make_switch loc {cases=cases ; actions=actions} i j =
-    (* Assume j > i *)
+    (* Assume j > i a,d [E.is_valid_array_index_sub hh ll] *)
     let ll = cases.(i).low
     and hh = cases.(j).high in
-    let diff x y = E.to_int (E.sub x y) in
-    let tbl = Array.make (diff hh ll+1) 0
+    let tbl = Array.make (E.sub_to_array_index hh ll+1) 0
     and t = Hashtbl.create 17
     and index = ref 0 in
     let get_index act =
@@ -928,7 +929,7 @@ let rec pkey chan  = function
     for k=i to j do
       let {low;high;act} = cases.(k) in
       let index = get_index act in
-      for kk=diff low ll to diff high ll do
+      for kk=E.sub_to_array_index low ll to E.sub_to_array_index high ll do
         tbl.(kk) <- index
       done
     done ;
@@ -989,7 +990,8 @@ let rec pkey chan  = function
 
 
   let do_zyva loc (low,high) arg cases actions =
-    let huge_interval = not (E.half_max low && E.half_max high) in
+    let huge_interval =
+      not (E.half_max low && E.half_max high) in
     let s = {cases=cases ; actions=actions} in
 
 (*

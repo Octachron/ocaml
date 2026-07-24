@@ -152,8 +152,8 @@ module Interval: sig
     val min_int: t
     val max_int: t
     val half_max:t -> bool
-    val to_int: t -> int
-    val to_float: t -> float
+    val array_indexable_sub: t -> t -> bool
+    val sub_to_array_index: t -> t -> int
   end
 
 end
