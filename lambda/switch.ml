@@ -151,7 +151,6 @@ module Interval = struct
   module type Edge =  sig
     type t
     val zero: t
-    val is_zero: t -> bool
     val compare: t -> t -> int
     val succ: t -> t
     val pred: t -> t
@@ -161,7 +160,7 @@ module Interval = struct
     val max: t -> t -> t
     val min_int: t
     val max_int: t
-    val half_max: t -> bool
+    val half_max: t
     val array_indexable_sub: t -> t -> bool
     val sub_to_array_index: t -> t -> int
   end
@@ -279,7 +278,8 @@ let prerr_inter i = Printf.fprintf stderr
   open Interval
   module Eo = struct
     let (=) x y = E.compare x y = 0
-    (*   let (<) x y = E.compare x y < 0 *)
+    let (<) x y = E.compare x y < 0
+    let (>) x y = E.compare x y > 0
     let (+) = E.add
     let (-) = E.sub
   end
@@ -729,7 +729,7 @@ let rec pkey chan  = function
     Arg.make_if (Arg.make_isout h arg) ifso ifno
 
   let make_if_out ctx l d mk_ifso mk_ifno =
-    if E.is_zero l then
+    if Eo.( l = E.zero ) then
         do_make_if_out
           (Arg.make_const d) ctx.arg (mk_ifso ctx) (mk_ifno ctx)
     else
@@ -744,7 +744,7 @@ let rec pkey chan  = function
     Arg.make_if (Arg.make_isin h arg) ifso ifno
 
   let make_if_in ctx l d mk_ifso mk_ifno =
-    if E.is_zero l then
+    if Eo.(l=E.zero) then
         do_make_if_in
           (Arg.make_const d) ctx.arg (mk_ifso ctx) (mk_ifno ctx)
     else
@@ -815,10 +815,10 @@ let rec pkey chan  = function
           and right = {s with cases=right} in
 
           if i=1
-          && Eo.(lim+ctx.off)= first
-          && E.is_zero (Eo.(get_low cases 0+ctx.off))
+          && Eo.(lim+ctx.off = first)
+          && Eo.(get_low cases 0 + ctx.off = E.zero)
           then
-            if lcases = 2 && Eo.(get_high cases 1+ctx.off = first) then
+            if lcases = 2 && Eo.(get_high cases 1 + ctx.off = first) then
               make_if_bool
                 ctx.arg
                 (c_test huge_interval ctx right)
@@ -938,7 +938,7 @@ let rec pkey chan  = function
       (fun act i -> acts.(i) <- actions.(act))
       t ;
     (fun ctx ->
-       if E.is_zero Eo.(ll+ctx.off) then
+       if Eo.(ll+ctx.off = E.zero) then
          Arg.make_switch loc ctx.arg tbl acts
        else
            Arg.bind
@@ -990,8 +990,8 @@ let rec pkey chan  = function
 
 
   let do_zyva loc (low,high) arg cases actions =
-    let huge_interval =
-      not (E.half_max low && E.half_max high) in
+    let huge x = Eo.( x < E.zero - E.half_max || x > E.half_max) in
+    let huge_interval = huge low || huge high in
     let s = {cases=cases ; actions=actions} in
 
 (*

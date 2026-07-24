@@ -1675,10 +1675,7 @@ module SwitcherBlocks =
   Switch.Make
     (struct
       include Int
-      let is_zero x = x = 0
-      let half_max x =
-        let lim = Int.max_int lsr 1 in
-        x <= lim && x >= -lim
+      let half_max = Int.max_int lsr 1
       let array_indexable_sub x y = x - y >= 0 && x - y < 4_194_303
       let sub_to_array_index x y = x - y
     end)

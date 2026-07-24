@@ -2950,11 +2950,10 @@ let reintroduce_fail sw =
 
 module Int_edge = struct
   include Int
-  let is_zero x = x = 0
   (* max array size on 32 bit systems *)
   let array_indexable_sub x y = x - y >= 0 && x - y < 4_194_303
   let sub_to_array_index x y = x - y
-  let half_max x = abs x < Int.max_int lsr 1
+  let half_max = Int.max_int lsr 1
 end
 
 module Switcher = Switch.Make(Int_edge)(SArg)
@@ -2977,10 +2976,7 @@ end
 
 module Int64_edge = struct
   include Int64
-  let is_zero x = x = 0L
-  let half_max x =
-    let lim = Int64.(shift_right max_int 1) in
-    x >= (Int64.neg lim)  && x <= lim
+  let half_max = shift_right max_int 1
   let const i = Const_int64 i
   let unconst = function
     | Asttypes.Const_int64 n -> n
@@ -2993,10 +2989,7 @@ module Switcher64 = Make_switcher(Int64_edge)
 
 module Int32_edge = struct
   include Int32
-  let is_zero x = x = 0l
-  let half_max x =
-    let lim = (shift_right max_int 1) in
-    x >= (neg lim)  && x <= lim
+  let half_max = shift_right max_int 1
   let const i = Const_int32 i
   let unconst = function
     | Asttypes.Const_int32 n -> n
@@ -3009,10 +3002,7 @@ module Switcher32 = Make_switcher(Int32_edge)
 
 module Nativeint_edge = struct
   include Nativeint
-  let is_zero x = x = 0n
-  let half_max x =
-    let lim = (shift_right max_int 1) in
-    x >= (neg lim)  && x <= lim
+  let half_max = shift_right max_int 1
   let const i = Const_nativeint i
   let unconst = function
     | Asttypes.Const_nativeint n -> n

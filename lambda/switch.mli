@@ -141,7 +141,6 @@ module Interval: sig
   module type Edge =  sig
     type t
     val zero: t
-    val is_zero: t -> bool
     val compare: t -> t -> int
     val succ: t -> t
     val pred: t -> t
@@ -151,7 +150,7 @@ module Interval: sig
     val max: t -> t -> t
     val min_int: t
     val max_int: t
-    val half_max:t -> bool
+    val half_max: t
     val array_indexable_sub: t -> t -> bool
     val sub_to_array_index: t -> t -> int
   end
