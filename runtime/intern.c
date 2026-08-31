@@ -206,6 +206,7 @@ static void intern_cleanup(void)
   if (intern_obj_table != NULL) {
     caml_stat_free(intern_obj_table);
     intern_obj_table = NULL;
+    obj_counter = 0;
   }
   if (intern_extra_block != NULL) {
     /* free newly allocated heap chunk */
