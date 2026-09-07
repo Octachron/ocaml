@@ -18,6 +18,6 @@
     arguments of such closures with those specialised arguments. *)
 
 val run
-  : log:Compiler_diagnostic.Debug.id Log.t
+  : log:Dump_log.t
   -> Flambda.set_of_closures
   -> Flambda.set_of_closures option

@@ -77,7 +77,7 @@ end
 
 module V2: S with
   type log := Toplevel_diagnostic.id Log.t
-  and type debug_log := Compiler_diagnostic.Debug.id Log.t
+  and type debug_log := Dump_log.t
 
 include S with
   type log := Format.formatter and type debug_log := Format.formatter
