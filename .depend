@@ -7718,12 +7718,28 @@ toplevel/genprintval.cmi : \
     typing/path.cmi \
     typing/outcometree.cmi \
     typing/env.cmi
+toplevel/top_log.cmo : \
+    utils/log.cmi \
+    parsing/location.cmi \
+    utils/diagnostic.cmi \
+    utils/compiler_diagnostic.cmi \
+    toplevel/top_log.cmi
+toplevel/top_log.cmx : \
+    utils/log.cmx \
+    parsing/location.cmx \
+    utils/diagnostic.cmx \
+    utils/compiler_diagnostic.cmx \
+    toplevel/top_log.cmi
+toplevel/top_log.cmi : \
+    utils/log.cmi \
+    utils/format_doc.cmi \
+    utils/diagnostic.cmi \
+    utils/compiler_diagnostic.cmi
 toplevel/topcommon.cmo : \
     parsing/unit_info.cmi \
     typing/typemod.cmi \
     typing/typedtree.cmi \
     typing/typecore.cmi \
-    toplevel/toplevel_diagnostic.cmi \
     bytecomp/symtable.cmi \
     typing/shape_reduce.cmi \
     typing/shape.cmi \
@@ -7765,7 +7781,6 @@ toplevel/topcommon.cmx : \
     typing/typemod.cmx \
     typing/typedtree.cmx \
     typing/typecore.cmx \
-    toplevel/toplevel_diagnostic.cmx \
     bytecomp/symtable.cmx \
     typing/shape_reduce.cmx \
     typing/shape.cmx \
@@ -7806,7 +7821,6 @@ toplevel/topcommon.cmi : \
     utils/warnings.cmi \
     typing/types.cmi \
     typing/typedtree.cmi \
-    toplevel/toplevel_diagnostic.cmi \
     typing/path.cmi \
     parsing/parsetree.cmi \
     typing/outcometree.cmi \
@@ -7826,7 +7840,6 @@ toplevel/topdirs.cmo : \
     typing/types.cmi \
     toplevel/topprinters.cmi \
     toplevel/toploop.cmi \
-    toplevel/toplevel_diagnostic.cmi \
     toplevel/topeval.cmi \
     toplevel/topcommon.cmi \
     typing/printtyp.cmi \
@@ -7857,7 +7870,6 @@ toplevel/topdirs.cmx : \
     typing/types.cmx \
     toplevel/topprinters.cmx \
     toplevel/toploop.cmx \
-    toplevel/toplevel_diagnostic.cmx \
     toplevel/topeval.cmi \
     toplevel/topcommon.cmx \
     typing/printtyp.cmx \
@@ -7884,33 +7896,13 @@ toplevel/topdirs.cmx : \
     parsing/ast_helper.cmx \
     toplevel/topdirs.cmi
 toplevel/topdirs.cmi : \
-    toplevel/toplevel_diagnostic.cmi \
-    parsing/longident.cmi \
-    utils/log.cmi
+    parsing/longident.cmi
 toplevel/topeval.cmi : \
-    toplevel/toplevel_diagnostic.cmi \
     toplevel/topcommon.cmi \
-    parsing/parsetree.cmi \
-    utils/log.cmi
-toplevel/toplevel_diagnostic.cmo : \
-    parsing/location.cmi \
-    utils/diagnostic.cmi \
-    utils/compiler_diagnostic.cmi \
-    toplevel/toplevel_diagnostic.cmi
-toplevel/toplevel_diagnostic.cmx : \
-    parsing/location.cmx \
-    utils/diagnostic.cmx \
-    utils/compiler_diagnostic.cmx \
-    toplevel/toplevel_diagnostic.cmi
-toplevel/toplevel_diagnostic.cmi : \
-    utils/log.cmi \
-    utils/format_doc.cmi \
-    utils/diagnostic.cmi \
-    utils/compiler_diagnostic.cmi
+    parsing/parsetree.cmi
 toplevel/toploop.cmo : \
     utils/warnings.cmi \
     typing/typetexp.cmi \
-    toplevel/toplevel_diagnostic.cmi \
     toplevel/topeval.cmi \
     toplevel/topcommon.cmi \
     parsing/parsetree.cmi \
@@ -7930,7 +7922,6 @@ toplevel/toploop.cmo : \
 toplevel/toploop.cmx : \
     utils/warnings.cmx \
     typing/typetexp.cmx \
-    toplevel/toplevel_diagnostic.cmx \
     toplevel/topeval.cmi \
     toplevel/topcommon.cmx \
     parsing/parsetree.cmi \
@@ -7950,7 +7941,6 @@ toplevel/toploop.cmx : \
 toplevel/toploop.cmi : \
     utils/warnings.cmi \
     typing/types.cmi \
-    toplevel/toplevel_diagnostic.cmi \
     typing/path.cmi \
     parsing/parsetree.cmi \
     typing/outcometree.cmi \
@@ -7966,7 +7956,6 @@ toplevel/toploop.cmi : \
 toplevel/topmain.cmi :
 toplevel/topprinters.cmo : \
     typing/types.cmi \
-    toplevel/toplevel_diagnostic.cmi \
     typing/printtyp.cmi \
     typing/predef.cmi \
     typing/path.cmi \
@@ -7983,7 +7972,6 @@ toplevel/topprinters.cmo : \
     toplevel/topprinters.cmi
 toplevel/topprinters.cmx : \
     typing/types.cmx \
-    toplevel/toplevel_diagnostic.cmx \
     typing/printtyp.cmx \
     typing/predef.cmx \
     typing/path.cmx \
@@ -8000,7 +7988,6 @@ toplevel/topprinters.cmx : \
     toplevel/topprinters.cmi
 toplevel/topprinters.cmi : \
     typing/types.cmi \
-    toplevel/toplevel_diagnostic.cmi \
     typing/path.cmi \
     parsing/longident.cmi \
     utils/log.cmi \
@@ -8014,7 +8001,6 @@ toplevel/topstart.cmx : \
 toplevel/topstart.cmi :
 toplevel/trace.cmi : \
     typing/types.cmi \
-    toplevel/toplevel_diagnostic.cmi \
     typing/path.cmi \
     parsing/longident.cmi \
     utils/log.cmi \
@@ -8024,7 +8010,6 @@ toplevel/byte/topeval.cmo : \
     typing/types.cmi \
     typing/typedtree.cmi \
     lambda/translmod.cmi \
-    toplevel/toplevel_diagnostic.cmi \
     toplevel/topcommon.cmi \
     bytecomp/symtable.cmi \
     lambda/simplif.cmi \
@@ -8057,7 +8042,6 @@ toplevel/byte/topeval.cmx : \
     typing/types.cmx \
     typing/typedtree.cmx \
     lambda/translmod.cmx \
-    toplevel/toplevel_diagnostic.cmx \
     toplevel/topcommon.cmx \
     bytecomp/symtable.cmx \
     lambda/simplif.cmx \
@@ -8086,10 +8070,8 @@ toplevel/byte/topeval.cmx : \
     bytecomp/bytegen.cmx \
     toplevel/byte/topeval.cmi
 toplevel/byte/topeval.cmi : \
-    toplevel/toplevel_diagnostic.cmi \
     toplevel/topcommon.cmi \
-    parsing/parsetree.cmi \
-    utils/log.cmi
+    parsing/parsetree.cmi
 toplevel/byte/topmain.cmo : \
     typing/types.cmi \
     toplevel/byte/trace.cmi \
@@ -8129,7 +8111,6 @@ toplevel/byte/topmain.cmx : \
 toplevel/byte/topmain.cmi :
 toplevel/byte/trace.cmo : \
     typing/types.cmi \
-    toplevel/toplevel_diagnostic.cmi \
     toplevel/byte/topeval.cmi \
     toplevel/topcommon.cmi \
     typing/printtyp.cmi \
@@ -8146,7 +8127,6 @@ toplevel/byte/trace.cmo : \
     toplevel/byte/trace.cmi
 toplevel/byte/trace.cmx : \
     typing/types.cmx \
-    toplevel/toplevel_diagnostic.cmx \
     toplevel/byte/topeval.cmx \
     toplevel/topcommon.cmx \
     typing/printtyp.cmx \
@@ -8163,7 +8143,6 @@ toplevel/byte/trace.cmx : \
     toplevel/byte/trace.cmi
 toplevel/byte/trace.cmi : \
     typing/types.cmi \
-    toplevel/toplevel_diagnostic.cmi \
     typing/path.cmi \
     parsing/longident.cmi \
     utils/log.cmi \
@@ -8173,7 +8152,6 @@ toplevel/native/topeval.cmo : \
     typing/types.cmi \
     typing/typedtree.cmi \
     lambda/translmod.cmi \
-    toplevel/toplevel_diagnostic.cmi \
     toplevel/native/tophooks.cmi \
     toplevel/topcommon.cmi \
     lambda/simplif.cmi \
@@ -8204,7 +8182,6 @@ toplevel/native/topeval.cmx : \
     typing/types.cmx \
     typing/typedtree.cmx \
     lambda/translmod.cmx \
-    toplevel/toplevel_diagnostic.cmx \
     toplevel/native/tophooks.cmx \
     toplevel/topcommon.cmx \
     lambda/simplif.cmx \
@@ -8231,10 +8208,8 @@ toplevel/native/topeval.cmx : \
     asmcomp/asmlink.cmx \
     toplevel/native/topeval.cmi
 toplevel/native/topeval.cmi : \
-    toplevel/toplevel_diagnostic.cmi \
     toplevel/topcommon.cmi \
-    parsing/parsetree.cmi \
-    utils/log.cmi
+    parsing/parsetree.cmi
 toplevel/native/tophooks.cmo : \
     toplevel/topcommon.cmi \
     asmcomp/proc.cmi \
@@ -8304,7 +8279,6 @@ toplevel/native/trace.cmx : \
     toplevel/native/trace.cmi
 toplevel/native/trace.cmi : \
     typing/types.cmi \
-    toplevel/toplevel_diagnostic.cmi \
     typing/path.cmi \
     parsing/longident.cmi \
     utils/log.cmi \
@@ -8456,7 +8430,6 @@ tools/cvt_emit.cmx : \
     tools/cvt_emit.cmi
 tools/cvt_emit.cmi :
 tools/diaginfo.cmo : \
-    toplevel/toplevel_diagnostic.cmi \
     utils/misc.cmi \
     utils/diagnostic_history.cmi \
     utils/diagnostic_backends.cmi \
@@ -8465,7 +8438,6 @@ tools/diaginfo.cmo : \
     utils/compiler_diagnostic.cmi \
     tools/diaginfo.cmi
 tools/diaginfo.cmx : \
-    toplevel/toplevel_diagnostic.cmx \
     utils/misc.cmx \
     utils/diagnostic_history.cmx \
     utils/diagnostic_backends.cmx \
@@ -11072,7 +11044,6 @@ testsuite/tools/environment.cmi : \
 testsuite/tools/expect.cmo : \
     utils/warnings.cmi \
     toplevel/toploop.cmi \
-    toplevel/toplevel_diagnostic.cmi \
     toplevel/topcommon.cmi \
     parsing/printast.cmi \
     parsing/pprintast.cmi \
@@ -11099,7 +11070,6 @@ testsuite/tools/expect.cmo : \
 testsuite/tools/expect.cmx : \
     utils/warnings.cmx \
     toplevel/toploop.cmx \
-    toplevel/toplevel_diagnostic.cmx \
     toplevel/topcommon.cmx \
     parsing/printast.cmx \
     parsing/pprintast.cmx \
