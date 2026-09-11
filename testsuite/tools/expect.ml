@@ -385,9 +385,9 @@ let exec_phrase log phrase =
     Clflags.dump_on_log (Topcommon.debug_log log) kind pr x
   in
   Location.reset ();
-  log_if Dump_log.parsetree Printast.top_phrase phrase;
-  log_if Dump_log.source Pprintast.top_phrase phrase;
-  Toploop.V2.execute_phrase true log phrase
+  log_if Dev_log.parsetree Printast.top_phrase phrase;
+  log_if Dev_log.source Pprintast.top_phrase phrase;
+  Toploop.Eval.execute_phrase true log phrase
 
 let parse_contents ~fname contents =
   let lexbuf = Lexing.from_string contents in

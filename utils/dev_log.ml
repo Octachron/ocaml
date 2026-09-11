@@ -13,7 +13,7 @@
 (*                                                                        *)
 (**************************************************************************)
 
-open Compiler_diagnostic.Dump
+open Compiler_diagnostic.Dev
 let slist = Diagnostic.(List String)
 let v1 = Compiler_diagnostic.v1
 

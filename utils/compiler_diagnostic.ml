@@ -169,17 +169,15 @@ module Structured_text = struct
 
 
 
-module Dump = struct
-  include New_record(V)
-      (struct
-        let name = "dump"
-        let description =
-          "Dump of intermediary representations for compiler developers"
-        let update = v1
-      end)
-      ()
-
-end
+module Dev =
+  New_record(V)
+    (struct
+      let name = "dev"
+      let description =
+        "Reports for compiler developers"
+      let update = v1
+    end)
+    ()
 
 module Error =
   New_record(V)
@@ -197,7 +195,7 @@ include New_record(V)
       let update = v1
     end)
     ()
-let dump = new_field_opt v1 "dump" (Record Dump.scheme)
+let dev = new_field_opt v1 "dev" (Record Dev.scheme)
 
 let doc = Structured_text.typ
 let ldoc = List Structured_text.typ

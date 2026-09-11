@@ -17,9 +17,9 @@
 
 open Misc
 
-val link: log:Dump_log.t -> string list -> string -> unit
+val link: log:Dev_log.t -> string list -> string -> unit
 
-val link_shared: log:Dump_log.t -> string list -> string -> unit
+val link_shared: log:Dev_log.t -> string list -> string -> unit
 
 val call_linker_shared: string list -> string -> unit
 

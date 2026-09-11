@@ -71,11 +71,11 @@ include Topcommon.MakeEvalPrinter(EvalBase)
 let may_trace = ref false (* Global lock on tracing *)
 
 let load_lambda dlog lam =
-  Clflags.dump_on_log dlog Dump_log.raw_lambda Printlambda.lambda lam;
+  Clflags.dump_on_log dlog Dev_log.raw_lambda Printlambda.lambda lam;
   let slam = Simplif.simplify_lambda lam in
-  Clflags.dump_on_log dlog Dump_log.lambda Printlambda.lambda slam;
+  Clflags.dump_on_log dlog Dev_log.lambda Printlambda.lambda slam;
   let instrs, can_free = Bytegen.compile_phrase slam in
-  Clflags.dump_on_log dlog Dump_log.instr Printinstr.instrlist instrs;
+  Clflags.dump_on_log dlog Dev_log.instr Printinstr.instrlist instrs;
   let (code, reloc, events) =
     Emitcode.to_memory instrs
   in

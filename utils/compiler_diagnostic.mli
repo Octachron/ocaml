@@ -43,13 +43,13 @@ module Structured_text: sig
 end
 
 (** Debugging output enabled with [-d...] flags (e.g [-dsource]).
-    The related fields are defined in Dump_log*)
-module Dump: Record
+    The related fields are defined in Dev_log*)
+module Dev: Record
 
 (** Error report record, the related fields are defined in {!Location} *)
 module Error: Record
 
 include Record
-val dump: Dump.id Diagnostic.record optional_field
+val dev: Dev.id Diagnostic.record optional_field
 val doc: Format_doc.t Diagnostic.typ
 val ldoc: Format_doc.t list Diagnostic.typ

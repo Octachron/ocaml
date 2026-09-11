@@ -17,8 +17,8 @@
 val register : pass_name:string -> unit
 
 val with_log
-   : log:Dump_log.t
-  -> field: string list Compiler_diagnostic.Dump.optional_field
+   : log:Dev_log.t
+  -> field: string list Compiler_diagnostic.Dev.optional_field
   -> pass_name:string
   -> f:(unit -> 'b option)
   -> input:'a

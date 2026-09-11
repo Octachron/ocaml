@@ -19,7 +19,7 @@
 type info = {
   target : Unit_info.t;
   env : Env.t;
-  debug_log : Dump_log.t;
+  debug_log : Dev_log.t;
   tool_name : string;
   native : bool;
 }

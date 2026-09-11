@@ -200,8 +200,8 @@ let preprocess_phrase debug phr =
         Ptop_def str
     | phr -> phr
   in
-  Clflags.dump_on_log debug Dump_log.parsetree Printast.top_phrase phr;
-  Clflags.dump_on_log debug Dump_log.source Pprintast.top_phrase phr;
+  Clflags.dump_on_log debug Dev_log.parsetree Printast.top_phrase phr;
+  Clflags.dump_on_log debug Dev_log.source Pprintast.top_phrase phr;
   phr
 
 let typecheck_phrase debug oldenv sstr =
@@ -209,12 +209,12 @@ let typecheck_phrase debug oldenv sstr =
   let (str, sg, sn, shape, newenv) =
     Typemod.type_toplevel_phrase oldenv sstr
   in
-  Clflags.dump_on_log debug Dump_log.typedtree Printtyped.implementation str;
+  Clflags.dump_on_log debug Dev_log.typedtree Printtyped.implementation str;
   let sg' = Typemod.Signature_names.simplify newenv sn sg in
   Includemod.check_implementation oldenv sg sg';
   Typecore.force_delayed_checks ();
   let shape = Shape_reduce.local_reduce Env.empty shape in
-  Clflags.dump_on_log debug Dump_log.shape Shape.print shape;
+  Clflags.dump_on_log debug Dev_log.shape Shape.print shape;
   (str, sg', newenv)
 
 (* Phrase buffer that stores the last toplevel phrase (see
@@ -444,9 +444,7 @@ let log_on_device device =
   let _ = compiler_log log in
   log
 
-
-let debug_log log = Log.detach (compiler_log log) Compiler_diagnostic.dump
-
+let debug_log log = Log.detach (compiler_log log) Compiler_diagnostic.dev
 
 (* Overriding exception printers with toplevel-specific ones *)
 

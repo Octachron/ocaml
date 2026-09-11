@@ -13,7 +13,7 @@
 (*                                                                        *)
 (**************************************************************************)
 
-open Compiler_diagnostic.Dump
+open Compiler_diagnostic.Dev
 type t = id Log.t
 val source: string optional_field
 val parsetree: string optional_field

@@ -78,7 +78,7 @@ utils_SOURCES = $(addprefix utils/, \
   diagnostic_backends.mli diagnostic_backends.ml \
   conf_diagnostic.mli conf_diagnostic.ml \
   clflags.mli clflags.ml \
-  dump_log.mli dump_log.ml \
+  dev_log.mli dev_log.ml \
   profile.mli profile.ml \
   terminfo.mli terminfo.ml \
   ccomp.mli ccomp.ml \
@@ -2522,7 +2522,7 @@ ocamlcp_ocamloptp_SOURCES = \
   load_path.mli load_path.ml \
   conf_diagnostic.mli conf_diagnostic.ml \
   clflags.mli clflags.ml \
-  dump_log.mli dump_log.ml \
+  dev_log.mli dev_log.ml \
   profile.mli profile.ml \
   terminfo.mli terminfo.ml \
   location.mli location.ml \
@@ -2567,7 +2567,7 @@ ocamlmktop_SOURCES = \
   diagnostic_backends.mli diagnostic_backends.ml \
   conf_diagnostic.mli conf_diagnostic.ml \
   clflags.mli clflags.ml \
-  dump_log.mli dump_log.ml \
+  dev_log.mli dev_log.ml \
   profile.mli profile.ml \
   ccomp.mli ccomp.ml \
   ocamlmktop.mli ocamlmktop.ml

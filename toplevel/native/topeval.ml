@@ -88,9 +88,9 @@ include Topcommon.MakeEvalPrinter(EvalBase)
 let may_trace = ref false (* Global lock on tracing *)
 
 let load_lambda dlog ~module_ident ~required_globals phrase_name lam size =
-  Clflags.dump_on_log dlog Dump_log.raw_lambda Printlambda.lambda lam;
+  Clflags.dump_on_log dlog Dev_log.raw_lambda Printlambda.lambda lam;
   let slam = Simplif.simplify_lambda lam in
-  Clflags.dump_on_log dlog Dump_log.lambda Printlambda.lambda slam;
+  Clflags.dump_on_log dlog Dev_log.lambda Printlambda.lambda slam;
   let program =
     { Lambda.
       code = slam;

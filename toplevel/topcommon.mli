@@ -45,12 +45,12 @@ val initialize_toplevel_env : unit -> unit
         (* Initialize the typing environment for the toplevel *)
 
 val preprocess_phrase :
-  Dump_log.t -> Parsetree.toplevel_phrase -> Parsetree.toplevel_phrase
+  Dev_log.t -> Parsetree.toplevel_phrase -> Parsetree.toplevel_phrase
 (* Preprocess the given toplevel phrase using regular and ppx
    preprocessors. Return the updated phrase. *)
 
 val typecheck_phrase :
-  Dump_log.t -> Env.t -> Parsetree.structure
+  Dev_log.t -> Env.t -> Parsetree.structure
   -> Typedtree.structure * Types.signature * Env.t
 (* Type-check the current toplevel phrase (not a directive)
    in the current typing environment, return an updated typing environment. *)
@@ -65,7 +65,7 @@ val tracef: ('a, Format_doc.formatter, unit) format -> 'a
 
 val log_on_device: Log.Device.t -> Toplog.t
 val compiler_log: Toplog.t -> Compiler_diagnostic.id Log.t
-val debug_log: Toplog.t -> Dump_log.t
+val debug_log: Toplog.t -> Dev_log.t
 
 (* Printing of values *)
 

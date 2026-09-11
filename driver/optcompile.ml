@@ -51,9 +51,9 @@ let flambda i backend Typedtree.{structure; coercion; _} =
       let () =
         let (module_ident, main_module_block_size), code =
           ((module_ident, main_module_block_size), code)
-          |>> dump_if i Dump_log.raw_lambda Printlambda.lambda
+          |>> dump_if i Dev_log.raw_lambda Printlambda.lambda
           |>> Simplif.simplify_lambda
-          |>> dump_if i Dump_log.lambda Printlambda.lambda
+          |>> dump_if i Dev_log.lambda Printlambda.lambda
         in
 
         if Clflags.(should_stop_after Compiler_pass.Lambda) then () else (
@@ -80,12 +80,12 @@ let clambda i backend Typedtree.{structure; coercion; _} =
   (structure, coercion)
   |> Profile.(record transl)
     (Translmod.transl_store_implementation (Unit_info.modname i.target))
-  |> dump_if i Dump_log.raw_lambda Printlambda.program
+  |> dump_if i Dev_log.raw_lambda Printlambda.program
   |> Profile.(record generate)
     (fun program ->
        let code = Simplif.simplify_lambda program.Lambda.code in
        { program with Lambda.code }
-       |> dump_if i Dump_log.lambda Printlambda.program
+       |> dump_if i Dev_log.lambda Printlambda.program
        |>(fun lambda ->
            if Clflags.(should_stop_after Compiler_pass.Lambda) then () else
              Asmgen.compile_implementation
