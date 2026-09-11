@@ -12,11 +12,10 @@
             [{ "const" : "B" }, { "const" : "HoV" }, { "const" : "HV" },
               { "const" : "V" }, { "const" : "H" }]
         },
-      "dump" :
+      "dev" :
         {
           "type" : "object",
-          "description" :
-            "Dump of intermediary representations for compiler developers",
+          "description" : "Reports for compiler developers",
           "properties" :
             {
               "profile" :
@@ -735,7 +734,7 @@
       "warnings" :
         { "type" : "array", "items" : { "$ref" : "#/$defs/error_report" } },
       "error" : { "$ref" : "#/$defs/error_report" },
-      "dump" : { "$ref" : "#/$defs/dump" }
+      "dev" : { "$ref" : "#/$defs/dev" }
     },
   "required" : ["metadata"]
 }
