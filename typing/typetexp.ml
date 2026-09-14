@@ -652,7 +652,7 @@ and transl_type_aux env ~row_context ~aliased ~policy styp =
           if l <> l' then
             Error.log_and_raise styp.ptyp_loc env (Variant_tags (l, l'));
           let ty = mkfield l f and ty' = mkfield l f' in
-          if is_equal env false [ty] [ty'] then () else
+          if is_equal env false (Eq_len.singleton ty ty') then () else
           try unify env ty ty'
           with Unify _trace ->
             Error.log_and_raise loc env (Constructor_mismatch (ty, ty'))
@@ -818,7 +818,7 @@ and transl_fields env ~policy ~row_context o fields =
   let add_typed_field loc l ty =
     try
       let ty' = HMap.find l !hfields in
-      if is_equal env false [ty] [ty'] then () else
+      if is_equal env false (Eq_len.singleton ty ty') then () else
         try unify env ty ty'
         with Unify _trace ->
           Error.log_and_raise loc env (Method_mismatch (l, ty, ty'))

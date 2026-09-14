@@ -5311,27 +5311,44 @@ let eqtype_list_same_length rename type_pairs subst env tl1 tl2 =
 let eqtype rename type_pairs subst env t1 t2 =
   eqtype_list_same_length rename type_pairs subst env [t1] [t2]
 
+
+module Eq_len: sig
+  type 'a t = private P of 'a list * 'a list
+  val check: 'a list -> 'a list -> 'a t option
+  val cons: 'a -> 'a -> 'a t -> 'a t
+  val rcons: 'a -> 'a -> 'a t -> 'a t
+  val singleton: 'a -> 'a -> 'a t
+  val append: 'a t -> 'a t -> 'a t
+end = struct
+  type 'a t =  P of 'a list * 'a list
+  let check x y =
+    if List.compare_lengths x y = 0 then Some (P (x,y))
+    else None
+  let append (P(xl,yl)) (P(xr,yr)) = P(xl@xr,yl@yr)
+  let cons x y (P(xs,ys)) = P(x::xs,y::ys)
+  let rcons x y (P(xs,ys)) = P(xs@[x],ys@[y])
+  let singleton x y = P([x],[y])
+end
+
 (* Two modes: with or without renaming of variables *)
-let equal env rename tyl1 tyl2 =
-  if List.length tyl1 <> List.length tyl2 then
-    raise_unexplained_for Equality;
+let equal env rename (Eq_len.P(tyl1,tyl2)) =
   if List.for_all2 eq_type tyl1 tyl2 then () else
   let subst = ref [] in
   try eqtype_list_same_length rename (TypePairs.create 11) subst env tyl1 tyl2
   with Equality_trace trace ->
     raise (Equality (expand_to_equality_error env trace !subst))
 
-let is_equal env rename tyl1 tyl2 =
-  match equal env rename tyl1 tyl2 with
+let is_equal env rename tyl1_tyl2 =
+  match equal env rename tyl1_tyl2 with
   | () -> true
   | exception Equality _ -> false
 
-let rec equal_private env params1 ty1 params2 ty2 =
-  match equal env true (params1 @ [ty1]) (params2 @ [ty2]) with
+let rec equal_private env params ty1 ty2 =
+  match equal env true (Eq_len.rcons ty1 ty2 params) with
   | () -> ()
   | exception (Equality _ as err) ->
       match try_expand_safe_opt env (expand_head_nolink env ty1) with
-      | ty1' -> equal_private env params1 ty1' params2 ty2
+      | ty1' -> equal_private env params ty1' ty2
       | exception Cannot_expand -> raise err
 
                           (*************************)
@@ -6364,7 +6381,7 @@ let rec normalize_type_rec mark ty =
                 List.fold_left
                   (fun tyl ty ->
                      if List.exists
-                          (fun ty' -> is_equal Env.empty false [ty] [ty'])
+                          (fun ty' -> is_equal Env.empty false (Eq_len.singleton ty ty'))
                           tyl
                      then tyl
                      else ty::tyl)

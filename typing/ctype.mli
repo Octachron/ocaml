@@ -469,16 +469,25 @@ type class_match_failure =
 
 val match_class_types:
     ?trace:bool -> Env.t -> class_type -> class_type -> class_match_failure list
-        (* Check if the first class type is more general than the second. *)
-val equal: Env.t -> bool -> type_expr list -> type_expr list -> unit
+(* Check if the first class type is more general than the second. *)
+
+module Eq_len: sig
+  type 'a t = private P of 'a list * 'a list
+  val singleton: 'a -> 'a -> 'a t
+  val check: 'a list -> 'a list -> 'a t option
+  val append: 'a t -> 'a t -> 'a t
+  val cons: 'a -> 'a -> 'a t -> 'a t
+  val rcons: 'a -> 'a -> 'a t -> 'a t
+end
+
+val equal: Env.t -> bool -> type_expr Eq_len.t -> unit
         (* [equal env [x1...xn] tau [y1...yn] sigma]
            checks whether the parameterized types
            [/\x1.../\xn.tau] and [/\y1.../\yn.sigma] are equivalent. *)
 val eq_package_path : Env.t -> Path.t -> Path.t -> bool
-val is_equal : Env.t -> bool -> type_expr list -> type_expr list -> bool
+val is_equal : Env.t -> bool -> type_expr Eq_len.t -> bool
 val equal_private :
-        Env.t -> type_expr list -> type_expr ->
-        type_expr list -> type_expr -> unit
+        Env.t -> type_expr Eq_len.t -> type_expr -> type_expr -> unit
 (* [equal_private env t1 params1 t2 params2] checks that [t1::params1]
    equals [t2::params2] but it is allowed to expand [t1] if it is a
    private abbreviations. *)

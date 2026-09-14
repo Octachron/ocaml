@@ -481,7 +481,7 @@ let report_type_mismatch first second decl env ppf err =
 
 module Record_diffing = struct
 
-  let compare_labels env params1 params2
+  let compare_labels env params
       (ld1 : Types.label_declaration)
       (ld2 : Types.label_declaration) =
     if ld1.ld_mutable <> ld2.ld_mutable
@@ -497,14 +497,13 @@ module Record_diffing = struct
       in
       Some (Atomicity  ord)
     else
-    let tl1 = params1 @ [ld1.ld_type] in
-    let tl2 = params2 @ [ld2.ld_type] in
-    match Ctype.equal env true tl1 tl2 with
+    let tl1_tl2 = Ctype.Eq_len.rcons ld1.ld_type ld2.ld_type params in
+    match Ctype.equal env true tl1_tl2 with
     | exception Ctype.Equality err ->
         Some (Type err : label_mismatch)
     | () -> None
 
-  let rec equal ~loc env params1 params2
+  let rec equal ~loc env params
       (labels1 : Types.label_declaration list)
       (labels2 : Types.label_declaration list) =
     match labels1, labels2 with
@@ -520,12 +519,12 @@ module Record_diffing = struct
             loc
             ld1.ld_attributes ld2.ld_attributes
             (Ident.name ld1.ld_id);
-          match compare_labels env params1 params2 ld1 ld2 with
+          match compare_labels env params ld1 ld2 with
           | Some _ -> false
           (* add arguments to the parameters, cf. PR#7378 *)
           | None ->
               equal ~loc env
-                (ld1.ld_type::params1) (ld2.ld_type::params2)
+                (Ctype.Eq_len.cons ld1.ld_type ld2.ld_type params)
                 rem1 rem2
         end
 
@@ -533,33 +532,33 @@ module Record_diffing = struct
     type left = Types.label_declaration
     type right = left
     type diff = label_mismatch
-    type state = type_expr list * type_expr list
+    type state = type_expr Ctype.Eq_len.t
   end
   module Diff = Diffing_with_keys.Define(Defs)
 
-  let update (d:Diff.change) (params1,params2 as st) =
+  let update (d:Diff.change) st =
     match d with
     | Insert _ | Change _ | Delete _ -> st
     | Keep (x,y,_) ->
         (* We need to add equality between existential type parameters
            (in inline records) *)
-        x.data.ld_type::params1, y.data.ld_type::params2
+        Ctype.Eq_len.cons x.data.ld_type y.data.ld_type st
 
-  let test _loc env (params1,params2)
+  let test _loc env params
       ({pos; data=lbl1}: Diff.left)
       ({data=lbl2; _ }: Diff.right)
     =
     let name1, name2 = Ident.name lbl1.ld_id, Ident.name lbl2.ld_id in
     if  name1 <> name2 then
       let types_match =
-        match compare_labels env params1 params2 lbl1 lbl2 with
+        match compare_labels env params lbl1 lbl2 with
         | Some _ -> false
         | None -> true
       in
       Error
         (Diffing_with_keys.Name {types_match; pos; got=name1; expected=name2})
     else
-      match compare_labels env params1 params2 lbl1 lbl2 with
+      match compare_labels env params lbl1 lbl2 with
       | Some reason ->
           Error (
             Diffing_with_keys.Type {pos; got=lbl1; expected=lbl2; reason}
@@ -600,7 +599,7 @@ module Record_diffing = struct
             we have [Type_change Delete^D < Delete^D Name_change]. *)
 
   let key (x: Defs.left) = Ident.name x.ld_id
-  let diffing loc env params1 params2 cstrs_1 cstrs_2 =
+  let diffing loc env params cstrs_1 cstrs_2 =
     let module Compute = Diff.Simple(struct
         let key_left = key
         let key_right = key
@@ -609,18 +608,18 @@ module Record_diffing = struct
         let weight = weight
       end)
     in
-    Compute.diff (params1,params2) cstrs_1 cstrs_2
+    Compute.diff params cstrs_1 cstrs_2
 
-  let compare ~loc env params1 params2 l r =
-    if equal ~loc env params1 params2 l r then
+  let compare ~loc env params l r =
+    if equal ~loc env params l r then
       None
     else
-      Some (diffing loc env params1 params2 l r)
+      Some (diffing loc env params l r)
 
 
-  let compare_with_representation ~loc env params1 params2 l r rep1 rep2 =
-    if not (equal ~loc env params1 params2 l r) then
-      let patch = diffing loc env params1 params2 l r in
+  let compare_with_representation ~loc env params l r rep1 rep2 =
+    if not (equal ~loc env params l r) then
+      let patch = diffing loc env params l r in
       Some (Record_mismatch (Label_mismatch patch))
     else
      match rep1, rep2 with
@@ -646,37 +645,40 @@ end
 
 module Variant_diffing = struct
 
-  let compare_constructor_arguments ~loc env params1 params2 arg1 arg2 =
+  let compare_constructor_arguments ~loc env params arg1 arg2 =
     match arg1, arg2 with
     | Types.Cstr_tuple arg1, Types.Cstr_tuple arg2 ->
-        if List.length arg1 <> List.length arg2 then
-          Some (Arity : constructor_mismatch)
-        else begin
-        (* Ctype.equal must be called on all arguments at once, cf. PR#7378 *)
-        match Ctype.equal env true (params1 @ arg1) (params2 @ arg2) with
-        | exception Ctype.Equality err -> Some (Type err)
-        | () -> None
-      end
+        begin match Ctype.Eq_len.check arg1  arg2 with
+        | None -> Some (Arity : constructor_mismatch)
+        | Some arg_12 ->
+            (* Ctype.equal must be called on all arguments at once, cf. PR#7378 *)
+            match Ctype.equal env true (Ctype.Eq_len.append params arg_12) with
+            | exception Ctype.Equality err -> Some (Type err)
+            | () -> None
+        end
     | Types.Cstr_record l1, Types.Cstr_record l2 ->
         Option.map
           (fun rec_err -> Inline_record rec_err)
-          (Record_diffing.compare env ~loc params1 params2 l1 l2)
+          (Record_diffing.compare env ~loc params l1 l2)
     | Types.Cstr_record _, _ -> Some (Kind First : constructor_mismatch)
     | _, Types.Cstr_record _ -> Some (Kind Second : constructor_mismatch)
 
-  let compare_constructors ~loc env params1 params2 res1 res2 args1 args2 =
+  let compare_constructors ~loc env params res1 res2 args1 args2 =
     match res1, res2 with
     | Some r1, Some r2 ->
-        begin match Ctype.equal env true [r1] [r2] with
+        begin match Ctype.equal env true (Ctype.Eq_len.singleton r1 r2) with
         | exception Ctype.Equality err -> Some (Type err)
-        | () -> compare_constructor_arguments ~loc env [r1] [r2] args1 args2
+        | () ->
+            compare_constructor_arguments ~loc env
+              (Ctype.Eq_len.singleton r1 r2)
+              args1 args2
         end
     | Some _, None -> Some (Explicit_return_type First)
     | None, Some _ -> Some (Explicit_return_type Second)
     | None, None ->
-        compare_constructor_arguments ~loc env params1 params2 args1 args2
+        compare_constructor_arguments ~loc env params args1 args2
 
-  let equal ~loc env params1 params2
+  let equal ~loc env params
       (cstrs1 : Types.constructor_declaration list)
       (cstrs2 : Types.constructor_declaration list) =
     List.length cstrs1 = List.length cstrs2 &&
@@ -692,7 +694,7 @@ module Variant_diffing = struct
             cd1.cd_attributes cd2.cd_attributes
             (Ident.name cd1.cd_id)
           ;
-        match compare_constructors ~loc env params1 params2
+        match compare_constructors ~loc env params
                 cd1.cd_res cd2.cd_res cd1.cd_args cd2.cd_args with
         | Some _ -> false
         | None -> true
@@ -702,7 +704,7 @@ module Variant_diffing = struct
     type left = Types.constructor_declaration
     type right = left
     type diff = constructor_mismatch
-    type state = type_expr list * type_expr list
+    type state = type_expr Ctype.Eq_len.t
   end
   module D = Diffing_with_keys.Define(Defs)
 
@@ -716,13 +718,13 @@ module Variant_diffing = struct
     | Change (_,_,Diffing_with_keys.Type _) -> 50
     (** See {!Variant_diffing.weight} for an explanation *)
 
-  let test loc env (params1,params2)
+  let test loc env params
       ({pos; data=cd1}: D.left)
       ({data=cd2; _}: D.right) =
     let name1, name2 = Ident.name cd1.cd_id, Ident.name cd2.cd_id in
     if  name1 <> name2 then
       let types_match =
-        match compare_constructors ~loc env params1 params2
+        match compare_constructors ~loc env params
                 cd1.cd_res cd2.cd_res cd1.cd_args cd2.cd_args with
         | Some _ -> false
         | None -> true
@@ -730,13 +732,13 @@ module Variant_diffing = struct
       Error
         (Diffing_with_keys.Name {types_match; pos; got=name1; expected=name2})
     else
-      match compare_constructors ~loc env params1 params2
+      match compare_constructors ~loc env params
               cd1.cd_res cd2.cd_res cd1.cd_args cd2.cd_args with
       | Some reason ->
           Error (Diffing_with_keys.Type {pos; got=cd1; expected=cd2; reason})
       | None -> Ok ()
 
-  let diffing loc env params1 params2 cstrs_1 cstrs_2 =
+  let diffing loc env params cstrs_1 cstrs_2 =
     let key (x:Defs.left) = Ident.name x.cd_id in
     let module Compute = D.Simple(struct
         let key_left = key
@@ -746,18 +748,18 @@ module Variant_diffing = struct
         let weight = weight
       end)
     in
-    Compute.diff (params1,params2) cstrs_1 cstrs_2
+    Compute.diff params cstrs_1 cstrs_2
 
-  let compare ~loc env params1 params2 l r =
-    if equal ~loc env params1 params2 l r then
+  let compare ~loc env params l r =
+    if equal ~loc env params l r then
       None
     else
-      Some (diffing loc env params1 params2 l r)
+      Some (diffing loc env params l r)
 
-  let compare_with_representation ~loc env params1 params2
+  let compare_with_representation ~loc env params
       cstrs1 cstrs2 rep1 rep2
     =
-    let err = compare ~loc env params1 params2 cstrs1 cstrs2 in
+    let err = compare ~loc env params cstrs1 cstrs2 in
     match err, rep1, rep2 with
     | None, Variant_regular, Variant_regular
     | None, Variant_unboxed, Variant_unboxed ->
@@ -802,7 +804,7 @@ let privacy_mismatch env decl1 decl2 =
   | _, _ ->
       None
 
-let private_variant env row1 params1 row2 params2 =
+let private_variant env params1_params2 row1 row2 =
     let r1, r2, pairs =
       Ctype.merge_row_fields (row_fields row1) (row_fields row2)
     in
@@ -832,10 +834,10 @@ let private_variant env row1 params1 row2 params2 =
       | Some (s, _) -> Some (Missing (First, s) : private_variant_mismatch)
     in
     if err <> None then err else
-    let rec loop tl1 tl2 pairs =
+    let rec loop tl1_tl2 pairs =
       match pairs with
       | [] -> begin
-          match Ctype.equal env true tl1 tl2 with
+          match Ctype.equal env true tl1_tl2 with
           | exception Ctype.Equality err ->
               Some (Types err : private_variant_mismatch)
           | () -> None
@@ -845,23 +847,26 @@ let private_variant env row1 params1 row2 params2 =
           | Rpresent to1, Rpresent to2 -> begin
               match to1, to2 with
               | Some t1, Some t2 ->
-                  loop (t1 :: tl1) (t2 :: tl2) pairs
+                  loop (Ctype.Eq_len.cons t1 t2 tl1_tl2) pairs
               | None, None ->
-                  loop tl1 tl2 pairs
+                  loop tl1_tl2 pairs
               | Some _, None | None, Some _ ->
                   Some (Incompatible_types_for s)
             end
           | Rpresent to1, Reither(const2, ts2, _) -> begin
               match to1, const2, ts2 with
-              | Some t1, false, [t2] -> loop (t1 :: tl1) (t2 :: tl2) pairs
-              | None, true, [] -> loop tl1 tl2 pairs
+              | Some t1, false, [t2] -> loop  (Ctype.Eq_len.cons t1 t2 tl1_tl2) pairs
+              | None, true, [] -> loop tl1_tl2 pairs
               | _, _, _ -> Some (Incompatible_types_for s)
             end
           | Rpresent _, Rabsent ->
               Some (Missing (Second, s) : private_variant_mismatch)
           | Reither(const1, ts1, _), Reither(const2, ts2, _) ->
-              if const1 = const2 && List.length ts1 = List.length ts2 then
-                loop (ts1 @ tl1) (ts2 @ tl2) pairs
+              if const1 = const2 then
+                match Ctype.Eq_len.check ts1 ts2 with
+                | None ->  Some (Incompatible_types_for s)
+                | Some ts1_ts2 ->
+                    loop (Ctype.Eq_len.append ts1_ts2 tl1_tl2) pairs
               else
                 Some (Incompatible_types_for s)
           | Reither _, Rpresent _ ->
@@ -869,14 +874,14 @@ let private_variant env row1 params1 row2 params2 =
           | Reither _, Rabsent ->
               Some (Missing (Second, s) : private_variant_mismatch)
           | Rabsent, (Reither _ | Rabsent) ->
-              loop tl1 tl2 pairs
+              loop tl1_tl2 pairs
           | Rabsent, Rpresent _ ->
               Some (Missing (First, s) : private_variant_mismatch)
         end
     in
-    loop params1 params2 pairs
+    loop params1_params2 pairs
 
-let private_object env fields1 params1 fields2 params2 =
+let private_object env params1_params2 fields1 fields2 =
   let pairs, _miss1, miss2 = Ctype.associate_fields fields1 fields2 in
   let err =
     match miss2 with
@@ -887,20 +892,21 @@ let private_object env fields1 params1 fields2 params2 =
   let tl1, tl2 =
     List.split (List.map (fun (_,_,t1,_,t2) -> t1, t2) pairs)
   in
+  let tl1_tl2 = Option.get (Ctype.Eq_len.check tl1 tl2) in
   begin
-    match Ctype.equal env true (params1 @ tl1) (params2 @ tl2) with
+    match Ctype.equal env true (Ctype.Eq_len.append params1_params2 tl1_tl2) with
     | exception Ctype.Equality err -> Some (Types err)
     | () -> None
   end
 
-let type_manifest env ty1 params1 ty2 params2 priv2 kind2 =
+let type_manifest env  params1_params2 ty1 ty2 priv2 kind2 =
   let ty1' = Ctype.expand_head_nolink env ty1
   and ty2' = Ctype.expand_head_nolink env ty2 in
   match get_desc ty1', get_desc ty2' with
   | Tvariant row1, Tvariant row2
     when is_absrow env (row_more row2) -> begin
-      assert (Ctype.is_equal env true (ty1::params1) (row_more row2::params2));
-      match private_variant env row1 params1 row2 params2 with
+      assert (Ctype.is_equal env true (Ctype.Eq_len.cons ty1 (row_more row2) params1_params2));
+      match private_variant env params1_params2 row1 row2 with
       | None -> None
       | Some err -> Some (Private_variant(ty1, ty2, err))
     end
@@ -908,8 +914,8 @@ let type_manifest env ty1 params1 ty2 params2 priv2 kind2 =
     when is_absrow env (snd (Ctype.flatten_fields fi2)) -> begin
       let (fields2,rest2) = Ctype.flatten_fields fi2 in
       let (fields1,_) = Ctype.flatten_fields fi1 in
-      assert (Ctype.is_equal env true (ty1::params1) (rest2::params2));
-      match private_object env fields1 params1 fields2 params2 with
+      assert (Ctype.is_equal env true (Ctype.Eq_len.cons ty1 rest2 params1_params2));
+      match private_object env params1_params2 fields1 fields2 with
       | None -> None
       | Some err -> Some (Private_object(ty1, ty2, err))
     end
@@ -929,9 +935,9 @@ let type_manifest env ty1 params1 ty2 params2 priv2 kind2 =
       in
       match
         if is_private_abbrev_2 then
-          Ctype.equal_private env params1 ty1 params2 ty2
+          Ctype.equal_private env params1_params2 ty1 ty2
         else
-          Ctype.equal env true (params1 @ [ty1]) (params2 @ [ty2])
+          Ctype.equal env true (Ctype.Eq_len.rcons ty1 ty2 params1_params2)
       with
       | exception Ctype.Equality err ->
           Some (Manifest err)
@@ -959,24 +965,28 @@ let type_declarations ?(equality = false) ~loc env ~mark name
     name;
   let err = type_declarations_consistency env decl1 decl2 in
   if err <> None then err else
+  let type_params =
+    (* Arity already checked in type_declarations_consistency *)
+    Option.get (Ctype.Eq_len.check decl1.type_params decl2.type_params)
+  in
   let err = match (decl1.type_manifest, decl2.type_manifest) with
       (_, None) ->
         begin
-          match Ctype.equal env true decl1.type_params decl2.type_params with
+          match Ctype.equal env true type_params with
           | exception Ctype.Equality err -> Some (Constraint err)
           | () -> None
         end
     | (Some ty1, Some ty2) ->
-         type_manifest env ty1 decl1.type_params ty2 decl2.type_params
+         type_manifest env type_params ty1 ty2
            decl2.type_private decl2.type_kind
     | (None, Some ty2) ->
         let ty1 =
           Btype.newgenty (Tconstr(path, decl2.type_params, ref Mnil))
         in
-        match Ctype.equal env true decl1.type_params decl2.type_params with
+        match Ctype.equal env true type_params with
         | exception Ctype.Equality err -> Some (Constraint err)
         | () ->
-          match Ctype.equal env false [ty1] [ty2] with
+          match Ctype.equal env false (Ctype.Eq_len.singleton ty1 ty2) with
           | exception Ctype.Equality err -> Some (Manifest err)
           | () -> None
   in
@@ -998,8 +1008,7 @@ let type_declarations ?(equality = false) ~loc env ~mark name
           if equality then mark Env.Exported cstrs2
         end;
         Variant_diffing.compare_with_representation ~loc env
-          decl1.type_params
-          decl2.type_params
+          type_params
           cstrs1
           cstrs2
           rep1
@@ -1019,7 +1028,7 @@ let type_declarations ?(equality = false) ~loc env ~mark name
           if equality then mark Env.Exported labels2
         end;
         Record_diffing.compare_with_representation ~loc env
-          decl1.type_params decl2.type_params
+          type_params
           labels1 labels2
           rep1 rep2
     | (Type_open, Type_open) -> None
@@ -1090,15 +1099,18 @@ let extension_constructors ~loc env ~mark id ext1 ext2 =
   let ty2 =
     Btype.newgenty (Tconstr(ext2.ext_type_path, ext2.ext_type_params, ref Mnil))
   in
-  let tl1 = ty1 :: ext1.ext_type_params in
-  let tl2 = ty2 :: ext2.ext_type_params in
-  match Ctype.equal env true tl1 tl2 with
+  let ext_type_params = match Ctype.Eq_len.check ext1.ext_type_params ext2.ext_type_params with
+    | None -> Fun.todo ()
+    | Some tp -> tp
+  in
+  let tl1_tl2 = Ctype.Eq_len.cons ty1 ty2 ext_type_params in
+  match Ctype.equal env true tl1_tl2 with
   | exception Ctype.Equality err ->
       Some (Constructor_mismatch (id, ext1, ext2, Type err))
   | () ->
     let r =
       Variant_diffing.compare_constructors ~loc env
-        ext1.ext_type_params ext2.ext_type_params
+        ext_type_params
         ext1.ext_ret_type ext2.ext_ret_type
         ext1.ext_args ext2.ext_args
     in

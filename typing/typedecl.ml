@@ -697,10 +697,11 @@ let check_coherence env loc dpath decl =
           begin try
             let decl' = Env.find_type path env in
             let err =
-              if List.length args <> List.length decl.type_params
-              then Some Includecore.Arity
-              else begin
-                match Ctype.equal env false args decl.type_params with
+              match Ctype.Eq_len.check args decl.type_params with
+              | None -> Some Includecore.Arity
+              | Some args_params ->
+               begin
+                match Ctype.equal env false args_params with
                 | exception Ctype.Equality err ->
                     Some (Includecore.Constraint err)
                 | () ->
@@ -991,7 +992,8 @@ let is_reachable
           | None -> false
           | Some visited_tys ->
               List.exists
-                (fun ty'' -> Ctype.is_equal abs_env false [ ty' ] [ ty'' ])
+                (fun ty'' -> Ctype.is_equal abs_env false
+                    (Ctype.Eq_len.singleton ty'  ty''))
                 visited_tys
           end;
       | _ -> false
@@ -1112,7 +1114,8 @@ let check_regularity ~abs_env env loc path decl to_check =
       match Btype.get_constr_desc ty with
       | Tconstr(path', args', _) ->
           if Path.same path path' then begin
-            if not (Ctype.is_equal abs_env false args args') then
+            let args_t = Ctype.Eq_len.check args args' in
+            if Option.map (Ctype.is_equal abs_env false) args_t <> Some true then
               Error.log_and_raise loc
                 (Non_regular {
                     definition=path;
@@ -1424,8 +1427,8 @@ let transl_type_decl env rec_flag sdecl_list =
 
 (* Translating type extensions *)
 
-let transl_extension_constructor ~scope env type_path type_params
-                                 typext_params priv sext =
+let transl_extension_constructor ~scope env type_path
+    (Ctype.Eq_len.P(type_params,typext_params)) priv sext =
   let id = Ident.create_scoped ~scope sext.pext_name.txt in
   let args, ret_type, kind =
     match sext.pext_kind with
@@ -1482,7 +1485,9 @@ let transl_extension_constructor ~scope env type_path type_params
              (Tconstr(type_path, type_params, ref Mnil)))
           :: type_params
         in
-        if not (Ctype.is_equal env true cstr_types ext_types) then
+        (* ok because we checked that arity match *)
+        let cmp_types = Option.get (Ctype.Eq_len.check cstr_types ext_types) in
+        if not (Ctype.is_equal env true cmp_types) then
           Error.log_and_raise lid.loc
             (Rebind_mismatch(lid.txt, cstr_res_type_path, type_path));
         (* Disallow rebinding private constructors to non-private *)
@@ -1547,11 +1552,10 @@ let transl_extension_constructor ~scope env type_path type_params
  in
   ext_cstrs, shape
 
-let transl_extension_constructor ~scope env type_path type_params
-    typext_params priv sext =
+let transl_extension_constructor ~scope env type_path type_params priv sext =
   Builtin_attributes.warning_scope sext.pext_attributes
     (fun () -> transl_extension_constructor ~scope env type_path type_params
-        typext_params priv sext)
+        priv sext)
 
 let is_rebind ext =
   match ext.ext_kind with
@@ -1617,8 +1621,15 @@ let transl_type_extension extend env loc styext =
         (Ctype.instance_list type_decl.type_params)
         type_params;
       let constructors =
+        (* we have checked arity above *)
+        let type_params = match
+            Ctype.Eq_len.check type_decl.type_params type_params
+          with
+          | None -> assert false
+          | Some t -> t
+        in
         List.map (transl_extension_constructor ~scope env type_path
-                    type_decl.type_params type_params styext.ptyext_private)
+                    type_params styext.ptyext_private)
           styext.ptyext_constructors
       in
       (ttype_params, type_params, constructors)
@@ -1661,6 +1672,8 @@ let transl_type_extension extend env loc styext =
   Builtin_attributes.warning_scope styext.ptyext_attributes
     (fun () -> transl_type_extension extend env loc styext)
 
+let empty_eq_len () = Option.get (Ctype.Eq_len.check [] [])
+
 let transl_exception env sext =
   let ext, shape =
     let scope = Ctype.create_scope () in
@@ -1668,7 +1681,7 @@ let transl_exception env sext =
       (fun () ->
         TyVarEnv.reset();
         transl_extension_constructor ~scope env
-          Predef.path_exn [] [] Asttypes.Public sext)
+          Predef.path_exn (empty_eq_len ()) Asttypes.Public sext)
   in
   let rebind = is_rebind ext in
   let newenv =
