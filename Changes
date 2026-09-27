@@ -492,6 +492,11 @@ Working version
 - #14737: Uniformly check for missing fields first when comparing object types.
   (Samuel Vivien, review by Gabriel Scherer)
 
+- #15097: Add warning 76 (`syntactic-unerasable-optional-argument`) for an
+  optional argument not followed by a non-labelled argument in a function
+  definition.
+  (Florian Angeletti)
+
 ### Internal/compiler-libs changes:
 
 - #14241, #14824, #14945: Introduction of a typing recovery mechanism to
